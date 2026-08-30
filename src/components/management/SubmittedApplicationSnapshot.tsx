@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Eye, Printer, FileText, Loader2, ChevronDown } from 'lucide-react';
+import { Eye, Printer, FileText, Loader2, ChevronDown, Download } from 'lucide-react';
 import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import { preloadSignatureDataUrl, printDocumentById } from '@/lib/printDocument';
+import { preloadSignatureDataUrl, openPrintableDocument } from '@/lib/printDocument';
+import ApplicationPrintDocument from './ApplicationPrintDocument';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface EmployerRecord {
@@ -135,6 +136,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const [loadingDoc, setLoadingDoc] = useState<string | null>(null);
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [generatingPdf, setGeneratingPdf] = useState(false);
   const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
 
   const handleToggleExpanded = () => {
@@ -210,9 +212,46 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
     );
   };
 
+  const fullName = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || (a.email ?? 'Applicant');
+
+  // Fallback path. Browser print reproduces the same full-wording document,
+  // but page breaks and fonts are at the mercy of whichever browser staff
+  // happen to be on — hence it sits behind the server-rendered PDF.
   const handlePrint = () => {
-    const fullName = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim();
-    printDocumentById('submitted-application-print-content', `Application — ${fullName}`);
+    openPrintableDocument('submitted-application-print-content', `Application — ${fullName}`, 'letter');
+  };
+
+  const handleDownloadPdf = async () => {
+    setGeneratingPdf(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-application-pdf', {
+        body: { application_id: a.id },
+      });
+      if (error) throw error;
+      if (!data?.url) throw new Error(data?.error ?? 'No document was returned');
+
+      // Fetch to a blob first: a cross-origin signed URL handed straight to an
+      // anchor opens in a viewer tab instead of downloading.
+      const res = await fetch(data.url);
+      if (!res.ok) throw new Error('The generated document could not be retrieved');
+      const blob = await res.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = data.filename ?? `Driver-Application_${fullName.replace(/\s+/g, '-')}.pdf`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
+    } catch (err) {
+      toast({
+        title: 'Could not generate the PDF',
+        description: (err as Error)?.message ?? 'Please try Print application instead.',
+        variant: 'destructive',
+      });
+    } finally {
+      setGeneratingPdf(false);
+    }
   };
 
   return (
@@ -232,13 +271,27 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           )}
         </button>
         {expanded && (
-          <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={handlePrint}>
-            <Printer className="h-3.5 w-3.5" /> Print application
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              className="h-8 gap-1.5"
+              onClick={handleDownloadPdf}
+              disabled={generatingPdf}
+            >
+              {generatingPdf
+                ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                : <Download className="h-3.5 w-3.5" />}
+              Download PDF
+            </Button>
+            <Button type="button" size="sm" variant="outline" className="h-8 gap-1.5" onClick={handlePrint}>
+              <Printer className="h-3.5 w-3.5" /> Print application
+            </Button>
+          </div>
         )}
       </div>
 
-      {expanded && (<div id="submitted-application-print-content" className="space-y-5">
+      {expanded && (<div className="space-y-5">
       <Section title="Personal">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Field label="Name">{val(`${a.first_name ?? ''} ${a.last_name ?? ''}`.trim() || undefined)}</Field>
@@ -360,6 +413,16 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
         )}
       </Section>
       </div>)}
+
+      {/* Hidden, full-wording copy used by Print application. Rendered only
+          while expanded so the summary card stays cheap when collapsed. */}
+      {expanded && (
+        <ApplicationPrintDocument
+          id="submitted-application-print-content"
+          application={a}
+          signatureDataUrl={signatureDataUrl}
+        />
+      )}
     </div>
   );
 }

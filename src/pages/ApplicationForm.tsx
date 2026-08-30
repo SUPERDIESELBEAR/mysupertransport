@@ -5,6 +5,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off, Check } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
+import { useCompanyIdentity, identityLine } from '@/lib/application/identity';
 import FormProgress from '@/components/application/FormProgress';
 // Step 1 stays eagerly imported (it's the first paint). Steps 2-9 lazy-load
 // to keep the initial /apply bundle small for first-time applicants.
@@ -652,6 +653,10 @@ export default function ApplicationForm() {
   const isLastStep = step === 9;
 
   // ── Swipe gesture — MUST be above early returns (Rules of Hooks) ────────
+  // Carrier identity shown on the form itself, so an applicant always knows
+  // which authorized carrier they are giving their information to.
+  const companyIdentity = useCompanyIdentity();
+
   // Callbacks are no-ops when the form isn't in an interactive state.
   const swipe = useSwipeGesture({
     onSwipeLeft: (!submitted && draftLoaded && !isLastStep) ? goNext : undefined,
@@ -684,6 +689,9 @@ export default function ApplicationForm() {
               </p>
             </div>
           </div>
+          <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+            {identityLine(companyIdentity)}
+          </p>
         </div>
       </div>
     );
@@ -987,6 +995,9 @@ export default function ApplicationForm() {
             {' '}when you use "Save Progress."
           </p>
         )}
+      <p className="mt-8 mb-2 text-center text-[11px] leading-relaxed text-muted-foreground">
+        {identityLine(companyIdentity)}
+      </p>
       </div>
 
       {/* ── Mobile sticky bottom nav ── */}

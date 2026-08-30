@@ -35,6 +35,8 @@ project_id = "qgxpkcudwjmacrdcyvhj"
     verify_jwt = false
   [functions.send-osas-to-operator]
     verify_jwt = false
+  [functions.generate-application-pdf]
+    verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true

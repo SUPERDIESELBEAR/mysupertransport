@@ -1,4 +1,6 @@
 import { FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import CompanyLetterhead, { CompanyDocFooter } from './CompanyLetterhead';
+import { useCompanyIdentity } from '@/lib/application/identity';
 
 interface Props {
   app: FullApplication;
@@ -6,6 +8,7 @@ interface Props {
 }
 
 export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }: Props) {
+  const identity = useCompanyIdentity();
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -17,25 +20,11 @@ export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }
       className="font-serif text-[13px] leading-relaxed text-black bg-white"
       style={{ padding: '1in', maxWidth: '8.5in', minHeight: '11in', fontFamily: 'Times New Roman, serif' }}
     >
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '0.5in', borderBottom: '2px solid #000', paddingBottom: '0.2in' }}>
-        <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.1em', marginBottom: '4px' }}>
-          SUPERTRANSPORT
-        </div>
-        <div style={{ fontSize: '11px', color: '#444', letterSpacing: '0.05em' }}>
-          Owner-Operator Fleet Services
-        </div>
-      </div>
-
-      {/* Title */}
-      <div style={{ textAlign: 'center', marginBottom: '0.35in' }}>
-        <div style={{ fontSize: '15px', fontWeight: 'bold', textDecoration: 'underline', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          IMPORTANT DISCLOSURE
-        </div>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
-          REGARDING BACKGROUND REPORTS FROM THE PSP Online Service
-        </div>
-      </div>
+      <CompanyLetterhead
+        identity={identity}
+        title="Important Disclosure"
+        subtitle="Regarding Background Reports from the PSP Online Service"
+      />
 
       {/* Applicant info */}
       <div style={{ marginBottom: '0.3in', border: '1px solid #ccc', borderRadius: '4px', padding: '12px 16px', backgroundColor: '#f9f9f9' }}>
@@ -130,10 +119,7 @@ export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }
         <strong style={{ color: '#000' }}>NOTICE:</strong> This form is made available to monthly account holders by NIC on behalf of the U.S. Department of Transportation, Federal Motor Carrier Safety Administration (FMCSA). Account holders are required by federal law to obtain an Applicant's written or electronic consent prior to accessing the Applicant's PSP report. Further, account holders are required by FMCSA to use the language contained in this Disclosure and Authorization form to obtain an Applicant's consent. The language must be used in whole, exactly as provided. Further, the language on this form must exist as one stand-alone document. The language may NOT be included with other consent forms or any other language. NOTICE: The prospective employment concept referenced in this form contemplates the definition of "employee" contained at 49 C.F.R. 383.5.
       </div>
 
-      {/* Footer */}
-      <div style={{ marginTop: '0.4in', borderTop: '1px solid #ccc', paddingTop: '10px', fontSize: '10px', color: '#888', textAlign: 'center' }}>
-        SUPERTRANSPORT — PSP Authorization · Generated {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}
-      </div>
+      <CompanyDocFooter identity={identity} docLabel="PSP Authorization" />
     </div>
   );
 }
