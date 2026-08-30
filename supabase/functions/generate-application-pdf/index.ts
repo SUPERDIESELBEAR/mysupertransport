@@ -132,7 +132,7 @@ serve(async (req) => {
     // logging failure must not deny staff the document they just generated.
     const { data: actorProfile } = await admin
       .from('profiles')
-      .select('full_name')
+      .select('first_name, last_name')
       .eq('id', userId)
       .maybeSingle();
     await admin.from('audit_log').insert({
@@ -141,7 +141,7 @@ serve(async (req) => {
       entity_id: applicationId,
       entity_label: applicantName(app),
       actor_id: userId,
-      actor_name: actorProfile?.full_name ?? null,
+      actor_name: [actorProfile?.first_name, actorProfile?.last_name].filter(Boolean).join(' ') || null,
       metadata: { path: objectPath, byte_size: pdfBytes.byteLength },
     }).then(undefined, () => undefined);
 
