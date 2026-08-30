@@ -7,6 +7,8 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { preloadSignatureDataUrl, openPrintableDocument } from '@/lib/printDocument';
 import ApplicationPrintDocument from './ApplicationPrintDocument';
+import ApplicationPdfPreviewModal from './ApplicationPdfPreviewModal';
+import { generateApplicationPdf, saveObjectUrl } from '@/lib/application/generateApplicationPdf';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface EmployerRecord {
@@ -137,6 +139,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
 
   const handleToggleExpanded = () => {
@@ -222,26 +225,11 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   };
 
   const handleDownloadPdf = async () => {
+    if (!a.id) return;
     setGeneratingPdf(true);
     try {
-      const { data, error } = await supabase.functions.invoke('generate-application-pdf', {
-        body: { application_id: a.id },
-      });
-      if (error) throw error;
-      if (!data?.url) throw new Error(data?.error ?? 'No document was returned');
-
-      // Fetch to a blob first: a cross-origin signed URL handed straight to an
-      // anchor opens in a viewer tab instead of downloading.
-      const res = await fetch(data.url);
-      if (!res.ok) throw new Error('The generated document could not be retrieved');
-      const blob = await res.blob();
-      const objectUrl = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = objectUrl;
-      link.download = data.filename ?? `Driver-Application_${fullName.replace(/\s+/g, '-')}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const { objectUrl, filename } = await generateApplicationPdf(a.id, fullName);
+      saveObjectUrl(objectUrl, filename);
       setTimeout(() => URL.revokeObjectURL(objectUrl), 10_000);
     } catch (err) {
       toast({
@@ -271,7 +259,16 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           )}
         </button>
         {expanded && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </Button>
             <Button
               type="button"
               size="sm"
@@ -421,6 +418,14 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           id="submitted-application-print-content"
           application={a}
           signatureDataUrl={signatureDataUrl}
+        />
+      )}
+
+      {previewOpen && a.id && (
+        <ApplicationPdfPreviewModal
+          applicationId={a.id}
+          applicantName={fullName}
+          onClose={() => setPreviewOpen(false)}
         />
       )}
     </div>
