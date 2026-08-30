@@ -420,6 +420,14 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           signatureDataUrl={signatureDataUrl}
         />
       )}
+
+      {previewOpen && a.id && (
+        <ApplicationPdfPreviewModal
+          applicationId={a.id}
+          applicantName={fullName}
+          onClose={() => setPreviewOpen(false)}
+        />
+      )}
     </div>
   );
 }
