@@ -1,4 +1,6 @@
 import { FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import CompanyLetterhead, { CompanyDocFooter } from './CompanyLetterhead';
+import { useCompanyIdentity } from '@/lib/application/identity';
 
 interface Props {
   app: FullApplication;
@@ -6,6 +8,7 @@ interface Props {
 }
 
 export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }: Props) {
+  const identity = useCompanyIdentity();
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
@@ -17,25 +20,11 @@ export default function PreEmploymentAuthorizationsDoc({ app, signatureDataUrl }
       className="font-serif text-[13px] leading-relaxed text-black bg-white"
       style={{ padding: '1in', maxWidth: '8.5in', minHeight: '11in', fontFamily: 'Times New Roman, serif' }}
     >
-      {/* Header */}
-      <div style={{ textAlign: 'center', marginBottom: '0.5in', borderBottom: '2px solid #000', paddingBottom: '0.2in' }}>
-        <div style={{ fontSize: '20px', fontWeight: 'bold', letterSpacing: '0.1em', marginBottom: '4px' }}>
-          SUPERTRANSPORT
-        </div>
-        <div style={{ fontSize: '11px', color: '#444', letterSpacing: '0.05em' }}>
-          Owner-Operator Fleet Services
-        </div>
-      </div>
-
-      {/* Title */}
-      <div style={{ textAlign: 'center', marginBottom: '0.35in' }}>
-        <div style={{ fontSize: '15px', fontWeight: 'bold', textDecoration: 'underline', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-          IMPORTANT DISCLOSURE
-        </div>
-        <div style={{ fontSize: '13px', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '6px' }}>
-          REGARDING BACKGROUND REPORTS FROM THE PSP Online Service
-        </div>
-      </div>
+      <CompanyLetterhead
+        identity={identity}
+        title="Important Disclosure"
+        subtitle="Regarding Background Reports from the PSP Online Service"
+      />
 
       {/* Applicant info */}
       <div style={{ marginBottom: '0.3in', border: '1px solid #ccc', borderRadius: '4px', padding: '12px 16px', backgroundColor: '#f9f9f9' }}>
