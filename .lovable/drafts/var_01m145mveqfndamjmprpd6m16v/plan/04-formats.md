@@ -1,37 +1,32 @@
-# Print / download format options
+# Print / download: server-rendered PDF
 
-Two print paths exist in the app today, and they behave very differently:
+Chosen approach: **a real PDF generated on the server**, not a browser print dialog.
 
-**1. `printDocumentById` — used by the application snapshot now.** Clones the element into the current tab and calls `window.print()`. It works on desktop, but it is unreliable on phones and tablets: iOS Safari frequently captures the preview before the clone renders, and it inherits app screen styles, so the output looks like a web page rather than a document.
+A new backend function renders the fully worded application (and each standalone disclosure) to a genuine PDF file and returns it. Everything downstream gets easier once a PDF exists as a file rather than a print preview:
 
-**2. `openPrintableDocument` — used by the PEI release page.** Opens a dedicated print window containing only the document plus the stylesheets, waits for images and fonts to finish loading, offers **Letter or A4**, gives the user a Save-as-PDF / Print button, and falls back to an in-tab overlay when popups are blocked (normal on mobile Safari).
+- One **Download PDF** button produces the identical file on desktop, iPad and phone — no popup blockers, no share-sheet detour, no "my print looked different than yours".
+- The PDF can be **emailed as an attachment** and **auto-filed into the driver's binder**, because it is a file.
+- Page breaks, margins, headers and the repeating footer are controlled by us, not by whatever the browser decided that day.
+- Text stays selectable and searchable, and the file is small.
 
-## Recommendation
+## How it works
 
-Move the application print to **`openPrintableDocument`**, the same path the PEI release already uses.
+- A backend function receives the application id, loads the application server-side, and renders the same letterhead + full-wording document to PDF.
+- The rendered PDF is stored in a private documents bucket and returned via a short-lived signed URL, so re-downloading is instant and the filed copy is byte-identical to the one that was emailed.
+- File naming: `Driver-Application_LastName-FirstName_YYYY-MM-DD.pdf`.
+- Authorization mirrors existing document rules: staff can generate for any applicant; an applicant can only obtain their own.
 
-- Real "Save as PDF" on every platform, via the browser's own PDF engine.
-- Waits for the logo and signature images — the main cause of a missing logo on a printed page.
-- Paper-size choice (Letter default, A4 available).
-- Works one-handed on a phone through the share sheet.
-- No new dependency and no server round-trip.
+## Browser print stays as a fallback
 
-## Alternatives considered
-
-| Approach | Verdict |
-|---|---|
-| Browser print (`openPrintableDocument`) | **Recommended.** Zero infrastructure, native PDF quality, works offline-ish, already proven in this app. |
-| Client-side PDF library (jsPDF / html2canvas) | Not recommended. Rasterizes the page, so text is not selectable or searchable, file sizes balloon, and long applications page-break badly. |
-| Server-rendered PDF (headless browser in a backend function) | Best output control and lets you email a real PDF attachment or file it automatically. Heavier to build and run. Worth doing later **if** you want the application PDF attached to emails or auto-filed into the driver's binder — say the word and I will plan it as a follow-up. |
-
-If the goal today is "staff or the applicant can hit one button and get a clean PDF," the browser path is the right answer.
+The in-app print button is kept and upgraded to `openPrintableDocument` (the reliable path the PEI release already uses, with Letter/A4 choice and image-load waiting). It costs little to keep and covers the case where the PDF service is unreachable — staff are never blocked from getting a copy.
 
 ## Page-quality details included in the build
 
-- `@page` margins and a repeating footer so multi-page applications stay attributable.
-- CSS page-break rules so an employer record, a signature block, or a question-and-answer pair never splits across pages.
-- Print-safe colors (no gold-on-dark backgrounds that render as gray mush).
-- The logo embedded as a data URL so it prints even when a print window blocks remote images.
+- Letter page size, consistent margins, and a repeating footer with company identity and page numbers ("Page 3 of 9") on every page.
+- Page-break rules so an employer record, a signature block, or a question-and-answer pair never splits across pages.
+- Print-safe colors — no gold-on-dark panels that render as gray mush.
+- Logo and signature images embedded in the document rather than fetched at render time.
+- A small footer stamp with the submission id and generation timestamp, so two copies of the same application are traceable.
 
 # Considerations
 
@@ -40,12 +35,16 @@ If the goal today is "staff or the applicant can hit one button and get a clean 
 3. **Legal wording is not altered.** Moving question text into a shared copy file is a relocation, not a rewrite; every disclosure sentence stays byte-identical, so no re-consent is implied for anyone who already signed.
 4. **Historical applications.** Older submissions store answers, not the wording that was on screen at the time. The printed document will show today's wording next to their stored answers. That is normal practice, but if you ever change a disclosure's wording materially, the honest fix is versioning the copy — worth flagging now, not needed today.
 5. **Length.** A fully worded application will run roughly 6-10 pages instead of the current 2-3. That is the point, but staff should expect it.
-6. **Logo file.** The current logo is a PNG. It will print cleanly at the header size used here; if you have an SVG or a high-resolution version, that would print sharper on a large letterhead.
+6. **Logo file.** The current logo is a PNG. It prints cleanly at header size; an SVG or high-resolution version would be sharper if you have one.
+7. **Server rendering costs a little time.** Generating the PDF takes a few seconds rather than being instant, so the button shows a progress state. Repeat downloads of an unchanged submission reuse the stored file and are immediate.
+8. **The document must be defined once.** The letterhead and full wording live in one shared definition that both the on-screen view and the server renderer use, otherwise the screen and the PDF drift apart over time. This is the main reason the build is a little larger than a print-button change.
 
 ## Technical notes
 
-- New `CompanyLetterhead` component plus a shared `companyIdentity` accessor.
-- New shared application copy module for question and disclosure text, consumed by the Step components and the printed document.
-- Touch points: the four files in `src/components/application/documents/`, `SubmittedApplicationSnapshot.tsx`, `ApplicationReviewDrawer.tsx` (it has its own print call), and the footer in `ApplicationForm.tsx`.
-- Print path switched from `printDocumentById` to `openPrintableDocument` for the application; the standalone disclosure docs get the same treatment for consistency.
-- No database or schema changes.
+- New `CompanyLetterhead` component plus a shared `companyIdentity` accessor sourced from the existing carrier record.
+- New shared application-copy module holding every question and disclosure string, consumed by the Step components, the on-screen snapshot, and the PDF renderer.
+- New edge function `generate-application-pdf`: authorizes the caller, loads the application, renders the document to PDF, stores it in a private bucket, returns a signed URL. Deployed explicitly.
+- Generated PDFs recorded against the applicant so the file can be attached to emails and filed into the driver's binder.
+- Client touch points: the four files in `src/components/application/documents/`, `SubmittedApplicationSnapshot.tsx`, `ApplicationReviewDrawer.tsx`, and the footer in `ApplicationForm.tsx`.
+- Fallback print path switched from `printDocumentById` to `openPrintableDocument`.
+- One additive migration for the generated-PDF record; no changes to existing columns.
