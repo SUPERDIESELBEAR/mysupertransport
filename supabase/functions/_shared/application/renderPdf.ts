@@ -38,12 +38,10 @@ export function toWinAnsi(input: string): string {
   return input
     .replace(/[\u2018\u2019\u201B]/g, "'")
     .replace(/[\u201C\u201D]/g, '"')
-    .replace(/\u2014/g, '-')
-    .replace(/\u2013/g, '-')
     .replace(/\u2026/g, '...')
     .replace(/\u00A0/g, ' ')
-    .replace(/\u2022/g, '-')
-    .replace(/[^\x20-\x7E\u00A1-\u00FF]/g, '');
+    // Em dash, en dash and bullet all exist in WinAnsi, so they survive intact.
+    .replace(/[^\x20-\x7E\u00A1-\u00FF\u2013\u2014\u2022]/g, '');
 }
 
 interface Ctx {
