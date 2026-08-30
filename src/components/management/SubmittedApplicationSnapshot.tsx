@@ -259,7 +259,16 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
           )}
         </button>
         {expanded && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="h-8 gap-1.5"
+              onClick={() => setPreviewOpen(true)}
+            >
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </Button>
             <Button
               type="button"
               size="sm"
