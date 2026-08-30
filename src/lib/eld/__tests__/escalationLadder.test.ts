@@ -65,13 +65,23 @@ describe('rungs', () => {
     expect(fired).toEqual([...LADDER_RUNGS]);
   });
 
-  it('fires every day once past the deadline', () => {
+  it('fires day 9, then weekly, then goes quiet past the cap', () => {
     const e = ev({ carrier_acknowledged_at: '2026-08-01T15:00:00Z' });
-    for (const iso of ['2026-08-09T18:00:00Z', '2026-08-10T18:00:00Z', '2026-08-11T18:00:00Z']) {
-      const a = evaluateEvent(e, at(iso), TZ);
-      expect(a.actions.some((x) => x.kind === 'escalation_day')).toBe(true);
+    const fires = (iso: string) =>
+      evaluateEvent(e, at(iso), TZ).actions.some((x) => x.kind === 'escalation_day');
+    // Discovered Aug 1 = day 1, so Aug N is day N.
+    expect(fires('2026-08-09T18:00:00Z')).toBe(true);  // day 9
+    expect(fires('2026-08-16T18:00:00Z')).toBe(true);  // day 16
+    expect(fires('2026-08-23T18:00:00Z')).toBe(true);  // day 23
+    for (const iso of ['2026-08-10T18:00:00Z', '2026-08-15T18:00:00Z', '2026-08-22T18:00:00Z']) {
+      expect(fires(iso)).toBe(false);
+    }
+    // Past the cap the event stays open but stops mailing.
+    for (const iso of ['2026-08-30T18:00:00Z', '2026-09-13T18:00:00Z']) {
+      expect(fires(iso)).toBe(false);
     }
   });
+
 
   it('a backdated report fires only the current rung, listing the skipped ones', () => {
     // Discovered Aug 1, reported Aug 3 (48h backdate) — first evaluation is day 3.
@@ -245,8 +255,10 @@ describe('a recorded extension stops the ladder', () => {
   });
 
   it('resumes once the extended date passes', () => {
-    expect(kinds(granted(), '2026-08-21T18:00:00Z')).toEqual(['escalation_day']);
+    // Day 23 — the next past-deadline send day after the extension lapses.
+    expect(kinds(granted(), '2026-08-23T18:00:00Z')).toEqual(['escalation_day']);
   });
+
 
   it('leaves ack_overdue alone — a granted extension already ends it', () => {
     const unacked = granted({ carrier_acknowledged_at: null });

@@ -25,6 +25,25 @@
 /** Rungs of the 8-day repair window that produce a send. */
 export const LADDER_RUNGS = [3, 5, 6, 7, 8] as const;
 
+/**
+ * Past-deadline cadence.
+ *
+ * A blown repair window used to fire an escalation EVERY day, forever — an open
+ * event with nobody working it turns into a permanent daily mail to every
+ * compliance recipient, which is how a real notice stops being read. The event
+ * is still open, still red in the console, and still in the daily digest; only
+ * the per-event email is capped: day 9 (the loud one), then weekly, then quiet.
+ */
+export const PAST_DEADLINE_INTERVAL_DAYS = 7;
+export const PAST_DEADLINE_LAST_DAY = 23;
+
+/** True on day 9, 16, 23 — and on nothing after that. */
+export function isPastDeadlineSendDay(day: number): boolean {
+  if (day < 9 || day > PAST_DEADLINE_LAST_DAY) return false;
+  return (day - 9) % PAST_DEADLINE_INTERVAL_DAYS === 0;
+}
+
+
 /** 395.34(d)(2): five days from the driver's notification to file. */
 export const EXTENSION_WINDOW_DAYS = 5;
 
@@ -204,7 +223,7 @@ export function evaluateEvent(
   }
 
   // Rungs. Only the current one — a backdated report must not fan out.
-  const isRung = (LADDER_RUNGS as readonly number[]).includes(day) || day >= 9;
+  const isRung = (LADDER_RUNGS as readonly number[]).includes(day) || isPastDeadlineSendDay(day);
   if (isRung && !extensionHolds(event, now, timeZone)) {
     const firstEvaluatedDay = repairDayInZone(
       event.discovered_at,
