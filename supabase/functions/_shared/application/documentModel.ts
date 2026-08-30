@@ -167,6 +167,19 @@ function docLine(path: string | null | undefined): string {
   return path ? 'On file' : 'Not uploaded';
 }
 
+/**
+ * Employment dates are captured as month precision. Print them as MM/YYYY,
+ * the format used everywhere else the employment history is shown.
+ */
+function monthYear(value: string | null | undefined): string {
+  const v = (value ?? '').trim();
+  const m = v.match(/^(\d{4})-(\d{2})/);
+  if (m) return `${m[2]}/${m[1]}`;
+  const m2 = v.match(/^(\d{1,2})\/(\d{4})$/);
+  if (m2) return `${m2[1].padStart(2, '0')}/${m2[2]}`;
+  return v;
+}
+
 export function buildApplicationDocument(a: ApplicationRow): ApplicationDocument {
   const employers: EmployerRecord[] = Array.isArray(a.employers) ? (a.employers as EmployerRecord[]) : [];
   const endorsements = Array.isArray(a.endorsements) ? a.endorsements.filter(Boolean) : [];
