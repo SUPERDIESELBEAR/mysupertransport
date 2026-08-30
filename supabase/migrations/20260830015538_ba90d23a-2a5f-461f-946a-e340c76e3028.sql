@@ -29,7 +29,6 @@ BEGIN
   IF v_user_id IS NULL THEN RETURN NEW; END IF;
 
   -- Only sync if THIS record is the latest inspection for the operator
-  -- (older edits should not overwrite the binder's "current" record)
   SELECT MAX(inspection_date) INTO v_latest_date
   FROM public.truck_dot_inspections
   WHERE operator_id = NEW.operator_id;
@@ -38,14 +37,11 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  -- Prefix the file_path with the bucket name so the binder UI can route it
-  -- to the correct storage bucket (existing convention used by bucketForBinderDoc).
   v_file_path := CASE
     WHEN NEW.certificate_file_path IS NULL THEN NULL
     ELSE 'fleet-documents/' || NEW.certificate_file_path
   END;
 
-  -- Look up existing per-driver binder row for this driver
   SELECT id INTO v_existing_id
   FROM public.inspection_documents
   WHERE driver_id = v_user_id
@@ -54,7 +50,6 @@ BEGIN
   ORDER BY uploaded_at DESC
   LIMIT 1;
 
-  -- Set guard so the reverse trigger doesn't fire
   PERFORM set_config('app.skip_doc_sync', 'on', true);
 
   IF v_existing_id IS NULL THEN
@@ -81,7 +76,6 @@ END;
 $function$;
 
 -- 2. Reverse sync (Binder -> Vehicle Hub): suppress when the forward sync is running.
--- The previous guard checked the wrong config flag, allowing a feedback loop.
 CREATE OR REPLACE FUNCTION public.sync_dot_binder_to_vh()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -99,7 +93,6 @@ BEGIN
   IF NEW.expires_at IS NULL THEN RETURN NEW; END IF;
   IF NEW.driver_id IS NULL THEN RETURN NEW; END IF;
 
-  -- The forward sync sets app.skip_doc_sync; suppress this reverse path when it runs.
   IF current_setting('app.skip_doc_sync', true) = 'on' THEN
     RETURN NEW;
   END IF;
@@ -110,7 +103,6 @@ BEGIN
   LIMIT 1;
   IF v_operator_id IS NULL THEN RETURN NEW; END IF;
 
-  -- Guard against re-entry into sync_dot_to_inspection_documents
   PERFORM set_config('app.skip_dot_sync', 'on', true);
 
   SELECT id INTO v_latest_id

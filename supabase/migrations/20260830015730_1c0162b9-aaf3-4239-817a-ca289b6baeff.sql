@@ -1,0 +1,9 @@
+REVOKE ALL ON FUNCTION public.sync_profile_contact_from_application() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_profile_contact_from_application() FROM anon;
+REVOKE ALL ON FUNCTION public.sync_profile_contact_from_application() FROM authenticated;
+REVOKE ALL ON FUNCTION public.sync_dot_to_inspection_documents() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_dot_to_inspection_documents() FROM anon;
+REVOKE ALL ON FUNCTION public.sync_dot_to_inspection_documents() FROM authenticated;
+REVOKE ALL ON FUNCTION public.sync_dot_binder_to_vh() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.sync_dot_binder_to_vh() FROM anon;
+REVOKE ALL ON FUNCTION public.sync_dot_binder_to_vh() FROM authenticated;
