@@ -237,7 +237,10 @@ export function buildApplicationDocument(a: ApplicationRow): ApplicationDocument
           { label: 'Employer name', value: textOrBlank(e.name) },
           { label: 'Location', value: joinParts([e.city, e.state]) },
           { label: 'Position held', value: textOrBlank(e.position) },
-          { label: 'Dates of employment', value: joinParts([e.start_date, e.end_date], ' to ') },
+          {
+            label: 'Dates of employment',
+            value: joinParts([monthYear(e.start_date), monthYear(e.end_date) || 'Present'], ' to '),
+          },
           { label: 'Operated a commercial motor vehicle', value: yesNo(e.cmv_position) },
           { label: 'Employer contact email', value: textOrBlank(e.email) },
           { label: 'Reason for leaving', value: textOrBlank(e.reason_leaving) },
