@@ -1,0 +1,42 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .mut { fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1.5; }
+    .bar { fill: hsl(var(--muted)); }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1; }
+  </style>
+
+  <text x="20" y="20" font-size="12" class="mut">before</text>
+  <text x="350" y="20" font-size="12" class="mut">after</text>
+
+  <!-- BEFORE page -->
+  <rect class="box" x="20" y="30" width="250" height="270" rx="8"/>
+  <text x="145" y="62" text-anchor="middle" font-size="14" font-weight="480">SUPERTRANSPORT</text>
+  <text x="145" y="78" text-anchor="middle" font-size="12" class="mut">Owner-Operator Fleet Services</text>
+  <line class="rail" x1="45" y1="90" x2="245" y2="90"/>
+  <rect class="bar" x="45" y="110" width="200" height="8" rx="3"/>
+  <rect class="bar" x="45" y="126" width="170" height="8" rx="3"/>
+  <rect class="bar" x="45" y="142" width="200" height="8" rx="3"/>
+  <rect class="bar" x="45" y="158" width="120" height="8" rx="3"/>
+  <text x="145" y="290" text-anchor="middle" font-size="12" class="mut">text wordmark only</text>
+
+  <!-- AFTER page -->
+  <rect class="acc" x="350" y="30" width="250" height="270" rx="8"/>
+  <rect class="bar" x="372" y="46" width="52" height="34" rx="4"/>
+  <text x="398" y="67" text-anchor="middle" font-size="11" class="mut">logo</text>
+  <text x="440" y="56" font-size="14" font-weight="480">SUPERTRANSPORT, LLC</text>
+  <text x="440" y="71" font-size="12" class="mut">Pleasant Hill, Missouri</text>
+  <text x="440" y="85" font-size="12" class="mut">USDOT 2309365 · MC 788425</text>
+  <line class="rail" x1="372" y1="96" x2="578" y2="96"/>
+  <rect class="bar" x="372" y="116" width="206" height="8" rx="3"/>
+  <rect class="bar" x="372" y="132" width="176" height="8" rx="3"/>
+  <rect class="bar" x="372" y="148" width="206" height="8" rx="3"/>
+  <rect class="bar" x="372" y="164" width="126" height="8" rx="3"/>
+  <line class="rail" x1="372" y1="262" x2="578" y2="262"/>
+  <text x="475" y="277" text-anchor="middle" font-size="11" class="mut">SUPERTRANSPORT, LLC · Pleasant Hill, MO</text>
+  <text x="475" y="292" text-anchor="middle" font-size="12" class="mut">shared letterhead + footer</text>
+
+  <text x="320" y="322" text-anchor="middle" font-size="12" class="mut">one component, used by the 4 disclosures and the printed application</text>
+</svg>
