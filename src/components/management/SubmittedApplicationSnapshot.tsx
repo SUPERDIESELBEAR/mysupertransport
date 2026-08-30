@@ -7,6 +7,8 @@ import { formatPhoneDisplay } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import { preloadSignatureDataUrl, openPrintableDocument } from '@/lib/printDocument';
 import ApplicationPrintDocument from './ApplicationPrintDocument';
+import ApplicationPdfPreviewModal from './ApplicationPdfPreviewModal';
+import { generateApplicationPdf, saveObjectUrl } from '@/lib/application/generateApplicationPdf';
 import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 
 interface EmployerRecord {
@@ -137,6 +139,7 @@ export default function SubmittedApplicationSnapshot({ application, onPreview }:
   const [signatureDataUrl, setSignatureDataUrl] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [generatingPdf, setGeneratingPdf] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const cardRef = useScrollIntoViewOnOpen<HTMLDivElement>(expanded);
 
   const handleToggleExpanded = () => {
