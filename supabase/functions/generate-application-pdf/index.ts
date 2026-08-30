@@ -117,14 +117,28 @@ serve(async (req) => {
     // rather than embedding a URL the PDF reader would have to resolve.
     let signatureBytes: Uint8Array | null = null;
     let signatureMime: string | null = null;
-    const sigPath = storagePathFor(String(app.signature_image_url ?? ''), 'signatures');
-    if (sigPath) {
-      const { data: blob, error: sigError } = await admin.storage.from('signatures').download(sigPath);
+    const storedSignature = String(app.signature_image_url ?? '').trim();
+    const sigCandidates = storagePathCandidates(storedSignature, 'signatures');
+    let sigLastError: string | null = null;
+    for (const candidate of sigCandidates) {
+      const { data: blob, error: sigError } = await admin.storage.from('signatures').download(candidate);
       if (!sigError && blob) {
         signatureBytes = new Uint8Array(await blob.arrayBuffer());
         signatureMime = blob.type || 'image/png';
+        break;
       }
+      sigLastError = sigError?.message ?? 'not found';
     }
+    // A signature on file that cannot be read must fail loudly: a compliance
+    // document that silently prints a blank signature line is worse than none.
+    if (storedSignature && !signatureBytes) {
+      console.error('signature download failed', { applicationId, sigCandidates, sigLastError });
+      return json(
+        { error: 'The applicant signature image could not be retrieved, so the document was not generated.' },
+        502,
+      );
+    }
+
 
     const model = buildApplicationDocument(app);
     const pdfBytes = await renderApplicationPdf(model, { identity, signatureBytes, signatureMime });
