@@ -33,16 +33,31 @@ function json(body: unknown, status = 200) {
   });
 }
 
-/** signature_image_url may be a bare storage path or a full public URL. */
-function storagePathFor(url: string, bucket: string): string | null {
-  if (!url) return null;
-  if (!/^https?:\/\//i.test(url)) return url.replace(new RegExp(`^${bucket}/`), '');
+/**
+ * signature_image_url may be a full URL, a bare storage key, or — for the
+ * overwhelming majority of historical rows — a key that repeats the bucket
+ * name (`signatures/<uuid>/<file>.png` inside the `signatures` bucket).
+ *
+ * The stored value is therefore tried verbatim FIRST. Stripping the prefix up
+ * front is what produced blank signature lines on every generated PDF.
+ */
+function storagePathCandidates(url: string, bucket: string): string[] {
+  if (!url) return [];
+  if (!/^https?:\/\//i.test(url)) {
+    const stripped = url.replace(new RegExp(`^${bucket}/`), '');
+    return stripped === url ? [url] : [url, stripped];
+  }
   for (const marker of [`/object/public/${bucket}/`, `/object/sign/${bucket}/`, `/object/${bucket}/`]) {
     const idx = url.indexOf(marker);
-    if (idx !== -1) return decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+    if (idx !== -1) {
+      const key = decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+      const stripped = key.replace(new RegExp(`^${bucket}/`), '');
+      return stripped === key ? [key] : [key, stripped];
+    }
   }
-  return null;
+  return [];
 }
+
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
@@ -102,14 +117,28 @@ serve(async (req) => {
     // rather than embedding a URL the PDF reader would have to resolve.
     let signatureBytes: Uint8Array | null = null;
     let signatureMime: string | null = null;
-    const sigPath = storagePathFor(String(app.signature_image_url ?? ''), 'signatures');
-    if (sigPath) {
-      const { data: blob, error: sigError } = await admin.storage.from('signatures').download(sigPath);
+    const storedSignature = String(app.signature_image_url ?? '').trim();
+    const sigCandidates = storagePathCandidates(storedSignature, 'signatures');
+    let sigLastError: string | null = null;
+    for (const candidate of sigCandidates) {
+      const { data: blob, error: sigError } = await admin.storage.from('signatures').download(candidate);
       if (!sigError && blob) {
         signatureBytes = new Uint8Array(await blob.arrayBuffer());
         signatureMime = blob.type || 'image/png';
+        break;
       }
+      sigLastError = sigError?.message ?? 'not found';
     }
+    // A signature on file that cannot be read must fail loudly: a compliance
+    // document that silently prints a blank signature line is worse than none.
+    if (storedSignature && !signatureBytes) {
+      console.error('signature download failed', { applicationId, sigCandidates, sigLastError });
+      return json(
+        { error: 'The applicant signature image could not be retrieved, so the document was not generated.' },
+        502,
+      );
+    }
+
 
     const model = buildApplicationDocument(app);
     const pdfBytes = await renderApplicationPdf(model, { identity, signatureBytes, signatureMime });
