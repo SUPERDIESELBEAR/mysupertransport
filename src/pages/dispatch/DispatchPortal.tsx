@@ -796,7 +796,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         excluded_from_dispatch,
         excluded_from_dispatch_reason,
         onboarding_status (fully_onboarded, unit_number, go_live_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
-        active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at)
+        active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at),
+        applications (phone, address_state)
       `)
       .neq('is_active', false);
 
@@ -841,14 +842,17 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           const d = getOne(op.active_dispatch) ?? {};
           const os = getOne(op.onboarding_status) ?? {};
           const p = profileMap[op.user_id] ?? {};
+          const app = getOne(op.applications) ?? {};
           return {
             operator_id: op.id,
             operator_user_id: op.user_id,
             dispatch_id: d.id ?? null,
             first_name: p.first_name ?? null,
             last_name: p.last_name ?? null,
-            phone: p.phone ?? null,
-            home_state: p.home_state ?? null,
+            // Fall back to the application when the account record was never populated
+            // (matches Driver Hub roster behaviour).
+            phone: p.phone ?? app.phone ?? null,
+            home_state: p.home_state ?? app.address_state ?? null,
             unit_number: os.unit_number ?? op.unit_number ?? null,
             avatar_url: p.avatar_url ?? null,
             dispatch_status: (d.dispatch_status ?? 'not_dispatched') as DispatchStatusType,

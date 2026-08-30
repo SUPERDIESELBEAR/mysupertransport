@@ -39,8 +39,7 @@ import {
   OPTIONAL_COMPANY_DOCS, isOptionalCompanyDoc, filterOptionalDocs,
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
-import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc, AutoSyncedBadge } from './DocRow';
-import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
+import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
 import DriverCombobox from './DriverCombobox';
 
 /** Returns true if a reminder was sent within the last 24 hours */
@@ -377,27 +376,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   }, [selectedDriverId]);
 
   useEffect(() => { fetchDocs(); }, [fetchDocs]);
-
-  // Auto-populate "Periodic DOT Inspections" inspection date from latest
-  // Vehicle Hub record when a driver is selected. Vehicle Hub wins.
-  const inspectionSyncedRef = useRef<string | null>(null);
-  const [inspectionSyncAt, setInspectionSyncAt] = useState<string | null>(null);
-  useEffect(() => {
-    if (loading) return;
-    if (!selectedDriverId) { setInspectionSyncAt(null); return; }
-    if (inspectionSyncedRef.current === selectedDriverId) return;
-    inspectionSyncedRef.current = selectedDriverId;
-    (async () => {
-      const result = await syncInspectionBinderDateFromVehicleHub(selectedDriverId);
-      setInspectionSyncAt(result.matched ? result.syncedAt : null);
-      if (result.changed) fetchDocs();
-    })();
-  }, [loading, selectedDriverId, fetchDocs]);
-
-  // Reset cached sync ref when driver changes so next selection re-runs sync
-  useEffect(() => {
-    inspectionSyncedRef.current = null;
-  }, [selectedDriverId]);
 
   // Fetch unit number for the Flipbook cover whenever the selected driver changes
   useEffect(() => {
@@ -963,9 +941,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     ? <InspectedBadge inspectionDate={doc.expires_at} />
                     : <ExpiryBadge expiresAt={doc.expires_at} />
                 )}
-                {doc?.file_url && hasExpiry && isInspectionDateDoc(docName) && doc.expires_at && (
-                  <AutoSyncedBadge syncedAt={inspectionSyncAt} />
-                )}
                 {doc?.file_url && !hasExpiry && <OnFileBadge />}
                 {doc?.shared_with_fleet && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
@@ -1097,6 +1072,25 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                       Managed from Company Docs
                     </TooltipContent>
                   </Tooltip>
+                ) : isInspectionDateDoc(docName) ? (
+                  <Tooltip delayDuration={100}>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-not-allowed">
+                        <Button
+                          size="sm"
+                          className="h-8 gap-1.5 text-xs opacity-40 pointer-events-none"
+                          variant={doc?.file_url ? 'outline' : 'default'}
+                          disabled
+                        >
+                          <Upload className="h-3 w-3" />
+                          {doc?.file_url ? 'Replace' : 'Upload'}
+                        </Button>
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="text-xs">
+                      Managed from Vehicle Hub
+                    </TooltipContent>
+                  </Tooltip>
                 ) : (
                   <Button
                     size="sm"
@@ -1172,7 +1166,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             {/* Expiry editor */}
             {hasExpiry && (
               <div className="mt-2 flex items-center gap-2">
-                {expiryEditing === doc?.id ? (
+                {expiryEditing === doc?.id && !isInspectionDateDoc(docName) ? (
                   <>
                     <DateInput
                       value={expiryValue}
@@ -1183,15 +1177,24 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
                   </>
                 ) : (
-                  <button
-                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                    onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
-                  >
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
                     <Calendar className="h-3.5 w-3.5" />
                     {doc?.expires_at
                       ? `${isInspectionDateDoc(docName) ? 'Inspection Date' : 'Expires'} ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
-                      : (isInspectionDateDoc(docName) ? 'Set inspection date' : 'Set expiry date')}
-                  </button>
+                      : (isInspectionDateDoc(docName) ? 'Inspection date managed from Vehicle Hub' : 'Set expiry date')}
+                    {isInspectionDateDoc(docName) && (
+                      <Tooltip delayDuration={100}>
+                        <TooltipTrigger asChild>
+                          <span className="ml-1 inline-flex items-center justify-center rounded-full bg-gold/10 text-gold-muted border border-gold/30 px-1.5 py-0.5 text-[10px] font-semibold cursor-default">
+                            Vehicle Hub
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="text-xs max-w-[220px]">
+                          Update the inspection date and certificate in the Vehicle Hub; it syncs here automatically.
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
+                  </div>
                 )}
               </div>
             )}

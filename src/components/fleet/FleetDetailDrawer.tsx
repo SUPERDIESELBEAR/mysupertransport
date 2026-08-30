@@ -20,7 +20,6 @@ import MaintenanceRecordModal from './MaintenanceRecordModal';
 import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal, { REGISTRATION_DOC_NAME, REGISTRATION_DOC_LABEL } from './Registration2290Modal';
-import { syncInspectionBinderDateFromVehicleHub } from '@/lib/syncInspectionBinderDate';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -258,18 +257,11 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  // After save/delete of a DOT row, refresh data and re-sync the driver's binder
-  // doc so it reflects the new latest inspection date (or reverts on delete).
+  // After save/delete of a DOT row, refresh data. The binder doc is kept in
+  // sync automatically by database triggers; Vehicle Hub remains the source of truth.
   const handleDotMutated = useCallback(async () => {
     await fetchData();
-    if (driverUserId) {
-      try {
-        await syncInspectionBinderDateFromVehicleHub(driverUserId);
-      } catch (err) {
-        console.warn('[FleetDetailDrawer] binder sync after DOT mutation failed', err);
-      }
-    }
-  }, [fetchData, driverUserId]);
+  }, [fetchData]);
 
   const confirmDeleteDot = async () => {
     if (!deletingDot) return;
