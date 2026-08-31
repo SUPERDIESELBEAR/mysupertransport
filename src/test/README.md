@@ -48,8 +48,8 @@ timeout was deliberately not raised.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  125 passed | 2 skipped (127)
-     Tests  1013 passed | 15 skipped (1028)
+Test Files  126 passed | 2 skipped (128)
+     Tests  1041 passed | 15 skipped (1056)
 
 
 skipped:

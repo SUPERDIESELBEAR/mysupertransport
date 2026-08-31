@@ -3003,8 +3003,8 @@ pinned.
 ### Baselines restamped this day — both shapes fully green
 
 ```text
-with a database:     Test Files  125 passed | 2 skipped (127)
-                          Tests  1013 passed | 15 skipped (1028)
+with a database:     Test Files  126 passed | 2 skipped (128)
+                          Tests  1041 passed | 15 skipped (1056)
 
 without a database:  Test Files  116 passed | 11 skipped (127)
                           Tests  943 passed | 77 skipped (1020)
