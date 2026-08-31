@@ -2753,11 +2753,11 @@ Measured with `--maxWorkers=2`, recorded verbatim in `src/test/helpers/gate.ts`
 and `src/test/README.md`:
 
 ```text
-with a database:     Test Files  2 failed | 122 passed | 1 skipped (125)
-                          Tests  2 failed | 970 passed | 14 skipped (986)
+with a database:     Test Files  2 failed | 123 passed | 1 skipped (126)
+                          Tests  2 failed | 998 passed | 14 skipped (1014)
 
-without a database:  Test Files  2 failed | 113 passed | 10 skipped (125)
-                          Tests  2 failed | 913 passed | 63 skipped (978)
+without a database:  Test Files  2 failed | 114 passed | 10 skipped (126)
+                          Tests  2 failed | 934 passed | 70 skipped (1006)
 ```
 
 The two failures are the same in both shapes and are recorded, unrelated to this
