@@ -89,14 +89,14 @@ describe('claim indicator — Loads list', () => {
     renderStatusCell(holdSummary);
     const el = screen.getByLabelText(/hold/i);
     expect(el).toBeInTheDocument();
-    expect(el.className).toContain('bg-destructive');
+    expect(el.className).toContain('text-destructive');
   });
 
   it('renders the quieter WATCH variant', () => {
     renderStatusCell(watchSummary);
     const el = screen.getByLabelText(/watch/i);
     expect(el).toBeInTheDocument();
-    expect(el.className).not.toContain('bg-destructive');
+    expect(el.className).not.toContain('text-destructive');
     expect(el.getAttribute('title')).toMatch(/late delivery/i);
   });
 
@@ -123,13 +123,15 @@ describe('claim indicator — Dispatch Board', () => {
 
   it('renders a HOLD indicator on the driver chain row', () => {
     renderDriverRow(chainRow(), { l1: holdSummary });
-    expect(screen.getByLabelText(/hold/i)).toBeInTheDocument();
+    const el = screen.getByLabelText(/hold/i);
+    expect(el).toBeInTheDocument();
+    expect(el.className).toContain('text-destructive');
   });
 
   it('renders the quieter WATCH variant on the chain row', () => {
     renderDriverRow(chainRow(), { l1: watchSummary });
     const el = screen.getByLabelText(/watch/i);
-    expect(el.className).not.toContain('bg-destructive');
+    expect(el.className).not.toContain('text-destructive');
   });
 
   it('renders nothing on a chain row with no active claim', () => {
@@ -149,7 +151,7 @@ describe('several active claims collapse to one indicator at the highest severit
     renderStatusCell(summary);
     const found = screen.getAllByLabelText(/hold|watch/i);
     expect(found).toHaveLength(1);
-    expect(found[0].className).toContain('bg-destructive');
+    expect(found[0].className).toContain('text-destructive');
     expect(found[0].getAttribute('title')).toContain('2 claim types');
   });
 });
