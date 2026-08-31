@@ -309,7 +309,7 @@ export async function findSerialMatches(
       const rowCanon = canonicalSerial(row.serial_number) ?? '';
       const kind: 'collision' | 'near' | null =
         rowCanon === canon ? 'collision'
-          : editDistance(rowCanon, canon) === 1 ? 'near'
+          : isSoftNearMatch(rowCanon, canon) ? 'near'
             : null;
       return kind ? { id: row.id as string, serial_number: row.serial_number as string, status: row.status as string, kind } : null;
     })
