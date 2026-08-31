@@ -2906,3 +2906,76 @@ that was actually present. Narrowed to `[^;]*?`, since a GRANT never spans a
 statement. The lesson: a linter that reports a table as ungranted may be
 mis-parsing a neighbouring statement, so read the file before adding a grant
 that is already there.
+
+## Module 4, Pass 1a — management confirms equipment return (2026-08-31)
+
+### The investigation: three things were already writing "returned," none of them this
+
+| Write path | What it actually means | Who writes it |
+| --- | --- | --- |
+| `equipment_assignments.returned_at` | Inventory hygiene — one device is free to reissue. Written by `EquipmentReturnModal`, per item, and it clears the Stage 5 serial on `onboarding_status`. | Staff, per device |
+| `onboarding_status.equipment_return_completed_at` | The driver uploaded a shipping receipt. Stamped by the `mark_equipment_return_completed` trigger on `equipment_receipts`. | The driver, indirectly |
+| `onboard_assignment_sheets.return_completed_at` | A sign-off sheet was closed inside the Deactivation Wizard. | Staff, per sheet |
+
+None of them says *management physically has the equipment*. The second is the
+one most likely to be mistaken for it, and it is the weakest: a tracking number
+is a promise, not a returned ELD. `operator_offboarding_steps` is wizard
+progress only — it gates nothing.
+
+**Entanglement:** the Deactivation Wizard is the only place that treats
+equipment return as a step, and that step is bound to finishing a deactivation.
+A driver who ships equipment back without being deactivated leaves no
+management-side record at all. That is the gap the hold formula would have
+inherited.
+
+### What Pass 1a adds
+
+`equipment_return_confirmations` — one row per confirmation episode, reversible,
+never deleted. RECEIVED is a separate fact from SHIPPED and neither one is
+allowed to imply the other.
+
+- `confirm_equipment_returned(_operator_id, _note)` and
+  `reverse_equipment_return_confirmation(_operator_id, _reason)` are the only
+  writers. Management or owner, checked in each body. The table holds **no**
+  client `INSERT`/`UPDATE`/`DELETE` at all, so there is no second path — a
+  dispatcher cannot reach it, and a driver certainly cannot.
+- A partial unique index (`reversed_at IS NULL`) keeps at most one open
+  confirmation per operator.
+- A reversal requires a reason and keeps the original row on file with the
+  reversing actor stamped.
+- `equipment_outstanding(operator_id)` is the derived fact the hold formula
+  reads. It is TRUE until an open confirmation exists — so the default is
+  "we do not have it," which is the safe default for money.
+
+Confirming changes nothing else: not `is_active`, not the lease, not dispatch
+status, not the wizard. One writer per fact.
+
+The control lives on the operator detail panel beside Departing, showing both
+chips — the driver's shipment and management's receipt — so the difference is
+visible rather than inferred. `src/test/equipment-receipt-confirmation.test.ts`
+asserts that no file under the operator portal so much as names the table, the
+RPCs or the control.
+
+Not in this pass: settlement calculation, and no change to the Deactivation
+Wizard.
+
+### Baselines restamped this day
+
+```text
+with a database:     Test Files  1 failed | 125 passed | 1 skipped (127)
+                          Tests  1 failed | 1013 passed | 14 skipped (1028)
+
+without a database:  Test Files  1 failed | 116 passed | 10 skipped (127)
+                          Tests  1 failed | 943 passed | 76 skipped (1020)
+```
+
+One known failure now, down from two. `FacilitySelect > add action reachable
+after a no-match query` still times out and no longer passes in isolation
+either — it runs ~40s against cmdk before the 5s limit trips, which is the
+Vitest/testing-library drift already recorded as KNOWN DEBT. The ELD offline
+divergence failure was real but not a regression: its release assertion used a
+date sitting exactly on the 30-day cutoff, so real time walked into the
+boundary. Fixed by asserting a date unambiguously past the hold.
+
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` moves 102 → 105 for the two writers and
+the derived reader, each named in the allowlist with the gate it enforces.
