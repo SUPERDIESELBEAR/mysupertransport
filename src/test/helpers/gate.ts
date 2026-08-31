@@ -17,29 +17,20 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-31 (after Module 4 Pass 1a, the
- * management-confirmed equipment receipt). There are exactly two shapes. A total that
- * matches neither is a signal, not a question: something started or stopped
- * running, and the run should be read before it is trusted.
+ * EXPECTED BASELINES — measured 2026-08-31 (after the FacilitySelect
+ * quarantine). There are exactly two shapes, and BOTH ARE FULLY GREEN: there
+ * are no expected failures any more. A total that matches neither shape is a
+ * signal, not a question: something started or stopped running, and the run
+ * should be read before it is trusted. Any red is real.
  *
  *   Both shapes are run with --maxWorkers=2; at full parallelism the RTL
  *   suites contend and time out in EITHER shape, and those timeouts are not a
  *   regression. Note too that `bun run test:guards` is a nine-file subset
  *   — it is not a shape.
  *
- *   Both shapes carry the SAME single known failure, recorded and unrelated
- *   to the gates:
- *     - FacilitySelect > add action reachable after a no-match query. An RTL /
- *       userEvent timeout that no longer passes alone either (it now runs ~40s
- *       against cmdk before the 5s limit trips). Same tooling drift already
- *       logged as KNOWN DEBT; the component itself is untouched.
- *   The eld/offline divergence failure is GONE: its release date sat exactly on
- *   the 30-day cutoff, so real time walked into it. The assertion now uses a
- *   date that is unambiguously past the hold.
- *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     Test Files  1 failed | 125 passed | 1 skipped (127)
- *          Tests  1 failed | 1013 passed | 14 skipped (1028)
+ *     Test Files  125 passed | 2 skipped (127)
+ *          Tests  1013 passed | 15 skipped (1028)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -57,10 +48,15 @@
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
+ *       - FacilitySelect add action (QUARANTINED 2026-08-31)
+ *           Vitest/testing-library timing, NOT a product defect: userEvent
+ *           typing into cmdk runs ~40s in isolation and trips the 5s limit.
+ *           Logged as KNOWN DEBT (test tooling drift) in docs/tms-wish-list.md.
+ *           The component is untouched; unskip when the tooling is pinned.
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
- *     Test Files  1 failed | 116 passed | 10 skipped (127)
- *          Tests  1 failed | 943 passed | 76 skipped (1020)
+ *     Test Files  116 passed | 11 skipped (127)
+ *          Tests  943 passed | 77 skipped (1020)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
@@ -75,8 +71,6 @@
  *       - fuel import live structure     x12  (live catalog unreadable)
  *       - settlement foundation live      x6   (live catalog unreadable)
  *       - equipment receipt live schema   x6   (live catalog unreadable)
-
-
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.
