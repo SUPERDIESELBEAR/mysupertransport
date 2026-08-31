@@ -147,7 +147,11 @@ export function evaluateLoadPaperwork(
       return;
     }
 
-    const mine = excs.filter(e => e.document_type === req.documentType);
+    const mine = excs.filter(e => {
+      if (e.document_type !== req.documentType) return false;
+      if (!req.photoLabel) return true;
+      return fold(e.photo_label) === fold(req.photoLabel);
+    });
     if (mine.some(e => e.status === 'approved')) {
       satisfied.push({ requirement: req, satisfiedBy: 'exception_approved' });
       return;
