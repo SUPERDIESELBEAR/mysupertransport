@@ -3324,3 +3324,24 @@ in the FOLLOWING Wed–Tue week), a delivered load with no instant surfacing as
 missing, the status transition not being blocked, and a correction re-stamping
 source and actor. `set_load_delivered_at` is recorded in the live definer
 catalog's authenticated allowlist (max 105 → 106) with its in-body role check.
+
+**Saved views could not see the new column (found in live verification).**
+"Default-visible" only reaches users with no saved view. `user_view_preferences`
+already held a `loads_list` column set written before `delivered` existed, so
+the column was invisible to exactly the people chasing settlement.
+`useViewPreferences` now takes `introducedColumns: { version, keys }`: keys
+absent from a stored set are merged in on read, because a set written before the
+column existed cannot express an opinion about it. The marker is written the
+first time the user changes columns themselves — after that their choice, hide
+included, stands. `LoadsListPage` passes `{ version: 1, keys: ['delivered'] }`.
+
+**Live verification (2026-08-31).** Both provenance paths exercised through the
+real UI against the real database:
+- ST-TEST-005: departure recorded on its final delivery stop →
+  `delivered_at 2026-08-16 19:35+00`, source `stop_departure`.
+- ST-TEST-003: entered by hand on Load Detail → `2026-08-18 21:10+00`
+  (16:10 CT), source `dispatcher_entry`.
+Both stamped `delivered_at_by` with the PROFILE id, not the auth uid. The loads
+list shows "No delivery instant" for a delivered load with none. A commodity
+edit through `update_load_with_stops` saved cleanly and wrote change-history
+rows, confirming the snapshot call is still under the 50-key limit.

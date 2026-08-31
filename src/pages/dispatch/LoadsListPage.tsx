@@ -211,7 +211,11 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
   const { visibleColumns, sort, filters, setVisibleColumns, setSort, setFilters, reset } = useViewPreferences({
     viewKey: VIEW_KEY,
     defaultVisibleColumns: DEFAULT_LOAD_COLUMNS,
+    // 'delivered' arrived with the settlement work; saved views predate it and
+    // whoever is chasing settlement must see a load with no delivery instant.
+    introducedColumns: { version: 1, keys: ['delivered'] },
   });
+
 
   // A settlement-blocking state is worth remembering: the claim filter persists
   // per user through the same view-preferences record as columns and sort.
