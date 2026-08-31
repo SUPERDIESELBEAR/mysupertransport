@@ -356,6 +356,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.confirm_equipment_returned(uuid,text)",
   "public.reverse_equipment_return_confirmation(uuid,text)",
   "public.equipment_outstanding(uuid)",
+  "public.set_load_delivered_at(uuid,timestamp with time zone)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -386,7 +387,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   derived reader equipment_outstanding (2026-08-31). The two writers gate on
 //   management or owner in their own bodies; the table itself holds no client
 //   write privilege, so these RPCs are the only path to the RECEIVED fact.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 105;
+// + set_load_delivered_at (2026-08-31), the dispatcher's hand-entry of the
+//   delivery instant when no departure was ever recorded. Dispatcher,
+//   management or owner checked in the body; the source and actor are stamped
+//   by the trigger, so the caller cannot claim the entry was derived.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 106;
 
 
 
