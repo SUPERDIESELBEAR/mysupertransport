@@ -18,9 +18,18 @@ interface Options {
   defaultSort?: SortState | null;
   /** Optional. Consumers that do not manage filters leave stored filters untouched. */
   defaultFilters?: ViewFilters;
+  /**
+   * Columns added to the page AFTER users already had saved views. A saved set
+   * written before the column existed cannot express an opinion about it, so
+   * the keys are merged in once (per device) and the version marker is bumped.
+   * Users may hide them afterwards and the choice sticks.
+   */
+  introducedColumns?: { version: number; keys: string[] };
 }
 
 const cacheKey = (userId: string, viewKey: string) => `view_prefs_${viewKey}_${userId}`;
+const versionKey = (userId: string, viewKey: string) => `view_prefs_v_${viewKey}_${userId}`;
+
 
 /**
  * Per-user list view preferences (visible columns + sort + filters), stored in
@@ -40,9 +49,41 @@ export function useViewPreferences({
   defaultVisibleColumns,
   defaultSort = null,
   defaultFilters = null,
+  introducedColumns,
 }: Options) {
   const { user } = useAuth();
   const userId = user?.id ?? null;
+
+  // Stable across renders: the option object is a fresh literal each time.
+  const introducedRef = useRef(introducedColumns);
+  introducedRef.current = introducedColumns;
+
+  /**
+   * Merges columns introduced after this user's view was saved. Returns the set
+   * unchanged once the user has expressed an opinion on the new version, which
+   * is recorded the first time they change columns.
+   */
+  const withIntroduced = useCallback((stored: string[]): string[] => {
+    const intro = introducedRef.current;
+    if (!intro || !userId) return stored;
+    let seen = 0;
+    try {
+      seen = Number(localStorage.getItem(versionKey(userId, viewKey)) ?? 0) || 0;
+    } catch { /* storage unavailable */ }
+    if (seen >= intro.version) return stored;
+    const missing = intro.keys.filter(k => !stored.includes(k));
+    return missing.length ? [...stored, ...missing] : stored;
+  }, [userId, viewKey]);
+
+  const markIntroducedSeen = useCallback(() => {
+    const intro = introducedRef.current;
+    if (!intro || !userId) return;
+    try {
+      localStorage.setItem(versionKey(userId, viewKey), String(intro.version));
+    } catch { /* storage unavailable */ }
+  }, [userId, viewKey]);
+
+
 
   const [visibleColumns, setVisibleColumnsState] = useState<string[]>(defaultVisibleColumns);
   const [sort, setSortState] = useState<SortState | null>(defaultSort);
@@ -65,14 +106,14 @@ export function useViewPreferences({
       const raw = localStorage.getItem(cacheKey(userId, viewKey));
       if (raw) {
         const cached = JSON.parse(raw) as Partial<ViewPreferences>;
-        if (Array.isArray(cached.visibleColumns)) setVisibleColumnsState(cached.visibleColumns);
+        if (Array.isArray(cached.visibleColumns)) setVisibleColumnsState(withIntroduced(cached.visibleColumns));
         if (cached.sort !== undefined) setSortState(cached.sort ?? null);
         if (cached.filters !== undefined) setFiltersState((cached.filters as ViewFilters) ?? null);
       }
     } catch {
       /* ignore malformed cache */
     }
-  }, [userId, viewKey]);
+  }, [userId, viewKey, withIntroduced]);
 
   // Load the account record
   useEffect(() => {
@@ -88,7 +129,9 @@ export function useViewPreferences({
       if (cancelled) return;
       if (data) {
         if (Array.isArray(data.visible_columns)) {
-          setVisibleColumnsState(data.visible_columns as string[]);
+          const merged = withIntroduced(data.visible_columns as string[]);
+          setVisibleColumnsState(merged);
+          currentRef.current = { ...currentRef.current, visibleColumns: merged };
         }
         setSortState(
           data.sort_column
@@ -104,7 +147,9 @@ export function useViewPreferences({
       setLoaded(true);
     })();
     return () => { cancelled = true; };
-  }, [userId, viewKey]);
+  }, [userId, viewKey, withIntroduced]);
+
+
 
   useEffect(() => () => { if (saveTimer.current) clearTimeout(saveTimer.current); }, []);
 
@@ -138,10 +183,13 @@ export function useViewPreferences({
   }, [userId, viewKey]);
 
   const setVisibleColumns = useCallback((next: string[]) => {
+    // The user has now chosen for themselves; stop force-merging new columns.
+    markIntroducedSeen();
     setVisibleColumnsState(next);
     currentRef.current = { ...currentRef.current, visibleColumns: next };
     persist();
-  }, [persist]);
+  }, [persist, markIntroducedSeen]);
+
 
   const setSort = useCallback((next: SortState | null) => {
     setSortState(next);
