@@ -194,6 +194,30 @@ separate step from the statement.
 
 TRIGGER: Module 7, billing and invoicing.
 
+
+### Late accessorial adjustments — the `-A1` path is documented and unbuilt (Module 7)
+
+When an accessorial is agreed AFTER a load has already been settled, it cannot
+be added through the charge-entry path: `assert_charge_entry_allowed` refuses
+loads in `invoiced`, `factored`, `paid`, `settled` or `closed`, and its error
+message points at the adjustment path (`-A1`) that does not exist.
+
+What is missing:
+- `accessorial_adjustments` table (or equivalent) to hold the late line.
+- `invoices` / `supplemental_invoices` tables to bill the broker for the original
+  load and any supplemental.
+- A producer for the `adjustment` line-item kind that already appears in
+  `settlementEngine.ts` as an enum member but has no corresponding writer.
+- A workflow that picks up pending adjustments in the next settlement and,
+  when the original invoice has already been sent, generates a supplemental
+  invoice with a reference like `ST-1042-A1`, `ST-1042-A2`, etc.
+
+This is a gap, not a bug: the `-A1` numbering scheme and the settlement behaviour
+are written into `docs/tms-build-status.md`, but no tables or code implement
+them.
+
+TRIGGER: Module 7, billing and invoicing.
+
 ---
 
 ## KNOWN DEBT

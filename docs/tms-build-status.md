@@ -3403,3 +3403,43 @@ the same action that resolves it (`resolved_revision` → "Create the detention
 charge from this claim and link it"), which is deliberate and offered only where
 no charge is linked yet: one revised rate con carries one detention line while a
 load may hold several claims, so nothing matches them automatically.
+
+---
+
+## LIVE DEFECT — `update_load_with_stops` re-keys every `load_charges` row
+
+**Severity:** silent data integrity failure, currently masked only by the fact
+that `load_charges` has been empty.
+
+**The defect.** `update_load_with_stops` performs a wholesale
+`DELETE FROM public.load_charges WHERE load_id = p_load.id` followed by an
+`INSERT` of the charges array in the payload. Any charge that survives the edit
+therefore receives a **new primary key**, even when the save had nothing to do
+with charges (for example, a commodity edit or a stop phone-number change).
+
+**What breaks.** Any foreign key that points at a `load_charges` row is silently
+severed on the next load save:
+- `detention_claims.resulting_charge_id` — the link between a resolved detention
+  claim and the charge it produced.
+- `driver_uploads` / `load_documents` used as proof documents for reimbursement
+  or lumper charges.
+- Any future settlement line item that references a charge (Module 4 and onward).
+
+The failure is silent because the charge amount and description remain on the
+load; only the identity changes, so the break is discovered only when something
+else tries to follow the old id.
+
+**Why it has not hurt yet.** `load_charges` was empty across every real load
+until Pass 2b added the charge-entry path. The moment a charge is created and the
+load is subsequently edited for any reason, the link to its claim or proof
+will be lost.
+
+**Fix direction (deferred to its own pass).** Charge reconciliation inside
+`update_load_with_stops` must match existing rows by id and update them in place,
+insert genuinely new rows, and delete only rows whose ids are absent from the
+payload — the same pattern already used for `load_stops`. Alternatively, remove
+charges from the `update_load_with_stops` payload entirely and force all charge
+writes through the narrow `add/update/delete_load_charge` RPCs.
+
+**Do not fix now.** Recorded here so the next pass does not have to rediscover
+it; the charge-entry pass deliberately left `update_load_with_stops` untouched.
