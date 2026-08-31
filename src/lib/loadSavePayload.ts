@@ -144,6 +144,10 @@ export function buildLoadSavePayload(
     ...(v.charges ?? [])
       .filter(c => Number(c.amount) > 0)
       .map(c => ({
+        // The row's identity. Present means "this is the same charge" and the
+        // RPC updates it in place; empty means insert. Never omit it — the
+        // RPC deletes charges absent from the payload and re-keys the rest.
+        id: c.id || '',
         stop_index: '',
         charge_type: c.charge_type || 'other',
         description: c.description || '',

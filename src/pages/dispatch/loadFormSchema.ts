@@ -58,6 +58,13 @@ export const referenceSchema = z.object({
 
 
 export const chargeSchema = z.object({
+  /**
+   * The row's identity. Empty on a charge the form has just invented; carried
+   * back out on every existing charge so the save path can diff rather than
+   * replace. Without it a save re-keys the row and orphans the detention
+   * claim, proof document and settlement line item pointing at it.
+   */
+  id: z.string().optional().or(z.literal('')),
   charge_type: z.string().trim().max(60),
   description: z.string().trim().max(200),
   amount: optionalNumber,
