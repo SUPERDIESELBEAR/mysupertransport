@@ -3255,14 +3255,20 @@ A load whose paperwork is incomplete is excluded from the settlement as a
 rest of the settlement pays. A deliberate release lets it through and the
 release reason is written onto the line itself.
 
-### Status precedence — OPEN
+### Status precedence — SETTLED: held wins (2026-08-31)
 
-The engine evaluates **held before below_threshold**: a departing driver whose
-coverage falls under the buffer is `held` even when the net is also under the
-minimum. The record defines the two states independently and does not say which
-wins when both are true. The choice is isolated to one branch and is recorded
-here so it can be corrected by decision rather than discovered by a driver.
+When a settlement is **both** `held` and under the minimum net pay, the status
+recorded is **`held`**. The engine evaluates the hold first.
 
-| # | Open question |
-|---|---|
-| 4.2 | When a settlement is both `held` and under the minimum, which status is recorded? Engine currently answers `held`. |
+The reason is that the two states resolve differently. `below_threshold` rolls
+forward and can be authorised for payment; `held` stays computed and visible,
+pending the departing gate. If a departing driver's small settlement rolled
+forward instead, the roll would **defer the hold** — and a departing driver is
+exactly who you do not want money deferred on. Held is the state that keeps the
+figure in front of somebody.
+
+Pinned by a named test, `held wins when the settlement is ALSO under the
+minimum`, in `src/lib/__tests__/settlementEngine.test.ts`. The precedence no
+longer lives only in the order of one `if`.
+
+Open item 4.2 is closed. No open items remain in the Pass 2 record.
