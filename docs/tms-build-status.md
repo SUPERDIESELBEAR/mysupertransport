@@ -3468,3 +3468,42 @@ variables and no snapshot keys, so the 100-argument ceiling is no nearer.
 reported defect: an unrelated field change leaves every charge id unchanged.
 Verified live on ST26035 — a detention claim's `resulting_charge_id` and the
 charge's `created_at`/`created_by` were byte-identical across a UI note edit.
+
+## Per-ton bulk is paid on the scale ticket, not on the estimate (2026-08-31)
+
+**The defect.** `recompute_load_total_value` multiplied `rate_per_ton x
+estimated_tons`. ST-TEST-003 stores `total_load_value` 455.47 (18.50 x 24.62
+*confirmed* tons); the SQL would have rewritten it to 444.00 (18.50 x 24.00
+*estimated*) on the next charge edit. The stored figure was right and the
+function was wrong: a scale ticket exists precisely to say what crossed the
+scale, and the build context records per-ton as "paid per ton via scale ticket."
+
+**Blast radius, measured before applying.** One per-ton load exists in the
+database (ST-TEST-003) and its stored total already equals the confirmed-tons
+figure, so **zero** stored totals changed. No per-ton load currently has a NULL
+`confirmed_tons`; the NULL rule below is forward-looking.
+
+**The rule, and the deliberate split between the two readers.**
+
+| reader | unscaled per-ton load |
+|---|---|
+| `recompute_load_total_value` / `calcTotalLoadValue` (broker-facing total) | falls back to `estimated_tons` so a live load never reads $0 |
+| `computeSettlement` (driver-facing) | **no linehaul line at all**, and the load is named in `pendingScaleTicketLoads` |
+
+Accessorials on an unscaled load still pay; only the tonnage-based linehaul
+waits. A per-ton load already REQUIRES a `scale_ticket` as paperwork, so the
+unscaled case normally never reaches the engine — it bites only on a deliberate
+paperwork release.
+
+**Why paying on estimated tons was rejected.** The correction, once the ticket
+lands, is an adjustment — and **no adjustment path exists**. The -A1 late
+accessorial scheme is documented and unimplemented, and `settlementEngine`'s
+`adjustment` line type has no producer. A short check that cannot be corrected
+is worse than a check that waits for the ticket. Revisit only when -A1 ships.
+
+**Surfaced, not silent.** `isAwaitingScaleTicket` (in `src/lib/perTonScale.ts`)
+is true for a delivered per-ton load with no confirmed tons, and reads exactly
+like a missing delivery instant: a warning triangle on the Rate cell of the
+loads list, and a banner plus an "estimated tons — not a payable figure" hint on
+Load Detail's Rate Details. Whoever chases settlement sees it before payday
+rather than in a driver's short check.
