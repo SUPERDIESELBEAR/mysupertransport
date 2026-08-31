@@ -6,6 +6,10 @@ import {
 
 import { formatNumber, type LoadDetail } from '@/lib/loadDetail';
 import { RATE_TYPE_LABELS, type RateType } from '@/lib/loadRateMath';
+import {
+  AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL, isAwaitingScaleTicket,
+} from '@/lib/perTonScale';
+import { AlertTriangle } from 'lucide-react';
 
 const n = (v: unknown): number | null => {
   if (v === null || v === undefined) return null;
@@ -26,6 +30,9 @@ export default function RateDetailsCard({ load }: { load: LoadDetail }) {
   const perMileTotal = n(load.rate_per_mile) !== null && loaded !== null
     ? (n(load.rate_per_mile) as number) * loaded : null;
   const tons = n(load.confirmed_tons) ?? n(load.estimated_tons);
+  // Delivered per-ton with no ticket: the total shown is an estimate and the
+  // driver cannot be paid for the load until the tons are recorded.
+  const awaitingScale = isAwaitingScaleTicket(load);
   const perTonTotal = n(load.rate_per_ton) !== null && tons !== null
     ? (n(load.rate_per_ton) as number) * tons : null;
 
@@ -73,7 +80,13 @@ export default function RateDetailsCard({ load }: { load: LoadDetail }) {
                       : formatNumber(n(load.confirmed_tons))
                   }
                 />
-                <Field label="Calculated Linehaul" value={formatCurrency(perTonTotal)} />
+                <Field
+                  label="Calculated Linehaul"
+                  value={formatCurrency(perTonTotal)}
+                  hint={n(load.confirmed_tons) === null
+                    ? 'Based on estimated tons — not a payable figure'
+                    : 'From the scale ticket'}
+                />
               </>
             )}
             {rateType === 'percentage_of_load' && (
@@ -98,6 +111,16 @@ export default function RateDetailsCard({ load }: { load: LoadDetail }) {
           <Field label="Revenue Per Mile" value={`${formatCurrency(rpm)} / mi`} />
         ) : null}
       </FieldGrid>
+
+      {awaitingScale && (
+        <div className="mt-3 flex items-start gap-2 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+          <div>
+            <div className="font-medium">{AWAITING_SCALE_TICKET_LABEL}</div>
+            <p className="text-muted-foreground">{AWAITING_SCALE_TICKET_EXPLANATION}</p>
+          </div>
+        </div>
+      )}
     </DetailSection>
   );
 }
