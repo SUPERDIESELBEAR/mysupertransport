@@ -1,0 +1,23 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <!-- hard block -->
+  <text x="20" y="24" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Same device twice — still blocked</text>
+  <rect x="20" y="36" width="290" height="40" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="165" y="60" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))" font-family="var(--font-mono)">AABL36UGO24945 = AABL36UGO24945</text>
+  <text x="330" y="60" font-size="12" fill="hsl(var(--muted-foreground))">exact after folding → hard block, unchanged</text>
+
+  <!-- kept flags -->
+  <text x="20" y="112" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Still flagged</text>
+  <rect x="20" y="124" width="290" height="40" rx="8" fill="none" stroke="hsl(var(--accent))"/>
+  <text x="165" y="148" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))" font-family="var(--font-mono)">…YG100586 vs …YG100566 (6 vs 8)</text>
+  <text x="330" y="148" font-size="12" fill="hsl(var(--muted-foreground))">look-alike swap → flagged</text>
+  <rect x="20" y="172" width="290" height="40" rx="8" fill="none" stroke="hsl(var(--accent))"/>
+  <text x="165" y="196" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))" font-family="var(--font-mono)">AABL36UF38096 vs AABL36UF380968</text>
+  <text x="330" y="196" font-size="12" fill="hsl(var(--muted-foreground))">dropped digit → flagged</text>
+
+  <!-- silenced -->
+  <text x="20" y="248" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Goes quiet</text>
+  <rect x="20" y="260" width="290" height="34" rx="8" fill="hsl(var(--muted))"/>
+  <text x="165" y="281" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))" font-family="var(--font-mono)">fuel card 201 vs 203 (under 8 chars)</text>
+  <rect x="330" y="260" width="290" height="34" rx="8" fill="hsl(var(--muted))"/>
+  <text x="475" y="281" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))" font-family="var(--font-mono)">…310901 vs …310903 (not look-alike)</text>
+</svg>
