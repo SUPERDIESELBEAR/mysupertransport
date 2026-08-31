@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-08-28
+Last updated: 2026-08-31
 
 ---
 
@@ -181,6 +181,18 @@ Interim: the Loads list status filter serves the invoicing case adequately.
 
 TRIGGER: invoicing queue with Module 7. Paperwork chase queue after the board has
 been in real use long enough to know what the chase workflow actually needs.
+
+### Factoring payout reconciliation (Module 7)
+
+The factoring company issues a payout statement daily for the loads it is
+factoring. Invoicing marks those loads paid in Alvys; actual deposits are
+confirmed against the bank account by the owner and a third-party bookkeeper.
+
+SUPERDRIVE will need to replace that workflow — ingesting or recording the daily
+payout statement, marking loads paid, and supporting deposit confirmation as a
+separate step from the statement.
+
+TRIGGER: Module 7, billing and invoicing.
 
 ---
 
