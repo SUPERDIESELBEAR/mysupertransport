@@ -1,0 +1,39 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    .lbl { font-family: var(--font-sans); font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .sm { font-family: var(--font-sans); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .acclbl { font-family: var(--font-sans); font-size: 14px; font-weight: 480; fill: hsl(var(--accent-foreground)); }
+    .accmono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--accent-foreground)); }
+    .accsm { font-family: var(--font-sans); font-size: 12px; fill: hsl(var(--accent-foreground)); }
+  </style>
+
+  <text x="0" y="14" class="lbl">Two serials, same device type</text>
+
+  <rect x="0" y="30" width="200" height="90" rx="8" class="bx"/>
+  <text x="14" y="52" class="lbl">Same after folding</text>
+  <text x="14" y="74" class="mono">AABL36UGO24945</text>
+  <text x="14" y="90" class="mono">AABL36UG024945</text>
+  <text x="14" y="110" class="sm">block — unchanged</text>
+
+  <rect x="220" y="30" width="200" height="90" rx="8" class="bx"/>
+  <text x="234" y="52" class="lbl">Different lengths</text>
+  <text x="234" y="74" class="mono">AABL36UF80967</text>
+  <text x="234" y="90" class="mono">AABL36UF380967</text>
+  <text x="234" y="110" class="sm">review — dropped digit</text>
+
+  <rect x="440" y="30" width="200" height="90" rx="8" fill="hsl(var(--accent))" stroke="hsl(var(--accent-foreground))" stroke-width="1"/>
+  <text x="454" y="52" class="acclbl">One look-alike swap</text>
+  <text x="454" y="74" class="accmono">AABL36YG100586</text>
+  <text x="454" y="90" class="accmono">AABL36YG100566</text>
+  <text x="454" y="110" class="accsm">review — 8 vs 6</text>
+
+  <rect x="0" y="152" width="640" height="120" rx="8" class="zone"/>
+  <text x="14" y="174" class="sm">no longer flagged</text>
+  <text x="14" y="200" class="lbl">Ordinary sequential neighbours</text>
+  <text x="14" y="222" class="mono">AABL36YG254269   vs   AABL36YG254289</text>
+  <text x="14" y="240" class="mono">fuel card 200    vs   fuel card 201</text>
+  <text x="14" y="260" class="sm">digits that look nothing alike, or serials shorter than 8 characters</text>
+</svg>
