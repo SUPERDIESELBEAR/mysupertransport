@@ -147,11 +147,12 @@ export const LOAD_COLUMNS: LoadColumnDef[] = [
       <span className="inline-flex items-center justify-end gap-1">
         {rateOf(l)}
         {isAwaitingScaleTicket(l) && (
-          <AlertTriangle
-            className="h-3.5 w-3.5 text-warning"
-            aria-label={AWAITING_SCALE_TICKET_LABEL}
-            title={AWAITING_SCALE_TICKET_EXPLANATION}
-          />
+          <span title={AWAITING_SCALE_TICKET_EXPLANATION} className="inline-flex">
+            <AlertTriangle
+              className="h-3.5 w-3.5 text-warning"
+              aria-label={AWAITING_SCALE_TICKET_LABEL}
+            />
+          </span>
         )}
       </span>
     ),
