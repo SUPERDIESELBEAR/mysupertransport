@@ -48,6 +48,32 @@ worth taking, and Module 9 ships without it unless this is solved.
 TRIGGER: before Module 9 is specified. Decide then whether SUPERDRIVE computes
 mileage, integrates a mileage provider, or ships without RPM deliberately.
 
+
+### Demo / training environment
+
+A sandboxed area where dummy drivers, rate cons, fuel reports and settlements can
+be created freely — for testing, for staff training, and as a sales surface for
+SaaS prospects.
+
+The training case is the strongest argument. Nine lease terminations were
+generated in error in three weeks by someone who believed the modal was a status
+note; a place to click a destructive button and see the consequence without one
+is what would have prevented that.
+
+Do NOT build a second mechanism: operators.is_demo already exists and a Demo Mode
+item is already in the staff nav. Whatever is built extends that.
+
+The hard part is ISOLATION, not UI. A demo settlement must not reach real
+reporting; a demo driver must not receive real email; demo fuel must not
+reconcile against a real MultiService invoice. The build context already
+anticipates multi-tenancy via company_id on major tables — a demo environment is
+arguably the first tenant, and building it that way would exercise the
+multi-tenant path before a paying customer does. That argues for building it
+after the modules are complete rather than retrofitting isolation later.
+
+TRIGGER: after the module build is complete, and before any SaaS prospect is
+given access.
+
 ---
 
 ## OPEN QUESTIONS — answer before the named module
