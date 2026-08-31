@@ -89,14 +89,14 @@ describe('claim indicator — Loads list', () => {
     renderStatusCell(holdSummary);
     const el = screen.getByLabelText(/hold/i);
     expect(el).toBeInTheDocument();
-    expect(el.className).toContain('bg-destructive');
+    expect(el.className).toContain('text-destructive');
   });
 
   it('renders the quieter WATCH variant', () => {
     renderStatusCell(watchSummary);
     const el = screen.getByLabelText(/watch/i);
     expect(el).toBeInTheDocument();
-    expect(el.className).not.toContain('bg-destructive');
+    expect(el.className).not.toContain('text-destructive');
     expect(el.getAttribute('title')).toMatch(/late delivery/i);
   });
 
