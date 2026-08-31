@@ -350,6 +350,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.authorize_below_threshold_payment(uuid,text)",
   "public.release_settlement_hold(uuid,text)",
   "public.clear_operator_parked(uuid,text)",
+  // Management or owner only, checked in the body. The confirmation table
+  // holds no client INSERT/UPDATE/DELETE, so these are the only writers of the
+  // RECEIVED fact; equipment_outstanding is the derived reader behind the hold.
+  "public.confirm_equipment_returned(uuid,text)",
+  "public.reverse_equipment_return_confirmation(uuid,text)",
+  "public.equipment_outstanding(uuid)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -376,7 +382,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + authorize_below_threshold_payment / release_settlement_hold (2026-08-31),
 //   the two settlement release paths. Management or owner only, checked in the
 //   body, and each records the actor and the reason it was released.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 102;
+// + confirm_equipment_returned / reverse_equipment_return_confirmation and the
+//   derived reader equipment_outstanding (2026-08-31). The two writers gate on
+//   management or owner in their own bodies; the table itself holds no client
+//   write privilege, so these RPCs are the only path to the RECEIVED fact.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 105;
 
 
 

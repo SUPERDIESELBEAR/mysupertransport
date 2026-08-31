@@ -41,6 +41,7 @@ import ParkDriverControl, { type ParkedFields } from '@/components/drivers/ParkD
 import ParkedBadge from '@/components/drivers/ParkedBadge';
 import DepartingControl, { type DepartingFields } from '@/components/drivers/DepartingControl';
 import DepartingBadge from '@/components/drivers/DepartingBadge';
+import EquipmentReceiptControl from '@/components/drivers/EquipmentReceiptControl';
 import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { terminationReasonLabel } from '@/lib/leaseTermination';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
@@ -3063,6 +3064,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             value={departing}
             onChanged={setDeparting}
             canEdit={isManagement || isOwner || isDispatcher}
+          />
+        </div>
+      )}
+
+      {/* Equipment receipt — management confirms the set is physically back.
+          Sits next to Departing because that is where an exit is worked. */}
+      {isActive && (
+        <div style={{ order: isQuickView ? 0 : 47 }}>
+          <EquipmentReceiptControl
+            operatorId={operatorId}
+            operatorName={operatorName}
+            canEdit={isManagement || isOwner}
           />
         </div>
       )}
