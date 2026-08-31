@@ -306,6 +306,41 @@ Do not add fuzzy or partial matching to compensate.
 
 TRIGGER: Module 11, driver app guided photo capture.
 
+### Storage objects leak whenever a row is deleted by any route but the app
+
+Cleanup lives in TypeScript call sites, so cascades, direct SQL and edge
+functions all delete the row and leave the file. Found after four orphans
+accumulated in five days from ordinary test reverts.
+
+Worst cases, in order:
+
+- ica-signatures: NO delete path anywhere. DeactivationWizardContent and
+  delete-user-account both delete ica_contracts rows outright; signature objects
+  are never removed. Permanent leak of signed contract signatures.
+
+- operators cascade: ~40 child tables carrying file paths, none cleaning storage.
+  Deleting one operator row orphans that driver's entire document history.
+  delete-user-account can reach this.
+
+- loads → load_documents CASCADE: live and silent; no app path deletes a loads
+  row yet.
+
+- message-attachments: messages soft-delete and blank the attachment fields, so
+  the object survives with nothing referencing it. delete-user-account
+  hard-deletes with no storage call.
+
+- Several UI delete paths use .catch(() => {}) on the storage removal, so a
+  storage failure silently orphans.
+
+rods-logs is the only bucket with a safety net (sweep-rods-orphans).
+
+Two durable fixes: a delete-time trigger enqueuing paths for a sweeper, or a
+periodic per-bucket reachability sweep modelled on sweep-rods-orphans. Per-call-
+site cleanup is what failed.
+
+TRIGGER: before real document volume, or before any path that deletes an operator
+or a load row ships.
+
 ---
 
 ## KILLED — do not re-litigate
