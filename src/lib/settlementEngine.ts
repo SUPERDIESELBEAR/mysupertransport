@@ -26,6 +26,7 @@
  * from. The net is the sum of the lines — there is no second path to it.
  */
 import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
+import { AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL } from '@/lib/perTonScale';
 import { payClassOf, type PayPolicyRates } from '@/lib/payTreatment';
 import {
   evaluateLoadPaperwork,
@@ -80,10 +81,12 @@ export interface SettlementLoadInput {
   loadedMiles?: number | string | null;
   ratePerTon?: number | string | null;
   /**
-   * The tons figure `recompute_load_total_value` multiplies by. It reads
-   * `estimated_tons`; the engine reads the same column so the two never
-   * diverge, even where a confirmed figure exists.
+   * What the scale ticket says actually crossed the scale. AUTHORITATIVE for a
+   * per-ton load; see `perTonScale.ts`. Absent means unscaled, and the engine
+   * pays no linehaul at all rather than paying on a guess.
    */
+  confirmedTons?: number | string | null;
+  /** What everyone thought before loading. Never pays a driver. */
   estimatedTons?: number | string | null;
   fscAmount?: number | string | null;
   /**
@@ -200,6 +203,12 @@ export interface ComputedSettlement {
   status: SettlementStatus;
   holdReason: string | null;
   withheldLoads: WithheldLoad[];
+  /**
+   * Per-ton loads valued at zero linehaul because no scale ticket has been
+   * recorded. Distinct from `withheldLoads`: the load's accessorials still
+   * pay, only the tonnage-based linehaul waits for the ticket.
+   */
+  pendingScaleTicketLoads: WithheldLoad[];
   /** Loads counted this period, whether or not they were withheld. */
   consideredLoadIds: string[];
 }
@@ -250,8 +259,9 @@ export function resolveEffectivePolicy(
 function headerRateLines(
   load: SettlementLoadInput,
   policy: PayPolicyRates | null,
-): Array<{ lineType: SettlementLineType; amount: number; description: string }> {
+): { lines: Array<{ lineType: SettlementLineType; amount: number; description: string }>; pendingScaleTicket: boolean } {
   const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
+  let pendingScaleTicket = false;
   const pctOf = (klass: keyof typeof PCT_FIELD): number | null => {
     const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
     return Number.isFinite(pct) ? pct : null;
@@ -265,7 +275,7 @@ function headerRateLines(
     if (amount) {
       out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
     }
-    return out;
+    return { lines: out, pendingScaleTicket };
   }
 
   let base = 0;
@@ -275,10 +285,21 @@ function headerRateLines(
       base = num(load.ratePerMile) * num(load.loadedMiles);
       label = 'Linehaul (per mile)';
       break;
-    case 'per_ton':
-      base = num(load.ratePerTon) * num(load.estimatedTons);
-      label = 'Linehaul (per ton)';
+    case 'per_ton': {
+      // ONLY the confirmed figure pays. `estimated_tons` keeps the broker-facing
+      // total alive in flight; it never reaches a driver's check, because the
+      // correction once the ticket lands would be an adjustment and no
+      // adjustment path exists yet.
+      const confirmed = load.confirmedTons;
+      if (confirmed === null || confirmed === undefined || confirmed === '') {
+        pendingScaleTicket = true;
+        base = 0;
+      } else {
+        base = num(load.ratePerTon) * num(confirmed);
+      }
+      label = 'Linehaul (per ton, from scale ticket)';
       break;
+    }
     default:
       base = num(load.linehaulRate);
       break;
@@ -295,7 +316,7 @@ function headerRateLines(
     if (fsc) out.push({ lineType: 'load_pay', amount: fsc, description: 'Fuel surcharge' });
   }
 
-  return out;
+  return { lines: out, pendingScaleTicket };
 }
 
 function lineTypeForCharge(klass: keyof typeof PCT_FIELD, isReimbursement: boolean): SettlementLineType {
@@ -318,6 +339,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   const period = workPeriodForDate(periodAnchorDate, settings.work_week_start_dow);
   const lines: SettlementLine[] = [];
   const withheldLoads: WithheldLoad[] = [];
+  const pendingScaleTicketLoads: WithheldLoad[] = [];
 
   /* --- Loads ------------------------------------------------------- */
   for (const load of loads) {
@@ -338,7 +360,16 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
       ? ` (released${load.paperworkReleaseReason ? `: ${load.paperworkReleaseReason}` : ''})`
       : '';
 
-    for (const header of headerRateLines(load, policy)) {
+    const header0 = headerRateLines(load, policy);
+    if (header0.pendingScaleTicket) {
+      pendingScaleTicketLoads.push({
+        loadId: load.id,
+        loadNumber: load.loadNumber,
+        reason: AWAITING_SCALE_TICKET_EXPLANATION,
+        outstanding: [AWAITING_SCALE_TICKET_LABEL],
+      });
+    }
+    for (const header of header0.lines) {
       lines.push({
         lineType: header.lineType,
         amount: header.amount,
@@ -513,6 +544,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     status,
     holdReason,
     withheldLoads,
+    pendingScaleTicketLoads,
     consideredLoadIds: loads.map(l => l.id),
   };
 }
