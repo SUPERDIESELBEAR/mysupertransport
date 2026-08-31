@@ -2720,3 +2720,46 @@ rather than `public, extensions`, and `enforce_osas_operator_sign` — a trigger
 function — still holds a client-role EXECUTE grant. Two further failures
 (`FacilitySelect` add action, ELD `divergence` resolution) are unrelated to
 lease terminations. None is addressed here.
+
+## LEGACY_MAX dropped 86 → 82 by fixing, not by loosening (2026-08-31)
+
+Six functions carried over from the 2026-08-30 migrations were re-pinned to
+`SET search_path TO 'public', 'extensions'`:
+`enforce_ica_contracts_operator_column_whitelist`,
+`enforce_ica_contracts_operator_update`, `enforce_osas_operator_sign`,
+`sync_dot_binder_to_vh`, `sync_dot_to_inspection_documents`,
+`sync_profile_contact_from_application`. None was added to
+`LEGACY_PUBLIC_ONLY_PINS` — that list is for legacy functions, and these were
+days old.
+
+Re-pinning made four existing entries in that list stale, so the list shrank
+86 → 82 and `LEGACY_MAX` was lowered to match. **That is a shrink from fixing,
+not a loosening.** The allowlist only ever shrinks; a number that moves upward
+is an exemption and needs an argument, a number that moves downward is one
+fewer function running unpinned.
+
+Why the removal is automatic: each allowlist entry is anchored by **migration
+file and function signature**, not by name alone. Re-authoring a function in a
+newer migration therefore breaks the anchor, the entry stops matching any live
+offender, and the guard reports it as stale on the next run. There is no way to
+re-pin a function and quietly keep its exemption — the guard forces the entry
+out.
+
+Both definer guards are green with no allowlist entry added.
+
+### Baselines restamped this day
+
+Measured with `--maxWorkers=2`, recorded verbatim in `src/test/helpers/gate.ts`
+and `src/test/README.md`:
+
+```text
+with a database:     Test Files  2 failed | 122 passed | 1 skipped (125)
+                          Tests  2 failed | 970 passed | 14 skipped (986)
+
+without a database:  Test Files  2 failed | 113 passed | 10 skipped (125)
+                          Tests  2 failed | 913 passed | 63 skipped (978)
+```
+
+The two failures are the same in both shapes and are recorded, unrelated to this
+work: the `FacilitySelect` add-action RTL timeout (contention; passes alone) and
+the ELD offline divergence hold-release assertion.
