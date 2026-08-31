@@ -28,8 +28,13 @@ I will use an existing driver, park them, take the shots, then unpark them so th
 3. Pick a non-demo active driver on the dispatch board; park via the UI (not SQL) so the RPC path is exercised.
 4. Capture shots 1-2, then open the termination dialog for shots 3-4 and **cancel** both times.
 5. Find an existing terminated driver for shot 5.
-6. Unpark the test driver through the UI and verify `is_parked` is back to false.
+6. Unpark the test driver through the UI, verify `is_parked` is back to false, and query `operator_parking_events` to confirm BOTH the `parked` and `unparked` rows survive as a closed episode.
 7. Report each screenshot with the driver used and the final data state.
+
+## Audit-trail check (already answered, read-only)
+
+I read the live function definitions before writing this. `clear_operator_parked` clears the overlay columns on `operators` and then **inserts** a new `operator_parking_events` row with `action = 'unparked'` — it contains no DELETE against that table, and there is no delete trigger on it. `set_operator_parked` likewise inserts an `action = 'parked'` row. So unparking closes the episode rather than erasing it; no defect there. The table is currently empty (0 rows), so the pair created during the screenshot run will be the first two rows and I will show them in the report.
+
 
 ## Left unchanged
 
