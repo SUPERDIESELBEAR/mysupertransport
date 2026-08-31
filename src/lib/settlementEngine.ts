@@ -239,6 +239,65 @@ export function resolveEffectivePolicy(
   return loadPolicy ?? driverPolicy ?? companyPolicy ?? null;
 }
 
+/**
+ * The base money that lives in `loads` columns rather than in `load_charges`.
+ *
+ * Mirrors `recompute_load_total_value` exactly — same base by rate type, same
+ * bundled-FSC test, same tons column — so the driver-facing figure and the
+ * broker-facing total are two readings of one set of numbers. Each header
+ * becomes its OWN line so a driver sees linehaul and FSC separately.
+ */
+function headerRateLines(
+  load: SettlementLoadInput,
+  policy: PayPolicyRates | null,
+): Array<{ lineType: SettlementLineType; amount: number; description: string }> {
+  const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
+  const pctOf = (klass: keyof typeof PCT_FIELD): number | null => {
+    const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
+    return Number.isFinite(pct) ? pct : null;
+  };
+
+  if (load.loadType === 'loadout') {
+    // A $0 relocation fee pays $0. The trailer use IS the value.
+    const fee = num(load.loadoutRelocationFee);
+    const pct = pctOf('linehaul');
+    const amount = pct === null ? 0 : round2(fee * (pct / 100));
+    if (amount) {
+      out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
+    }
+    return out;
+  }
+
+  let base = 0;
+  let label = 'Linehaul';
+  switch (String(load.rateType ?? 'flat')) {
+    case 'per_mile':
+      base = num(load.ratePerMile) * num(load.loadedMiles);
+      label = 'Linehaul (per mile)';
+      break;
+    case 'per_ton':
+      base = num(load.ratePerTon) * num(load.estimatedTons);
+      label = 'Linehaul (per ton)';
+      break;
+    default:
+      base = num(load.linehaulRate);
+      break;
+  }
+  const linehaulPct = pctOf('linehaul');
+  const linehaul = linehaulPct === null ? 0 : round2(base * (linehaulPct / 100));
+  if (linehaul) out.push({ lineType: 'load_pay', amount: linehaul, description: label });
+
+  // Bundled (true OR null) means the FSC is already inside the linehaul rate.
+  const bundled = load.fscBundledIntoLinehaul ?? true;
+  if (!bundled) {
+    const fscPct = pctOf('fsc');
+    const fsc = fscPct === null ? 0 : round2(num(load.fscAmount) * (fscPct / 100));
+    if (fsc) out.push({ lineType: 'load_pay', amount: fsc, description: 'Fuel surcharge' });
+  }
+
+  return out;
+}
+
 function lineTypeForCharge(klass: keyof typeof PCT_FIELD, isReimbursement: boolean): SettlementLineType {
   if (isReimbursement) return 'reimbursement';
   return klass === 'linehaul' ? 'load_pay' : 'accessorial';
