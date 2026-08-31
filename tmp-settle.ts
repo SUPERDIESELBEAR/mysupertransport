@@ -1,7 +1,7 @@
 /* TEMPORARY settlement harness — deleted at the end of this run. */
 import { execFileSync } from 'node:child_process';
 import { computeSettlement, type SettlementLoadInput } from '@/lib/settlementEngine';
-import { DEFAULT_SETTLEMENT_SETTINGS } from '@/lib/settlementConfig';
+import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
 
 const q = (sql: string) => {
   const out = execFileSync('psql', ['-t', '-A', '-c', sql], { encoding: 'utf8' }).trim();
@@ -12,7 +12,7 @@ const PRATT = 'f2051752-5311-4c1f-b88c-79773e7ed9e5';
 const loadNumbers = process.argv.slice(2);
 if (!loadNumbers.length) throw new Error('pass load numbers');
 
-const settings = q(`select row_to_json(s) from settlement_settings s limit 1`) ?? DEFAULT_SETTLEMENT_SETTINGS;
+const settings = q(`select row_to_json(s) from settlement_settings s limit 1`) ?? SETTLEMENT_SETTINGS_DEFAULTS;
 const companyPolicy = q(`select row_to_json(p) from pay_policies p where is_company_default limit 1`);
 const rows = q(`select coalesce(json_agg(x),'[]') from (
   select l.id, l.load_number, l.load_type, l.rate_type, l.delivered_at,
