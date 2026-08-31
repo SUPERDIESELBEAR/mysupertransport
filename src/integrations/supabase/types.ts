@@ -3671,6 +3671,47 @@ export type Database = {
           },
         ]
       }
+      equipment_serial_conflict_dismissals: {
+        Row: {
+          conflict_key: string
+          created_at: string
+          device_type: string
+          dismissed_at: string
+          dismissed_by: string | null
+          id: string
+          item_ids: string[]
+          serial_snapshot: string[]
+        }
+        Insert: {
+          conflict_key: string
+          created_at?: string
+          device_type: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_ids: string[]
+          serial_snapshot: string[]
+        }
+        Update: {
+          conflict_key?: string
+          created_at?: string
+          device_type?: string
+          dismissed_at?: string
+          dismissed_by?: string | null
+          id?: string
+          item_ids?: string[]
+          serial_snapshot?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_serial_conflict_dismissals_dismissed_by_fkey"
+            columns: ["dismissed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           access_notes: string | null
