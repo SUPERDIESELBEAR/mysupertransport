@@ -3003,8 +3003,8 @@ pinned.
 ### Baselines restamped this day — both shapes fully green
 
 ```text
-with a database:     Test Files  125 passed | 2 skipped (127)
-                          Tests  1013 passed | 15 skipped (1028)
+with a database:     Test Files  126 passed | 2 skipped (128)
+                          Tests  1041 passed | 15 skipped (1056)
 
 without a database:  Test Files  116 passed | 11 skipped (127)
                           Tests  943 passed | 77 skipped (1020)
@@ -3198,3 +3198,71 @@ it. A short check discovered on payday is the failure mode this avoids.
 
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
+
+---
+
+## Module 4, Pass 2 — the settlement engine (2026-09-01)
+
+`src/lib/settlementEngine.ts` computes a settlement and returns it. It is
+**pure**: no supabase client, no React, no queries. Everything it needs arrives
+as arguments, so the arithmetic is testable without a database and the RPC that
+persists a settlement stays a thin layer over it. There is no driver-facing view
+in this pass.
+
+### Rules are read, not restated
+
+Every rule comes from the authoritative record above. The engine hardcodes
+nothing the record calls configuration:
+
+- percentages and pay classes from the pay policy in force, resolved
+  **company default → driver-specific → load-specific, nearest wins**
+  (`resolveEffectivePolicy`);
+- the minimum net pay, hold buffer, equipment value, R&M target and weekly
+  figure from `settlement_settings`, passed in as `settings`;
+- the per-load paperwork predicate from `evaluateLoadPaperwork` — the engine
+  never re-derives what a load owes;
+- pay classes from `payClassOf`, so a reimbursement pays **actual cost** to
+  whoever funded it and a `funding_source` that is not the driver pays nothing.
+
+### Period attribution lives in one place
+
+`src/lib/settlementPeriod.ts`. A load belongs to the period it **delivered** in,
+read in the **carrier timezone** through `isoToNaive` — never `new Date(v)`
+against the runtime's zone. A load delivering 11pm Tuesday Pacific is Wednesday
+Central and settles the following week; that case is pinned in the tests. Payday
+is `periodEnd + 14 days`.
+
+### Every amount is a line item
+
+The net is the sum of the lines and there is no second path to it — a test pins
+that. Each line carries its type, a signed amount, a description and the row it
+came from, so a driver can reconcile against his own records rather than accept
+a total with a note.
+
+### The fuel discount is never netted
+
+`fuel_transactions.total_amount` is already net of the negative discount, so the
+engine takes the **gross** as its input and deducts that. With
+`fuel_discount_passthrough` on, the discount is credited as its **own positive
+line**; with it off the driver is deducted the same gross and sees nothing about
+the discount, which stays company margin. The deduction figure does not change
+between the two — only whether the credit appears.
+
+### Withheld loads, not withheld settlements
+
+A load whose paperwork is incomplete is excluded from the settlement as a
+**line-item exclusion** with a stated reason and the outstanding labels; the
+rest of the settlement pays. A deliberate release lets it through and the
+release reason is written onto the line itself.
+
+### Status precedence — OPEN
+
+The engine evaluates **held before below_threshold**: a departing driver whose
+coverage falls under the buffer is `held` even when the net is also under the
+minimum. The record defines the two states independently and does not say which
+wins when both are true. The choice is isolated to one branch and is recorded
+here so it can be corrected by decision rather than discovered by a driver.
+
+| # | Open question |
+|---|---|
+| 4.2 | When a settlement is both `held` and under the minimum, which status is recorded? Engine currently answers `held`. |

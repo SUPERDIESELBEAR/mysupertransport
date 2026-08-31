@@ -29,8 +29,8 @@
  *   — it is not a shape.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     Test Files  125 passed | 2 skipped (127)
- *          Tests  1013 passed | 15 skipped (1028)
+ *     Test Files  126 passed | 2 skipped (128)
+ *          Tests  1041 passed | 15 skipped (1056)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
