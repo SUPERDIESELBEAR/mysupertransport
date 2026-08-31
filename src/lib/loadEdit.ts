@@ -87,6 +87,8 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     charges: data.charges
       .filter(c => !c.load_stop_id)
       .map(c => ({
+        // Identity travels through the form so the save path can diff.
+        id: text(c.id),
         charge_type: text(c.charge_type) || 'other',
         description: text(c.description),
         amount: text(c.amount),

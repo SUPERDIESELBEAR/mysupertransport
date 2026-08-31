@@ -975,26 +975,54 @@ export function createPgFake(): PgFake {
           else insertRows('load_stops', { load_id: loadId, ...patch }, 'stop');
         });
 
-        for (let i = tables.load_charges.length - 1; i >= 0; i -= 1) {
-          if (tables.load_charges[i].load_id === loadId) tables.load_charges.splice(i, 1);
-        }
+        // Charges are diffed, not replaced — mirrors the RPC. A surviving row
+        // keeps its id, created_at and created_by.
         const seq = tables.load_stops
           .filter(s => s.load_id === loadId)
           .sort((a, b) => Number(a.stop_sequence) - Number(b.stop_sequence));
+        const keptCharges: string[] = [];
         chargesIn.forEach(c => {
           const at = txt(c.stop_index) === null ? null : Number(c.stop_index);
-          insertRows('load_charges', {
-            load_id: loadId,
-            load_stop_id: at !== null && seq[at] ? seq[at].id : null,
-            charge_type: txt(c.charge_type) ?? 'other',
+          const stopId = at !== null && seq[at] ? (seq[at].id as string) : null;
+          const type = txt(c.charge_type) ?? 'other';
+          const patch = {
+            load_stop_id: stopId,
+            charge_type: type,
             description: txt(c.description),
             amount: numOrNull(c.amount) ?? 0,
             source: txt(c.source) ?? 'manual',
             funding_source: txt(c.funding_source),
             actual_cost: numOrNull(c.actual_cost),
             proof_document_id: txt(c.proof_document_id),
-          }, 'charge');
+          };
+          let existing = txt(c.id)
+            ? tables.load_charges.find(
+                x => x.id === txt(c.id) && x.load_id === loadId && !keptCharges.includes(x.id as string),
+              )
+            : null;
+          if (!existing && stopId) {
+            existing = tables.load_charges.find(
+              x => x.load_id === loadId && x.load_stop_id === stopId && x.charge_type === type
+                && !keptCharges.includes(x.id as string),
+            ) ?? null;
+          }
+          if (existing) {
+            Object.assign(existing, patch, { updated_by: actor });
+            keptCharges.push(existing.id as string);
+          } else {
+            const row = insertRows('load_charges', {
+              load_id: loadId, created_by: actor, updated_by: actor, ...patch,
+            }, 'charge')[0];
+            keptCharges.push(row.id as string);
+          }
         });
+        for (let i = tables.load_charges.length - 1; i >= 0; i -= 1) {
+          const c = tables.load_charges[i];
+          if (c.load_id === loadId && !keptCharges.includes(c.id as string)) {
+            tables.load_charges.splice(i, 1);
+          }
+        }
+
 
 
         changes.forEach(c => {
