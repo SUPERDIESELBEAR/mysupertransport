@@ -3004,10 +3004,10 @@ pinned.
 
 ```text
 with a database:     Test Files  126 passed | 2 skipped (128)
-                          Tests  1041 passed | 15 skipped (1056)
+                          Tests  1042 passed | 15 skipped (1057)
 
-without a database:  Test Files  116 passed | 11 skipped (127)
-                          Tests  943 passed | 77 skipped (1020)
+without a database:  Test Files  117 passed | 11 skipped (128)
+                          Tests  972 passed | 77 skipped (1049)
 ```
 
 No expected failures remain in either shape. From here, any red in the
