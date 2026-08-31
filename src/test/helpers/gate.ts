@@ -17,8 +17,7 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-31 (after the FacilitySelect
- * quarantine). There are exactly two shapes, and BOTH ARE FULLY GREEN: there
+ * EXPECTED BASELINES — measured 2026-08-31 (after the claim-hold pass). There are exactly two shapes, and BOTH ARE FULLY GREEN: there
  * are no expected failures any more. A total that matches neither shape is a
  * signal, not a question: something started or stopped running, and the run
  * should be read before it is trusted. Any red is real.
@@ -29,8 +28,8 @@
  *   — it is not a shape.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     Test Files  130 passed | 2 skipped (132)
- *          Tests  1087 passed | 15 skipped (1102)
+ *     Test Files  131 passed | 2 skipped (133)
+ *          Tests  1095 passed | 15 skipped (1110)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -55,8 +54,8 @@
  *           The component is untouched; unskip when the tooling is pinned.
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
- *     Test Files  121 passed | 11 skipped (132)
- *          Tests  1017 passed | 77 skipped (1094)
+ *     Test Files  122 passed | 11 skipped (133)
+ *          Tests  1024 passed | 78 skipped (1102)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

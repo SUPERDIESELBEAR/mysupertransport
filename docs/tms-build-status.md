@@ -3065,11 +3065,11 @@ pinned.
 ### Baselines restamped this day — both shapes fully green
 
 ```text
-with a database:     Test Files  130 passed | 2 skipped (132)
-                          Tests  1087 passed | 15 skipped (1102)
+with a database:     Test Files  131 passed | 2 skipped (133)
+                          Tests  1095 passed | 15 skipped (1110)
 
-without a database:  Test Files  121 passed | 11 skipped (132)
-                          Tests  1017 passed | 77 skipped (1094)
+without a database:  Test Files  122 passed | 11 skipped (133)
+                          Tests  1024 passed | 78 skipped (1102)
 ```
 
 No expected failures remain in either shape. From here, any red in the
