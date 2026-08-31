@@ -3373,3 +3373,33 @@ Adding a column without `introducedColumns` is a defect, whether or not anyone
 notices: the change ships green and reaches nobody who already customised the
 list. This applies to every list using saved view preferences — Loads, Dispatch,
 operators, equipment, and any list added later — not just Loads.
+
+## Module 4, Pass 2b — a way to enter a charge (2026-08-31)
+
+`load_charges` had three producers and all three needed a document or a stop, so
+detention, lumper and layover — which arise DURING a load — had readers, pay
+classes and claim records but no creator. The table was empty across every load.
+
+Entry does NOT go through `update_load_with_stops`. That RPC deletes every
+charge on the load and re-inserts the array it is handed, which re-keys the
+survivors and would break `detention_claims.resulting_charge_id` and any proof
+document already pointing at a charge. Three narrow RPCs write one row each:
+
+- `add_load_charge`, `update_load_charge`, `delete_load_charge` — SECURITY
+  DEFINER, dispatcher/management/owner checked in the body, `authenticated`
+  EXECUTE only. Registered in the definer catalog (max now 109).
+- A reason is REQUIRED on every one, and every create, edit and remove writes a
+  `load_change_history` row with the server-resolved actor. `total_load_value`
+  is recomputed from the headers plus the charge set, with its own history row.
+- `assert_charge_entry_allowed` refuses a load in `invoiced`, `factored`,
+  `paid`, `settled` or `closed`. That money is fixed; a late accessorial belongs
+  in the adjustment path (`-A1`) and a later settlement.
+- Header rate figures — `linehaul_rate`, `fsc_amount`, `rate_per_ton`,
+  `loadout_relocation_fee` — are never touched by charge entry, and a test pins
+  that.
+
+Detention is never computed by the UI. A resolved claim can create its charge in
+the same action that resolves it (`resolved_revision` → "Create the detention
+charge from this claim and link it"), which is deliberate and offered only where
+no charge is linked yet: one revised rate con carries one detention line while a
+load may hold several claims, so nothing matches them automatically.
