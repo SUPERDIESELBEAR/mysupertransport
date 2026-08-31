@@ -159,7 +159,7 @@ describe('resolution', () => {
     await seedCache(day('d1'), true);
     await cacheKeyedDay(withOverrides('d1', { total_on_duty_minutes: 1 }), 'A Driver');
     expect(await divergenceHeldDates(new Date('2026-08-05T00:00:00Z'))).toContain(DATE);
-    expect(await divergenceHeldDates(new Date('2026-09-30T00:00:00Z'))).not.toContain(DATE);
+    expect(await divergenceHeldDates(new Date('2027-01-01T00:00:00Z'))).not.toContain(DATE);
 
     await acknowledgeDivergence(DATE, { source: 'driver', actor: 'A Driver', reason: 'contacted' });
     const row = await roadsideDb.rods_divergences.get(DATE);

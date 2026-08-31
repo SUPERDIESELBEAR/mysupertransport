@@ -37,16 +37,18 @@ Note also that `bun run test:guards` is a nine-file subset. It is not a shape
 and must never be reported as one.
 
 Both shapes carry the same two known failures, recorded and unrelated to the
-gates: `FacilitySelect > keeps the add action reachable after typing a query
-with no matches` (5s RTL timeout under contention; passes alone) and
-`eld/offline divergence > holds bytes while open, releases the hold after 30
-days`.
+gate: `FacilitySelect > keeps the add action reachable after typing a query
+with no matches` — an RTL/userEvent timeout that no longer passes alone either
+(≈40s against cmdk before the 5s limit trips). Tooling drift, already logged as
+KNOWN DEBT; the component is untouched. The ELD offline divergence failure is
+gone: its release date sat exactly on the 30-day cutoff, so real time walked
+into it, and the assertion now uses a date clearly past the hold.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  2 failed | 123 passed | 1 skipped (126)
-     Tests  2 failed | 998 passed | 14 skipped (1014)
+Test Files  1 failed | 125 passed | 1 skipped (127)
+     Tests  1 failed | 1013 passed | 14 skipped (1028)
 
 
 skipped:
@@ -69,8 +71,8 @@ skipped:
 
 
 ```text
-Test Files  2 failed | 114 passed | 10 skipped (126)
-     Tests  2 failed | 934 passed | 70 skipped (1006)
+Test Files  1 failed | 116 passed | 10 skipped (127)
+     Tests  1 failed | 943 passed | 76 skipped (1020)
 
 
 skipped: the above, plus

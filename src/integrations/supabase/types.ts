@@ -3607,6 +3607,67 @@ export type Database = {
           },
         ]
       }
+      equipment_return_confirmations: {
+        Row: {
+          confirmed_at: string
+          confirmed_by: string | null
+          created_at: string
+          id: string
+          note: string | null
+          operator_id: string
+          reversal_reason: string | null
+          reversed_at: string | null
+          reversed_by: string | null
+          updated_at: string
+        }
+        Insert: {
+          confirmed_at?: string
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          operator_id: string
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          updated_at?: string
+        }
+        Update: {
+          confirmed_at?: string
+          confirmed_by?: string | null
+          created_at?: string
+          id?: string
+          note?: string | null
+          operator_id?: string
+          reversal_reason?: string | null
+          reversed_at?: string | null
+          reversed_by?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_return_confirmations_confirmed_by_fkey"
+            columns: ["confirmed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_confirmations_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "equipment_return_confirmations_reversed_by_fkey"
+            columns: ["reversed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facilities: {
         Row: {
           access_notes: string | null
@@ -10349,6 +10410,10 @@ export type Database = {
         Args: { days: number; window_days: number }
         Returns: string
       }
+      confirm_equipment_returned: {
+        Args: { _note?: string; _operator_id: string }
+        Returns: string
+      }
       consume_application_resume_token: {
         Args: { p_token: string }
         Returns: {
@@ -10395,6 +10460,10 @@ export type Database = {
       enqueue_email: {
         Args: { payload: Json; queue_name: string }
         Returns: number
+      }
+      equipment_outstanding: {
+        Args: { _operator_id: string }
+        Returns: boolean
       }
       file_load_references: {
         Args: {
@@ -11063,6 +11132,10 @@ export type Database = {
       restore_applicant_pei: {
         Args: { _application_id: string }
         Returns: undefined
+      }
+      reverse_equipment_return_confirmation: {
+        Args: { _operator_id: string; _reason: string }
+        Returns: string
       }
       revoke_share_token: { Args: { p_token: string }; Returns: boolean }
       save_application_draft: {

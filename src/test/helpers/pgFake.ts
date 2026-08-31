@@ -37,6 +37,7 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   parser_diagnostics: ['created_by', 'resolved_by'],
   operator_parking_events: ['changed_by'],
   operator_departing_events: ['changed_by'],
+  equipment_return_confirmations: ['confirmed_by', 'reversed_by'],
   lease_terminations: ['voided_by'],
   settlements: ['created_by', 'updated_by', 'hold_released_by', 'below_threshold_authorized_by'],
   settlement_line_items: ['created_by'],
@@ -286,6 +287,7 @@ export function createPgFake(): PgFake {
     detention_claims: [],
     operators: [],
     operator_departing_events: [],
+    equipment_return_confirmations: [],
     settlements: [],
     settlement_line_items: [],
     settlement_settings: [],
@@ -436,6 +438,39 @@ export function createPgFake(): PgFake {
           changed_at: new Date().toISOString(),
         }, 'dep')[0];
         return { data: ev.id, error: null };
+      }
+
+      if (fn === 'confirm_equipment_returned' || fn === 'reverse_equipment_return_confirmation') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error(`${fn} is not in the migration set`);
+        const actor = actorValue(classifyActorExpression('_actor', body));
+        const op = tables.operators.find(o => o.id === args._operator_id);
+        if (!op) throw new Error('Operator not found');
+        const openRow = tables.equipment_return_confirmations.find(
+          r => r.operator_id === op.id && !r.reversed_at,
+        );
+        if (fn === 'confirm_equipment_returned') {
+          if (openRow) return { data: openRow.id, error: null };
+          const row = insertRows('equipment_return_confirmations', {
+            operator_id: op.id,
+            confirmed_at: new Date().toISOString(),
+            confirmed_by: actor,
+            note: ((args._note as string) ?? '').trim() || null,
+            reversed_at: null,
+            reversed_by: null,
+            reversal_reason: null,
+          }, 'erc')[0];
+          return { data: row.id, error: null };
+        }
+        const reason = ((args._reason as string) ?? '').trim();
+        if (!reason) throw new Error('A reason is required to reverse a confirmation');
+        if (!openRow) throw new Error('No open equipment receipt confirmation for this operator');
+        Object.assign(openRow, {
+          reversed_at: new Date().toISOString(),
+          reversed_by: actor,
+          reversal_reason: reason,
+        });
+        return { data: openRow.id, error: null };
       }
 
       if (fn === 'log_parser_diagnostics') {
