@@ -2887,3 +2887,22 @@ This pass does not close that gap. Until it is closed, `equipment_outstanding`
 must be treated as staff-asserted, and a hold released on the strength of a
 tracking number is a judgement call, not a fact.
 
+### Two guards moved with this pass
+
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` rose 98 → 102. The four additions are
+`set_operator_departing`, `clear_operator_departing`,
+`authorize_below_threshold_payment` and `release_settlement_hold` — all four are
+staff RPCs called from the app, each role-checked in its own body, so
+`authenticated` EXECUTE is the only call path and a driver gets a raised
+exception rather than a silent success. This is a growth, and growth in that
+list is always worth reading twice.
+
+The grant-parity linter had a real bug, found by this migration. Its GRANT
+regex used `[\s\S]*?`, so on a file containing
+`GRANT EXECUTE ON FUNCTION f(uuid, text) TO authenticated;` the parenthesised
+signature failed the table pattern, the engine backtracked across the statement
+boundary, and the NEXT table grant was consumed along with it — hiding a grant
+that was actually present. Narrowed to `[^;]*?`, since a GRANT never spans a
+statement. The lesson: a linter that reports a table as ungranted may be
+mis-parsing a neighbouring statement, so read the file before adding a grant
+that is already there.
