@@ -62,7 +62,7 @@ const result = computeSettlement({
   rmDeposit: rm as any,
 });
 
-console.log('\nPERIOD', result.period.start_date, '->', result.period.end_date, '(anchor', anchor + ')');
+console.log('\nPERIOD', result.period.periodStart, '->', result.period.periodEnd, 'payday', result.period.payday, '(anchor', anchor + ')');
 console.log('LINES');
 for (const l of result.lines) console.log(`  ${l.lineType.padEnd(12)} ${String(l.amount).padStart(10)}  ${l.description}`);
 console.log('GROSS', result.grossAmount, 'DEDUCTIONS', result.deductionsAmount, 'NET', result.netAmount);
