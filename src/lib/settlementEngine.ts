@@ -279,6 +279,16 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
       ? ` (released${load.paperworkReleaseReason ? `: ${load.paperworkReleaseReason}` : ''})`
       : '';
 
+    for (const header of headerRateLines(load, policy)) {
+      lines.push({
+        lineType: header.lineType,
+        amount: header.amount,
+        description: `Load ${load.loadNumber} — ${header.description}${releaseNote}`,
+        sourceTable: 'loads',
+        sourceId: load.id,
+      });
+    }
+
     for (const charge of load.charges) {
       const klass = chargeClassification(charge.charge_type);
 
