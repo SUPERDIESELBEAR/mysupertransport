@@ -5471,6 +5471,10 @@ export type Database = {
           created_by: string | null
           deadhead_miles: number | null
           delivered_at: string | null
+          delivered_at_by: string | null
+          delivered_at_source:
+            | Database["public"]["Enums"]["delivered_at_source"]
+            | null
           detention_clock_start:
             | Database["public"]["Enums"]["detention_clock_start"]
             | null
@@ -5547,6 +5551,10 @@ export type Database = {
           created_by?: string | null
           deadhead_miles?: number | null
           delivered_at?: string | null
+          delivered_at_by?: string | null
+          delivered_at_source?:
+            | Database["public"]["Enums"]["delivered_at_source"]
+            | null
           detention_clock_start?:
             | Database["public"]["Enums"]["detention_clock_start"]
             | null
@@ -5623,6 +5631,10 @@ export type Database = {
           created_by?: string | null
           deadhead_miles?: number | null
           delivered_at?: string | null
+          delivered_at_by?: string | null
+          delivered_at_source?:
+            | Database["public"]["Enums"]["delivered_at_source"]
+            | null
           detention_clock_start?:
             | Database["public"]["Enums"]["detention_clock_start"]
             | null
@@ -5698,6 +5710,13 @@ export type Database = {
           {
             foreignKeyName: "loads_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_delivered_at_by_fkey"
+            columns: ["delivered_at_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
@@ -11249,6 +11268,10 @@ export type Database = {
         Args: { _go_live_date: string; _operator_id: string; _reason?: string }
         Returns: undefined
       }
+      set_load_delivered_at: {
+        Args: { p_delivered_at: string; p_load_id: string }
+        Returns: undefined
+      }
       set_load_verbatim_verification: {
         Args: { p_load_id: string; p_records: Json }
         Returns: undefined
@@ -11415,6 +11438,7 @@ export type Database = {
         | "home"
         | "truck_down"
         | "not_dispatched"
+      delivered_at_source: "stop_departure" | "dispatcher_entry"
       detention_claim_status:
         | "open"
         | "notified"
@@ -11779,6 +11803,7 @@ export const Constants = {
         "truck_down",
         "not_dispatched",
       ],
+      delivered_at_source: ["stop_departure", "dispatcher_entry"],
       detention_claim_status: [
         "open",
         "notified",

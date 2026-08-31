@@ -33,7 +33,7 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   load_references: ['created_by'],
   load_status_history: ['changed_by'],
   load_stops: ['arrival_recorded_by', 'departure_recorded_by'],
-  loads: ['created_by', 'updated_by', 'dispatcher_id'],
+  loads: ['created_by', 'updated_by', 'dispatcher_id', 'delivered_at_by'],
   parser_diagnostics: ['created_by', 'resolved_by'],
   operator_parking_events: ['changed_by'],
   operator_departing_events: ['changed_by'],
@@ -397,6 +397,54 @@ export function createPgFake(): PgFake {
     return next;
   };
 
+  /**
+   * `stamp_load_delivered_at` + `derive_load_delivered_at`, mirrored.
+   *
+   * The instant comes from the LAST delivery stop's departure; source and
+   * actor are stamped by the database, never by the caller. The actor is read
+   * out of the trigger's own SQL, so a trigger that switched to `auth.uid()`
+   * would stamp the auth uid here too and fail the foreign key exactly as
+   * Postgres would.
+   */
+  const deliveredActor = (): unknown => {
+    const body = (functionBody('stamp_load_delivered_at') ?? stagedMigrationSql())
+      .replace(/NEW\./gi, '');
+    const expr = Array.from(body.matchAll(/delivered_at_by\s*:=\s*([^;]+);/gi))
+      .map(m => m[1].trim())
+      .find(e => e.toLowerCase() !== 'null') ?? 'unknown';
+    return actorValue(classifyActorExpression(expr, body));
+  };
+
+  const setDeliveredAt = (loadId: string, iso: string | null, source: string) => {
+    const load = tables.loads.find(l => l.id === loadId);
+    if (!load) return;
+    if ((load.delivered_at ?? null) === (iso ?? null)) return;
+    const next: Row = iso == null
+      ? { ...load, delivered_at: null, delivered_at_source: null, delivered_at_by: null }
+      : { ...load, delivered_at: iso, delivered_at_source: source, delivered_at_by: deliveredActor() };
+    enforce('loads', next);
+    Object.assign(load, next);
+  };
+
+  const deriveDelivered = (loadId: string | null | undefined) => {
+    if (!loadId) return;
+    const load = tables.loads.find(l => l.id === loadId);
+    if (!load) return;
+    const last = tables.load_stops
+      .filter(s => s.load_id === loadId && s.stop_type === 'delivery')
+      .sort((a, b) => Number(a.stop_sequence ?? 0) - Number(b.stop_sequence ?? 0))
+      .slice(-1)[0];
+    const departure = (last?.actual_departure_at as string | null | undefined) ?? null;
+    if (departure == null) {
+      // A dispatcher's hand-entered instant is never wiped by a stop edit.
+      if (load.delivered_at != null && load.delivered_at_source === 'stop_departure') {
+        setDeliveredAt(loadId, null, 'stop_departure');
+      }
+      return;
+    }
+    setDeliveredAt(loadId, departure, 'stop_departure');
+  };
+
   const insertRows = (table: string, payload: Row | Row[], idPrefix = 'row') => {
     const list = Array.isArray(payload) ? payload : [payload];
     const written: Row[] = [];
@@ -407,6 +455,9 @@ export function createPgFake(): PgFake {
       tables[table].push(row);
       written.push(row);
     });
+    if (table === 'load_stops') {
+      Array.from(new Set(written.map(r => r.load_id as string))).forEach(deriveDelivered);
+    }
     return written;
   };
 
@@ -471,6 +522,17 @@ export function createPgFake(): PgFake {
           reversal_reason: reason,
         });
         return { data: openRow.id, error: null };
+      }
+
+      if (fn === 'set_load_delivered_at') {
+        const load = tables.loads.find(l => l.id === args.p_load_id);
+        if (!load) throw new Error('Load not found');
+        setDeliveredAt(
+          args.p_load_id as string,
+          (args.p_delivered_at as string | null) ?? null,
+          'dispatcher_entry',
+        );
+        return { data: null, error: null };
       }
 
       if (fn === 'log_parser_diagnostics') {
@@ -893,6 +955,7 @@ export function createPgFake(): PgFake {
                     : merged;
                   enforce(table, next);
                   Object.keys(next).forEach(k => { r[k] = next[k]; });
+                  if (table === 'load_stops') deriveDelivered(r.load_id as string);
                 });
                 void self;
                 return Promise.resolve({ data: null, error: null });

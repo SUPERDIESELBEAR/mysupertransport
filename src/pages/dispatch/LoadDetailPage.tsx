@@ -16,6 +16,7 @@ import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import LoadChargesCard from '@/components/dispatch/loadDetail/LoadChargesCard';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
+import DeliveryInstantCard from '@/components/dispatch/loadDetail/DeliveryInstantCard';
 import DetentionSection from '@/components/dispatch/loadDetail/DetentionSection';
 import { readDetentionTerms } from '@/lib/detentionTerms';
 import DocumentsSection from '@/components/dispatch/loadDetail/DocumentsSection';
@@ -202,6 +203,15 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
       <SectionErrorBoundary name="Flags">
         <FlagsBlock load={load} />
       </SectionErrorBoundary>
+      {isStaff ? (
+        <SectionErrorBoundary name="Delivery instant">
+          <DeliveryInstantCard
+            load={load}
+            canEdit={canChangeStatus}
+            onSaved={() => { void refetch(); }}
+          />
+        </SectionErrorBoundary>
+      ) : null}
       <SectionErrorBoundary name="Stops">
         <StopsTimeline stops={load.stops} onStopTimesSaved={() => { void refetch(); }} />
       </SectionErrorBoundary>

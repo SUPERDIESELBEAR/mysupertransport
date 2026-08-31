@@ -1,4 +1,10 @@
 import type { ReactNode } from 'react';
+import { AlertTriangle } from 'lucide-react';
+import {
+  isDeliveryInstantMissing,
+  MISSING_DELIVERY_INSTANT_EXPLANATION,
+  MISSING_DELIVERY_INSTANT_LABEL,
+} from '@/lib/deliveryInstant';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import {
@@ -34,6 +40,8 @@ export interface LoadRow {
   destinationState: string | null;
   pickupDate: string | null;
   deliveryDate: string | null;
+  /** The settlement-bearing delivery instant, or null when never recorded. */
+  delivered_at: string | null;
   /** Active claim summary, if the load has at least one active claim. */
   activeClaim: ActiveClaimSummary | null;
 }
@@ -210,6 +218,28 @@ export const LOAD_COLUMNS: LoadColumnDef[] = [
     sortValue: l => l.weight_lbs,
     render: l => (l.weight_lbs === null || l.weight_lbs === undefined ? '—' : `${formatNumber(l.weight_lbs)} lbs`),
     cellClassName: 'text-right tabular-nums text-muted-foreground',
+  },
+  {
+    key: 'delivered',
+    label: 'Delivered',
+    defaultVisible: true,
+    align: 'right',
+    serverField: 'delivered_at',
+    sortValue: l => l.delivered_at,
+    render: l => (l.delivered_at
+      ? formatShortDate(l.delivered_at)
+      : isDeliveryInstantMissing(l)
+        ? (
+          <span
+            className="inline-flex items-center gap-1 text-warning"
+            title={MISSING_DELIVERY_INSTANT_EXPLANATION}
+          >
+            <AlertTriangle className="h-3.5 w-3.5" />
+            {MISSING_DELIVERY_INSTANT_LABEL}
+          </span>
+        )
+        : '—'),
+    cellClassName: 'text-right text-muted-foreground whitespace-nowrap',
   },
   {
     key: 'load_type',
