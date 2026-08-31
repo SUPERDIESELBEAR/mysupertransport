@@ -2892,20 +2892,66 @@ This pass does not close that gap. Until it is closed, `equipment_outstanding`
 must be treated as staff-asserted, and a hold released on the strength of a
 tracking number is a judgement call, not a fact.
 
-### LIVE GAP — HOLD claim flag does not stop settlement
+### CLOSED (was LIVE GAP) — HOLD claim flag now stops settlement
 
-The rule "HOLD — stop settlement, engine auto-skips" is documented but
+The rule "HOLD — stop settlement, engine auto-skips" was documented but
 unimplemented in the settlement path. `computeSettlement` in
-`src/lib/settlementEngine.ts` contains no reference to `claim_flags`; the only
-readers of an active HOLD flag are `DispatchBoardPage`, `LoadsListPage` and
+`src/lib/settlementEngine.ts` contained no reference to `claim_flags`; the only
+readers of an active HOLD flag were `DispatchBoardPage`, `LoadsListPage` and
 `loadDetail.ts`. A load with an active damaged-goods HOLD (ST-TEST-005) settled
 at $1,350.00 as if the flag were not present.
 
-This is the third rule found this week that is enforced in one layer while
-assumed structural: `pay_policies` was UI-only until the operator grant was
-revoked, look-alike serials lived only in a trigger, and now HOLD claim flags
-are surfaced in dispatch views but absent from the engine. The gap is recorded;
-fixing it is a separate pass.
+**The fix (Module 4, Pass 2b).** `SettlementLoadInput.claims` carries the load's
+`claim_flags` rows into the engine UNFILTERED, and the engine decides — the rule
+lives in one place, and a gathering layer that pre-filters cannot silently
+disagree with it. `isSettlementBlockingClaim` is the whole predicate:
+`flag_level = 'hold' AND is_active AND resolved_at IS NULL`. WATCH never
+excludes. Exclusion is at the LOAD level, exactly like the paperwork hold: the
+rest of the driver's week settles and the held load waits for a later period.
+
+**Both reasons, not one.** `WithheldLoad.reasons` is now a list of
+`{ code, message, outstanding }` — `'paperwork'` and `'claim_hold'` are
+independent, and a load short a POD *and* under a claim reports both. "Missing
+your POD" and "under review" are different answers to the same driver question.
+
+**Driver wording is fixed and neutral:** `CLAIM_HOLD_DRIVER_MESSAGE` —
+"One of your loads is under review." No claim type, no amount, no counterparty.
+
+**NO DELIBERATE RELEASE, deliberately.** The paperwork hold has one because it
+is administrative: the money is not in dispute, only the file is. A claim hold
+is a dispute about the load itself, and the honest way out is to resolve or
+clear the claim, which the existing claim workflow already does and audits. A
+release switch would let one click pay a disputed load while the claim record
+still says it is disputed — two systems of record disagreeing about the same
+money. A paperwork release therefore does NOT release a claim hold; there is a
+test for that.
+
+**`is_active` + `flag_level` is *nearly* sufficient.** The engine also requires
+`resolved_at IS NULL`. `is_active` and `resolved_at` are set by the same
+workflow and should always agree, so this changes nothing today — but if they
+ever drift, the safe reading of a resolved-yet-active row is "not a hold," and
+the engine states that rather than inheriting a data fault.
+
+**Third reader audit.** Grep of `claim_flags` across `src/` finds exactly three
+production readers besides the engine: `DispatchBoardPage`, `LoadsListPage` and
+`loadDetail.ts`, all display-only and all correct. `summarizeActiveClaims`
+already collapses to hold-wins severity. No other documented rule reads
+`claim_flags` and fails to implement it — but the driver-facing side of this
+rule has no surface yet: nothing in the operator portal shows the neutral
+message, because settlements are not surfaced to drivers until Pass 3. The
+string lives in the engine so there is one wording when that view is built.
+
+This was the third rule found in one week enforced in one layer while assumed
+structural: `pay_policies` was UI-only until the operator grant was revoked,
+look-alike serials lived only in a trigger, and HOLD claim flags were surfaced
+in dispatch views but absent from the engine.
+
+**Verification — Case 5 re-run (Pratt, week Wed 12 – Tue 18 Aug 2026,
+payday 2026-09-01):** gross **$327.94**, from ST-TEST-003 alone
+(18.50 × 24.62 confirmed tons = 455.47 × 72%). ST-TEST-005 is withheld for its
+active damaged-goods HOLD even with its paperwork hold released — previously it
+paid $1,350.00 and the week totalled $1,677.94.
+
 
 ### Two guards moved with this pass
 
