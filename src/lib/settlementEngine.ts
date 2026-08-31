@@ -107,10 +107,44 @@ export interface SettlementLoadInput {
    * Management released this load into the settlement despite incomplete
    * paperwork. The hold is automatic; the release is the deliberate act
    * (section 8). Actor and reason are recorded by the persisting layer.
+   *
+   * NOTE: this releases the PAPERWORK hold only. It has no effect on a claim
+   * hold, which is a dispute about the load itself and is cleared by resolving
+   * the claim, never by overriding it.
    */
   paperworkReleased?: boolean;
   paperworkReleaseReason?: string | null;
+  /**
+   * Claims standing against this load, straight from `claim_flags`. The engine
+   * decides; the gathering layer does not pre-filter, so the rule lives in one
+   * place. A row counts only when `is_active` is true AND it is unresolved —
+   * `resolved_at` set with `is_active` left true is a data fault, not a hold.
+   * Only 'hold' excludes; 'watch' is a monitoring state and pays normally.
+   */
+  claims?: SettlementClaimInput[] | null;
 }
+
+export interface SettlementClaimInput {
+  id?: string | null;
+  /** 'watch' | 'hold' | 'cleared'. Only 'hold' excludes. */
+  flagLevel: string;
+  isActive?: boolean | null;
+  resolvedAt?: string | null;
+  claimType?: string | null;
+}
+
+/** An active, unresolved hold — the only claim state that stops money. */
+export function isSettlementBlockingClaim(claim: SettlementClaimInput): boolean {
+  return claim.flagLevel === 'hold' && claim.isActive !== false && !claim.resolvedAt;
+}
+
+/**
+ * DRIVER-FACING wording for a claim hold, fixed by the build context. A driver
+ * is never told what the dispute is, only that the load is being looked at.
+ */
+export const CLAIM_HOLD_DRIVER_MESSAGE = 'One of your loads is under review.';
+export const CLAIM_HOLD_OUTSTANDING_LABEL = 'Load under review';
+
 
 export interface SettlementFuelInput {
   id: string;
@@ -180,12 +214,29 @@ export interface SettlementComputeInput {
 /* Output                                                              */
 /* ------------------------------------------------------------------ */
 
+export type WithholdReasonCode = 'paperwork' | 'claim_hold';
+
+export interface WithholdReason {
+  code: WithholdReasonCode;
+  /** Driver-facing sentence for this one reason. */
+  message: string;
+  /** What must happen before the load pays. */
+  outstanding: string[];
+}
+
 export interface WithheldLoad {
   loadId: string;
   loadNumber: string;
   /** Shown to the driver. A short check with no explanation is the failure mode. */
   reason: string;
   outstanding: string[];
+  /**
+   * Every independent reason this load is withheld, in its own right. A load
+   * can be short a POD AND under a claim hold, and "why didn't this load pay"
+   * has two answers, not one.
+   */
+  reasons: WithholdReason[];
+
 }
 
 export interface ComputedSettlement {
@@ -344,13 +395,34 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   /* --- Loads ------------------------------------------------------- */
   for (const load of loads) {
     const paperwork = evaluateLoadPaperwork(load.loadType, load.documents, load.exceptions);
+    const reasons: WithholdReason[] = [];
+
     if (!paperwork.complete && !load.paperworkReleased) {
       const outstanding = paperwork.outstandingRequired.map(r => r.label);
+      reasons.push({
+        code: 'paperwork',
+        message: `paperwork outstanding: ${outstanding.join(', ')}.`,
+        outstanding,
+      });
+    }
+
+    // CLAIM HOLD. A dispute about the load itself; there is no release, only
+    // resolution of the claim (docs/tms-build-status.md, settlement rules).
+    if ((load.claims ?? []).some(isSettlementBlockingClaim)) {
+      reasons.push({
+        code: 'claim_hold',
+        message: CLAIM_HOLD_DRIVER_MESSAGE,
+        outstanding: [CLAIM_HOLD_OUTSTANDING_LABEL],
+      });
+    }
+
+    if (reasons.length > 0) {
       withheldLoads.push({
         loadId: load.id,
         loadNumber: load.loadNumber,
-        reason: `Withheld from this settlement — paperwork outstanding: ${outstanding.join(', ')}.`,
-        outstanding,
+        reason: `Withheld from this settlement — ${reasons.map(r => r.message).join(' ')}`,
+        outstanding: reasons.flatMap(r => r.outstanding),
+        reasons,
       });
       continue;
     }
@@ -367,8 +439,10 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         loadNumber: load.loadNumber,
         reason: AWAITING_SCALE_TICKET_EXPLANATION,
         outstanding: [AWAITING_SCALE_TICKET_LABEL],
+        reasons: [],
       });
     }
+
     for (const header of header0.lines) {
       lines.push({
         lineType: header.lineType,
