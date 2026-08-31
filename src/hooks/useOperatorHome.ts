@@ -83,7 +83,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
           ? supabase.from('load_documents').select('load_id, document_type, photo_label').in('load_id', ids)
           : Promise.resolve({ data: [] as any[] }),
         ids.length
-          ? supabase.from('document_exceptions').select('load_id, document_type, status').in('load_id', ids)
+          ? supabase.from('document_exceptions').select('load_id, document_type, status, photo_label').in('load_id', ids)
           : Promise.resolve({ data: [] as any[] }),
       ]);
 
