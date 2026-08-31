@@ -3441,5 +3441,30 @@ payload — the same pattern already used for `load_stops`. Alternatively, remov
 charges from the `update_load_with_stops` payload entirely and force all charge
 writes through the narrow `add/update/delete_load_charge` RPCs.
 
-**Do not fix now.** Recorded here so the next pass does not have to rediscover
-it; the charge-entry pass deliberately left `update_load_with_stops` untouched.
+**The fix, applied 2026-08-31.** `update_load_with_stops` now DIFFS charges
+instead of replacing them, the same pattern already used for `load_stops`:
+
+- present with an id and unchanged → the row is not touched at all (the UPDATE
+  carries an `IS DISTINCT FROM` guard, so `updated_at` does not move either);
+- present with an id and changed → UPDATE in place, same id;
+- present with no id → INSERT;
+- absent from the payload → DELETE.
+
+`id`, `created_at` and `created_by` survive on every retained row.
+
+**The payload had to change too.** `buildLoadSavePayload` emitted no charge id,
+so the client could not express "this is the same charge". `chargeSchema` now
+carries `id`, `loadEdit.ts` hydrates it off the row, and the payload emits it.
+Stop-off charges are still synthesised from the stop card and carry no id; they
+are matched by `load_stop_id` + `charge_type` so they keep their identity too.
+
+**Scope check at the time of the fix.** Stops were already diffed by id, so
+`detention_claims.load_stop_id` and stop arrival/departure provenance were never
+at risk. `load_references` is not written by this RPC at all (`saveLoadReferences`
+owns it). Snapshot key counts are unchanged at 34 + 18 — the fix adds three local
+variables and no snapshot keys, so the 100-argument ceiling is no nearer.
+
+**Pinned by** `src/lib/__tests__/chargeIdentity.test.ts`, whose first case is the
+reported defect: an unrelated field change leaves every charge id unchanged.
+Verified live on ST26035 — a detention claim's `resulting_charge_id` and the
+charge's `created_at`/`created_by` were byte-identical across a UI note edit.
