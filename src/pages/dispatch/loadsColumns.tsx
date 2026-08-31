@@ -5,6 +5,9 @@ import {
   MISSING_DELIVERY_INSTANT_EXPLANATION,
   MISSING_DELIVERY_INSTANT_LABEL,
 } from '@/lib/deliveryInstant';
+import {
+  AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL, isAwaitingScaleTicket,
+} from '@/lib/perTonScale';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import {
@@ -24,6 +27,9 @@ export interface LoadRow {
   equipment_type: EquipmentType | null;
   load_type: LoadType | null;
   linehaul_rate: number | null;
+  rate_type: string | null;
+  /** Scale-ticket tons. Null on a delivered per-ton load means it cannot pay. */
+  confirmed_tons: number | null;
   total_load_value: number | null;
   loaded_miles: number | null;
   commodity: string | null;
@@ -137,7 +143,18 @@ export const LOAD_COLUMNS: LoadColumnDef[] = [
     align: 'right',
     serverField: 'total_load_value',
     sortValue: l => l.total_load_value ?? l.linehaul_rate,
-    render: rateOf,
+    render: l => (
+      <span className="inline-flex items-center justify-end gap-1">
+        {rateOf(l)}
+        {isAwaitingScaleTicket(l) && (
+          <AlertTriangle
+            className="h-3.5 w-3.5 text-warning"
+            aria-label={AWAITING_SCALE_TICKET_LABEL}
+            title={AWAITING_SCALE_TICKET_EXPLANATION}
+          />
+        )}
+      </span>
+    ),
     cellClassName: 'text-right tabular-nums',
   },
   {

@@ -55,7 +55,7 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
   const { data, error } = await supabase
     .from('loads')
     .select(
-      'id, load_number, status, equipment_type, load_type, linehaul_rate, total_load_value, ' +
+      'id, load_number, status, equipment_type, load_type, linehaul_rate, rate_type, confirmed_tons, total_load_value, ' +
       'loaded_miles, commodity, weight_lbs, created_at, delivered_at, operator_id, dispatcher_id, ' +
       'brokers:broker_id(company_name), dispatcher:dispatcher_id(first_name, last_name), ' +
       'load_stops(stop_sequence, city, state, appointment_start)',
@@ -136,6 +136,8 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
       equipment_type: r.equipment_type as LoadRow['equipment_type'],
       load_type: r.load_type as LoadRow['load_type'],
       linehaul_rate: r.linehaul_rate as number | null,
+      rate_type: (r.rate_type as string | null) ?? null,
+      confirmed_tons: (r.confirmed_tons as number | null) ?? null,
       total_load_value: r.total_load_value as number | null,
       loaded_miles: r.loaded_miles as number | null,
       commodity: r.commodity as string | null,

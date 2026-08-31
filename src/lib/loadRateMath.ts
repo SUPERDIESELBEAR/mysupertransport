@@ -45,6 +45,8 @@ export interface RateInput {
   linehaulRate?: unknown;
   ratePerMile?: unknown;
   ratePerTon?: unknown;
+  /** Scale-ticket tons. Authoritative for per-ton when present. */
+  confirmedTons?: unknown;
   estimatedTons?: unknown;
   loadedMiles?: unknown;
   fscBundled?: boolean;
@@ -70,7 +72,13 @@ export function calcTotalLoadValue(input: RateInput): number {
       base = num(input.ratePerMile) * num(input.loadedMiles);
       break;
     case 'per_ton':
-      base = num(input.ratePerTon) * num(input.estimatedTons);
+      // Mirrors `recompute_load_total_value`: the scale ticket wins, and the
+      // estimate is only a stand-in so a load in flight is never valued at $0.
+      base = num(input.ratePerTon) * num(
+        input.confirmedTons === null || input.confirmedTons === undefined || input.confirmedTons === ''
+          ? input.estimatedTons
+          : input.confirmedTons,
+      );
       break;
     case 'flat':
     case 'percentage_of_load':
