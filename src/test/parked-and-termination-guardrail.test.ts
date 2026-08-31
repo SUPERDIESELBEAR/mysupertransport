@@ -5,6 +5,7 @@ import {
   canSubmitPark, isParked, parkedSummary, shouldRollForward, PARKED_REASONS,
 } from "@/lib/parking";
 import {
+  countActiveTerminations, isActiveTermination, isVoided, latestActiveTermination,
   looksActivelyWorking, nameMatches, TERMINATION_REASONS, terminationReasonLabel,
 } from "@/lib/leaseTermination";
 
@@ -131,17 +132,70 @@ describe("parked — live schema and standing rows", () => {
   });
 
   itLive("parking writes no lease_terminations row — the standing set is untouched", () => {
-    // 31 rows stand today (16 voluntary, 12 cause, 3 mutual), including the
-    // nine written in the three-week window under investigation. This pass
-    // does not modify, void or delete any of them.
+    // 31 rows stand today, and 31 rows still stand: six were VOIDED, none
+    // deleted. Six of the nine written in the three-week window record ICAs
+    // that were never ended, so they are withdrawn in place.
     const total = psql(`select count(*) from public.lease_terminations`);
     expect(Number(total[0])).toBe(31);
+    const voided = psql(`select count(*) from public.lease_terminations where voided_at is not null`);
+    expect(Number(voided[0])).toBe(6);
     const parkedWithTermination = psql(`
       select count(*) from public.operators o
       join public.lease_terminations lt on lt.operator_id = o.id
       where o.parked_at is not null and lt.created_at > o.parked_at`);
     expect(parkedWithTermination[0]).toBe("0");
   });
+
+  itLive("exactly the six mistaken rows are voided, and no genuine departure is", () => {
+    const voidedNames = psql(`
+      select trim(coalesce(p.first_name,'') || ' ' || coalesce(p.last_name,''))
+      from public.lease_terminations lt
+      join public.operators o on o.id = lt.operator_id
+      join public.profiles p on p.user_id = o.user_id
+      where lt.voided_at is not null
+      order by 1`);
+    expect(voidedNames).toEqual([
+      "Calvin Herrera",
+      "Dale Erickson",
+      "Ian Dunfee",
+      "Steve Figueroa",
+      "Steven Fifer",
+      "Vino Huddleston",
+    ]);
+
+    // The genuine departures keep their terminations.
+    const genuine = psql(`
+      select count(*)
+      from public.lease_terminations lt
+      join public.operators o on o.id = lt.operator_id
+      join public.profiles p on p.user_id = o.user_id
+      where lt.voided_at is not null
+        and trim(coalesce(p.first_name,'') || ' ' || coalesce(p.last_name,''))
+            in ('Bilal Leggett','Ronald Lockett','Willie Westbrook')`);
+    expect(genuine[0]).toBe("0");
+  });
+
+  itLive("a void carries a reason, an actor and an audit entry", () => {
+    const incomplete = psql(`
+      select count(*) from public.lease_terminations
+      where voided_at is not null
+        and (void_reason is null or btrim(void_reason) = '' or voided_by is null)`);
+    expect(incomplete[0]).toBe("0");
+
+    const audited = psql(`
+      select count(*) from public.audit_log where action = 'lease_termination_voided'`);
+    expect(Number(audited[0])).toBe(6);
+  });
+
+  itLive("every voided row belongs to a driver who is still working", () => {
+    const notWorking = psql(`
+      select count(*) from public.lease_terminations lt
+      join public.operators o on o.id = lt.operator_id
+      where lt.voided_at is not null
+        and (o.is_active is not true or o.excluded_from_dispatch is true)`);
+    expect(notWorking[0]).toBe("0");
+  });
+
 
   itLive("the parked RPCs are hardened", () => {
     const rows = psql(`
@@ -157,5 +211,30 @@ describe("parked — live schema and standing rows", () => {
       expect(row).not.toMatch(/(^|,)=X\//); // no PUBLIC execute
       expect(row).not.toContain("anon=X/");
     }
+  });
+});
+
+
+describe("voided terminations — pure behaviour", () => {
+  const voided = { voided_at: "2026-08-31T00:00:00Z", void_reason: "Generated in error." };
+  const real = { voided_at: null, void_reason: null };
+
+  it("a voided row is not a termination", () => {
+    expect(isVoided(voided)).toBe(true);
+    expect(isActiveTermination(voided)).toBe(false);
+    expect(isActiveTermination(real)).toBe(true);
+    expect(isActiveTermination(null)).toBe(false);
+  });
+
+  it("the newest non-voided row wins, and a voided one never stands in for it", () => {
+    expect(latestActiveTermination([voided])).toBeNull();
+    expect(latestActiveTermination([voided, real])).toBe(real);
+    expect(latestActiveTermination([])).toBeNull();
+  });
+
+  it("counts exclude voided rows without deleting them", () => {
+    const rows = [voided, voided, real, real, real];
+    expect(rows.length).toBe(5);
+    expect(countActiveTerminations(rows)).toBe(3);
   });
 });

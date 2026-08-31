@@ -517,7 +517,8 @@ export default function DriverRoster({
     if (operatorIds.length > 0) {
       const { data: termRows } = await supabase
         .from('lease_terminations')
-        .select('operator_id, effective_date, reason')
+        .select('operator_id, effective_date, reason, voided_at')
+        .is('voided_at', null)
         .in('operator_id', operatorIds)
         .order('effective_date', { ascending: false }) as any;
       for (const t of (termRows ?? []) as any[]) {

@@ -16,6 +16,8 @@ interface LeaseTerminationDocumentViewProps {
   contractorSignatureUrl?: string | null;
   contractorTypedName?: string | null;
   contractorSignedAt?: string | null;
+  /** Generated in error and withdrawn — the document prints with a VOID mark. */
+  voided?: boolean;
 }
 
 const fmtDate = (v: string | null | undefined) => {
@@ -33,6 +35,7 @@ export default function LeaseTerminationDocumentView({
   effectiveDate, leaseEffectiveDate,
   carrierSignatureUrl, carrierTypedName, carrierTitle, carrierSignedAt,
   contractorSignatureUrl, contractorTypedName, contractorSignedAt,
+  voided = false,
 }: LeaseTerminationDocumentViewProps) {
   const fullTruck = [truckYear, truckMake, truckModel].filter(Boolean).join(' ') || '—';
 
@@ -43,6 +46,14 @@ export default function LeaseTerminationDocumentView({
         <p className="text-xs tracking-[0.3em] uppercase text-gold mb-1">SUPERTRANSPORT</p>
         <p className="text-[10px] tracking-widest text-surface-dark-muted mb-4">POSITIVE. THINKING. TRANSPORT.</p>
         <h1 className="text-xl sm:text-2xl font-bold">Appendix C — Lease Termination</h1>
+        {voided && (
+          <p
+            data-testid="termination-document-void-mark"
+            className="mt-2 inline-block rounded border-2 border-white/70 px-3 py-1 text-sm font-bold tracking-[0.3em]"
+          >
+            VOID
+          </p>
+        )}
         <p className="text-xs sm:text-sm text-surface-dark-muted mt-1">
           SUPERTRANSPORT, LLC · PO Box 4, Pleasant Hill, Missouri 64080
         </p>

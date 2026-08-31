@@ -203,7 +203,7 @@ export function DeactivationWizardContent({
           .eq('operator_id', operatorId)
           .is('returned_at', null),
         supabase.from('mo_plate_assignments').select('id, plate_id, assigned_at, mo_plates!inner(plate_number)').eq('operator_id', operatorId).is('returned_at', null).order('assigned_at', { ascending: false }),
-        supabase.from('lease_terminations').select('id').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('lease_terminations').select('id').eq('operator_id', operatorId).is('voided_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
 
       if (icaRes.data) setIca(icaRes.data as IcaContract);

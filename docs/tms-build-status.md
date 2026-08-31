@@ -2621,11 +2621,8 @@ dispatched-Thursday.
 
 ### Outstanding
 
-The nine rows themselves were **not** modified, voided or deleted in this
-pass; whether they are voided or deleted is a legal decision the owner is
-taking separately. `lease_terminations` holds 31 rows in total today (16
-voluntary, 12 cause, 3 mutual), and the test suite pins that count so this
-pass cannot silently change it.
+Resolved on 2026-08-31 — see "Voiding the six terminations generated in error"
+below.
 
 ### Notes from the build
 
@@ -2640,3 +2637,86 @@ pass cannot silently change it.
 - Verification screenshots are still outstanding: the sandbox browser has no
   signed-in session (`LOVABLE_BROWSER_AUTH_STATUS=signed_out`), so the five
   captures require a preview sign-in first.
+
+
+## Voiding the six terminations generated in error (2026-08-31)
+
+### The decision: void, never delete
+
+Six `lease_terminations` rows record ICAs that were never ended. The operators
+are active and dispatching today; the rows were written while recording a
+temporary absence, before a parked state existed. They are **signed Appendix C
+documents** with a carrier signature block and an `audit_log` trail. Deleting
+them would make it appear that nothing happened — cleaner, and less true.
+Voiding records what actually occurred: a document was generated in error and
+withdrawn.
+
+`lease_terminations` still holds **31 rows**. Six now carry a void; nothing was
+deleted, and no `effective_date`, reason, note or signature was altered.
+
+### The six
+
+Ian Dunfee, Vino Huddleston, Dale Erickson, Steve Figueroa, Steven Fifer,
+Calvin Herrera. Each confirmed `is_active = true` and not
+`excluded_from_dispatch` before anything was written.
+
+**Not voided**, and deliberately so: Bilal Leggett, Ronald Lockett and Willie
+Westbrook. Those are genuine departures and their terminations stand.
+
+### Schema
+
+`lease_terminations` gains `voided_at`, `voided_by` (FK to `profiles`) and
+`void_reason`. `voided_by` is registered in `PROFILE_FK_COLUMNS` in the pg fake,
+so an actor stamped with an auth uid instead of a profile id raises 23503 in the
+test suite rather than in production.
+
+Each void carries all three fields plus a `lease_termination_voided` entry in
+`audit_log` — six rows, one per document.
+
+### A voided row reads as voided everywhere
+
+The rule the readers follow: **a voided row is not a termination.** It never
+badges as one.
+
+- `TerminationBadge` renders **nothing** for a voided row by default. The
+  dispatch board and the driver roster filter voided rows out of their queries
+  as well, so the row cannot reach the badge at all.
+- The operator detail panel and the register — the two places that own the
+  document — pass `showVoided` and render a muted "Termination Voided" chip with
+  the void reason, so the withdrawal is visible where the paperwork lives.
+- The Appendix C viewer shows a "Void — not in effect" banner, stamps **VOID**
+  on the document header, and disables *Send to Insurance*.
+- The `send-lease-termination` edge function refuses a voided document with a
+  409 — the UI is not the only thing standing between a withdrawn notice and the
+  insurance carrier. Explicitly deployed.
+- The register's count line reads "N in effect · 6 voided (generated in error,
+  retained on file)". Voided rows are excluded from the count, never hidden.
+- The deactivation wizard's "termination already on file" check ignores voided
+  rows, so a genuine termination can still be issued for one of the six later.
+
+### Voiding is not a UI feature
+
+There is no void button. This pass corrects a known set of six rows. If voiding
+becomes routine it needs its own authorization and reason capture; until then
+the absence of a button is the control.
+
+### Tests
+
+`parked-and-termination-guardrail.test.ts` pins the total at 31 **and** the
+voided count at 6, asserts the six names exactly, asserts none of the three
+genuine departures is voided, asserts every void carries a reason, an actor and
+an audit entry, and asserts every voided row belongs to a driver who is still
+working. `terminationBadge.test.tsx` asserts a voided row renders no
+"ICA Terminated" text anywhere.
+
+### Known failures inherited from the 2026-08-30 migrations
+
+Unrelated to this pass, and pre-existing when it started: six definer-guard
+assertions fail because `enforce_ica_contracts_operator_update`,
+`enforce_ica_contracts_operator_column_whitelist`, `enforce_osas_operator_sign`,
+`sync_dot_binder_to_vh`, `sync_dot_to_inspection_documents` and
+`sync_profile_contact_from_application` pin `search_path` to `public` alone
+rather than `public, extensions`, and `enforce_osas_operator_sign` — a trigger
+function — still holds a client-role EXECUTE grant. Two further failures
+(`FacilitySelect` add action, ELD `divergence` resolution) are unrelated to
+lease terminations. None is addressed here.
