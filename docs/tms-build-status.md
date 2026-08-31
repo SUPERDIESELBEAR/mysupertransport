@@ -2821,16 +2821,20 @@ debt is real, and it carries forward. He is not skipped.
 `src/lib/settlementPopulation.ts` holds the rule, and a test asserts that none of
 the seven flag names appears anywhere inside `hasUnsettledWork`.
 
-### Three distinct non-payment states
+### Two non-payment states, plus paid
 
-A driver must never have to guess which one he is in. Each has its own status,
-its own wording and its own release path with a named actor.
+There are TWO non-payment states — `below_threshold` and `held` — plus `paid`.
+An earlier heading here said "three distinct non-payment states"; that was wrong
+and is corrected. A driver must never have to guess which one he is in. Each
+state has its own status, its own wording and its own release path with a named
+actor.
 
 | Status | Meaning | Release path |
 |---|---|---|
 | `below_threshold` | Net is under the configured minimum. Rolls forward. | `authorize_below_threshold_payment` — management authorises payment anyway, actor and reason recorded. |
 | `held` | Departing, and coverage is short of the buffer. | `release_settlement_hold` — actor and reason recorded. |
-| `paid` | Normal. | — |
+| `paid` | Normal — paid and deposited. Not a non-payment state. | — |
+
 
 HELD means computed and visible, never unpaid and silent. The settlement runs,
 the number exists, both sides see it, and only PAYMENT is withheld. "Your final
