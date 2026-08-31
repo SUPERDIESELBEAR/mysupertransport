@@ -18,7 +18,7 @@ import { supabase } from '@/integrations/supabase/client';
 import {
   canonicalSerial,
   describeSerialDiff,
-  editDistance,
+  isSoftNearMatch,
   findSerialMatches,
   mergeEquipmentItems,
   normalizeSerial,
