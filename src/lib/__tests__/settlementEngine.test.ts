@@ -250,6 +250,21 @@ describe('status', () => {
     expect(result.status).toBe('paid'); // 720 + 2000 − 1200 = 1520 ≥ 500
   });
 
+  it('held wins when the settlement is ALSO under the minimum', () => {
+    // Both predicates are true: net 72 is under the 100 minimum, and the
+    // driver is departing with equipment out. `held` is recorded, because
+    // below_threshold would roll the amount forward and DEFER the hold on
+    // exactly the driver you do not want money deferred on.
+    const result = computeSettlement(base({
+      loads: [load({ charges: [charge({ amount: 100 })] })], // net 72
+      isDeparting: true,
+      equipmentOutstanding: true,
+    }));
+    expect(result.netAmount).toBe(72);
+    expect(result.status).toBe('held');
+    expect(result.carryForwardOut).toBe(0);
+  });
+
   it('never holds a driver who is not departing, equipment out or not', () => {
     expect(computeSettlement(base({ equipmentOutstanding: true })).status).toBe('paid');
   });
