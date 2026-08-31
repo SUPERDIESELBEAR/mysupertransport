@@ -34,8 +34,8 @@
  *     - eld/offline divergence > holds bytes while open, releases after 30 days
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     Test Files  2 failed | 122 passed | 1 skipped (125)
- *          Tests  2 failed | 970 passed | 14 skipped (986)
+ *     Test Files  2 failed | 123 passed | 1 skipped (126)
+ *          Tests  2 failed | 998 passed | 14 skipped (1014)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -55,8 +55,8 @@
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
- *     Test Files  2 failed | 113 passed | 10 skipped (125)
- *          Tests  2 failed | 913 passed | 63 skipped (978)
+ *     Test Files  2 failed | 114 passed | 10 skipped (126)
+ *          Tests  2 failed | 934 passed | 70 skipped (1006)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)

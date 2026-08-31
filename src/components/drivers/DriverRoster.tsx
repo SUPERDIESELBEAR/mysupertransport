@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import ParkedBadge from '@/components/drivers/ParkedBadge';
+import DepartingBadge from '@/components/drivers/DepartingBadge';
 import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
@@ -40,6 +41,8 @@ interface DriverRow {
   last_web_seen_at: string | null;
   excluded_from_dispatch: boolean;
   is_parked?: boolean;
+  is_departing?: boolean;
+  departing_expected_date?: string | null;
   parked_reason?: string | null;
   parked_expected_return?: string | null;
   termination?: { effective_date: string | null; reason: string | null } | null;
@@ -493,11 +496,11 @@ export default function DriverRoster({
 
     // Fetch is_active and pwa_installed_at separately to avoid deep TS inference issues
     const operatorIds = (rawData as any[] ?? []).map((op: any) => op.id);
-    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; last_web_seen_at: string | null; excluded_from_dispatch: boolean; is_parked: boolean; parked_reason: string | null; parked_expected_return: string | null }> = {};
+    let activeMap: Record<string, { is_active: boolean; pwa_installed_at: string | null; last_web_seen_at: string | null; excluded_from_dispatch: boolean; is_parked: boolean; parked_reason: string | null; parked_expected_return: string | null; is_departing: boolean; departing_expected_date: string | null }> = {};
     if (operatorIds.length > 0) {
       const { data: activeData } = await supabase
         .from('operators')
-        .select('id, is_active, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, is_parked, parked_reason, parked_expected_return')
+        .select('id, is_active, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, is_parked, parked_reason, parked_expected_return, is_departing, departing_expected_date')
         .in('id', operatorIds) as any;
       for (const row of (activeData ?? []) as any[]) {
         activeMap[row.id] = {
@@ -506,6 +509,8 @@ export default function DriverRoster({
           last_web_seen_at: row.last_web_seen_at ?? null,
           excluded_from_dispatch: row.excluded_from_dispatch === true,
           is_parked: row.is_parked === true,
+          is_departing: row.is_departing === true,
+          departing_expected_date: row.departing_expected_date ?? null,
           parked_reason: row.parked_reason ?? null,
           parked_expected_return: row.parked_expected_return ?? null,
         };
@@ -598,6 +603,8 @@ export default function DriverRoster({
           last_web_seen_at: activeMap[op.id]?.last_web_seen_at ?? null,
           excluded_from_dispatch: activeMap[op.id]?.excluded_from_dispatch ?? false,
           is_parked: activeMap[op.id]?.is_parked ?? false,
+          is_departing: activeMap[op.id]?.is_departing ?? false,
+          departing_expected_date: activeMap[op.id]?.departing_expected_date ?? null,
           parked_reason: activeMap[op.id]?.parked_reason ?? null,
           parked_expected_return: activeMap[op.id]?.parked_expected_return ?? null,
           termination: terminationMap[op.id] ?? null,
@@ -1279,6 +1286,7 @@ export default function DriverRoster({
                           </Tooltip>
                         </TooltipProvider>
                         <ParkedBadge operator={driver} />
+                        <DepartingBadge operator={driver} />
                         <TerminationBadge termination={driver.termination} />
                         {driver.excluded_from_dispatch && (
                           <TooltipProvider delayDuration={100}>

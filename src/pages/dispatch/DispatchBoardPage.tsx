@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import ParkedBadge from '@/components/drivers/ParkedBadge';
+import DepartingBadge from '@/components/drivers/DepartingBadge';
 import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -68,6 +69,7 @@ async function fetchBoard(): Promise<BoardData> {
     .select(`
       id, user_id, unit_number, is_active, excluded_from_dispatch, excluded_from_dispatch_reason,
       is_parked, parked_reason, parked_expected_return,
+      is_departing, departing_expected_date,
       onboarding_status (fully_onboarded, unit_number),
       active_dispatch (dispatch_status, assigned_dispatcher)
     `)
@@ -117,6 +119,8 @@ async function fetchBoard(): Promise<BoardData> {
         assigned_dispatcher: d.assigned_dispatcher ?? null,
         excluded_reason: o.excluded_from_dispatch_reason ?? null,
         is_parked: o.is_parked === true,
+        is_departing: o.is_departing === true,
+        departing_expected_date: o.departing_expected_date ?? null,
         parked_reason: o.parked_reason ?? null,
         parked_expected_return: o.parked_expected_return ?? null,
         termination: terminationByOperator[o.id as string] ?? null,
@@ -299,6 +303,7 @@ export function DriverRow({
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="text-sm font-medium text-foreground">{row.driver.name}</span>
           <ParkedBadge operator={row.driver} />
+          <DepartingBadge operator={row.driver} />
           <TerminationBadge termination={row.driver.termination} />
         </div>
         <div className="text-xs text-muted-foreground">

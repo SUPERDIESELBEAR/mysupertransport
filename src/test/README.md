@@ -45,8 +45,8 @@ days`.
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  2 failed | 122 passed | 1 skipped (125)
-     Tests  2 failed | 970 passed | 14 skipped (986)
+Test Files  2 failed | 123 passed | 1 skipped (126)
+     Tests  2 failed | 998 passed | 14 skipped (1014)
 
 
 skipped:
@@ -69,8 +69,8 @@ skipped:
 
 
 ```text
-Test Files  2 failed | 113 passed | 10 skipped (125)
-     Tests  2 failed | 913 passed | 63 skipped (978)
+Test Files  2 failed | 114 passed | 10 skipped (126)
+     Tests  2 failed | 934 passed | 70 skipped (1006)
 
 
 skipped: the above, plus

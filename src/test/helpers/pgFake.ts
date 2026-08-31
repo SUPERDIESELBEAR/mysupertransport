@@ -36,7 +36,17 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   loads: ['created_by', 'updated_by', 'dispatcher_id'],
   parser_diagnostics: ['created_by', 'resolved_by'],
   operator_parking_events: ['changed_by'],
+  operator_departing_events: ['changed_by'],
   lease_terminations: ['voided_by'],
+  settlements: ['created_by', 'updated_by', 'hold_released_by', 'below_threshold_authorized_by'],
+  settlement_line_items: ['created_by'],
+  settlement_settings: ['updated_by'],
+  settlement_settings_history: ['changed_by'],
+  deductions: ['created_by', 'updated_by'],
+  deduction_installments: ['created_by', 'updated_by'],
+  rm_deposits: ['created_by', 'updated_by'],
+  rm_deposit_transactions: ['created_by'],
+  cash_advances: ['created_by', 'updated_by'],
 };
 
 export class FkViolation extends Error {
@@ -274,7 +284,17 @@ export function createPgFake(): PgFake {
     facilities: [],
     parser_diagnostics: [],
     detention_claims: [],
-
+    operators: [],
+    operator_departing_events: [],
+    settlements: [],
+    settlement_line_items: [],
+    settlement_settings: [],
+    settlement_settings_history: [],
+    deductions: [],
+    deduction_installments: [],
+    rm_deposits: [],
+    rm_deposit_transactions: [],
+    cash_advances: [],
   };
 
 
@@ -282,6 +302,23 @@ export function createPgFake(): PgFake {
     Object.keys(tables).forEach(k => { tables[k].length = 0; });
     tables.profiles.push({ id: PROFILE_ID, user_id: AUTH_UID, full_name: 'Test Dispatcher' });
     tables.loads.push({ id: 'load-1', load_number: 'TEST-1' });
+    tables.operators.push({
+      id: 'op-1', user_id: 'user-op-1', is_active: true, excluded_from_dispatch: false,
+      is_parked: false, is_departing: false, departing_note: null,
+      departing_expected_date: null, departing_at: null, departing_by: null,
+    });
+    // Configuration is a ROW, not a constant. Every settlement number is read
+    // from here so a test that changes it changes behaviour.
+    tables.settlement_settings.push({
+      singleton: true,
+      minimum_net_pay_threshold: 100,
+      hold_buffer: 500,
+      equipment_value_per_driver: 1200,
+      rm_deposit_target: 2000,
+      rm_weekly_deduction: 200,
+      work_week_start_dow: 3,
+      updated_by: null,
+    });
     // The company default pay policy, including the charge → pay class map the
     // reimbursement class is read from.
     tables.pay_policies.push({
@@ -375,6 +412,32 @@ export function createPgFake(): PgFake {
   /** Mimics the RPCs, taking the actor from the SQL's own text. */
   const rpc = async (fn: string, args: Record<string, unknown>) => {
     try {
+      if (fn === 'set_operator_departing' || fn === 'clear_operator_departing') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error(`${fn} is not in the migration set`);
+        const actor = actorValue(classifyActorExpression('_actor', body));
+        const op = tables.operators.find(o => o.id === args._operator_id);
+        if (!op) throw new Error('Operator not found');
+        const flagged = fn === 'set_operator_departing';
+        const note = ((args._note as string) ?? '').trim() || null;
+        Object.assign(op, {
+          is_departing: flagged,
+          departing_note: flagged ? note : null,
+          departing_expected_date: flagged ? ((args._expected_date as string) ?? null) : null,
+          departing_at: flagged ? new Date().toISOString() : null,
+          departing_by: flagged ? actor : null,
+        });
+        const ev = insertRows('operator_departing_events', {
+          operator_id: op.id,
+          action: flagged ? 'flagged' : 'cleared',
+          note,
+          expected_date: flagged ? ((args._expected_date as string) ?? null) : null,
+          changed_by: actor,
+          changed_at: new Date().toISOString(),
+        }, 'dep')[0];
+        return { data: ev.id, error: null };
+      }
+
       if (fn === 'log_parser_diagnostics') {
         // The SQL inserts with INSERT ... SELECT, so the actor is read off the
         // local the body assigns rather than a VALUES position.
