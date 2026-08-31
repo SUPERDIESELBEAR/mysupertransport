@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, Receipt } from 'lucide-react';
+import { AlertTriangle, Plus, Receipt } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,12 +14,14 @@ import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
   FUNDING_SOURCE_LABELS, FUNDING_SOURCE_MEANING, chargeClassification,
-  fetchLoadCharges, missingReimbursementFacts, saveReimbursementFacts,
+  fetchLoadCharges, isMoneyFixed, missingReimbursementFacts, saveReimbursementFacts,
   type LoadChargeRecord, type ReimbursementFacts,
 } from '@/lib/loadCharges';
 import { fetchEffectivePayPolicy, payClassOf, payTreatment } from '@/lib/payTreatment';
 import { CLASSIFICATION_LABELS } from '@/lib/revisedRateCon';
 import { fetchLoadDocuments } from '@/lib/loadDocuments';
+import ChargeEntryDialog from './ChargeEntryDialog';
+import RemoveChargeDialog from './RemoveChargeDialog';
 
 /**
  * Every charge on the load, with what each one does to the driver's pay.
@@ -29,9 +31,20 @@ import { fetchLoadDocuments } from '@/lib/loadDocuments';
  * a Financials tab later is a change of placement only.
  */
 export default function LoadChargesCard({
-  loadId, operatorId, canEdit,
-}: { loadId: string; operatorId?: string | null; canEdit?: boolean }) {
+  loadId, operatorId, canEdit, loadStatus, onChanged,
+}: {
+  loadId: string;
+  operatorId?: string | null;
+  canEdit?: boolean;
+  /** Drives the money-fixed refusal; the server refuses regardless. */
+  loadStatus?: string | null;
+  /** Called after a charge is created, changed or removed so the header total refreshes. */
+  onChanged?: () => void;
+}) {
   const qc = useQueryClient();
+  const [entryOpen, setEntryOpen] = useState(false);
+  const [editing, setEditing] = useState<LoadChargeRecord | null>(null);
+  const [removing, setRemoving] = useState<LoadChargeRecord | null>(null);
 
   const { data: charges, isLoading } = useQuery({
     queryKey: ['load-charges', loadId],
@@ -48,6 +61,11 @@ export default function LoadChargesCard({
     queryFn: () => fetchLoadDocuments(loadId),
   });
 
+  const refresh = () => {
+    void qc.invalidateQueries({ queryKey: ['load-charges', loadId] });
+    onChanged?.();
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -58,6 +76,8 @@ export default function LoadChargesCard({
   }
 
   const rows = charges ?? [];
+  const moneyFixed = isMoneyFixed(loadStatus);
+  const canEnter = !!canEdit && !moneyFixed;
   const unconfirmed = rows.filter(
     c => payClassOf(chargeClassification(c.charge_type), policy ?? null) === 'reimbursement'
       && missingReimbursementFacts(c).length > 0,
@@ -77,9 +97,26 @@ export default function LoadChargesCard({
               {unconfirmed} reimbursement{unconfirmed === 1 ? '' : 's'} unconfirmed
             </Badge>
           ) : null}
+          {canEnter ? (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => { setEditing(null); setEntryOpen(true); }}
+            >
+              <Plus className="mr-1 h-3.5 w-3.5" />
+              Add charge
+            </Button>
+          ) : null}
         </CardTitle>
       </CardHeader>
       <CardContent>
+        {canEdit && moneyFixed ? (
+          <p className="mb-3 rounded-md border border-border bg-[#E8F0FF] p-2 text-xs text-[#1A1A1A]">
+            This load's money is fixed. A late accessorial goes through the adjustment path,
+            referencing this load, and lands in a later settlement.
+          </p>
+        ) : null}
         {rows.length === 0 ? (
           <p className="text-sm text-[#555555]">
             No charges are on this load beyond the linehaul and fuel surcharge.
@@ -93,23 +130,46 @@ export default function LoadChargesCard({
                 policy={policy ?? null}
                 documents={documents ?? []}
                 canEdit={!!canEdit}
-                onSaved={() => qc.invalidateQueries({ queryKey: ['load-charges', loadId] })}
+                canEnter={canEnter}
+                onEdit={() => { setEditing(charge); setEntryOpen(true); }}
+                onRemove={() => setRemoving(charge)}
+                onSaved={refresh}
               />
             ))}
           </ul>
         )}
       </CardContent>
+
+      <ChargeEntryDialog
+        loadId={loadId}
+        charge={editing}
+        policy={policy ?? null}
+        documents={documents ?? []}
+        open={entryOpen}
+        onOpenChange={o => { setEntryOpen(o); if (!o) setEditing(null); }}
+        onSaved={refresh}
+      />
+      <RemoveChargeDialog
+        charge={removing}
+        open={!!removing}
+        onOpenChange={o => { if (!o) setRemoving(null); }}
+        onRemoved={refresh}
+      />
     </Card>
   );
 }
 
+
 function ChargeRow({
-  charge, policy, documents, canEdit, onSaved,
+  charge, policy, documents, canEdit, canEnter, onEdit, onRemove, onSaved,
 }: {
   charge: LoadChargeRecord;
   policy: Parameters<typeof payTreatment>[1];
   documents: { id: string; document_name: string | null }[];
   canEdit: boolean;
+  canEnter: boolean;
+  onEdit: () => void;
+  onRemove: () => void;
   onSaved: () => void;
 }) {
   const klass = chargeClassification(charge.charge_type);
@@ -160,10 +220,23 @@ function ChargeRow({
             {treatment.label ? ` · ${treatment.label}` : ''}
           </p>
         </div>
-        <p className="text-sm font-semibold text-[#1A1A1A]">
-          {formatCurrency(Number(charge.amount ?? 0))}
-        </p>
+        <div className="flex items-center gap-2">
+          <p className="text-sm font-semibold text-[#1A1A1A]">
+            {formatCurrency(Number(charge.amount ?? 0))}
+          </p>
+          {canEnter ? (
+            <>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onEdit}>
+                Edit
+              </Button>
+              <Button size="sm" variant="ghost" className="h-7 px-2 text-xs" onClick={onRemove}>
+                Remove
+              </Button>
+            </>
+          ) : null}
+        </div>
       </div>
+
 
       {isReimbursement ? (
         <div className="mt-2 rounded-md border border-border bg-[#F9F9F9] p-3">

@@ -357,6 +357,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.reverse_equipment_return_confirmation(uuid,text)",
   "public.equipment_outstanding(uuid)",
   "public.set_load_delivered_at(uuid,timestamp with time zone)",
+  // Charge entry by hand. Each body gates on dispatcher/management/owner and
+  // refuses a load whose money is fixed; the table itself holds no client
+  // write privilege, so these are the only path to a hand-entered charge.
+  "public.add_load_charge(uuid,text,numeric,text,text,text,numeric,uuid)",
+  "public.update_load_charge(uuid,text,numeric,text,text,text,numeric,uuid)",
+  "public.delete_load_charge(uuid,text)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -391,7 +397,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   delivery instant when no departure was ever recorded. Dispatcher,
 //   management or owner checked in the body; the source and actor are stamped
 //   by the trigger, so the caller cannot claim the entry was derived.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 106;
+// + add_load_charge / update_load_charge / delete_load_charge (2026-08-31),
+//   the only writers for a charge that arises during a load. Each checks
+//   dispatcher/management/owner in its own body, refuses a settled load, and
+//   records the actor and reason in load_change_history.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 109;
 
 
 

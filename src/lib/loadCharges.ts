@@ -93,3 +93,68 @@ export const FUNDING_SOURCE_MEANING: Record<FundingSource, string> = {
   driver: 'Driver-funded: the driver is reimbursed the actual cost on their settlement.',
   company: 'Company-funded: this is company revenue and does not appear on the driver’s settlement.',
 };
+
+/**
+ * Entering a charge by hand.
+ *
+ * These go through narrow RPCs rather than `update_load_with_stops`, which
+ * DELETEs every charge on the load and re-inserts the array it is given. A
+ * single addition through that path would re-key every surviving row and
+ * silently break `detention_claims.resulting_charge_id` and proof-document
+ * links. One row in, one row changed, and the change history and
+ * `total_load_value` are written server-side.
+ */
+export interface ChargeEntryInput {
+  chargeType: string;
+  amount: string;
+  description: string;
+  reason: string;
+  funding_source: FundingSource | '';
+  actual_cost: string;
+  proof_document_id: string;
+}
+
+const rpcArgs = (input: ChargeEntryInput) => ({
+  p_charge_type: input.chargeType,
+  p_amount: Number(input.amount),
+  p_reason: input.reason,
+  p_description: input.description.trim() || null,
+  p_funding_source: input.funding_source || null,
+  p_actual_cost: input.actual_cost.trim() === '' ? null : Number(input.actual_cost),
+  p_proof_document_id: input.proof_document_id || null,
+});
+
+export async function addLoadCharge(
+  loadId: string, input: ChargeEntryInput,
+): Promise<string> {
+  const { data, error } = await supabase.rpc('add_load_charge', {
+    p_load_id: loadId, ...rpcArgs(input),
+  });
+  if (error) throw new Error(error.message);
+  return data as string;
+}
+
+export async function updateLoadCharge(
+  chargeId: string, input: ChargeEntryInput,
+): Promise<void> {
+  const { error } = await supabase.rpc('update_load_charge', {
+    p_charge_id: chargeId, ...rpcArgs(input),
+  });
+  if (error) throw new Error(error.message);
+}
+
+export async function deleteLoadCharge(chargeId: string, reason: string): Promise<void> {
+  const { error } = await supabase.rpc('delete_load_charge', {
+    p_charge_id: chargeId, p_reason: reason,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/** Load statuses whose money is fixed — no charge may be entered against them. */
+export const MONEY_FIXED_STATUSES = [
+  'invoiced', 'factored', 'paid', 'settled', 'closed',
+] as const;
+
+export const isMoneyFixed = (status: string | null | undefined): boolean =>
+  !!status && (MONEY_FIXED_STATUSES as readonly string[]).includes(status);
+

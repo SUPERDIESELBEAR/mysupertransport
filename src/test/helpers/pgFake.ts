@@ -535,6 +535,144 @@ export function createPgFake(): PgFake {
         return { data: null, error: null };
       }
 
+      /* ---------------------------------------------------------------- */
+      /* Charge entry by hand — one row at a time                          */
+      /* ---------------------------------------------------------------- */
+
+      if (fn === 'add_load_charge' || fn === 'update_load_charge' || fn === 'delete_load_charge') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error(`${fn} is not in the migration set`);
+        const actor = actorValue(classifyActorExpression('v_profile', body));
+        const reason = ((args.p_reason as string) ?? '').trim();
+
+        const existing = fn === 'add_load_charge'
+          ? null
+          : (tables.load_charges ??= []).find(c => c.id === args.p_charge_id) ?? null;
+        if (fn !== 'add_load_charge' && !existing) throw new Error('Charge not found');
+
+        const loadId = (fn === 'add_load_charge'
+          ? args.p_load_id
+          : existing!.load_id) as string;
+        const load = tables.loads.find(l => l.id === loadId);
+        if (!load) throw new Error('Load not found');
+
+        const status = String(load.status);
+        if (['invoiced', 'factored', 'paid', 'settled', 'closed'].includes(status)) {
+          throw new Error(
+            `This load's money is fixed (${status}). A late accessorial must go through the `
+            + 'adjustment path, referencing this load, and land in a later settlement.',
+          );
+        }
+        if (!reason) {
+          throw new Error('A reason is required when a change affects the value of the load');
+        }
+
+        const known = ['linehaul', 'fsc', 'detention', 'stopoff', 'lumper', 'layover', 'tonu',
+          'reimbursement', 'other'];
+        const amount = numOrNull(args.p_amount);
+
+        const history = (f: string, a: string | null, b: string | null, fin: boolean) =>
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: f,
+            previous_value: a,
+            new_value: b,
+            is_financial: fin,
+            reason,
+            changed_by: actor,
+          }, 'hist');
+
+        let result: unknown = null;
+
+        if (fn === 'delete_load_charge') {
+          const idx = tables.load_charges.findIndex(c => c.id === existing!.id);
+          tables.load_charges.splice(idx, 1);
+          history(
+            'charge_removed',
+            `${existing!.charge_type}: ${Number(existing!.amount).toFixed(2)}`
+            + (existing!.description ? ` — ${existing!.description}` : ''),
+            null, true,
+          );
+        } else {
+          const type = txt(args.p_charge_type);
+          if (!type || !known.includes(type)) throw new Error(`Unknown charge type: ${type}`);
+          if (amount === null || amount < 0) {
+            throw new Error('A charge needs an amount of zero or more');
+          }
+          const patch = {
+            charge_type: type,
+            description: (txt(args.p_description) ?? '').trim() || null,
+            amount,
+            funding_source: txt(args.p_funding_source),
+            actual_cost: numOrNull(args.p_actual_cost),
+            proof_document_id: txt(args.p_proof_document_id),
+          } as Row;
+
+          if (fn === 'add_load_charge') {
+            const row = insertRows('load_charges', {
+              load_id: loadId,
+              load_stop_id: null,
+              source: 'manual',
+              created_by: actor,
+              updated_by: actor,
+              ...patch,
+            }, 'charge')[0];
+            result = row.id;
+            history('charge_added', null,
+              `${type}: ${amount.toFixed(2)}`
+              + (patch.description ? ` — ${String(patch.description)}` : ''), true);
+          } else {
+            const before = { ...existing! };
+            Object.assign(existing!, patch, { updated_by: actor });
+            (['charge_type', 'description', 'amount', 'funding_source', 'actual_cost',
+              'proof_document_id'] as const).forEach(k => {
+              const a = before[k] ?? null;
+              const b = existing![k] ?? null;
+              if (String(a ?? '') === String(b ?? '')) return;
+              history(`charge · ${k}`, a === null ? null : String(a),
+                b === null ? null : String(b),
+                ['amount', 'charge_type', 'actual_cost', 'funding_source'].includes(k));
+            });
+            result = existing!.id;
+          }
+        }
+
+        // total_load_value, recomputed from the headers plus every charge.
+        const sum = tables.load_charges
+          .filter(c => c.load_id === loadId)
+          .reduce((s, c) => s + Number(c.amount ?? 0), 0);
+        const base = load.load_type === 'loadout'
+          ? Number(load.loadout_relocation_fee ?? 0)
+          : (String(load.rate_type) === 'per_mile'
+            ? Number(load.rate_per_mile ?? 0) * Number(load.loaded_miles ?? 0)
+            : String(load.rate_type) === 'per_ton'
+              ? Number(load.rate_per_ton ?? 0) * Number(load.estimated_tons ?? 0)
+              : Number(load.linehaul_rate ?? 0));
+        const total = load.load_type === 'loadout'
+          ? Math.round(base * 100) / 100
+          : Math.round((base
+            + (load.fsc_bundled_into_linehaul === false ? Number(load.fsc_amount ?? 0) : 0)
+            + sum) * 100) / 100;
+        if (Number(load.total_load_value ?? NaN) !== total) {
+          // The SQL stamps its own reason on this row, not the caller's.
+          insertRows('load_change_history', {
+            load_id: loadId,
+            field_path: 'total_load_value',
+            previous_value: load.total_load_value === null || load.total_load_value === undefined
+              ? null : String(load.total_load_value),
+            new_value: String(total),
+            is_financial: true,
+            reason: 'Recomputed after a charge change',
+            changed_by: actor,
+          }, 'hist');
+          load.total_load_value = total;
+          load.updated_by = actor;
+        }
+
+        return { data: result, error: null };
+      }
+
+
       if (fn === 'log_parser_diagnostics') {
         // The SQL inserts with INSERT ... SELECT, so the actor is read off the
         // local the body assigns rather than a VALUES position.

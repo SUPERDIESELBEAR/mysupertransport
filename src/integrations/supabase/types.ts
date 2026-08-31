@@ -10317,6 +10317,19 @@ export type Database = {
         Args: { p_divergence_id: string; p_reason: string }
         Returns: string
       }
+      add_load_charge: {
+        Args: {
+          p_actual_cost?: number
+          p_amount: number
+          p_charge_type: string
+          p_description?: string
+          p_funding_source?: string
+          p_load_id: string
+          p_proof_document_id?: string
+          p_reason: string
+        }
+        Returns: string
+      }
       add_pei_staff_note: {
         Args: { _note: string; _request_id: string }
         Returns: Json
@@ -10346,6 +10359,11 @@ export type Database = {
             }
             Returns: undefined
           }
+      assert_charge_entry_allowed: {
+        Args: { p_load_id: string }
+        Returns: undefined
+      }
+      assert_known_charge_type: { Args: { p_type: string }; Returns: undefined }
       assign_fuel_transaction_operator: {
         Args: { _note?: string; _operator_id: string; _transaction_id: string }
         Returns: Json
@@ -10455,6 +10473,10 @@ export type Database = {
       delete_email: {
         Args: { message_id: number; queue_name: string }
         Returns: boolean
+      }
+      delete_load_charge: {
+        Args: { p_charge_id: string; p_reason: string }
+        Returns: undefined
       }
       discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
       driver_load_pay_estimate: {
@@ -11026,6 +11048,10 @@ export type Database = {
         Args: { p_event_id: string }
         Returns: undefined
       }
+      recompute_load_total_value: {
+        Args: { p_load_id: string }
+        Returns: number
+      }
       record_duplicate_broker_reference: {
         Args: {
           p_existing_load_id: string
@@ -11358,6 +11384,19 @@ export type Database = {
       unassign_load_driver: {
         Args: { p_load_id: string; p_reason?: string }
         Returns: Json
+      }
+      update_load_charge: {
+        Args: {
+          p_actual_cost?: number
+          p_amount: number
+          p_charge_id: string
+          p_charge_type: string
+          p_description?: string
+          p_funding_source?: string
+          p_proof_document_id?: string
+          p_reason: string
+        }
+        Returns: string
       }
       update_load_status: {
         Args: {
