@@ -3272,3 +3272,55 @@ minimum`, in `src/lib/__tests__/settlementEngine.test.ts`. The precedence no
 longer lives only in the order of one `if`.
 
 Open item 4.2 is closed. No open items remain in the Pass 2 record.
+
+---
+
+## Module 4, Pass 2a — `delivered_at` gets a writer (2026-08-31)
+
+The settlement engine attributes a load to a work week by its delivery date in
+carrier time. Until this pass nothing wrote `loads.delivered_at`, so no load
+could be attributed to any period and no settlement could compute for anyone.
+
+**Where the instant comes from.** Primary source is the driver's departure from
+the FINAL delivery stop — `load_stops.actual_departure_at` on the last stop with
+`stop_type = 'delivery'`, by `stop_sequence`. A trigger on `load_stops`
+(`derive_load_delivered_at`) derives it on insert, update and correction; a later
+correction re-derives and re-stamps.
+
+**Fallback.** Dispatch enters the instant by hand through
+`set_load_delivered_at(load_id, delivered_at)` — dispatcher, management or owner,
+checked in the function body, rejecting an instant more than a day in the future.
+A hand-entered instant is NOT wiped by an unrelated stop edit; only an instant
+that the stop path itself derived is cleared when its departure is cleared.
+
+**Provenance.** `delivered_at_source` (`stop_departure` | `dispatcher_entry`) and
+`delivered_at_by` (FK → `profiles`) are stamped by `stamp_load_delivered_at` from
+the writer's context via `current_profile_id()`, never accepted from the client —
+the same pattern as `stamp_load_stop_time_source`. `delivered_at_by` is in
+`PROFILE_FK_COLUMNS`.
+
+**Snapshot headroom.** `update_load_with_stops` builds its change-history
+snapshot with `jsonb_build_object` against the 50-key-per-call limit. Counts
+before: 34 and 18. After: 34 and 18 — unchanged, because the two new columns are
+trigger-stamped and never travel in the client save payload.
+
+**Status and the instant must agree, but do not gate each other.** The status
+transition is never blocked by a missing instant — dispatch marks status, the
+instant is a separate fact that may arrive later, and blocking would strand loads
+the way the paperwork gate would have. Instead a load at `delivered` or beyond
+with no instant is SURFACED: `isDeliveryInstantMissing()` drives a warning on
+Load Detail (`DeliveryInstantCard`) and a default-visible `Delivered` column in
+the loads list, because whoever is chasing settlement needs to see that the load
+cannot be attributed.
+
+**Not in this pass.** No manual charge-entry path, no settlement run, no
+driver-facing view.
+
+**Tests.** `src/lib/__tests__/deliveryInstant.test.ts` (16) covers derivation
+from the final delivery stop, several delivery stops using the LAST one,
+dispatcher entry with source and actor, driver-app departure with source
+`stop_departure`, carrier-time reading (a 23:00 Tuesday Pacific departure lands
+in the FOLLOWING Wed–Tue week), a delivered load with no instant surfacing as
+missing, the status transition not being blocked, and a correction re-stamping
+source and actor. `set_load_delivered_at` is recorded in the live definer
+catalog's authenticated allowlist (max 105 → 106) with its in-body role check.
