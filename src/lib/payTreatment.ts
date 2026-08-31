@@ -56,11 +56,14 @@ export interface PayPolicyRates {
   other_accessorial_pct: number;
   /** Classification key → pay class, as configured on this policy. */
   charge_pay_classes?: Record<string, string> | null;
+  /** Off means the fuel discount is company margin and the driver never sees it. */
+  fuel_discount_passthrough?: boolean | null;
 }
 
 const POLICY_COLUMNS =
   'id, name, linehaul_pct, fsc_pct, detention_pct, layover_pct, stopoff_pct, '
-  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes';
+  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes, '
+  + 'fuel_discount_passthrough';
 
 /** Percentage column backing each classification. */
 const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
