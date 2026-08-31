@@ -3071,8 +3071,10 @@ payday              Tue Mar 24
 after its load settled is picked up as an ADJUSTMENT in a later settlement,
 referencing the original load (the `-A1`, `-A2` adjustment references).
 
-**OPEN — settlement eligibility and factoring.** Whether settlement eligibility
-is ADDITIONALLY gated on factoring payment received is open and not decided.
+**SETTLED — factoring payment is not a prerequisite for paying the driver.** The
+two-week reconciliation window absorbs factoring timing. Payment errors from the
+factoring company, usually caused by missing paperwork, surface during that
+window.
 
 ### 3. Driver-facing vocabulary
 
@@ -3143,21 +3145,45 @@ management authorises payment, recorded with actor and reason.
 
 ### 7. The state count is corrected
 
-TWO non-payment states — `below_threshold` and `held` — plus `paid`. The earlier
-"three distinct non-payment states" heading in the Module 4 Pass 1 section was
-inconsistent with its own table and has been corrected.
+There are TWO settlement-level non-payment states — `below_threshold` and `held`
+— plus `paid`. The earlier "three distinct non-payment states" heading in the
+Module 4 Pass 1 section was inconsistent with its own table and has been
+corrected.
+
+A third hold exists at a different level: the **per-load paperwork hold** is an
+exclusion of one load from a settlement, not a suspension of the settlement itself.
+See section 8.
+
+### 8. Per-load paperwork hold
+
+A load whose required paperwork is incomplete may be withheld from settlement
+while the rest of that week's settlement pays normally. Only that load's line
+item waits; when the paperwork arrives it picks up in a later settlement.
+
+The predicate is the existing `evaluateLoadPaperwork` in
+`src/lib/loadPaperwork.ts`. The settlement engine must CALL that predicate,
+never re-derive what a load owes.
+
+This is an EXCLUSION from a settlement, not a suspension of one. The driver must
+be able to see WHY a load was withheld — a short check with no explanation is the
+failure mode.
+
+**OPEN — automatic or deliberate.** Whether the hold is applied automatically
+when paperwork is incomplete or requires a deliberate decision each time is
+open. The owner's phrasing was "we may elect to hold," which suggests judgment
+rather than a rule.
 
 ### Open items in this record, in one place
 
 | # | Open question |
-|---|---|
-| 2 | Is settlement eligibility additionally gated on factoring payment received? |
+|---|---|---|
 | 5 | Who may withdraw from the R&M Deposit? |
 | 5 | What authorises an R&M withdrawal? |
 | 5 | What happens to the R&M balance when a driver departs? |
 | 6 | Does the rolled below-threshold amount appear as a line item next period? |
 | 6 | Does it accumulate toward the next period's minimum? |
 | 6 | Is `authorize_below_threshold_payment` one-time or standing? |
+| 8 | Is the per-load paperwork hold automatic or deliberate? |
 
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
