@@ -3406,10 +3406,10 @@ load may hold several claims, so nothing matches them automatically.
 
 ---
 
-## LIVE DEFECT — `update_load_with_stops` re-keys every `load_charges` row
+## FIXED 2026-08-31 — `update_load_with_stops` re-keyed every `load_charges` row
 
-**Severity:** silent data integrity failure, currently masked only by the fact
-that `load_charges` has been empty.
+**Severity:** silent data integrity failure, masked only by the fact
+that `load_charges` had been empty. Fixed the same day it was recorded.
 
 **The defect.** `update_load_with_stops` performs a wholesale
 `DELETE FROM public.load_charges WHERE load_id = p_load.id` followed by an
