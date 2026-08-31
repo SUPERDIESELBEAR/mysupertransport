@@ -22,8 +22,12 @@ export default function LoadClaimIndicator({ level, claimType, title, className 
 
   if (isHold) {
     return (
-      <span title={tooltip} aria-label={tooltip} className={cn('inline-flex', className)}>
-        <AlertTriangle className="h-4 w-4 text-destructive" />
+      <span
+        title={tooltip}
+        aria-label={tooltip}
+        className={cn('inline-flex text-destructive', className)}
+      >
+        <AlertTriangle className="h-4 w-4" />
       </span>
     );
   }
