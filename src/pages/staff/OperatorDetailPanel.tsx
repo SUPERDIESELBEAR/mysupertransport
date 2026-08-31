@@ -39,6 +39,8 @@ import LeaseTerminationBuilderModal from '@/components/ica/LeaseTerminationBuild
 import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
 import ParkDriverControl, { type ParkedFields } from '@/components/drivers/ParkDriverControl';
 import ParkedBadge from '@/components/drivers/ParkedBadge';
+import DepartingControl, { type DepartingFields } from '@/components/drivers/DepartingControl';
+import DepartingBadge from '@/components/drivers/DepartingBadge';
 import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { terminationReasonLabel } from '@/lib/leaseTermination';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
@@ -643,6 +645,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [parked, setParked] = useState<ParkedFields>({
     is_parked: false, parked_reason: null, parked_note: null,
     parked_expected_return: null, parked_at: null,
+  });
+  // Departing — "may be leaving". Staff-only, reversible, never a termination.
+  const [departing, setDeparting] = useState<DepartingFields>({
+    is_departing: false, departing_note: null, departing_expected_date: null, departing_at: null,
   });
   // Latest lease termination on file — surfaced so the write has a visible consequence
   const [latestTermination, setLatestTermination] = useState<{ id: string; effective_date: string | null; reason: string | null; voided_at?: string | null; void_reason?: string | null } | null>(null);
@@ -1396,7 +1402,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     const [{ data: op }, { data: opDocs }] = await Promise.all([
       supabase
         .from('operators')
-        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, safety_advisor_notified_at, is_parked, parked_reason, parked_note, parked_expected_return, parked_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
+        .select(`id, user_id, notes, anticipated_start_date, is_active, on_hold, on_hold_reason, on_hold_date, pwa_installed_at, last_web_seen_at, excluded_from_dispatch, excluded_from_dispatch_reason, excluded_from_dispatch_at, safety_advisor_notified_at, is_parked, parked_reason, parked_note, parked_expected_return, parked_at, is_departing, departing_note, departing_expected_date, departing_at, onboarding_status (*), applications (id, email, first_name, last_name, phone, address_street, address_line2, address_city, address_state, address_zip, address_duration, prev_address_street, prev_address_line2, prev_address_city, prev_address_state, prev_address_zip, cdl_state, cdl_number, cdl_class, cdl_expiration, endorsements, cdl_10_years, referral_source, employers, employment_gaps, employment_gaps_explanation, years_experience, equipment_operated, dot_accidents, dot_accidents_description, moving_violations, moving_violations_description, sap_process, dot_positive_test_past_2yr, dot_return_to_duty_docs, auth_safety_history, auth_drug_alcohol, auth_previous_employers, testing_policy_accepted, medical_cert_expiration, dob, dl_front_url, dl_rear_url, medical_cert_url, typed_full_name, signature_image_url, signed_date, submitted_at, submitted_by_staff, reviewer_notes)`)
         .eq('id', operatorId)
         .single(),
       supabase
@@ -1429,6 +1435,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         parked_note: (op as any).parked_note ?? null,
         parked_expected_return: (op as any).parked_expected_return ?? null,
         parked_at: (op as any).parked_at ?? null,
+      });
+      setDeparting({
+        is_departing: (op as any).is_departing === true,
+        departing_note: (op as any).departing_note ?? null,
+        departing_expected_date: (op as any).departing_expected_date ?? null,
+        departing_at: (op as any).departing_at ?? null,
       });
       // Lease termination on file + live day status — read for the guardrail and the indicator
       void (async () => {
@@ -2966,6 +2978,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
         <ParkedBadge operator={parked} />
+        <DepartingBadge operator={departing} />
         <TerminationBadge termination={latestTermination} showVoided />
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
@@ -3036,6 +3049,19 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             operatorName={operatorName}
             value={parked}
             onChanged={setParked}
+            canEdit={isManagement || isOwner || isDispatcher}
+          />
+        </div>
+      )}
+
+      {/* Departing — may be leaving. Staff-only, reversible, not a termination. */}
+      {isActive && (
+        <div style={{ order: isQuickView ? 0 : 46 }}>
+          <DepartingControl
+            operatorId={operatorId}
+            operatorName={operatorName}
+            value={departing}
+            onChanged={setDeparting}
             canEdit={isManagement || isOwner || isDispatcher}
           />
         </div>

@@ -1255,6 +1255,73 @@ export type Database = {
         }
         Relationships: []
       }
+      cash_advances: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          id: string
+          issued_on: string
+          notes: string | null
+          operator_id: string
+          remaining_balance: number
+          repayment_status: string
+          source: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          issued_on?: string
+          notes?: string | null
+          operator_id: string
+          remaining_balance?: number
+          repayment_status?: string
+          source?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          issued_on?: string
+          notes?: string | null
+          operator_id?: string
+          remaining_balance?: number
+          repayment_status?: string
+          source?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cash_advances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_advances_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cash_advances_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cert_reminders: {
         Row: {
           doc_type: string
@@ -1694,6 +1761,153 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: true
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deduction_installments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          deduction_id: string
+          due_payday: string | null
+          id: string
+          installment_number: number
+          installment_total: number
+          settlement_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          deduction_id: string
+          due_payday?: string | null
+          id?: string
+          installment_number: number
+          installment_total: number
+          settlement_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          deduction_id?: string
+          due_payday?: string | null
+          id?: string
+          installment_number?: number
+          installment_total?: number
+          settlement_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deduction_installments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deduction_installments_deduction_id_fkey"
+            columns: ["deduction_id"]
+            isOneToOne: false
+            referencedRelation: "deductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deduction_installments_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deduction_installments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      deductions: {
+        Row: {
+          amount: number
+          category: string | null
+          created_at: string
+          created_by: string | null
+          end_payday: string | null
+          id: string
+          is_active: boolean
+          is_recurring: boolean
+          label: string
+          notes: string | null
+          operator_id: string
+          start_payday: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_payday?: string | null
+          id?: string
+          is_active?: boolean
+          is_recurring?: boolean
+          label: string
+          notes?: string | null
+          operator_id: string
+          start_payday?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          category?: string | null
+          created_at?: string
+          created_by?: string | null
+          end_payday?: string | null
+          id?: string
+          is_active?: boolean
+          is_recurring?: boolean
+          label?: string
+          notes?: string | null
+          operator_id?: string
+          start_payday?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "deductions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deductions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "deductions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -6605,6 +6819,54 @@ export type Database = {
         }
         Relationships: []
       }
+      operator_departing_events: {
+        Row: {
+          action: string
+          changed_at: string
+          changed_by: string | null
+          created_at: string
+          expected_date: string | null
+          id: string
+          note: string | null
+          operator_id: string
+        }
+        Insert: {
+          action: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          expected_date?: string | null
+          id?: string
+          note?: string | null
+          operator_id: string
+        }
+        Update: {
+          action?: string
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          expected_date?: string | null
+          id?: string
+          note?: string | null
+          operator_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_departing_events_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_departing_events_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operator_documents: {
         Row: {
           delete_reason: string | null
@@ -6763,6 +7025,10 @@ export type Database = {
           demo_owner_user_id: string | null
           demo_reset_at: string | null
           demo_scenario: string | null
+          departing_at: string | null
+          departing_by: string | null
+          departing_expected_date: string | null
+          departing_note: string | null
           excluded_from_dispatch: boolean
           excluded_from_dispatch_at: string | null
           excluded_from_dispatch_by: string | null
@@ -6771,6 +7037,7 @@ export type Database = {
           id: string
           is_active: boolean
           is_demo: boolean
+          is_departing: boolean
           is_parked: boolean
           last_web_seen_at: string | null
           notes: string | null
@@ -6803,6 +7070,10 @@ export type Database = {
           demo_owner_user_id?: string | null
           demo_reset_at?: string | null
           demo_scenario?: string | null
+          departing_at?: string | null
+          departing_by?: string | null
+          departing_expected_date?: string | null
+          departing_note?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
@@ -6811,6 +7082,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          is_departing?: boolean
           is_parked?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
@@ -6843,6 +7115,10 @@ export type Database = {
           demo_owner_user_id?: string | null
           demo_reset_at?: string | null
           demo_scenario?: string | null
+          departing_at?: string | null
+          departing_by?: string | null
+          departing_expected_date?: string | null
+          departing_note?: string | null
           excluded_from_dispatch?: boolean
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
@@ -6851,6 +7127,7 @@ export type Database = {
           id?: string
           is_active?: boolean
           is_demo?: boolean
+          is_departing?: boolean
           is_parked?: boolean
           last_web_seen_at?: string | null
           notes?: string | null
@@ -8087,6 +8364,131 @@ export type Database = {
         }
         Relationships: []
       }
+      rm_deposit_transactions: {
+        Row: {
+          amount: number
+          balance_after: number | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          rm_deposit_id: string
+          settlement_id: string | null
+          transaction_type: string
+        }
+        Insert: {
+          amount: number
+          balance_after?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          rm_deposit_id: string
+          settlement_id?: string | null
+          transaction_type: string
+        }
+        Update: {
+          amount?: number
+          balance_after?: number | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          rm_deposit_id?: string
+          settlement_id?: string | null
+          transaction_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rm_deposit_transactions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rm_deposit_transactions_rm_deposit_id_fkey"
+            columns: ["rm_deposit_id"]
+            isOneToOne: false
+            referencedRelation: "rm_deposits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rm_deposit_transactions_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rm_deposits: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          current_balance: number
+          id: string
+          is_paused: boolean
+          last_deduction_payday: string | null
+          notes: string | null
+          operator_id: string
+          target_amount: number | null
+          updated_at: string
+          updated_by: string | null
+          weekly_deduction: number | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          current_balance?: number
+          id?: string
+          is_paused?: boolean
+          last_deduction_payday?: string | null
+          notes?: string | null
+          operator_id: string
+          target_amount?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weekly_deduction?: number | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          current_balance?: number
+          id?: string
+          is_paused?: boolean
+          last_deduction_payday?: string | null
+          notes?: string | null
+          operator_id?: string
+          target_amount?: number | null
+          updated_at?: string
+          updated_by?: string | null
+          weekly_deduction?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rm_deposits_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rm_deposits_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: true
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rm_deposits_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rods_amendments: {
         Row: {
           created_at: string
@@ -8822,6 +9224,259 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      settlement_line_items: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          line_type: string
+          settlement_id: string
+          source_id: string | null
+          source_table: string | null
+        }
+        Insert: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          line_type: string
+          settlement_id: string
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          line_type?: string
+          settlement_id?: string
+          source_id?: string | null
+          source_table?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_line_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_line_items_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlement_settings: {
+        Row: {
+          created_at: string
+          equipment_value_per_driver: number
+          hold_buffer: number
+          minimum_net_pay_threshold: number
+          rm_deposit_target: number
+          rm_weekly_deduction: number
+          singleton: boolean
+          updated_at: string
+          updated_by: string | null
+          work_week_start_dow: number
+        }
+        Insert: {
+          created_at?: string
+          equipment_value_per_driver?: number
+          hold_buffer?: number
+          minimum_net_pay_threshold?: number
+          rm_deposit_target?: number
+          rm_weekly_deduction?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          work_week_start_dow?: number
+        }
+        Update: {
+          created_at?: string
+          equipment_value_per_driver?: number
+          hold_buffer?: number
+          minimum_net_pay_threshold?: number
+          rm_deposit_target?: number
+          rm_weekly_deduction?: number
+          singleton?: boolean
+          updated_at?: string
+          updated_by?: string | null
+          work_week_start_dow?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_settings_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlement_settings_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          new_value: string | null
+          previous_value: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_settings_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      settlements: {
+        Row: {
+          below_threshold_authorization_reason: string | null
+          below_threshold_authorized_at: string | null
+          below_threshold_authorized_by: string | null
+          carry_forward_in: number
+          carry_forward_out: number
+          created_at: string
+          created_by: string | null
+          deductions_amount: number
+          gross_amount: number
+          held_at: string | null
+          hold_reason: string | null
+          hold_release_reason: string | null
+          hold_released_at: string | null
+          hold_released_by: string | null
+          id: string
+          net_amount: number
+          notes: string | null
+          operator_id: string
+          paid_at: string | null
+          payday: string | null
+          period_end: string
+          period_start: string
+          status: Database["public"]["Enums"]["settlement_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          below_threshold_authorization_reason?: string | null
+          below_threshold_authorized_at?: string | null
+          below_threshold_authorized_by?: string | null
+          carry_forward_in?: number
+          carry_forward_out?: number
+          created_at?: string
+          created_by?: string | null
+          deductions_amount?: number
+          gross_amount?: number
+          held_at?: string | null
+          hold_reason?: string | null
+          hold_release_reason?: string | null
+          hold_released_at?: string | null
+          hold_released_by?: string | null
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          operator_id: string
+          paid_at?: string | null
+          payday?: string | null
+          period_end: string
+          period_start: string
+          status?: Database["public"]["Enums"]["settlement_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          below_threshold_authorization_reason?: string | null
+          below_threshold_authorized_at?: string | null
+          below_threshold_authorized_by?: string | null
+          carry_forward_in?: number
+          carry_forward_out?: number
+          created_at?: string
+          created_by?: string | null
+          deductions_amount?: number
+          gross_amount?: number
+          held_at?: string | null
+          hold_reason?: string | null
+          hold_release_reason?: string | null
+          hold_released_at?: string | null
+          hold_released_by?: string | null
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          operator_id?: string
+          paid_at?: string | null
+          payday?: string | null
+          period_end?: string
+          period_start?: string
+          status?: Database["public"]["Enums"]["settlement_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlements_below_threshold_authorized_by_fkey"
+            columns: ["below_threshold_authorized_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_hold_released_by_fkey"
+            columns: ["hold_released_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlements_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       share_token_access_log: {
         Row: {
@@ -9627,6 +10282,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      authorize_below_threshold_payment: {
+        Args: { _reason: string; _settlement_id: string }
+        Returns: string
+      }
       can_driver_message_staff: {
         Args: { _driver: string; _staff: string }
         Returns: boolean
@@ -9673,6 +10332,10 @@ export type Database = {
       check_driver_eligibility_bulk: {
         Args: { p_operator_ids: string[] }
         Returns: Json
+      }
+      clear_operator_departing: {
+        Args: { _note?: string; _operator_id: string }
+        Returns: string
       }
       clear_operator_parked: {
         Args: { _note?: string; _operator_id: string }
@@ -10354,6 +11017,10 @@ export type Database = {
           request_id: string
         }[]
       }
+      release_settlement_hold: {
+        Args: { _reason: string; _settlement_id: string }
+        Returns: string
+      }
       remove_user_role: {
         Args: {
           p_role: Database["public"]["Enums"]["app_role"]
@@ -10509,6 +11176,10 @@ export type Database = {
       set_load_verbatim_verification: {
         Args: { p_load_id: string; p_records: Json }
         Returns: undefined
+      }
+      set_operator_departing: {
+        Args: { _expected_date?: string; _note?: string; _operator_id: string }
+        Returns: string
       }
       set_operator_parked: {
         Args: {
@@ -10839,6 +11510,12 @@ export type Database = {
       review_status: "pending" | "approved" | "denied" | "revisions_requested"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
+      settlement_status:
+        | "upcoming"
+        | "processing"
+        | "paid"
+        | "held"
+        | "below_threshold"
       staff_availability_mode: "all_drivers" | "specific_drivers" | "none"
       stop_time_source: "driver_app" | "dispatcher_entry"
       stop_type: "pickup" | "delivery" | "drop_and_hook"
@@ -11214,6 +11891,13 @@ export const Constants = {
       review_status: ["pending", "approved", "denied", "revisions_requested"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
+      settlement_status: [
+        "upcoming",
+        "processing",
+        "paid",
+        "held",
+        "below_threshold",
+      ],
       staff_availability_mode: ["all_drivers", "specific_drivers", "none"],
       stop_time_source: ["driver_app", "dispatcher_entry"],
       stop_type: ["pickup", "delivery", "drop_and_hook"],

@@ -345,6 +345,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // Parked overlay — role-checked inside; parking never touches is_active,
   // equipment or lease_terminations.
   "public.set_operator_parked(uuid,operator_parked_reason,text,date)",
+  "public.set_operator_departing(uuid,text,date)",
+  "public.clear_operator_departing(uuid,text)",
+  "public.authorize_below_threshold_payment(uuid,text)",
+  "public.release_settlement_hold(uuid,text)",
   "public.clear_operator_parked(uuid,text)",
 ];
 
@@ -367,7 +371,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + set_operator_parked / clear_operator_parked, the parked overlay writers.
 //   Each checks dispatcher/management/owner in its own body, so authenticated
 //   EXECUTE is the app's only call path and a driver gets a raised exception.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 98;
+// + set_operator_departing / clear_operator_departing (2026-08-31). Same shape
+//   as the parked writers: dispatcher/management/owner checked in the body.
+// + authorize_below_threshold_payment / release_settlement_hold (2026-08-31),
+//   the two settlement release paths. Management or owner only, checked in the
+//   body, and each records the actor and the reason it was released.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 102;
 
 
 

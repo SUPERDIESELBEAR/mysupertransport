@@ -56,6 +56,9 @@ export interface BoardDriverInput {
   is_parked?: boolean;
   parked_reason?: string | null;
   parked_expected_return?: string | null;
+  /** Departing overlay — staff-only, never shown to the driver. Not a termination. */
+  is_departing?: boolean;
+  departing_expected_date?: string | null;
   /** Most recent lease_terminations row, if any. */
   termination?: { effective_date: string | null; reason: string | null } | null;
 }

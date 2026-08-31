@@ -83,7 +83,11 @@ function policies(file: string, sql: string): Policy[] {
 /** Collects `table -> role -> privileges` from every GRANT across migrations. */
 function grantIndex(files: string[]): Map<string, Set<string>> {
   const index = new Map<string, Set<string>>();
-  const re = /GRANT\s+([\s\S]*?)\s+ON\s+(?:TABLE\s+)?([a-z0-9_."]+)\s+TO\s+([^;]+);/gi;
+  // `[^;]` — a GRANT never spans a statement boundary. With `[\s\S]` the
+  // engine backtracks across `GRANT EXECUTE ON FUNCTION f(uuid, text) TO ...`
+  // (the parenthesised signature does not match the table pattern) and
+  // swallows the NEXT table grant along with it, silently hiding it.
+  const re = /GRANT\s+([^;]*?)\s+ON\s+(?:TABLE\s+)?([a-z0-9_."]+)\s+TO\s+([^;]+);/gi;
 
   for (const file of files) {
     const sql = stripComments(

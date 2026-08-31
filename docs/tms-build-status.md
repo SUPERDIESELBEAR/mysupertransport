@@ -2763,3 +2763,127 @@ without a database:  Test Files  2 failed | 113 passed | 10 skipped (125)
 The two failures are the same in both shapes and are recorded, unrelated to this
 work: the `FacilitySelect` add-action RTL timeout (contention; passes alone) and
 the ELD offline divergence hold-release assertion.
+
+## Module 4, Pass 1 — settlement foundation (2026-08-31)
+
+Tables, configuration and the departing flag. No calculation, no settlement run,
+no driver-facing view. Those are Pass 2 onward.
+
+### The departing flag is the legitimate replacement for what `lease_terminations` was misused for
+
+Six `lease_terminations` rows were generated in error because the app had no way
+to record "this driver may be leaving." The only control that looked close was
+the one that ends the ICA. Those rows are now voided; this is the control that
+should have existed.
+
+`is_departing` on `operators`, with `departing_note`, `departing_expected_date`,
+`departing_at` and `departing_by`, plus an `operator_departing_events` history
+table. Set and cleared only through `set_operator_departing` /
+`clear_operator_departing`, which are restricted to dispatch, management and
+owner, stamp the actor via `current_profile_id()`, and append an event on both
+the flag and the clear. Clearing closes an episode; it never erases one.
+
+It is deliberately cheap to reverse. "May be leaving" is a suspicion and drivers
+change their minds — if un-flagging were awkward nobody would flag early, and
+early is when the flag is useful.
+
+It is invisible to the driver. No file under `src/pages/operator`,
+`src/components/operator`, `src/roadside` or the operator-home hooks reads any
+departing column, RPC or component, and the word does not appear in a
+driver-facing string. A test asserts both by walking those trees.
+
+It keeps the driver active, dispatchable and settling. It changes settlement
+BEHAVIOUR, not eligibility. It writes no `lease_terminations` row.
+
+### The population rule, and why it ignores all seven active-operator definitions
+
+A settlement run includes any operator with UNSETTLED WORK in the period:
+
+- a load delivered in the period, not yet on a settlement
+- fuel transactions not yet deducted
+- an outstanding cash advance balance
+- a negative carry-forward from a prior period
+- an R&M deduction due
+
+It keys on none of `is_active`, `excluded_from_dispatch`, `fully_onboarded`,
+`is_parked`, `is_departing`, `on_hold`, or a `lease_terminations` row. Seven
+different "active operator" predicates exist in this codebase (recorded in the
+2026-08-29 investigation above) and they disagree with each other;
+`lease_terminations` appears in none of them. Settlement uses none of the seven
+because every one of them answers a different question — who to show on a board,
+who to email, who to count — and none of them answers "who is owed money or owes
+it."
+
+A departed driver still settles. A parked driver still settles. A driver with
+ONLY deductions and no revenue still gets a settlement: it runs negative, the
+debt is real, and it carries forward. He is not skipped.
+
+`src/lib/settlementPopulation.ts` holds the rule, and a test asserts that none of
+the seven flag names appears anywhere inside `hasUnsettledWork`.
+
+### Three distinct non-payment states
+
+A driver must never have to guess which one he is in. Each has its own status,
+its own wording and its own release path with a named actor.
+
+| Status | Meaning | Release path |
+|---|---|---|
+| `below_threshold` | Net is under the configured minimum. Rolls forward. | `authorize_below_threshold_payment` — management authorises payment anyway, actor and reason recorded. |
+| `held` | Departing, and coverage is short of the buffer. | `release_settlement_hold` — actor and reason recorded. |
+| `paid` | Normal. | — |
+
+HELD means computed and visible, never unpaid and silent. The settlement runs,
+the number exists, both sides see it, and only PAYMENT is withheld. "Your final
+settlement is $1,840, held pending return of your ELD and plate" is a
+conversation. Simply not getting paid is a dispute.
+
+### The hold formula, with R&M offsetting
+
+```text
+held  ⟺  is_departing AND (net + rm_deposit_balance − equipment_exposure) < hold_buffer
+equipment_exposure = equipment_outstanding ? equipment_value_per_driver : 0
+```
+
+The R&M deposit offsets the exposure. It is the driver's money and it already
+covers the risk, so holding a settlement the deposit has already covered is
+holding it twice. Equipment counts only while it is outstanding.
+
+### Configuration — six values, all editable, none hardcoded
+
+`settlement_settings` is a single row, edited in the app by management or owner,
+with every change written to `settlement_settings_history` with actor and reason.
+
+| Setting | Default |
+|---|---|
+| `minimum_net_pay_threshold` | $100 |
+| `hold_buffer` | $500 |
+| `equipment_value_per_driver` | $1,200 |
+| `rm_deposit_target` | $2,000 |
+| `rm_weekly_deduction` | $200 |
+| `work_week_start_dow` | 3 (Wednesday) |
+
+The constants in `src/lib/settlementConfig.ts` are fallbacks for a missing row,
+not rules. A test edits the row and asserts the hold answer changes for the same
+driver and the same numbers.
+
+### The Repair & Maintenance Deposit is never "escrow"
+
+It is the Repair & Maintenance Deposit — in every string, column comment and
+document. The deduction auto-stops at target, never overshoots on the final
+week, and resumes on its own after a withdrawal. A test greps `src/` and
+`supabase/migrations/` for "escrow" and "holdback"; the only permitted
+occurrence is the ICA's own legal sentence stating the deposit is not an escrow
+account, which is the contract's wording and stays.
+
+### GAP — management-confirmed equipment return does not exist
+
+The hold formula needs to know that equipment is actually BACK. Today it cannot.
+`mark_equipment_return_completed` fires when a DRIVER uploads a tracking receipt.
+That is shipment, not receipt inspection: it records that a driver says he sent
+something, not that anyone opened the box. Zero of seven operators with a return
+in flight have the `equipment_return` step completed.
+
+This pass does not close that gap. Until it is closed, `equipment_outstanding`
+must be treated as staff-asserted, and a hold released on the strength of a
+tracking number is a judgement call, not a fact.
+
