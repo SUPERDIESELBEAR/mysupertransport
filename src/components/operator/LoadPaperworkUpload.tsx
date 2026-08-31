@@ -108,7 +108,7 @@ export function LoadPaperworkUpload({ loadId, loadType, onUploaded }: Props) {
   const load = useCallback(async () => {
     const [{ data: docs }, { data: excs }] = await Promise.all([
       supabase.from('load_documents').select('document_type, photo_label').eq('load_id', loadId),
-      supabase.from('document_exceptions').select('document_type, status').eq('load_id', loadId),
+      supabase.from('document_exceptions').select('document_type, status, photo_label').eq('load_id', loadId),
     ]);
     setStatus(evaluateLoadPaperwork(
       loadType,

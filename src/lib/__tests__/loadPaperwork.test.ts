@@ -4,7 +4,8 @@ import { requiredLoadoutSlots } from '@/lib/loadoutSlots';
 
 
 const doc = (document_type: string, photo_label?: string) => ({ document_type, photo_label });
-const exc = (document_type: string, status: string) => ({ document_type, status });
+const exc = (document_type: string, status: string, photo_label?: string | null) =>
+  ({ document_type, status, photo_label: photo_label ?? null });
 
 describe('evaluateLoadPaperwork — standard', () => {
   it('is complete with a POD, and lists the missing BOL as expected', () => {
@@ -110,5 +111,43 @@ describe('photo label coupling', () => {
     const { PHOTO_LABEL_SUGGESTIONS } = await import('@/lib/loadDocuments');
     const all = Object.values(PHOTO_LABEL_SUGGESTIONS).flat() as string[];
     expect(all).toContain('Rear Doors Open');
+  });
+});
+
+describe('exceptions are scoped to a photo label on loadout', () => {
+  const pickupLabels = requiredLoadoutSlots('pickup').map(s => s.photoLabel);
+
+  it('an approved Front exception satisfies only the Front requirement', () => {
+    const r = evaluateLoadPaperwork(
+      'loadout', [], [exc('loadout_pickup_inspection', 'approved', 'Front')],
+    );
+    const stillOut = r.outstandingRequired
+      .filter(x => x.documentType === 'loadout_pickup_inspection')
+      .map(x => x.photoLabel);
+    expect(stillOut).toEqual(pickupLabels.filter(l => l !== 'Front'));
+    expect(stillOut).toHaveLength(pickupLabels.length - 1);
+    expect(r.satisfied.map(s => s.requirement.photoLabel)).toEqual(['Front']);
+  });
+
+  it('an approved exception with no photo label satisfies nothing', () => {
+    const r = evaluateLoadPaperwork(
+      'loadout', [], [exc('loadout_pickup_inspection', 'approved', null)],
+    );
+    expect(r.satisfied).toEqual([]);
+    expect(r.complete).toBe(false);
+  });
+
+  it('matches the label after trimming and case-folding', () => {
+    const r = evaluateLoadPaperwork(
+      'loadout', [], [exc('loadout_pickup_inspection', 'approved', ' front ')],
+    );
+    expect(r.satisfied.map(s => s.requirement.photoLabel)).toEqual(['Front']);
+  });
+
+  it('a pending scoped exception is reported only against its own slot', () => {
+    const r = evaluateLoadPaperwork(
+      'loadout', [], [exc('loadout_pickup_inspection', 'pending', 'Front')],
+    );
+    expect(r.pendingExceptions.map(x => x.photoLabel)).toEqual(['Front']);
   });
 });
