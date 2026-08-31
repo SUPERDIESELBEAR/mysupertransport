@@ -3195,7 +3195,6 @@ it. A short check discovered on payday is the failure mode this avoids.
 | 6 | Does the rolled below-threshold amount appear as a line item next period? |
 | 6 | Does it accumulate toward the next period's minimum? |
 | 6 | Is `authorize_below_threshold_payment` one-time or standing? |
-| 8 | Is the per-load paperwork hold automatic or deliberate? |
 
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
