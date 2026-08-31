@@ -3012,3 +3012,152 @@ without a database:  Test Files  116 passed | 11 skipped (127)
 
 No expected failures remain in either shape. From here, any red in the
 settlement pass is a real defect, not background noise.
+
+## Settlement rules — the authoritative record (2026-08-31)
+
+Stated by the carrier and recorded here verbatim in substance. Where a rule is
+marked **OPEN** it is recorded as open; nothing below fills a gap by inference.
+This section governs where anything earlier in this document disagrees.
+
+### 1. Pay percentages — Pay Policy Engine, configurable, never hardcoded
+
+Every figure below is a DEFAULT stored on the pay policy, not a constant in code.
+
+| Charge | Default to driver |
+|---|---|
+| Linehaul | 72% |
+| Fuel surcharge | 72% |
+| Stop-off | 72% |
+| TONU | 72% |
+| All other accessorials | 72% |
+| Detention | 100% |
+| Layover | 100% — treated the same as detention |
+| Lumper | Reimbursed at 100% when the driver paid out of pocket |
+
+Three override levels, resolved strictly in this order:
+
+```text
+company default  →  driver-specific  →  load-specific
+```
+
+The nearest level wins. No percentage may be written into a component, an RPC or
+a migration as a literal; it is read from the policy in force.
+
+### 2. Period attribution and the settlement calendar
+
+**A load belongs to the period in which it DELIVERED.** A load delivers exactly
+once, so nothing is double counted, and driver pay and dispatch pay land on the
+same event.
+
+**Timezone.** The delivery timestamp is read in CENTRAL TIME — the carrier
+timezone — not the viewer's zone and not UTC. A load delivering 11pm Tuesday
+Pacific is Wednesday Central and belongs to the FOLLOWING work week. Use the
+existing carrier-timezone helpers; `new Date(v)` is never acceptable for this.
+
+**Work week.** Wednesday 00:00 through Tuesday 23:59, configurable via
+`work_week_start_dow`.
+
+**Payday.** Tuesday, for the work week that ended TWO TUESDAYS PRIOR.
+Reconciliation spans the intervening period. Worked example from the carrier's
+own settlement calendar:
+
+```text
+work week      Wed Mar 4  –  Tue Mar 10
+reconciliation      Mar 11 – Mar 23
+payday              Tue Mar 24
+```
+
+**Late accessorials do NOT reopen a closed period.** An accessorial approved
+after its load settled is picked up as an ADJUSTMENT in a later settlement,
+referencing the original load (the `-A1`, `-A2` adjustment references).
+
+**OPEN — settlement eligibility and factoring.** Whether settlement eligibility
+is ADDITIONALLY gated on factoring payment received is open and not decided.
+
+### 3. Driver-facing vocabulary
+
+The driver sees exactly three words: **PAID**, **PROCESSING**, **UPCOMING**.
+
+- **"holdback" is FORBIDDEN in any driver-facing string.**
+- **"escrow" is FORBIDDEN everywhere** — strings, column names, comments. It is
+  the **Repair & Maintenance Deposit**, and the distinction is legal, not
+  stylistic. The single permitted occurrence remains the ICA's own sentence
+  stating the deposit is not an escrow account.
+
+A held settlement is COMPUTED AND VISIBLE to the driver, with its reason. It is
+never silently unpaid.
+
+### 4. Dispatch company settlement — one 1099 vendor, not per dispatcher
+
+Attribution by dispatcher is for VISIBILITY only. There is exactly one
+settlement and one 1099, issued to the dispatch company.
+
+**Eligible base.** Gross for loads DELIVERED that month,
+
+- **excluding TONU loads entirely**, and
+- **excluding any charge whose driver pay class is 100%** — detention, layover,
+  lumper reimbursement — determined by READING THE PAY POLICY, never a hardcoded
+  list, so a new accessorial type configured at 100% is excluded automatically.
+
+**Then, in order:**
+
+```text
+eligible base
+  less 2% factoring        →  reduced base
+  reduced base × 5%        →  dispatch fee
+  less flat deductions (DAT, phone service)
+  less any per-settlement one-off  (must carry a load reference)
+```
+
+BOTH percentages work off the SAME reduced base.
+
+**Period.** Monthly calendar month, paid on or around the 10th of the following
+month.
+
+**Recorded consequence.** This produces a LOWER figure than the invoices
+historically paid, which computed on total gross. That difference is expected,
+not a defect.
+
+### 5. Repair & Maintenance Deposit
+
+**Settled and recorded:** the balance OFFSETS debt in the hold formula, because
+it is the driver's money and it covers the carrier's exposure. Target $2,000,
+$200 weekly, auto-stops at target, auto-resumes after a withdrawal.
+
+**OPEN — withdrawal and departure.** All three of the following are open:
+
+- who may withdraw from the deposit;
+- what authorises a withdrawal;
+- what happens to the balance when a driver departs.
+
+### 6. Below-threshold carry-forward
+
+**Settled:** a settlement under the configured minimum ROLLS FORWARD unless
+management authorises payment, recorded with actor and reason.
+
+**OPEN — carry-forward mechanics.** All three of the following are open:
+
+- whether the rolled amount appears as a LINE ITEM on the next settlement;
+- whether it ACCUMULATES toward the next period's minimum;
+- whether `authorize_below_threshold_payment` is ONE-TIME or STANDING.
+
+### 7. The state count is corrected
+
+TWO non-payment states — `below_threshold` and `held` — plus `paid`. The earlier
+"three distinct non-payment states" heading in the Module 4 Pass 1 section was
+inconsistent with its own table and has been corrected.
+
+### Open items in this record, in one place
+
+| # | Open question |
+|---|---|
+| 2 | Is settlement eligibility additionally gated on factoring payment received? |
+| 5 | Who may withdraw from the R&M Deposit? |
+| 5 | What authorises an R&M withdrawal? |
+| 5 | What happens to the R&M balance when a driver departs? |
+| 6 | Does the rolled below-threshold amount appear as a line item next period? |
+| 6 | Does it accumulate toward the next period's minimum? |
+| 6 | Is `authorize_below_threshold_payment` one-time or standing? |
+
+Nothing in this table may be implemented on a guess. Each needs a decision from
+the carrier before the calculation pass depends on it.
