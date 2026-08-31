@@ -74,6 +74,15 @@ const PICKUP_SLOTS: LoadoutSlot[] = [
     instruction: 'Close enough that the trailer number reads clearly.',
   },
   {
+    key: 'pickup_vin_plate', photoLabel: 'VIN Plate', title: 'VIN Plate', kind: 'photo', required: true,
+    instruction:
+      "The manufacturer's data plate, usually inside the door jamb or on the front left frame rail. Close enough to read the VIN.",
+  },
+  {
+    key: 'pickup_tires', photoLabel: 'Tires and Wheels', title: 'Tires and Wheels', kind: 'photo', required: true,
+    instruction: 'Tread and sidewalls on the tandem, plus any missing lug caps.',
+  },
+  {
     key: 'pickup_sticker', photoLabel: 'Annual Inspection Sticker', title: 'Annual Inspection Sticker',
     kind: 'sticker', required: true,
     instruction: 'Usually on the driver side near the front. Answer even if you cannot find it.',
@@ -81,10 +90,6 @@ const PICKUP_SLOTS: LoadoutSlot[] = [
   {
     key: 'pickup_landing_gear', photoLabel: 'Landing Gear', title: 'Landing Gear', kind: 'photo', required: false,
     instruction: 'Legs, crank handle and foot pads.',
-  },
-  {
-    key: 'pickup_tires', photoLabel: 'Tires and Wheels', title: 'Tires and Wheels', kind: 'photo', required: false,
-    instruction: 'Tread and sidewalls on the tandem, plus any missing lug caps.',
   },
   {
     key: 'pickup_underride', photoLabel: 'Rear Underride Guard', title: 'Rear Underride Guard', kind: 'photo', required: false,
@@ -120,6 +125,15 @@ const DELIVERY_SLOTS: LoadoutSlot[] = [
   {
     key: 'delivery_number_plate', photoLabel: 'Trailer Number Plate', title: 'Trailer Number Plate', kind: 'photo', required: true,
     instruction: 'Close enough that the trailer number reads clearly.',
+  },
+  {
+    key: 'delivery_vin_plate', photoLabel: 'VIN Plate', title: 'VIN Plate', kind: 'photo', required: true,
+    instruction: 'The same data plate you photographed at pickup.',
+  },
+  {
+    key: 'delivery_tires', photoLabel: 'Tires and Wheels', title: 'Tires and Wheels', kind: 'photo', required: true,
+    instruction:
+      'Tread and sidewalls on the tandem again — this is what shows you did not flat-spot it.',
   },
   {
     key: 'delivery_signage', photoLabel: 'Delivery Location Signage', title: 'Delivery Location Signage', kind: 'photo', required: true,

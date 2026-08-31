@@ -69,6 +69,19 @@ describe('loadout slots are the single source of truth', () => {
     expect(none.outstandingExpected).toEqual([]);
   });
 
+  it('pins the exact required slot set per stage — Loadout Trailer Guide v2.0', () => {
+    expect(requiredLoadoutSlots('pickup').map(s => s.photoLabel)).toEqual([
+      'Front', 'Driver Side', 'Passenger Side', 'Rear Doors Closed', 'Rear Doors Open',
+      'Trailer Number Plate', 'VIN Plate', 'Tires and Wheels', 'Annual Inspection Sticker',
+    ]);
+    expect(requiredLoadoutSlots('delivery').map(s => s.photoLabel)).toEqual([
+      'Front', 'Driver Side', 'Passenger Side', 'Rear Doors Closed',
+      'Trailer Number Plate', 'VIN Plate', 'Tires and Wheels', 'Delivery Location Signage',
+    ]);
+    expect(requiredLoadoutSlots('pickup')).toHaveLength(9);
+    expect(requiredLoadoutSlots('delivery')).toHaveLength(8);
+  });
+
   it('the sticker slot is satisfied by any of the three answers being on file', () => {
     const withAnswer = evaluateLoadPaperwork(
       'loadout',
