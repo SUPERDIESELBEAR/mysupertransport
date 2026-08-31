@@ -77,10 +77,12 @@ async function fetchBoard(): Promise<BoardData> {
   const opRows = (operators ?? []) as unknown as Record<string, any>[];
 
   // Lease terminations on file — the write now has a visible consequence on the board.
+  // A VOIDED row is not a termination — it never reaches the board.
   const terminationByOperator: Record<string, { effective_date: string | null; reason: string | null }> = {};
   const { data: terminationRows } = await supabase
     .from('lease_terminations')
-    .select('operator_id, effective_date, reason')
+    .select('operator_id, effective_date, reason, voided_at')
+    .is('voided_at', null)
     .order('effective_date', { ascending: false });
   ((terminationRows ?? []) as any[]).forEach(t => {
     if (t.operator_id && !terminationByOperator[t.operator_id]) {

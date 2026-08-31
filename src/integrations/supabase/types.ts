@@ -4494,6 +4494,9 @@ export type Database = {
           truck_vin: string | null
           truck_year: string | null
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           carrier_signature_url?: string | null
@@ -4525,6 +4528,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           carrier_signature_url?: string | null
@@ -4556,6 +4562,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -4570,6 +4579,13 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lease_terminations_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]

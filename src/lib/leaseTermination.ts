@@ -61,3 +61,44 @@ export function formatTerminationDate(date: string | null | undefined): string |
   if (Number.isNaN(d.getTime())) return null;
   return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
+
+/* ------------------------------------------------------------------ */
+/* VOIDED TERMINATIONS                                                  */
+/*                                                                      */
+/* Six Appendix C documents were generated in error while recording a   */
+/* temporary absence, before a parked state existed. They are voided,   */
+/* never deleted: the effective date, reason, note, carrier signature   */
+/* and audit trail all stand exactly as recorded. A voided row is not a */
+/* termination anywhere — it must never badge, and never be counted.    */
+/* ------------------------------------------------------------------ */
+
+export interface VoidableTermination {
+  voided_at?: string | null;
+  void_reason?: string | null;
+}
+
+export function isVoided(t: VoidableTermination | null | undefined): boolean {
+  return Boolean(t && t.voided_at);
+}
+
+/** True only for a row that still ends an ICA. */
+export function isActiveTermination(t: VoidableTermination | null | undefined): boolean {
+  return Boolean(t) && !isVoided(t);
+}
+
+/**
+ * The newest termination that is NOT voided. Callers hand in rows already
+ * ordered newest-first; a voided row is skipped rather than returned.
+ */
+export function latestActiveTermination<T extends VoidableTermination>(
+  rows: readonly T[] | null | undefined,
+): T | null {
+  for (const r of rows ?? []) {
+    if (isActiveTermination(r)) return r;
+  }
+  return null;
+}
+
+export function countActiveTerminations(rows: readonly VoidableTermination[] | null | undefined): number {
+  return (rows ?? []).filter(isActiveTermination).length;
+}

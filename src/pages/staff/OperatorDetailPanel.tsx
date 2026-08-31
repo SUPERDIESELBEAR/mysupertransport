@@ -645,7 +645,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     parked_expected_return: null, parked_at: null,
   });
   // Latest lease termination on file — surfaced so the write has a visible consequence
-  const [latestTermination, setLatestTermination] = useState<{ id: string; effective_date: string | null; reason: string | null } | null>(null);
+  const [latestTermination, setLatestTermination] = useState<{ id: string; effective_date: string | null; reason: string | null; voided_at?: string | null; void_reason?: string | null } | null>(null);
   const [liveDispatchStatus, setLiveDispatchStatus] = useState<string | null>(null);
   const [showTerminationConfirm, setShowTerminationConfirm] = useState(false);
   const senderEmail: string = (session?.user?.email ?? '').toString();
@@ -1434,7 +1434,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       void (async () => {
         const [{ data: term }, { data: live }] = await Promise.all([
           supabase.from('lease_terminations')
-            .select('id, effective_date, reason')
+            .select('id, effective_date, reason, voided_at, void_reason')
             .eq('operator_id', operatorId)
             .order('effective_date', { ascending: false })
             .limit(1)
@@ -2966,7 +2966,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         {isOnHold && <Badge className="bg-blue-100 text-blue-700 border border-blue-300 text-xs">⏸ On Hold</Badge>}
         {excludedFromDispatch && <Badge className="bg-gold/10 text-gold border border-gold/30 text-xs">🚫 Excluded from Dispatch</Badge>}
         <ParkedBadge operator={parked} />
-        <TerminationBadge termination={latestTermination} />
+        <TerminationBadge termination={latestTermination} showVoided />
         {isAlert && <Badge className="status-action border text-xs">⚠ Alert — Review Required</Badge>}
         {status.fully_onboarded && <Badge className="status-complete border text-xs">✓ Fully Onboarded</Badge>}
         {status.ica_status === 'complete' && <Badge className="status-complete border text-xs">ICA Signed</Badge>}
@@ -3055,18 +3055,30 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </p>
         </div>
         {latestTermination && (
-          <div className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs">
+          <div
+            data-testid={latestTermination.voided_at ? 'termination-on-file-voided' : 'termination-on-file'}
+            className={
+              latestTermination.voided_at
+                ? 'rounded-lg border border-border bg-muted/60 px-3 py-2 text-xs'
+                : 'rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs'
+            }
+          >
             <div className="flex items-center gap-2">
-              <TerminationBadge termination={latestTermination} />
+              <TerminationBadge termination={latestTermination} showVoided />
               <button
                 type="button"
-                className="underline text-destructive"
+                className={latestTermination.voided_at ? 'underline text-muted-foreground' : 'underline text-destructive'}
                 onClick={() => setOpenTerminationId(latestTermination.id)}
               >
                 View Appendix C
               </button>
             </div>
-            <p className="mt-1 text-muted-foreground">{terminationReasonLabel(latestTermination.reason)}</p>
+            <p className="mt-1 text-muted-foreground">
+              {latestTermination.voided_at
+                ? latestTermination.void_reason ||
+                  'This Appendix C was generated in error and withdrawn. The ICA was not ended.'
+                : terminationReasonLabel(latestTermination.reason)}
+            </p>
           </div>
         )}
         <Button
@@ -7651,7 +7663,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             setShowTerminationBuilder(false);
             setOpenTerminationId(id);
             void supabase.from('lease_terminations')
-              .select('id, effective_date, reason')
+              .select('id, effective_date, reason, voided_at, void_reason')
               .eq('id', id)
               .maybeSingle()
               .then(({ data }) => setLatestTermination((data as any) ?? null));

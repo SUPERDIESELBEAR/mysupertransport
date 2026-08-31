@@ -16,6 +16,8 @@ interface TerminationRow {
   truck_vin: string | null;
   unit_number: string | null;
   driver_name: string;
+  voided_at: string | null;
+  void_reason: string | null;
 }
 
 const REASON_LABEL: Record<string, string> = {
@@ -43,7 +45,7 @@ export default function TerminationsView() {
     setLoading(true);
     const { data: terms } = await supabase
       .from('lease_terminations')
-      .select('id, operator_id, effective_date, reason, contractor_label, carrier_typed_name, insurance_notified_at, truck_vin')
+      .select('id, operator_id, effective_date, reason, contractor_label, carrier_typed_name, insurance_notified_at, truck_vin, voided_at, void_reason')
       .order('effective_date', { ascending: false });
 
     const list = (terms ?? []) as any[];
@@ -83,6 +85,8 @@ export default function TerminationsView() {
         carrier_typed_name: r.carrier_typed_name,
         insurance_notified_at: r.insurance_notified_at,
         truck_vin: r.truck_vin,
+        voided_at: r.voided_at ?? null,
+        void_reason: r.void_reason ?? null,
         unit_number: operatorMap.get(r.operator_id)?.unit ?? null,
         driver_name: operatorMap.get(r.operator_id)?.name ?? r.contractor_label ?? 'Driver',
       })),
@@ -123,6 +127,12 @@ export default function TerminationsView() {
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           Signed Appendix C lease termination notices and their delivery status to the insurance carrier.
+        </p>
+        <p className="text-xs text-muted-foreground mt-1" data-testid="termination-counts">
+          <span className="font-semibold text-foreground">{rows.filter((r) => !r.voided_at).length}</span> in effect
+          {rows.some((r) => r.voided_at) && (
+            <> · <span>{rows.filter((r) => r.voided_at).length} voided</span> (generated in error, retained on file)</>
+          )}
         </p>
       </div>
 
@@ -181,13 +191,26 @@ export default function TerminationsView() {
               {filtered.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-t border-border hover:bg-secondary/30 cursor-pointer transition-colors"
+                  className={`border-t border-border hover:bg-secondary/30 cursor-pointer transition-colors ${r.voided_at ? 'opacity-60' : ''}`}
                   onClick={() => { setOpenId(r.id); setOpenName(r.driver_name); }}
                 >
-                  <td className="px-4 py-3 font-medium text-foreground">{r.driver_name}</td>
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    {r.driver_name}
+                    {r.voided_at && (
+                      <span
+                        data-testid="termination-row-voided"
+                        className="ml-2 inline-flex items-center rounded border border-border bg-muted px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground"
+                      >
+                        Void
+                      </span>
+                    )}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.unit_number ?? '—'}</td>
                   <td className="px-4 py-3 text-muted-foreground">{fmtDate(r.effective_date)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{REASON_LABEL[r.reason] ?? r.reason}</td>
+                  <td className="px-4 py-3 text-muted-foreground">
+                    {REASON_LABEL[r.reason] ?? r.reason}
+                    {r.voided_at && <span className="block text-[11px] italic">Withdrawn — not in effect</span>}
+                  </td>
                   <td className="px-4 py-3 text-muted-foreground">{r.carrier_typed_name ?? '—'}</td>
                   <td className="px-4 py-3">
                     {r.insurance_notified_at ? (

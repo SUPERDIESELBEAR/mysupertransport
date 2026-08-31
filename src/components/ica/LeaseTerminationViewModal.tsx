@@ -92,6 +92,8 @@ export default function LeaseTerminationViewModal({
   };
 
   const alreadySent = !!record?.insurance_notified_at;
+  // A voided document stays viewable, clearly marked, and is never sent again.
+  const voided = !!record?.voided_at;
 
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-end">
@@ -124,7 +126,9 @@ export default function LeaseTerminationViewModal({
         {!loading && record && (
           <div className="px-6 py-3 border-b border-border bg-card shrink-0 flex items-center justify-between gap-3 print:hidden">
             <div className="text-xs text-muted-foreground">
-              {alreadySent ? (
+              {voided ? (
+                <span data-testid="termination-void-status">Voided — this document was withdrawn and cannot be sent.</span>
+              ) : alreadySent ? (
                 <span className="inline-flex items-center gap-1.5 text-status-complete">
                   <CheckCircle2 className="h-3.5 w-3.5" />
                   Sent to insurance {new Date(record.insurance_notified_at).toLocaleString('en-US', { month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
@@ -137,7 +141,7 @@ export default function LeaseTerminationViewModal({
             <Button
               size="sm"
               onClick={handleSendInsurance}
-              disabled={sending}
+              disabled={sending || voided}
               className="gap-1.5 bg-gold text-surface-dark hover:bg-gold/90"
             >
               {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
@@ -157,7 +161,23 @@ export default function LeaseTerminationViewModal({
               <p className="text-sm">Termination record not found.</p>
             </div>
           ) : (
-            <LeaseTerminationDocumentView
+            <>
+              {voided && (
+                <div
+                  data-testid="termination-void-banner"
+                  className="mb-5 rounded-lg border-2 border-muted-foreground/40 bg-muted px-4 py-3"
+                >
+                  <p className="text-sm font-bold uppercase tracking-wide text-muted-foreground">Void — not in effect</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {record.void_reason || 'This Appendix C was generated in error and withdrawn.'}
+                  </p>
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Voided {new Date(record.voided_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}.
+                    The document below is retained exactly as it was signed.
+                  </p>
+                </div>
+              )}
+              <LeaseTerminationDocumentView
               contractorLabel={record.contractor_label || operatorName}
               truckYear={record.truck_year}
               truckMake={record.truck_make}
@@ -174,7 +194,9 @@ export default function LeaseTerminationViewModal({
               carrierSignedAt={record.carrier_signed_at}
               contractorTypedName={record.contractor_typed_name}
               contractorSignedAt={record.contractor_signed_at}
+              voided={voided}
             />
+            </>
           )}
         </div>
       </div>

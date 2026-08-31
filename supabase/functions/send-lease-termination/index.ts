@@ -95,6 +95,15 @@ Deno.serve(withErrorEnvelope(async (req) => {
       return new Response(JSON.stringify({ error: 'Termination not found' }), { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
+    // A voided Appendix C was generated in error and withdrawn. It is retained
+    // on file, but it must never reach the insurance carrier.
+    if (term.voided_at) {
+      return new Response(
+        JSON.stringify({ error: 'This termination was voided and cannot be sent to insurance.' }),
+        { status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+
     // Load operator + driver name + DL paths + unit + caller profile + recipients
     const [opRes, settingsRes, callerProfRes, osRes] = await Promise.all([
       supabase.from('operators').select(`
