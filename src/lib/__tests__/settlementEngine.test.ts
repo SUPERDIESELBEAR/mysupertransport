@@ -329,7 +329,8 @@ describe('header rates are paid alongside charges', () => {
 
     const perTon = computeSettlement(base({
       loads: [load({
-        charges: [], loadType: 'per_ton', rateType: 'per_ton', ratePerTon: 18.5, estimatedTons: 24,
+        charges: [], loadType: 'per_ton', rateType: 'per_ton', ratePerTon: 18.5,
+        estimatedTons: 24, confirmedTons: 24,
         documents: [{ document_type: 'pod' }, { document_type: 'scale_ticket' }],
       })],
     }));
