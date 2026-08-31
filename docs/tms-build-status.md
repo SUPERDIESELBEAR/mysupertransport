@@ -75,6 +75,7 @@ moves without a matching named line in the output, a gate has regressed to
 - **33 query sites in `src/components/inspection/` swallow errors;** failures are not surfaced to the UI.
 - **Parsed broker address is not applied to an existing broker record.** Extraction itself is built, but the address is only offered when a new broker is created from the document. When the dispatcher links an existing broker that has no address on file, the parsed address is discarded.
 - **Load Detail page is read-only for stop-off amounts,** so the edit path that could orphan a `load_charges` row does not exist yet. The unit test for the clear-to-empty transition exists but is unwired.
+- **OPEN — Settlement of exactly $0.00 when every load is withheld.** A settlement whose gross is $0.00 because every load was withheld (scale ticket pending, claim hold, paperwork hold, etc.) currently reports `below_threshold`. Arithmetically it is under the minimum, but the wording reads as "a small settlement rolled forward" when the truth is "nothing has been settled yet." Decide whether this needs its own status (`empty`? `withheld`?) or a distinct explanation on the existing state.
 
 ## Dispatch operating model
 
