@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import FacilitySelect from '@/components/dispatch/loadForm/FacilitySelect';
 import type { Facility } from '@/lib/facilities';
+import { gatedIt } from '@/test/helpers/gate';
 
 // cmdk observes its list container and scrolls the active item; jsdom has neither.
 class RO { observe() {} unobserve() {} disconnect() {} }
