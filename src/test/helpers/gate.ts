@@ -17,18 +17,25 @@
  *                                  run, not an absent one.
  *
  * ---------------------------------------------------------------------------
- * EXPECTED BASELINES — measured 2026-08-30 (parked state + termination guardrail). There are exactly two shapes. A
- * total that matches neither is a signal, not a question: something started
- * or stopped running, and the run should be read before it is trusted.
+ * EXPECTED BASELINES — measured 2026-08-31 (after the six definer re-pins and the
+ * lease-termination void work). There are exactly two shapes. A total that
+ * matches neither is a signal, not a question: something started or stopped
+ * running, and the run should be read before it is trusted.
  *
  *   Both shapes are run with --maxWorkers=2; at full parallelism the RTL
  *   suites contend and time out in EITHER shape, and those timeouts are not a
  *   regression. Note too that `bun run test:guards` is a nine-file subset
- *   (86 tests, zero skips) — it is not a shape.
+ *   — it is not a shape.
+ *
+ *   Both shapes also carry the SAME two known failures, recorded and unrelated
+ *   to the gates:
+ *     - FacilitySelect > add action reachable after a no-match query (5s RTL
+ *       timeout under contention; passes alone)
+ *     - eld/offline divergence > holds bytes while open, releases after 30 days
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
-
- *     963 passed | 14 skipped       (123 files passed | 1 skipped, 124 total)
+ *     Test Files  2 failed | 122 passed | 1 skipped (125)
+ *          Tests  2 failed | 970 passed | 14 skipped (986)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -41,16 +48,15 @@
  *           canonical_equipment_serial — which the unique index expression
  *           evaluates as the CALLER on every write, so even an INSERT is
  *           refused here. `authenticated` does hold that EXECUTE, so the app
- *           is unaffected. Assign / return / archive against a near-twin are
- *           verified manually and on a disposable instance.
+ *           is unaffected.
  *       - roadside bundle
  *           opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
  *       - certify_rods_day live RPC, execute arm
  *           no EXECUTE grant for the harness role, no driver JWT mintable here
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
-
- *     909 passed | 60 skipped       (114 files passed | 11 skipped, 124 total)
+ *     Test Files  2 failed | 113 passed | 10 skipped (125)
+ *          Tests  2 failed | 913 passed | 63 skipped (978)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
@@ -58,10 +64,12 @@
  *       - live SECURITY DEFINER catalog  x9   (one named skip per live check)
  *       - caller-evaluated functions     x3   (live catalog unreadable)
  *       - live grant / policy parity     x3   (live catalog unreadable)
-      - parked live schema / standing rows x4 (live catalog unreadable)
+ *       - parked live schema / standing rows x7 (live catalog unreadable)
+ *       - operator pay exposure          x5   (live catalog unreadable)
  *       - stop time source structure     x4   (live catalog unreadable)
  *       - equipment serial guard, catalog x4  (live catalog unreadable)
- *       - fuel import live structure     x7   (live catalog unreadable)
+ *       - fuel import live structure     x12  (live catalog unreadable)
+
 
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves

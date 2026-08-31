@@ -25,7 +25,7 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-29, after the MultiService fuel import pass)
+## Expected baselines (measured 2026-08-31, after the six definer re-pins)
 
 There are exactly two shapes. Anything else is a signal.
 
@@ -33,14 +33,20 @@ There are exactly two shapes. Anything else is a signal.
 invocation, not an optimisation: at full parallelism the RTL suites contend and
 time out in either shape, and those failures must not be read as a regression.
 
-Note also that `bun run test:guards` is a nine-file subset (86 tests, no skips).
-It is not a shape and must never be reported as one.
+Note also that `bun run test:guards` is a nine-file subset. It is not a shape
+and must never be reported as one.
+
+Both shapes carry the same two known failures, recorded and unrelated to the
+gates: `FacilitySelect > keeps the add action reachable after typing a query
+with no matches` (5s RTL timeout under contention; passes alone) and
+`eld/offline divergence > holds bytes while open, releases the hold after 30
+days`.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  122 passed | 1 skipped (123)
-     Tests  946 passed | 14 skipped (960)
+Test Files  2 failed | 122 passed | 1 skipped (125)
+     Tests  2 failed | 970 passed | 14 skipped (986)
 
 
 skipped:
@@ -63,8 +69,8 @@ skipped:
 
 
 ```text
-Test Files  113 passed | 10 skipped (123)
-     Tests  901 passed | 51 skipped (952)
+Test Files  2 failed | 113 passed | 10 skipped (125)
+     Tests  2 failed | 913 passed | 63 skipped (978)
 
 
 skipped: the above, plus
@@ -74,9 +80,11 @@ skipped: the above, plus
   live SECURITY DEFINER catalog x9   no PGHOST, one named skip per live check
   caller-evaluated functions x3      no PGHOST, live catalog unreadable
   live grant / policy parity x3      no PGHOST, live catalog unreadable
+  parked live schema / rows x7       no PGHOST, live catalog unreadable
+  operator pay exposure x5           no PGHOST, live catalog unreadable
   stop time source structure x4      no PGHOST, live catalog unreadable
   equipment serial guard catalog x4  no PGHOST, live catalog unreadable
-  fuel import live structure x7      no PGHOST, live catalog unreadable
+  fuel import live structure x12     no PGHOST, live catalog unreadable
 
 ```
 
@@ -86,6 +94,7 @@ Note on flakiness: a few React Testing Library suites (`brokersPage`,
 a loaded machine. They pass individually and with `--maxWorkers=2`. A timeout in
 one of those files is contention, not a regression — re-run it alone before
 reading anything into it.
+
 
 Every skip in both shapes is named in the report. If the skip count moves and no
 named line moved with it, a gate has regressed to `runIf`/`skip` — fix the gate,
