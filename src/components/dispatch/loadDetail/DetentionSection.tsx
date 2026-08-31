@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Clock, TriangleAlert } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import {
@@ -18,7 +19,7 @@ import { carrierZoneAbbrev, isoToNaive } from '@/lib/carrierTimezone';
 import { formatDateTime, formatWindow, type LoadDetail } from '@/lib/loadDetail';
 import { STOP_TYPE_LABELS, type StopType } from '@/lib/loadRateMath';
 import { formatCurrency } from '@/lib/loadFormat';
-import { fetchLoadCharges, type LoadChargeRecord } from '@/lib/loadCharges';
+import { addLoadCharge, fetchLoadCharges, type LoadChargeRecord } from '@/lib/loadCharges';
 import { fetchLoadChangeHistory } from '@/lib/loadDetail';
 import type { StopTimeProvenance, StopTimeSource } from '@/lib/stopTimes';
 import {
@@ -383,22 +384,44 @@ export default function DetentionSection({
   const [nextStatus, setNextStatus] = useState<DetentionClaimStatus | ''>('');
   const [note, setNote] = useState('');
   const [chargeId, setChargeId] = useState<string>('');
+  // Creating the charge from the claim is a DELIBERATE act, offered only when
+  // no charge is linked yet. Nothing here matches a revised con's detention
+  // line to a claim automatically — one con carries one line while a load may
+  // hold several claims, and a wrong match credits the wrong chase.
+  const [createCharge, setCreateCharge] = useState(false);
+  const [createAmount, setCreateAmount] = useState('');
 
   const openStatus = (claim: DetentionClaim) => {
     setNextStatus('');
     setNote(claim.resolution_note ?? '');
     setChargeId(claim.resulting_charge_id ?? '');
+    setCreateCharge(false);
+    setCreateAmount('');
     setStatusClaim(claim);
   };
 
   const advance = useMutation({
-    mutationFn: () => advanceDetentionClaimStatus({
-      claimId: statusClaim!.id,
-      from: statusClaim!.status,
-      to: nextStatus as DetentionClaimStatus,
-      resolutionNote: note,
-      resultingChargeId: chargeId || null,
-    }),
+    mutationFn: async () => {
+      let resulting = chargeId || null;
+      if (createCharge && !resulting) {
+        resulting = await addLoadCharge(loadId, {
+          chargeType: 'detention',
+          amount: createAmount,
+          description: 'Detention agreed with the broker',
+          reason: note.trim() || 'Detention claim resolved',
+          funding_source: '',
+          actual_cost: '',
+          proof_document_id: '',
+        });
+      }
+      await advanceDetentionClaimStatus({
+        claimId: statusClaim!.id,
+        from: statusClaim!.status,
+        to: nextStatus as DetentionClaimStatus,
+        resolutionNote: note,
+        resultingChargeId: resulting,
+      });
+    },
     onSuccess: () => {
       toast({ title: 'Claim status updated' });
       setStatusClaim(null);
@@ -407,6 +430,7 @@ export default function DetentionSection({
     onError: (err: Error) =>
       toast({ title: 'Could not update the claim', description: err.message, variant: 'destructive' }),
   });
+
 
   const list = claims ?? [];
 
@@ -644,8 +668,38 @@ export default function DetentionSection({
                   Linked by hand. Nothing matches a revised rate con's detention line to a claim
                   automatically.
                 </p>
+                {!chargeId ? (
+                  <div className="rounded-md border border-border bg-muted/40 p-2">
+                    <label className="flex items-start gap-2 text-[12px] text-foreground">
+                      <input
+                        type="checkbox"
+                        className="mt-0.5"
+                        checked={createCharge}
+                        onChange={e => setCreateCharge(e.target.checked)}
+                      />
+                      <span>Create the detention charge from this claim and link it</span>
+                    </label>
+                    {createCharge ? (
+                      <div className="mt-2 space-y-1.5">
+                        <Label htmlFor="detention-charge-amount">Agreed amount</Label>
+                        <Input
+                          id="detention-charge-amount"
+                          inputMode="decimal"
+                          value={createAmount}
+                          onChange={e => setCreateAmount(e.target.value)}
+                          placeholder="What the broker agreed to pay"
+                        />
+                        <p className="text-[11px] text-muted-foreground">
+                          Use this only where no revised rate confirmation will follow. The note
+                          below is recorded as the reason on the load's change history.
+                        </p>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : null}
+
             <div className="space-y-1.5">
               <Label htmlFor="detention-note">Note (optional)</Label>
               <Textarea
@@ -659,7 +713,11 @@ export default function DetentionSection({
           <DialogFooter>
             <Button variant="outline" onClick={() => setStatusClaim(null)}>Cancel</Button>
             <Button
-              disabled={!nextStatus || advance.isPending}
+              disabled={
+                !nextStatus || advance.isPending
+                || (createCharge && !chargeId
+                  && (!createAmount.trim() || !Number.isFinite(Number(createAmount))))
+              }
               onClick={() => advance.mutate()}
             >
               Update status

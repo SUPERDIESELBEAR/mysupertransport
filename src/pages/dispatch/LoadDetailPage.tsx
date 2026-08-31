@@ -192,7 +192,10 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
           loadId={load.id}
           operatorId={load.operator_id}
           canEdit={canChangeStatus}
+          loadStatus={load.status}
+          onChanged={() => { void refetch(); }}
         />
+
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Reefer requirements">
         <ReeferBlock load={load} />
