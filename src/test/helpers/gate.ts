@@ -29,8 +29,8 @@
  *   — it is not a shape.
  *
  *   WITH a database attached (PGHOST set), RUN_BUNDLE_TESTS unset:
- *     Test Files  126 passed | 2 skipped (128)
- *          Tests  1042 passed | 15 skipped (1057)
+ *     Test Files  128 passed | 2 skipped (130)
+ *          Tests  1069 passed | 15 skipped (1084)
  *     skipped:
  *       - stop time source trigger x5
  *           the provenance columns and the trigger ARE installed; the harness
@@ -55,8 +55,8 @@
  *           The component is untouched; unskip when the tooling is pinned.
  *
  *   WITHOUT a database (PGHOST absent), same --maxWorkers=2:
- *     Test Files  117 passed | 11 skipped (128)
- *          Tests  972 passed | 77 skipped (1049)
+ *     Test Files  119 passed | 11 skipped (130)
+ *          Tests  999 passed | 77 skipped (1076)
  *     skipped: the above, plus
  *       - share token throttling              (live catalog unreadable)
  *       - purge_rods_day path coverage        (live column list unreadable)
