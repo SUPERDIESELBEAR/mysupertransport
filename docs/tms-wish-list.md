@@ -198,6 +198,25 @@ TRIGGER: Module 7, billing and invoicing.
 
 ## KNOWN DEBT
 
+### document_exceptions has readers and no writer
+
+The paperwork predicate treats an approved or resolved exception as satisfying a
+requirement — that path is what stops a receiver refusing to sign from parking a
+load on a driver's chain permanently. But nothing in `src` or `supabase/functions`
+creates a `document_exceptions` row. There is no filing UI and no edge function;
+every touchpoint is a read or a staff resolve.
+
+Consequence: today a load whose POD genuinely cannot be obtained has no way to
+clear its paperwork, and under the per-load paperwork hold it would be withheld
+from settlement indefinitely.
+
+When the filing UI is built it MUST pass the slot's `photoLabel` on the loadout
+path — the scoping fix of 2026-08-31 depends on it, and a NULL label satisfies
+nothing labelled.
+
+**TRIGGER: before real freight volume, or with the first load that cannot obtain
+its paperwork.**
+
 ### Audit and revoke anon EXECUTE across definer functions
 **TRIGGER: before any external launch or SaaS onboarding.**
 
