@@ -151,7 +151,7 @@ describe('several active claims collapse to one indicator at the highest severit
     renderStatusCell(summary);
     const found = screen.getAllByLabelText(/hold|watch/i);
     expect(found).toHaveLength(1);
-    expect(found[0].className).toContain('bg-destructive');
+    expect(found[0].className).toContain('text-destructive');
     expect(found[0].getAttribute('title')).toContain('2 claim types');
   });
 });
