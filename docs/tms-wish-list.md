@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-08-28
+Last updated: 2026-08-31
 
 ---
 
