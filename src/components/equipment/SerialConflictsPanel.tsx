@@ -120,9 +120,9 @@ export default function SerialConflictsPanel({
         kind: 'confusable' as const,
       }));
 
-    // Second net: serials one character apart (a dropped or added digit), which
-    // confusable folding can never catch. Softer signal — these may be genuinely
-    // different devices, so staff decides.
+    // Second net: near-twin serials that confusable folding can never catch —
+    // a dropped/doubled digit, or a single look-alike substitution (0/O, 6/8).
+    // Softer signal — these may be genuinely different devices, so staff decides.
     const claimed = new Set(confusable.flatMap(c => c.items.map(i => i.id)));
     const near: Conflict[] = [];
     const candidates = live.filter(i => !claimed.has(i.id));
@@ -131,10 +131,7 @@ export default function SerialConflictsPanel({
         const x = candidates[a];
         const y = candidates[b];
         if (x.device_type !== y.device_type) continue;
-        const cx = canonicalSerial(x.serial_number)!;
-        const cy = canonicalSerial(y.serial_number)!;
-        if (Math.min(cx.length, cy.length) < 6) continue;
-        if (editDistance(cx, cy) !== 1) continue;
+        if (!isSoftNearMatch(x.serial_number, y.serial_number)) continue;
         near.push({
           key: `near:${x.device_type}:${[x.id, y.id].sort().join(':')}`,
           deviceType: x.device_type,
