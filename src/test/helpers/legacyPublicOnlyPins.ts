@@ -50,8 +50,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260728131454_288be1c0-a4c8-49d4-ba07-46630cb1816c.sql::public.enforce_demo_flag_management_only()",
   "20260723161323_21e54a90-814a-420f-a3c1-f670beba745a.sql::public.enforce_eld_signature_lock()",
   "20260618185610_96052999-3491-4f8a-99b2-032e2cb5cc05.sql::public.enforce_go_live_ack_gate()",
-  "20260713160032_0391a9d9-8e5f-4950-8b47-157a815f72aa.sql::public.enforce_ica_contracts_operator_column_whitelist()",
-  "20260610105245_d4d7a7da-fec7-410b-a12b-4e67ce34d619.sql::public.enforce_ica_contracts_operator_update()",
   "20260427110313_c4fdf046-3b01-41b7-b8a3-9bcb1caafcf4.sql::public.enforce_message_edit_rules()",
   "20260721112536_5b3b7f46-a765-4eed-a448-e93cfad37c70.sql::public.enforce_message_recipient_update_immutability()",
   "20260728153935_9d5ec2ab-16aa-4961-8a00-306cec8cbdc0.sql::public.enforce_onboarding_status_operator_column_whitelist()",
@@ -107,8 +105,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.submit_pei_response(uuid, jsonb, jsonb)",
   "20260526140552_f1ee7a34-458d-480a-a373-a721e4ec836c.sql::public.sync_active_dispatch_from_log()",
   "20260622153201_cef136ba-9684-4bed-b914-e4346e972d96.sql::public.sync_application_expiry_to_binder()",
-  "20260714133602_5d2278ce-f14c-4cd2-84e7-589aac3a1372.sql::public.sync_dot_binder_to_vh()",
-  "20260423115108_31ef84a8-5d17-4eed-87bb-79c5df6ad1ad.sql::public.sync_dot_to_inspection_documents()",
   "20260714133602_5d2278ce-f14c-4cd2-84e7-589aac3a1372.sql::public.sync_irp_expiry_to_mo_plate()",
   "20260729123623_6c7c969d-1a1e-4fc1-a403-1ed040340a0b.sql::public.sync_mo_plate_expiry_to_irp()",
   "20260723165445_9915b9a4-b93d-4c80-ba34-bdd65e50b2dc.sql::public.sync_photos_from_storage()",
@@ -126,4 +122,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  * function is a new defect: pin it to `public, extensions` instead of
  * widening the exemption.
  */
-export const LEGACY_MAX = 86;
+export const LEGACY_MAX = 82;
