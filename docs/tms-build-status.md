@@ -3156,9 +3156,9 @@ See section 8.
 
 ### 8. Per-load paperwork hold
 
-A load whose required paperwork is incomplete may be withheld from settlement
-while the rest of that week's settlement pays normally. Only that load's line
-item waits; when the paperwork arrives it picks up in a later settlement.
+A load whose required paperwork is incomplete is withheld from settlement by
+default. Only that load's line item waits; when the paperwork arrives it picks up
+in a later settlement. The rest of that week's settlement pays normally.
 
 The predicate is the existing `evaluateLoadPaperwork` in
 `src/lib/loadPaperwork.ts`. The settlement engine must CALL that predicate,
@@ -3168,10 +3168,22 @@ This is an EXCLUSION from a settlement, not a suspension of one. The driver must
 be able to see WHY a load was withheld — a short check with no explanation is the
 failure mode.
 
-**OPEN — automatic or deliberate.** Whether the hold is applied automatically
-when paperwork is incomplete or requires a deliberate decision each time is
-open. The owner's phrasing was "we may elect to hold," which suggests judgment
-rather than a rule.
+**Settled — automatic hold, deliberate release.** The hold is applied
+automatically when `evaluateLoadPaperwork` reports incomplete required
+paperwork. Management can RELEASE a withheld load into the settlement, recorded
+with actor and reason. The release is the deliberate act; the hold is the
+default.
+
+**Rationale.** A decision-per-load approach works only while the exception list
+stays small; at volume it becomes a chore that gets clicked through, making the
+decision nominally deliberate and actually automatic. Automatic-with-release
+inverts the work so effort scales with the exceptions worth making, not with
+load count.
+
+**Driver visibility.** A withheld load and the reason must appear on the driver's
+home screen before payday, while he can still act on it. The paperwork tail
+already renders there; the settlement engine surfaces the hold status alongside
+it. A short check discovered on payday is the failure mode this avoids.
 
 ### Open items in this record, in one place
 
