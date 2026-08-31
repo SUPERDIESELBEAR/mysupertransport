@@ -101,6 +101,13 @@ export interface PaperworkDocumentInput {
 export interface PaperworkExceptionInput {
   document_type: LoadDocumentType | string;
   status: DocumentExceptionStatus | string;
+  /**
+   * Scopes the exception to ONE guided photo. Loadout requirements all share a
+   * single document_type, so an unscoped (NULL) exception must never satisfy a
+   * requirement that carries a photoLabel — otherwise one waived number plate
+   * clears the whole stage.
+   */
+  photo_label?: string | null;
 }
 
 function fold(value: string | null | undefined): string {
