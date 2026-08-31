@@ -162,7 +162,7 @@ export default function EquipmentReturnModal({ open, item, isManagement, onClose
             <Textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="Return notes, condition details..."
+              placeholder="Optional detail — the status is already recorded"
               className="min-h-[60px] resize-none text-sm"
             />
           </div>

@@ -50,6 +50,7 @@ export interface EquipmentItem {
   last_operator_name?: string | null;
   last_unit_number?: string | null;
   last_returned_at?: string | null;
+  last_return_condition?: string | null;
 }
 
 const DEVICE_CONFIG: Record<DeviceType, { label: string; icon: React.ReactNode; color: string }> = {
@@ -114,6 +115,38 @@ export function formatReturnedAt(iso: string | null | undefined): string | null 
     day: 'numeric',
     year: 'numeric',
   });
+}
+
+/**
+ * The date on a closed assignment only means "returned" when a return condition
+ * was actually recorded. Otherwise the row was simply closed (unassigned).
+ */
+export function formatLastActivity(
+  iso: string | null | undefined,
+  returnCondition: string | null | undefined,
+): string | null {
+  const date = formatReturnedAt(iso);
+  if (!date) return null;
+  return `${returnCondition ? 'returned' : 'unassigned'} ${date}`;
+}
+
+/**
+ * Free-text notes that merely restate the device status (the wording is copied
+ * from the Return modal's option descriptions) are hidden — the badge says it.
+ */
+const STATUS_ECHO_NOTES = [
+  'was not returned by the operator',
+  'not returned by the operator',
+  'not returned',
+  'returned with damage',
+  'device is damaged',
+  'damaged',
+];
+
+export function isStatusEchoNote(note: string | null | undefined): boolean {
+  if (!note) return false;
+  const n = note.trim().toLowerCase().replace(/[.\s]+$/g, '');
+  return STATUS_ECHO_NOTES.includes(n);
 }
 
 export default function EquipmentInventory({
@@ -305,6 +338,7 @@ export default function EquipmentInventory({
         id,
         equipment_id,
         returned_at,
+        return_condition,
         operators!inner(
           unit_number,
           application_id,
@@ -315,7 +349,7 @@ export default function EquipmentInventory({
       .not('returned_at', 'is', null)
       .order('returned_at', { ascending: false });
 
-    const lastAssignmentMap: Record<string, { name: string; unitNumber: string | null; returnedAt: string | null }> = {};
+    const lastAssignmentMap: Record<string, { name: string; unitNumber: string | null; returnedAt: string | null; returnCondition: string | null }> = {};
     for (const a of (pastAssignments ?? []) as any[]) {
       if (lastAssignmentMap[a.equipment_id]) continue;
       const app = a.operators?.applications;
@@ -326,6 +360,7 @@ export default function EquipmentInventory({
         name,
         unitNumber: onbUnit ?? a.operators?.unit_number ?? null,
         returnedAt: a.returned_at ?? null,
+        returnCondition: a.return_condition ?? null,
       };
     }
 
@@ -338,6 +373,7 @@ export default function EquipmentInventory({
       last_operator_name: lastAssignmentMap[item.id]?.name ?? null,
       last_unit_number: lastAssignmentMap[item.id]?.unitNumber ?? null,
       last_returned_at: lastAssignmentMap[item.id]?.returnedAt ?? null,
+      last_return_condition: lastAssignmentMap[item.id]?.returnCondition ?? null,
     }));
 
     setItems(enriched);
@@ -792,10 +828,12 @@ function EquipmentRow({
           <p className="text-xs text-muted-foreground mt-0.5 truncate">
             <History className="h-3 w-3 inline mr-1" />
             Last held by: {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
-            {formatReturnedAt(item.last_returned_at) ? ` · returned ${formatReturnedAt(item.last_returned_at)}` : ''}
+            {formatLastActivity(item.last_returned_at, item.last_return_condition)
+              ? ` · ${formatLastActivity(item.last_returned_at, item.last_return_condition)}`
+              : ''}
           </p>
         )}
-        {item.notes && (
+        {item.notes && !isStatusEchoNote(item.notes) && (
           <p className="text-xs text-muted-foreground mt-0.5 truncate italic">{item.notes}</p>
         )}
       </div>
@@ -903,14 +941,14 @@ function EquipmentCard({
           <span className="min-w-0">
             <span className="text-muted-foreground">Last held by: </span>
             {item.last_unit_number ? `Unit ${item.last_unit_number} · ` : ''}{item.last_operator_name}
-            {formatReturnedAt(item.last_returned_at) && (
-              <span className="text-muted-foreground"> · returned {formatReturnedAt(item.last_returned_at)}</span>
+            {formatLastActivity(item.last_returned_at, item.last_return_condition) && (
+              <span className="text-muted-foreground"> · {formatLastActivity(item.last_returned_at, item.last_return_condition)}</span>
             )}
           </span>
         </div>
       )}
 
-      {item.notes && (
+      {item.notes && !isStatusEchoNote(item.notes) && (
         <p className="text-xs text-muted-foreground italic line-clamp-2">{item.notes}</p>
       )}
 

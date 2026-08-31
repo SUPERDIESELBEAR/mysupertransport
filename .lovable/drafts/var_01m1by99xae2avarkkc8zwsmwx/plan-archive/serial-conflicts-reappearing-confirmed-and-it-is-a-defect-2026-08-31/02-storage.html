@@ -1,0 +1,49 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" width="640" height="300">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zn { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); }
+    .accf { fill: hsl(var(--accent)); }
+  </style>
+  <defs>
+    <marker id="c" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+    <marker id="ca" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0,0 L7,3.5 L0,7" fill="none" stroke="hsl(var(--accent))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <text x="0" y="14">today — one browser remembers</text>
+  <rect class="zn" x="0" y="24" width="300" height="110" rx="8"/>
+  <rect class="bx" x="16" y="44" width="120" height="34" rx="8"/>
+  <text class="lbl" x="30" y="65">Dismiss pair</text>
+  <line class="w" x1="136" y1="61" x2="188" y2="61" marker-end="url(#c)"/>
+  <rect class="bx" x="190" y="44" width="96" height="34" rx="8"/>
+  <text x="200" y="65">localStorage</text>
+  <text x="16" y="106">other device, other browser,</text>
+  <text x="16" y="122">published vs preview → pair returns</text>
+
+  <text x="340" y="14">fix — the fleet remembers</text>
+  <rect class="zn" x="340" y="24" width="300" height="110" rx="8"/>
+  <rect class="bx" x="356" y="44" width="120" height="34" rx="8"/>
+  <text class="lbl" x="370" y="65">Dismiss pair</text>
+  <line class="w acc" x1="476" y1="61" x2="528" y2="61" marker-end="url(#ca)"/>
+  <rect class="bx" x="530" y="44" width="96" height="34" rx="8" stroke="hsl(var(--accent))"/>
+  <text x="540" y="65">database</text>
+  <text x="356" y="106">every staff member, every device,</text>
+  <text x="356" y="122">reviewed once and stays reviewed</text>
+
+  <circle class="accf" cx="12" cy="180" r="9"/>
+  <text x="8" y="184" style="fill:hsl(var(--accent-foreground));font-size:11px">1</text>
+  <text x="30" y="184">17 pairs were reviewed as "different devices" — no merges were performed.</text>
+  <circle class="accf" cx="12" cy="212" r="9"/>
+  <text x="8" y="216" style="fill:hsl(var(--accent-foreground));font-size:11px">2</text>
+  <text x="30" y="216">Nothing was lost or changed in inventory; only the hiding was browser-local.</text>
+  <circle class="accf" cx="12" cy="244" r="9"/>
+  <text x="8" y="248" style="fill:hsl(var(--accent-foreground));font-size:11px">3</text>
+  <text x="30" y="248">Editing either serial later re-opens that pair for a fresh look.</text>
+</svg>

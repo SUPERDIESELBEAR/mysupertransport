@@ -261,7 +261,9 @@ export default function EquipmentHistoryModal({ open, item, onClose }: Props) {
                           </p>
                           {a.returned_at && (
                             <p className="text-xs text-muted-foreground">
-                              <span className="font-medium">Returned:</span>{' '}
+                              <span className="font-medium">
+                                {a.return_condition ? 'Returned:' : 'Unassigned:'}
+                              </span>{' '}
                               {format(parseISO(a.returned_at), 'MMM d, yyyy')}
                             </p>
                           )}

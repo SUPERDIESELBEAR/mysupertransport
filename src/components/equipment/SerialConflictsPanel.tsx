@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, ChevronDown, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,6 +14,7 @@ import {
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { supabase } from '@/integrations/supabase/client';
 import {
   canonicalSerial,
   describeSerialDiff,
@@ -37,20 +38,20 @@ const DEVICE_LABEL: Record<DeviceType, string> = {
   fuel_card: 'Fuel Card',
 };
 
-const DISMISS_KEY = 'onboard_systems_serial_conflicts_dismissed';
+const LEGACY_DISMISS_KEY = 'onboard_systems_serial_conflicts_dismissed';
 
-function readDismissed(): Set<string> {
+function readLegacyDismissed(): Set<string> {
   try {
-    const raw = localStorage.getItem(DISMISS_KEY);
+    const raw = localStorage.getItem(LEGACY_DISMISS_KEY);
     return new Set(raw ? (JSON.parse(raw) as string[]) : []);
   } catch {
     return new Set();
   }
 }
 
-function writeDismissed(next: Set<string>) {
+function clearLegacyDismissed() {
   try {
-    localStorage.setItem(DISMISS_KEY, JSON.stringify(Array.from(next)));
+    localStorage.removeItem(LEGACY_DISMISS_KEY);
   } catch {
     /* non-critical */
   }
@@ -63,6 +64,13 @@ interface Conflict {
   /** 'confusable' = same device once look-alike characters fold; 'near' = one character apart. */
   kind: 'confusable' | 'near';
 }
+
+interface DismissalRow {
+  conflict_key: string;
+  serial_snapshot: string[];
+}
+
+const dismissalsTable = () => (supabase as any).from('equipment_serial_conflict_dismissals');
 
 /**
  * Surfaces inventory records that are really the same physical device — their
@@ -79,7 +87,9 @@ export default function SerialConflictsPanel({
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
   const [expanded, setExpanded] = useState(true);
-  const [dismissed, setDismissed] = useState<Set<string>>(() => readDismissed());
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [loadingDismissals, setLoadingDismissals] = useState(true);
+  const legacyMigratedRef = useRef(false);
   const [working, setWorking] = useState<string | null>(null);
   const [pending, setPending] = useState<{ conflict: Conflict; survivor: EquipmentItem } | null>(null);
   /** Which serial the merged record should end up with: a record's id, or 'custom'. */
@@ -139,38 +149,178 @@ export default function SerialConflictsPanel({
   const conflicts = allPairs.filter(c => !dismissed.has(c.key));
   const hiddenCount = allPairs.length - conflicts.length;
 
-  const applyDismissed = (next: Set<string>) => {
-    setDismissed(next);
-    writeDismissed(next);
+  const currentSerialsFor = useMemo(() => {
+    const map = new Map<string, string[]>();
+    for (const c of allPairs) {
+      map.set(
+        c.key,
+        c.items.map(i => normalizeSerial(i.serial_number)).filter((s): s is string => !!s).sort(),
+      );
+    }
+    return map;
+  }, [allPairs]);
+
+  const loadDismissed = async () => {
+    setLoadingDismissals(true);
+    try {
+      const { data, error } = await dismissalsTable().select('conflict_key, serial_snapshot');
+      if (error) throw error;
+      const rows = (data ?? []) as DismissalRow[];
+
+      const valid = new Set<string>();
+      const stale: string[] = [];
+      for (const row of rows) {
+        const current = currentSerialsFor.get(row.conflict_key);
+        const snap = [...row.serial_snapshot].sort();
+        if (current && JSON.stringify(current) === JSON.stringify(snap)) {
+          valid.add(row.conflict_key);
+        } else {
+          stale.push(row.conflict_key);
+        }
+      }
+
+      if (stale.length > 0) {
+        const { error: deleteError } = await dismissalsTable().delete().in('conflict_key', stale);
+        if (deleteError) throw deleteError;
+      }
+
+      // One-time migration from browser-local dismissals. The decision is a
+      // fleet fact, so promote anything still relevant into the shared table.
+      if (!legacyMigratedRef.current) {
+        legacyMigratedRef.current = true;
+        const legacy = readLegacyDismissed();
+        const toMigrate = Array.from(legacy).filter(
+          key => currentSerialsFor.has(key) && !valid.has(key),
+        );
+        if (toMigrate.length > 0) {
+          const { data: userData } = await supabase.auth.getUser();
+          const dismissedBy = userData.user?.id;
+          const inserts = toMigrate.map(key => {
+            const c = allPairs.find(p => p.key === key)!;
+            return {
+              conflict_key: key,
+              device_type: c.deviceType,
+              item_ids: c.items.map(i => i.id),
+              serial_snapshot: c.items.map(i => normalizeSerial(i.serial_number)).filter(Boolean),
+              dismissed_by: dismissedBy,
+            };
+          });
+          const { error: upsertError } = await dismissalsTable().upsert(inserts, {
+            onConflict: 'conflict_key',
+            ignoreDuplicates: true,
+          });
+          if (upsertError) throw upsertError;
+          clearLegacyDismissed();
+          for (const key of toMigrate) valid.add(key);
+        }
+      }
+
+      setDismissed(valid);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not load resolved conflicts',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoadingDismissals(false);
+    }
   };
 
-  const dismiss = (key: string) => {
-    const next = new Set(dismissed);
-    next.add(key);
-    applyDismissed(next);
-    toast({
-      title: 'Marked as different devices',
-      description: 'This pair is hidden on this browser only.',
-      action: (
-        <ToastAction
-          altText="Undo"
-          onClick={() => {
-            const restored = new Set(next);
-            restored.delete(key);
-            applyDismissed(restored);
-          }}
-        >
-          Undo
-        </ToastAction>
-      ),
-    });
+  useEffect(() => {
+    if (items.length === 0) return;
+    void loadDismissed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [items.length]);
+
+  const dismiss = async (conflict: Conflict) => {
+    if (guardDemo()) return;
+    const key = conflict.key;
+    const snapshot = conflict.items
+      .map(i => normalizeSerial(i.serial_number))
+      .filter((s): s is string => !!s);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const { error } = await dismissalsTable().insert({
+        conflict_key: key,
+        device_type: conflict.deviceType,
+        item_ids: conflict.items.map(i => i.id),
+        serial_snapshot: snapshot,
+        dismissed_by: userData.user?.id,
+      });
+      if (error) throw error;
+
+      setDismissed(prev => {
+        const next = new Set(prev);
+        next.add(key);
+        return next;
+      });
+      toast({
+        title: 'Marked as different devices',
+        description: 'This pair is hidden for all staff.',
+        action: (
+          <ToastAction
+            altText="Undo"
+            onClick={() => {
+              void (async () => {
+                const { error: undoError } = await dismissalsTable().delete().eq('conflict_key', key);
+                if (undoError) {
+                  toast({
+                    title: 'Undo failed',
+                    description: undoError.message,
+                    variant: 'destructive',
+                  });
+                  return;
+                }
+                setDismissed(prev => {
+                  const restored = new Set(prev);
+                  restored.delete(key);
+                  return restored;
+                });
+              })();
+            }}
+          >
+            Undo
+          </ToastAction>
+        ),
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not mark as different devices',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
   };
 
-  const restoreAll = () => {
-    const next = new Set(dismissed);
-    for (const pair of allPairs) next.delete(pair.key);
-    applyDismissed(next);
+  const restoreAll = async () => {
+    if (guardDemo()) return;
+    const hiddenKeys = allPairs.filter(c => dismissed.has(c.key)).map(c => c.key);
+    if (hiddenKeys.length === 0) return;
+    try {
+      const { error } = await dismissalsTable().delete().in('conflict_key', hiddenKeys);
+      if (error) throw error;
+      setDismissed(prev => {
+        const next = new Set(prev);
+        for (const key of hiddenKeys) next.delete(key);
+        return next;
+      });
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not restore hidden pairs',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
   };
+
+  if (loadingDismissals) {
+    return (
+      <div className="border border-destructive/30 bg-destructive/5 rounded-xl px-4 py-3 text-xs text-muted-foreground">
+        Loading serial conflicts…
+      </div>
+    );
+  }
 
   if (conflicts.length === 0 && hiddenCount === 0) return null;
 
@@ -307,7 +457,7 @@ export default function SerialConflictsPanel({
                 variant="outline"
                 className="h-8 px-3 text-xs text-muted-foreground border-border hover:bg-gold/10 hover:text-gold hover:border-gold"
                 disabled={working !== null}
-                onClick={() => dismiss(conflict.key)}
+                onClick={() => dismiss(conflict)}
               >
                 These are different devices
               </Button>

@@ -1,0 +1,49 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Where each line on the device card comes from">
+<style>
+text{font-family:var(--font-sans);fill:hsl(var(--foreground));font-size:12px}
+.t{font-size:14px;font-weight:480}
+.m{fill:hsl(var(--muted-foreground))}
+.mono{font-family:var(--font-mono);font-size:11px}
+.b{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+.z{fill:none;stroke:hsl(var(--border));stroke-width:1;stroke-dasharray:4 3}
+.w{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none}
+</style>
+<defs><marker id="a" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L7 3.5 L0 7 z" fill="hsl(var(--muted-foreground))"/></marker></defs>
+
+<rect class="z" x="8" y="8" width="300" height="270" rx="8"/>
+<text class="m" x="20" y="28">card today</text>
+
+<rect class="b" x="24" y="44" width="268" height="34" rx="8"/>
+<text class="mono" x="36" y="65">AABL36YG100586   [ Not Returned ]</text>
+
+<rect class="b" x="24" y="96" width="268" height="38" rx="8"/>
+<text x="36" y="112">Last held by: Tyler Walls</text>
+<text class="m" x="36" y="127">· returned Jul 9, 2026</text>
+
+<rect class="b" x="24" y="152" width="268" height="34" rx="8"/>
+<text class="m" x="36" y="173" font-style="italic">Was not returned by the operator.</text>
+
+<circle cx="330" cy="61" r="10" fill="hsl(var(--accent))"/><text x="330" y="65" text-anchor="middle" fill="hsl(var(--accent-foreground))" font-size="11">1</text>
+<circle cx="330" cy="115" r="10" fill="hsl(var(--accent))"/><text x="330" y="119" text-anchor="middle" fill="hsl(var(--accent-foreground))" font-size="11">2</text>
+<circle cx="330" cy="169" r="10" fill="hsl(var(--accent))"/><text x="330" y="173" text-anchor="middle" fill="hsl(var(--accent-foreground))" font-size="11">3</text>
+
+<text class="t" x="356" y="52">equipment_items.status</text>
+<text class="m" x="356" y="69">the real status — kept as is</text>
+
+<text class="t" x="356" y="106">assignments.returned_at</text>
+<text class="m" x="356" y="123">row closed; return_condition is null</text>
+<text class="m" x="356" y="138">→ relabel "unassigned"</text>
+
+<text class="t" x="356" y="160">equipment_items.notes</text>
+<text class="m" x="356" y="177">free text that restates the badge</text>
+<text class="m" x="356" y="192">→ clear those five notes</text>
+
+<line class="w" x1="292" y1="61" x2="316" y2="61" marker-end="url(#a)"/>
+<line class="w" x1="292" y1="115" x2="316" y2="115" marker-end="url(#a)"/>
+<line class="w" x1="292" y1="169" x2="316" y2="169" marker-end="url(#a)"/>
+
+<rect class="z" x="356" y="216" width="268" height="56" rx="8"/>
+<text class="m" x="368" y="236">note "Justin Herr" sits on ...013511</text>
+<text class="m" x="368" y="253">(Hickman's). Herr's device is ...024841.</text>
+<text class="m" x="368" y="268">→ move the note</text>
+</svg>
