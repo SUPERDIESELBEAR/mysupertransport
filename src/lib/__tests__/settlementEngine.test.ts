@@ -291,3 +291,68 @@ describe('lines reconcile to the net', () => {
       .toBe('Trailer rent — payment 2 of 6');
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* Header rates — the base money lives on `loads`, not in load_charges */
+/* ------------------------------------------------------------------ */
+
+describe('header rates are paid alongside charges', () => {
+  it('pays linehaul and unbundled FSC from the load header at their policy percentages', () => {
+    const r = computeSettlement(base({
+      loads: [load({
+        charges: [
+          charge({ id: 'd', charge_type: 'detention', amount: 150 }),
+          charge({ id: 's', charge_type: 'stopoff', amount: 75 }),
+        ],
+        rateType: 'flat', linehaulRate: 2850,
+        fscAmount: 340, fscBundledIntoLinehaul: false,
+      })],
+    }));
+    // 2052.00 + 244.80 + 150.00 + 54.00
+    expect(r.grossAmount).toBe(2500.8);
+  });
+
+  it('never pays a bundled FSC twice — bundled and NULL both mean inside the linehaul', () => {
+    for (const bundled of [true, null, undefined]) {
+      const r = computeSettlement(base({
+        loads: [load({ charges: [], rateType: 'flat', linehaulRate: 1875, fscAmount: 300, fscBundledIntoLinehaul: bundled })],
+      }));
+      expect(r.grossAmount).toBe(1350);
+    }
+  });
+
+  it('multiplies the per-mile and per-ton bases the same way the total does', () => {
+    const perMile = computeSettlement(base({
+      loads: [load({ charges: [], rateType: 'per_mile', ratePerMile: 2.5, loadedMiles: 400 })],
+    }));
+    expect(perMile.grossAmount).toBe(720); // 1000 × 72%
+
+    const perTon = computeSettlement(base({
+      loads: [load({
+        charges: [], loadType: 'per_ton', rateType: 'per_ton', ratePerTon: 18.5, estimatedTons: 24,
+        documents: [{ document_type: 'pod' }, { document_type: 'scale_ticket' }],
+      })],
+    }));
+    expect(perTon.grossAmount).toBe(319.68); // 444.00 × 72%
+  });
+
+  it('pays a loadout on its relocation fee, and pays nothing on a $0 fee', () => {
+    const paid = computeSettlement(base({
+      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 500, paperworkReleased: true })],
+    }));
+    expect(paid.grossAmount).toBe(360);
+
+    const free = computeSettlement(base({
+      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 0, paperworkReleased: true })],
+    }));
+    expect(free.grossAmount).toBe(0);
+  });
+
+  it('withholds header pay too when the load is withheld for paperwork', () => {
+    const r = computeSettlement(base({
+      loads: [load({ documents: [], charges: [], rateType: 'flat', linehaulRate: 2850 })],
+    }));
+    expect(r.grossAmount).toBe(0);
+    expect(r.withheldLoads).toHaveLength(1);
+  });
+});

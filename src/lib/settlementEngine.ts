@@ -67,6 +67,32 @@ export interface SettlementLoadInput {
   /** Instant of delivery. Attributed in the carrier timezone, never locally. */
   deliveredAt: string | null;
   charges: LoadChargeRecord[];
+  /**
+   * HEADER RATES. The base money on a load does NOT live in `load_charges` —
+   * `loads` carries it in columns, and `recompute_load_total_value` sums
+   * header base + unbundled FSC + charges. The engine reads the same halves
+   * from the same source, and never converts a header into a charge row: that
+   * would double-count the broker-facing total.
+   */
+  rateType?: string | null;
+  linehaulRate?: number | string | null;
+  ratePerMile?: number | string | null;
+  loadedMiles?: number | string | null;
+  ratePerTon?: number | string | null;
+  /**
+   * The tons figure `recompute_load_total_value` multiplies by. It reads
+   * `estimated_tons`; the engine reads the same column so the two never
+   * diverge, even where a confirmed figure exists.
+   */
+  estimatedTons?: number | string | null;
+  fscAmount?: number | string | null;
+  /**
+   * NULL and true both mean bundled — the SQL defaults it with
+   * `coalesce(..., true)`. A bundled FSC is already inside the linehaul rate
+   * and must never be paid a second time.
+   */
+  fscBundledIntoLinehaul?: boolean | null;
+  loadoutRelocationFee?: number | string | null;
   documents?: PaperworkDocumentInput[] | null;
   exceptions?: PaperworkExceptionInput[] | null;
   /**
@@ -213,6 +239,65 @@ export function resolveEffectivePolicy(
   return loadPolicy ?? driverPolicy ?? companyPolicy ?? null;
 }
 
+/**
+ * The base money that lives in `loads` columns rather than in `load_charges`.
+ *
+ * Mirrors `recompute_load_total_value` exactly — same base by rate type, same
+ * bundled-FSC test, same tons column — so the driver-facing figure and the
+ * broker-facing total are two readings of one set of numbers. Each header
+ * becomes its OWN line so a driver sees linehaul and FSC separately.
+ */
+function headerRateLines(
+  load: SettlementLoadInput,
+  policy: PayPolicyRates | null,
+): Array<{ lineType: SettlementLineType; amount: number; description: string }> {
+  const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
+  const pctOf = (klass: keyof typeof PCT_FIELD): number | null => {
+    const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
+    return Number.isFinite(pct) ? pct : null;
+  };
+
+  if (load.loadType === 'loadout') {
+    // A $0 relocation fee pays $0. The trailer use IS the value.
+    const fee = num(load.loadoutRelocationFee);
+    const pct = pctOf('linehaul');
+    const amount = pct === null ? 0 : round2(fee * (pct / 100));
+    if (amount) {
+      out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
+    }
+    return out;
+  }
+
+  let base = 0;
+  let label = 'Linehaul';
+  switch (String(load.rateType ?? 'flat')) {
+    case 'per_mile':
+      base = num(load.ratePerMile) * num(load.loadedMiles);
+      label = 'Linehaul (per mile)';
+      break;
+    case 'per_ton':
+      base = num(load.ratePerTon) * num(load.estimatedTons);
+      label = 'Linehaul (per ton)';
+      break;
+    default:
+      base = num(load.linehaulRate);
+      break;
+  }
+  const linehaulPct = pctOf('linehaul');
+  const linehaul = linehaulPct === null ? 0 : round2(base * (linehaulPct / 100));
+  if (linehaul) out.push({ lineType: 'load_pay', amount: linehaul, description: label });
+
+  // Bundled (true OR null) means the FSC is already inside the linehaul rate.
+  const bundled = load.fscBundledIntoLinehaul ?? true;
+  if (!bundled) {
+    const fscPct = pctOf('fsc');
+    const fsc = fscPct === null ? 0 : round2(num(load.fscAmount) * (fscPct / 100));
+    if (fsc) out.push({ lineType: 'load_pay', amount: fsc, description: 'Fuel surcharge' });
+  }
+
+  return out;
+}
+
 function lineTypeForCharge(klass: keyof typeof PCT_FIELD, isReimbursement: boolean): SettlementLineType {
   if (isReimbursement) return 'reimbursement';
   return klass === 'linehaul' ? 'load_pay' : 'accessorial';
@@ -252,6 +337,16 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     const releaseNote = !paperwork.complete && load.paperworkReleased
       ? ` (released${load.paperworkReleaseReason ? `: ${load.paperworkReleaseReason}` : ''})`
       : '';
+
+    for (const header of headerRateLines(load, policy)) {
+      lines.push({
+        lineType: header.lineType,
+        amount: header.amount,
+        description: `Load ${load.loadNumber} — ${header.description}${releaseNote}`,
+        sourceTable: 'loads',
+        sourceId: load.id,
+      });
+    }
 
     for (const charge of load.charges) {
       const klass = chargeClassification(charge.charge_type);
