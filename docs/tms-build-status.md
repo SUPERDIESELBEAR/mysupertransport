@@ -3345,3 +3345,31 @@ Both stamped `delivered_at_by` with the PROFILE id, not the auth uid. The loads
 list shows "No delivery instant" for a delivered load with none. A commodity
 edit through `update_load_with_stops` saved cleanly and wrote change-history
 rows, confirming the snapshot call is still under the 50-key limit.
+
+---
+
+## Standing rule — a new default-visible column is invisible to saved views
+
+This is a rule for every list in the app, not a note about one fix.
+
+A column added as "default visible" reaches only users who have **no** saved
+column set. Anyone with a row in `user_view_preferences` for that list keeps the
+set they saved, and the new key is simply absent from it — so the column does
+not appear. The people most likely to have customised a list are the people most
+likely to need the new column, so the default fails hardest exactly where it
+matters.
+
+Found when the `delivered` column — added specifically for the people chasing
+settlement — was hidden from exactly those people.
+
+**The rule.** Any new column on a list backed by saved view preferences MUST be
+introduced through `useViewPreferences`'s `introducedColumns: { version, keys }`.
+On read, keys the stored set could not have had an opinion about (because they
+did not exist when it was written) are merged in. The version marker is written
+the first time the user deliberately changes their columns, so an intentional
+hide after that still sticks, and the merge is idempotent until then.
+
+Adding a column without `introducedColumns` is a defect, whether or not anyone
+notices: the change ships green and reaches nobody who already customised the
+list. This applies to every list using saved view preferences — Loads, Dispatch,
+operators, equipment, and any list added later — not just Loads.
