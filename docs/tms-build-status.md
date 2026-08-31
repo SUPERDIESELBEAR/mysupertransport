@@ -3003,11 +3003,11 @@ pinned.
 ### Baselines restamped this day — both shapes fully green
 
 ```text
-with a database:     Test Files  126 passed | 2 skipped (128)
-                          Tests  1042 passed | 15 skipped (1057)
+with a database:     Test Files  127 passed | 2 skipped (129)
+                          Tests  1058 passed | 15 skipped (1073)
 
-without a database:  Test Files  117 passed | 11 skipped (128)
-                          Tests  972 passed | 77 skipped (1049)
+without a database:  Test Files  118 passed | 11 skipped (129)
+                          Tests  988 passed | 77 skipped (1065)
 ```
 
 No expected failures remain in either shape. From here, any red in the
