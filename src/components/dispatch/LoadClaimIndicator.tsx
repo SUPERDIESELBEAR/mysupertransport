@@ -11,8 +11,8 @@ interface LoadClaimIndicatorProps {
 
 /**
  * Inline claim indicator used on the Loads list and Dispatch Board.
- * Hold is rendered as a stop-like destructive signal because it blocks
- * settlement; Watch is a quieter informational warning.
+ * Hold is a plain red warning triangle with no background; Watch is a
+ * quieter informational eye badge.
  */
 export default function LoadClaimIndicator({ level, claimType, title, className }: LoadClaimIndicatorProps) {
   const isHold = level === 'hold';
@@ -20,14 +20,22 @@ export default function LoadClaimIndicator({ level, claimType, title, className 
   const label = CLAIM_TYPE_LABELS[claimType] ?? claimType;
   const tooltip = title ?? `${isHold ? 'Hold' : 'Watch'} — ${label}`;
 
+  if (isHold) {
+    return (
+      <AlertTriangle
+        title={tooltip}
+        className={cn('h-4 w-4 text-destructive', className)}
+        aria-label={tooltip}
+      />
+    );
+  }
+
   return (
     <span
       title={tooltip}
       className={cn(
         'inline-flex items-center justify-center rounded-full',
-        isHold
-          ? 'bg-destructive text-destructive-foreground'
-          : 'bg-warning/15 text-warning border border-warning/45',
+        'bg-warning/15 text-warning border border-warning/45',
         'h-5 w-5',
         className,
       )}
