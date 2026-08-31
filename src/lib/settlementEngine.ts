@@ -67,6 +67,32 @@ export interface SettlementLoadInput {
   /** Instant of delivery. Attributed in the carrier timezone, never locally. */
   deliveredAt: string | null;
   charges: LoadChargeRecord[];
+  /**
+   * HEADER RATES. The base money on a load does NOT live in `load_charges` —
+   * `loads` carries it in columns, and `recompute_load_total_value` sums
+   * header base + unbundled FSC + charges. The engine reads the same halves
+   * from the same source, and never converts a header into a charge row: that
+   * would double-count the broker-facing total.
+   */
+  rateType?: string | null;
+  linehaulRate?: number | string | null;
+  ratePerMile?: number | string | null;
+  loadedMiles?: number | string | null;
+  ratePerTon?: number | string | null;
+  /**
+   * The tons figure `recompute_load_total_value` multiplies by. It reads
+   * `estimated_tons`; the engine reads the same column so the two never
+   * diverge, even where a confirmed figure exists.
+   */
+  estimatedTons?: number | string | null;
+  fscAmount?: number | string | null;
+  /**
+   * NULL and true both mean bundled — the SQL defaults it with
+   * `coalesce(..., true)`. A bundled FSC is already inside the linehaul rate
+   * and must never be paid a second time.
+   */
+  fscBundledIntoLinehaul?: boolean | null;
+  loadoutRelocationFee?: number | string | null;
   documents?: PaperworkDocumentInput[] | null;
   exceptions?: PaperworkExceptionInput[] | null;
   /**
