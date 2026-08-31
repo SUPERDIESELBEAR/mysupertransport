@@ -235,6 +235,47 @@ export function editDistance(a: string, b: string): number {
   return prev[b.length];
 }
 
+/**
+ * Character pairs that are genuinely confusable on a printed label. Unordered:
+ * "0O" means 0 vs O in either direction.
+ */
+const LOOKALIKE_PAIRS = new Set(['0O', '1I', '1L', '17', '5S', '68', '6G', '2Z', '8B']);
+
+/** Minimum serial length for near-match review — excludes short sequential codes like fuel cards. */
+export const NEAR_MATCH_MIN_LENGTH = 8;
+
+function pairKey(a: string, b: string): string {
+  return a < b ? a + b : b + a;
+}
+
+/**
+ * Softer near-match test used for the review queue. True when both canonical
+ * serials are long enough to be real serials (8+ chars) and either:
+ *  - one is exactly one character longer with edit distance 1 (a dropped or
+ *    doubled keystroke — sequential numbering never produces this), or
+ *  - they are equal length and differ at exactly one position whose character
+ *    pair is genuinely confusable on a printed label (0/O, 1/7, 6/8, …).
+ * Harmless sequential tails (…901 vs …903) and short card numbers go quiet.
+ */
+export function isSoftNearMatch(
+  a: string | null | undefined,
+  b: string | null | undefined,
+): boolean {
+  const ca = canonicalSerial(a) ?? '';
+  const cb = canonicalSerial(b) ?? '';
+  if (!ca || !cb) return false;
+  if (Math.min(ca.length, cb.length) < NEAR_MATCH_MIN_LENGTH) return false;
+  const lenDiff = Math.abs(ca.length - cb.length);
+  if (lenDiff === 1) return editDistance(ca, cb) === 1;
+  if (lenDiff !== 0) return false;
+  const diffs: number[] = [];
+  for (let i = 0; i < ca.length; i++) {
+    if (ca[i] !== cb[i]) diffs.push(i);
+    if (diffs.length > 1) return false;
+  }
+  return diffs.length === 1 && LOOKALIKE_PAIRS.has(pairKey(ca[diffs[0]], cb[diffs[0]]));
+}
+
 export interface SerialMatch {
   id: string;
   serial_number: string;
