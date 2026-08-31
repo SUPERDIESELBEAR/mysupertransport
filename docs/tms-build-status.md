@@ -2892,6 +2892,21 @@ This pass does not close that gap. Until it is closed, `equipment_outstanding`
 must be treated as staff-asserted, and a hold released on the strength of a
 tracking number is a judgement call, not a fact.
 
+### LIVE GAP — HOLD claim flag does not stop settlement
+
+The rule "HOLD — stop settlement, engine auto-skips" is documented but
+unimplemented in the settlement path. `computeSettlement` in
+`src/lib/settlementEngine.ts` contains no reference to `claim_flags`; the only
+readers of an active HOLD flag are `DispatchBoardPage`, `LoadsListPage` and
+`loadDetail.ts`. A load with an active damaged-goods HOLD (ST-TEST-005) settled
+at $1,350.00 as if the flag were not present.
+
+This is the third rule found this week that is enforced in one layer while
+assumed structural: `pay_policies` was UI-only until the operator grant was
+revoked, look-alike serials lived only in a trigger, and now HOLD claim flags
+are surfaced in dispatch views but absent from the engine. The gap is recorded;
+fixing it is a separate pass.
+
 ### Two guards moved with this pass
 
 `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` rose 98 → 102. The four additions are
