@@ -2139,6 +2139,7 @@ export type Database = {
           id: string
           load_id: string
           load_stop_id: string | null
+          photo_label: string | null
           reason: Database["public"]["Enums"]["document_exception_reason"]
           report_latitude: number | null
           report_longitude: number | null
@@ -2159,6 +2160,7 @@ export type Database = {
           id?: string
           load_id: string
           load_stop_id?: string | null
+          photo_label?: string | null
           reason: Database["public"]["Enums"]["document_exception_reason"]
           report_latitude?: number | null
           report_longitude?: number | null
@@ -2179,6 +2181,7 @@ export type Database = {
           id?: string
           load_id?: string
           load_stop_id?: string | null
+          photo_label?: string | null
           reason?: Database["public"]["Enums"]["document_exception_reason"]
           report_latitude?: number | null
           report_longitude?: number | null

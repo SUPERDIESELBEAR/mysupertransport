@@ -1,0 +1,1 @@
+ALTER TABLE public.document_exceptions ADD COLUMN photo_label text;
