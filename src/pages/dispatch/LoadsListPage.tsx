@@ -56,7 +56,7 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
     .from('loads')
     .select(
       'id, load_number, status, equipment_type, load_type, linehaul_rate, total_load_value, ' +
-      'loaded_miles, commodity, weight_lbs, created_at, operator_id, dispatcher_id, ' +
+      'loaded_miles, commodity, weight_lbs, created_at, delivered_at, operator_id, dispatcher_id, ' +
       'brokers:broker_id(company_name), dispatcher:dispatcher_id(first_name, last_name), ' +
       'load_stops(stop_sequence, city, state, appointment_start)',
     )
@@ -141,6 +141,7 @@ async function fetchLoads(orderField: string, ascending: boolean): Promise<LoadR
       commodity: r.commodity as string | null,
       weight_lbs: r.weight_lbs as number | null,
       created_at: r.created_at as string,
+      delivered_at: (r.delivered_at as string | null) ?? null,
       operator_id: operatorId,
       dispatcher_id: r.dispatcher_id as string | null,
       brokerName: (r.brokers as { company_name: string } | null)?.company_name ?? null,

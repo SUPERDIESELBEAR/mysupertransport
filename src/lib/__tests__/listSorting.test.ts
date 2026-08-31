@@ -30,10 +30,12 @@ describe('list sorting', () => {
 });
 
 describe('loads column defaults', () => {
-  it('locks load # and status and defaults to the core five extras', () => {
+  it('locks load # and status and defaults to the core extras, delivery included', () => {
     expect(LOAD_COLUMNS.filter(c => c.locked).map(c => c.key)).toEqual(['load_number', 'status']);
     expect(DEFAULT_LOAD_COLUMNS).toEqual([
-      'load_number', 'status', 'broker', 'driver', 'equipment', 'rate', 'created',
+      // 'delivered' is default-visible on purpose: a load past delivery with no
+      // delivery instant cannot be settled, and that must be visible in the list.
+      'load_number', 'status', 'broker', 'driver', 'equipment', 'rate', 'created', 'delivered',
     ]);
   });
 });
