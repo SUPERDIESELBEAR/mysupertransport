@@ -69,6 +69,7 @@
  *       - equipment serial guard, catalog x4  (live catalog unreadable)
  *       - fuel import live structure     x12  (live catalog unreadable)
  *       - settlement foundation live      x6   (live catalog unreadable)
+ *       - ST-TEST-005 claim hold, real load x1 (live claim row unreadable)
  *       - equipment receipt live schema   x6   (live catalog unreadable)
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
