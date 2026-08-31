@@ -179,11 +179,11 @@ async function fetchBoard(): Promise<BoardData> {
 
     const { data: excs, error: excErr } = await supabase
       .from('document_exceptions')
-      .select('load_id, document_type, status')
+      .select('load_id, document_type, status, photo_label')
       .in('load_id', loadIds);
     if (excErr) throw excErr;
     (excs ?? []).forEach((e: any) => {
-      (exceptionsByLoad[e.load_id] ||= []).push({ document_type: e.document_type, status: e.status });
+      (exceptionsByLoad[e.load_id] ||= []).push({ document_type: e.document_type, status: e.status, photo_label: e.photo_label });
     });
 
     const { data: claimRows, error: claimErr } = await supabase
