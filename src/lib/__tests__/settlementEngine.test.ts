@@ -328,19 +328,22 @@ describe('header rates are paid alongside charges', () => {
     expect(perMile.grossAmount).toBe(720); // 1000 × 72%
 
     const perTon = computeSettlement(base({
-      loads: [load({ charges: [], loadType: 'per_ton', rateType: 'per_ton', ratePerTon: 18.5, estimatedTons: 24 })],
+      loads: [load({
+        charges: [], loadType: 'per_ton', rateType: 'per_ton', ratePerTon: 18.5, estimatedTons: 24,
+        documents: [{ document_type: 'pod' }, { document_type: 'scale_ticket' }],
+      })],
     }));
     expect(perTon.grossAmount).toBe(319.68); // 444.00 × 72%
   });
 
   it('pays a loadout on its relocation fee, and pays nothing on a $0 fee', () => {
     const paid = computeSettlement(base({
-      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 500 })],
+      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 500, paperworkReleased: true })],
     }));
     expect(paid.grossAmount).toBe(360);
 
     const free = computeSettlement(base({
-      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 0 })],
+      loads: [load({ loadType: 'loadout', charges: [], loadoutRelocationFee: 0, paperworkReleased: true })],
     }));
     expect(free.grossAmount).toBe(0);
   });
