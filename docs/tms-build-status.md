@@ -3176,7 +3176,7 @@ rather than a rule.
 ### Open items in this record, in one place
 
 | # | Open question |
-|---|---|---|
+|---|---|
 | 5 | Who may withdraw from the R&M Deposit? |
 | 5 | What authorises an R&M withdrawal? |
 | 5 | What happens to the R&M balance when a driver departs? |
