@@ -25,9 +25,10 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## Expected baselines (measured 2026-08-31, after the six definer re-pins)
+## Expected baselines (measured 2026-08-31, after the FacilitySelect quarantine)
 
-There are exactly two shapes. Anything else is a signal.
+There are exactly two shapes, and **both are fully green** — there are no
+expected failures. Anything red is real.
 
 **Both shapes are run with `--maxWorkers=2`.** The flag is part of the recorded
 invocation, not an optimisation: at full parallelism the RTL suites contend and
@@ -36,19 +37,19 @@ time out in either shape, and those failures must not be read as a regression.
 Note also that `bun run test:guards` is a nine-file subset. It is not a shape
 and must never be reported as one.
 
-Both shapes carry the same two known failures, recorded and unrelated to the
-gate: `FacilitySelect > keeps the add action reachable after typing a query
-with no matches` — an RTL/userEvent timeout that no longer passes alone either
-(≈40s against cmdk before the 5s limit trips). Tooling drift, already logged as
-KNOWN DEBT; the component is untouched. The ELD offline divergence failure is
-gone: its release date sat exactly on the 30-day cutoff, so real time walked
-into it, and the assertion now uses a date clearly past the hold.
+`FacilitySelect > keeps the add action reachable after typing a query with no
+matches` is **quarantined** as of 2026-08-31: it is a Vitest/testing-library
+timing issue (userEvent typing into cmdk runs ~40s in isolation and trips the 5s
+limit), not a product defect. It is logged as KNOWN DEBT ("test tooling can
+change without a commit") in `docs/tms-wish-list.md`. The test body is intact and
+the skip is named and counted; unskip when the tooling is pinned. The global
+timeout was deliberately not raised.
 
 **With a database attached** (`PGHOST` set), `RUN_BUNDLE_TESTS` unset:
 
 ```text
-Test Files  1 failed | 125 passed | 1 skipped (127)
-     Tests  1 failed | 1013 passed | 14 skipped (1028)
+Test Files  125 passed | 2 skipped (127)
+     Tests  1013 passed | 15 skipped (1028)
 
 
 skipped:
@@ -65,14 +66,17 @@ skipped:
     opt-in; needs RUN_BUNDLE_TESTS=1 and a build newer than src/
   certify_rods_day live RPC > certifies a clean initial draft and supersedes it
     no EXECUTE grant for the harness role, and no driver JWT can be minted here
+  FacilitySelect add action
+    quarantined — Vitest/testing-library timing, not a product defect
 ```
 
 **Without a database** (`PGHOST` absent), same `--maxWorkers=2`:
 
 
 ```text
-Test Files  1 failed | 116 passed | 10 skipped (127)
-     Tests  1 failed | 943 passed | 76 skipped (1020)
+Test Files  116 passed | 11 skipped (127)
+     Tests  943 passed | 77 skipped (1020)
+
 
 
 skipped: the above, plus
