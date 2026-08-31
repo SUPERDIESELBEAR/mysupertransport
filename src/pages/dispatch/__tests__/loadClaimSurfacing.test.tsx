@@ -123,13 +123,15 @@ describe('claim indicator — Dispatch Board', () => {
 
   it('renders a HOLD indicator on the driver chain row', () => {
     renderDriverRow(chainRow(), { l1: holdSummary });
-    expect(screen.getByLabelText(/hold/i)).toBeInTheDocument();
+    const el = screen.getByLabelText(/hold/i);
+    expect(el).toBeInTheDocument();
+    expect(el.className).toContain('text-destructive');
   });
 
   it('renders the quieter WATCH variant on the chain row', () => {
     renderDriverRow(chainRow(), { l1: watchSummary });
     const el = screen.getByLabelText(/watch/i);
-    expect(el.className).not.toContain('bg-destructive');
+    expect(el.className).not.toContain('text-destructive');
   });
 
   it('renders nothing on a chain row with no active claim', () => {
