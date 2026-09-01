@@ -102,7 +102,18 @@ export default function LoadSummaryCard({
           value={driverValue}
           hint={canMessage && !hasDriver ? 'No driver assigned to this load yet. Messages already linked to this load stay visible here.' : undefined}
         />
-        <Field label="Dispatcher" value={load.dispatcher_name ?? 'Unassigned'} />
+        <Field
+          label="Dispatcher"
+          value={canEditDispatcher ? (
+            <DispatcherField
+              loadId={load.id}
+              dispatcherId={load.dispatcher_id}
+              dispatcherName={load.dispatcher_name}
+            />
+          ) : (
+            load.dispatcher_name ?? 'Unassigned'
+          )}
+        />
         <Field label="Equipment" value={formatEnumLabel(load.equipment_type)} />
         <Field label="Handling" value={formatEnumLabel(load.handling_type)} />
         <Field label="Commodity" value={dash(load.commodity)} />
