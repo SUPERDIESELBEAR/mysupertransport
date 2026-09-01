@@ -11155,7 +11155,7 @@ export type Database = {
         Returns: undefined
       }
       recompute_load_total_value: {
-        Args: { p_load_id: string }
+        Args: { p_load_id: string; p_reason?: string }
         Returns: number
       }
       record_duplicate_broker_reference: {

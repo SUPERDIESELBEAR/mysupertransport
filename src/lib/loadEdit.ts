@@ -78,6 +78,8 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     rate_per_mile: text(l.rate_per_mile),
     rate_per_ton: text(l.rate_per_ton),
     estimated_tons: text(l.estimated_tons),
+    // The scale ticket travels with the form so a save round-trips it.
+    confirmed_tons: text(l.confirmed_tons),
     fsc_bundled_into_linehaul: l.fsc_bundled_into_linehaul !== false,
     fsc_amount: text(l.fsc_amount),
     loaded_miles: text(l.loaded_miles),
@@ -138,7 +140,7 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
 
 /** Load-level fields whose change alters what the broker is billed. */
 export const FINANCIAL_FIELDS: (keyof LoadFormValues)[] = [
-  'rate_type', 'linehaul_rate', 'rate_per_mile', 'rate_per_ton', 'estimated_tons',
+  'rate_type', 'linehaul_rate', 'rate_per_mile', 'rate_per_ton', 'estimated_tons', 'confirmed_tons',
   'fsc_bundled_into_linehaul', 'fsc_amount', 'loaded_miles', 'loadout_relocation_fee',
   'permit_cost', 'permit_recovery_method',
 ];

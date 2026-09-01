@@ -39,6 +39,7 @@ export function buildLoadSavePayload(
     ratePerMile: v.rate_per_mile,
     ratePerTon: v.rate_per_ton,
     estimatedTons: v.estimated_tons,
+    confirmedTons: v.confirmed_tons,
     loadedMiles: v.loaded_miles,
     fscBundled: v.fsc_bundled_into_linehaul,
     fscAmount: v.fsc_amount,
@@ -63,6 +64,9 @@ export function buildLoadSavePayload(
     rate_per_mile: isLoadout ? '' : (v.rate_per_mile ?? ''),
     rate_per_ton: isLoadout ? '' : (v.rate_per_ton ?? ''),
     estimated_tons: isLoadout ? '' : (v.estimated_tons ?? ''),
+    // Authoritative for per-ton money. Omitting it let the RPC write the
+    // estimate over the scale-ticket total.
+    confirmed_tons: isLoadout ? '' : (v.confirmed_tons ?? ''),
     fsc_bundled_into_linehaul: v.fsc_bundled_into_linehaul,
     fsc_amount: v.fsc_bundled_into_linehaul ? '' : (v.fsc_amount ?? ''),
     loaded_miles: v.loaded_miles ?? '',
