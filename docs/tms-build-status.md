@@ -3155,14 +3155,99 @@ never silently unpaid.
 ### 4. Dispatch company settlement — one 1099 vendor, not per dispatcher
 
 Attribution by dispatcher is for VISIBILITY only. There is exactly one
-settlement and one 1099, issued to the dispatch company.
+settlement and one 1099, issued to the dispatch company. Monthly calendar period,
+paid on or around the 10th of the following month.
 
-**Eligible base.** Gross for loads DELIVERED that month,
+#### 4.1 The eligible base — which loads
 
-- **excluding TONU loads entirely**, and
-- **excluding any charge whose driver pay class is 100%** — detention, layover,
-  lumper reimbursement — determined by READING THE PAY POLICY, never a hardcoded
-  list, so a new accessorial type configured at 100% is excluded automatically.
+A load enters the dispatch base only if ALL of these hold:
+
+- it has a non-null `delivered_at` falling inside the calendar month, evaluated in
+  the CARRIER timezone;
+- its status is NOT `tonu`;
+- its status is NOT `cancelled`.
+
+**TONU is excluded BY LOAD STATUS, never by the presence of a TONU charge.** A
+TONU charge sitting on an otherwise normal load does not exclude that load; the
+`tonu_pct` pay class governs what a DRIVER is paid in that case, and that is a
+different question.
+
+The `cancelled` exclusion is currently redundant, because cancelled loads have no
+`delivered_at`. It is stated anyway: the redundancy disappears the moment anyone
+corrects a departure time on a load that was later cancelled.
+
+#### 4.2 The eligible base — which money
+
+**The base is built FROM PARTS. It is never read from `loads.total_load_value`,**
+which is the broker-facing gross and includes charges the base excludes.
+
+ALWAYS IN THE BASE — header rates, which have no pay class and are never excluded:
+
+- flat linehaul: `linehaul_rate`
+- per-mile linehaul: `rate_per_mile` × `loaded_miles`
+- per-ton linehaul: `rate_per_ton` × `confirmed_tons` (**confirmed only**;
+  `estimated_tons` is a broker-facing stand-in and never reaches a settlement of
+  either kind)
+- `rate_type` `percentage_of_load` behaves as flat and reads `linehaul_rate`
+- unbundled fuel surcharge: `fsc_amount`, ONLY when `fsc_bundled_into_linehaul` is
+  explicitly false (NULL means bundled)
+- loadout relocation fee: `loadout_relocation_fee`
+
+THEN ADD `load_charges`, MINUS the exclusions in 4.3.
+
+**Recorded reason.** On 2026-08-31 the driver engine paid $204 on a $3,415 load
+because it read only `load_charges` and never saw the header rate columns. A
+dispatch base assembled from `load_charges` alone repeats that defect on the
+vendor side.
+
+#### 4.3 The exclusion predicate — the part most likely to be mis-implemented
+
+A charge is excluded from the dispatch base when EITHER condition holds:
+
+- **(a)** the percentage the PAY POLICY IN FORCE assigns to that charge's
+  classification resolves to **100**, OR
+- **(b)** that charge's pay class is **`reimbursement`**.
+
+**On (a):** the percentage is read from the `*_pct` columns on `pay_policies`,
+resolved through the classification-to-column mapping the engine already uses. It
+is **NOT** read from the `charge_pay_classes` column. This distinction is the
+whole point: `charge_pay_classes` labels detention, layover AND lumper as
+`revenue`, so a rule implemented against `charge_pay_classes` would exclude
+**nothing at all**. Under the company default policy, the charges that resolve to
+100 today are detention, layover and lumper reimbursement.
+
+The consequence, which is the intent: a new accessorial type configured at 100%
+drops out of the base automatically, with no code change and no hardcoded list of
+charge types anywhere.
+
+**On (b):** a reimbursement is money passing through SUPERTRANSPORT to the driver
+at actual cost. It is not carrier revenue and the dispatch company does not earn
+on it, whatever percentage sits against its classification.
+
+**The business reason behind both**, recorded so the rule is not mistaken for an
+arbitrary carve-out: no driver is ever paid 100% of a load's linehaul. The 100%
+classifications are accessorials that belong to the driver in full, and there is
+no carrier margin in them for a 5% to be taken from.
+
+#### 4.4 Broker chargebacks do not reduce the base
+
+The dispatch base is the **booked gross**. A chargeback the broker deducts after
+the fact — late delivery, missed check call, unreported trailer swap, comcheck fee
+— does not reduce it. The dispatch company earned its fee by booking the load at
+the rate agreed; a downstream operational failure is not the dispatcher's.
+
+**Separately, on the DRIVER side:** a chargeback IS deducted from the driver. The
+cause governs and discretion is retained — this is not a fixed formula, and
+circumstances exist where the carrier absorbs it instead. There is currently NO
+MECHANISM to represent a chargeback at all; see the KNOWN DEBT entry "Broker
+chargebacks are not representable".
+
+#### 4.5 Factoring is a reduction of the base, not a recurring deduction
+
+The 2% factoring share is applied as a **reduction of the base before the 5% is
+taken**. There is NO separate recurring factoring deduction. Anything describing
+factoring as a recurring line item alongside DAT and phone service is superseded,
+including the entry in `docs/tms-wish-list.md`.
 
 **Then, in order:**
 
@@ -3174,14 +3259,99 @@ eligible base
   less any per-settlement one-off  (must carry a load reference)
 ```
 
-BOTH percentages work off the SAME reduced base.
+Confirmed against a real dispatch invoice:
 
-**Period.** Monthly calendar month, paid on or around the 10th of the following
-month.
+```text
+gross 471,608  →  less 2% factoring = 462,176  →  × 5% = 23,109
+               →  less 779 DAT = 22,330 final
+```
 
 **Recorded consequence.** This produces a LOWER figure than the invoices
 historically paid, which computed on total gross. That difference is expected,
 not a defect.
+
+#### 4.6 Attribution
+
+The dispatch fee is attributed by `loads.dispatcher_id` — **who BOOKED the load**.
+The 5% is earned by booking.
+
+This is **for visibility only**. The fee computes off the base; no attribution
+value changes any amount owed.
+
+`active_dispatch.assigned_dispatcher` answers a different question —
+book-of-business performance, not booking activity — and is not used here.
+
+`loads.dispatcher_id` is nullable. Any per-dispatcher breakdown MUST carry an
+explicit **"unattributed"** bucket. A breakdown whose rows do not sum to the total
+is how a payment dispute gets discovered rather than prevented.
+
+Already recorded and applies here: Jack Barney and Yasir Nawaz hold the plain
+`dispatcher` role as dispatch MANAGERS with one or two drivers each. Nothing in
+the data distinguishes them, so any per-dispatcher ranking places them last.
+
+#### 4.7 Schema shape — separate tables, NOT a widened `settlements`
+
+The dispatch company settlement gets **its own tables**. `settlements`,
+`deductions` and `settlement_line_items` are not widened to carry a non-operator
+payee. Reasoning, recorded so it is not relitigated:
+
+- `settlements.operator_id` is NOT NULL with a cascade FK to `operators`, and
+  UNIQUE (`operator_id`, `period_start`) is what makes "one settlement per driver
+  per week" true at the database rather than in application code. Relaxing it to
+  admit a vendor removes a working guard.
+- `enforce_settlement_immutability` and `enforce_settlement_child_immutability`
+  are live, and the retained Pratt settlement is status `paid`. Any migration
+  altering `settlements` must survive an immutable row.
+- `settlement_status` has five members, two of which — `held` and
+  `below_threshold` — must NEVER occur for the dispatch company. There is no
+  minimum net threshold and no departing-driver hold on a vendor settlement.
+  Sharing the enum imports unreachable states, and unreachable states are where
+  wrong code hides.
+- `settlement_line_items.source_table` CHECK enumerates `loads`,
+  `fuel_transactions`, `deductions`, `deduction_installments`, `cash_advances`,
+  `rm_deposits`, `settlements`. Every one but `loads` is driver-side. Widening it
+  makes it stop meaning anything.
+
+**The accepted cost:** two settlement systems risks a rule fixed on one side and
+missed on the other — the "correct implementation with no caller on the path that
+mattered" pattern already recorded five times. **Mitigation:** the genuinely
+shared logic is small and already pure — period attribution through
+`carrierDateOf`, pay-policy percentage resolution, and the delivered-in-period
+predicate. Those are extracted and called by both paths, with a test asserting the
+dispatch path CALLS them rather than re-deriving. `computeSettlement` itself is
+NOT extracted; almost none of its body applies.
+
+This supersedes the earlier note in `docs/tms-wish-list.md` that the settlement
+tables must serve two payee types.
+
+#### 4.8 The dispatch settlement has no driver-side machinery
+
+No R&M Deposit. No minimum net pay threshold. No two-week holdback. No
+carry-forward of a negative. Monthly calendar period, paid around the 10th.
+
+`settlement_settings` is a driver-side singleton and has nowhere to store a
+monthly period, a 5% dispatch rate or a 2% factoring rate. The dispatch settlement
+needs its own configuration home. **Both percentages stay configurable; neither is
+hardcoded.**
+
+#### 4.9 Loadout loads carry a broker
+
+A loadout is a normal load on the broker's paperwork. Confirmed against two real
+rate confirmations: **Integrity Express Logistics** (IEL PO 3048784, $100.00, Rate
+Type "Flat Rate") and **Rolling River Logistics** (Load 10540, $150.00, Pay Type
+"Flat"). Both are ordinary brokers with MC numbers, remit-to addresses and
+broker-carrier agreements, and both belong in the `brokers` table with a factoring
+status like any other. **Going forward every loadout load carries a broker.**
+
+The relocation fee IS in the dispatch base. It is revenue on a load delivered that
+month and the driver is paid a percentage of it, so the dispatch company earns on
+it as it does on linehaul.
+
+Also confirmed by that paperwork: IEL states there are no BOLs on trailer moves
+and that their emailed confirmation is the POD — exactly what the loadout photo
+capture in Module 11 is built around. The 5–10 day use period holds; both rate
+cons run seven days pickup to delivery.
+
 
 ### 5. Repair & Maintenance Deposit
 
