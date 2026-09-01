@@ -3555,6 +3555,10 @@ variables and no snapshot keys, so the 100-argument ceiling is no nearer.
 reported defect: an unrelated field change leaves every charge id unchanged.
 Verified live on ST26035 — a detention claim's `resulting_charge_id` and the
 charge's `created_at`/`created_by` were byte-identical across a UI note edit.
+**The rows were reverted after that verification.** `load_charges` and
+`detention_claims` are both empty today, so the evidence for this check no longer
+survives in the database. The absence of those rows is not absence of the check.
+
 
 ## Per-ton bulk is paid on the scale ticket, not on the estimate (2026-08-31)
 
@@ -3832,6 +3836,28 @@ The reverse direction — a grant no policy backs — was swept separately and i
 `INSERT` to `authenticated` with no policy admitting that command. RLS denies
 those writes; the grant is inert. No `anon` grant and no `SELECT` grant is
 unbacked. Left as-is — narrowing them would be cosmetic.
+
+### CORRECTION — the reported `recompute_load_total_value` drift was not real
+
+A read-only investigation on 2026-09-01 reported the live
+`recompute_load_total_value(p_load_id, p_reason)` as a case of the database being
+AHEAD of the migration files, citing `20260831214215` as the newest committed
+definition.
+
+**That report was wrong.** Two later migrations exist and are committed:
+
+```text
+20260901124505   recompute_load_total_value(uuid)
+20260901125013   recompute_load_total_value(uuid, text)
+```
+
+The two-argument version is committed. There is no drift here.
+
+**The lesson, which is subtle and worth keeping.** The standing rule above — the
+catalog beats the migration files — was applied CORRECTLY, but against a
+truncated set of files, so a correct rule produced a wrong conclusion. "The file
+does not contain X" is only evidence once ALL the files have been read.
+
 
 ---
 
