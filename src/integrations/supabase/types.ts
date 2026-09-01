@@ -11404,6 +11404,10 @@ export type Database = {
         Args: { p_delivered_at: string; p_load_id: string }
         Returns: undefined
       }
+      set_load_dispatcher: {
+        Args: { p_dispatcher_id: string; p_load_id: string; p_reason?: string }
+        Returns: string
+      }
       set_load_verbatim_verification: {
         Args: { p_load_id: string; p_records: Json }
         Returns: undefined
