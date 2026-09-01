@@ -372,6 +372,52 @@ export async function unassignLoadDriver(loadId: string, reason: string): Promis
   return data as UnassignResult;
 }
 
+export interface DispatcherOption {
+  /** profiles.id — what `loads.dispatcher_id` stores. */
+  profileId: string;
+  name: string;
+}
+
+/** Profiles that hold the dispatcher role, for the Load Detail dispatcher selector. */
+export async function fetchDispatcherOptions(): Promise<DispatcherOption[]> {
+  const { data: roleRows, error: roleErr } = await supabase
+    .from('user_roles')
+    .select('user_id')
+    .eq('role', 'dispatcher');
+  if (roleErr) throw roleErr;
+  const userIds = [...new Set((roleRows ?? []).map(r => r.user_id).filter(Boolean))] as string[];
+  if (!userIds.length) return [];
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select('id, first_name, last_name')
+    .in('user_id', userIds);
+  if (error) throw error;
+
+  return ((data ?? []) as { id: string; first_name: string | null; last_name: string | null }[])
+    .map(p => ({
+      profileId: p.id,
+      name: [p.first_name, p.last_name].filter(Boolean).join(' ') || 'Unknown',
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * Change (or clear) the dispatcher on an existing load.
+ * Management/owner only — the database enforces it, and rejects a target who
+ * does not hold the dispatcher role.
+ */
+export async function setLoadDispatcher(
+  loadId: string, dispatcherProfileId: string | null, reason?: string | null,
+): Promise<void> {
+  const { error } = await rpc('set_load_dispatcher', {
+    p_load_id: loadId,
+    p_dispatcher_id: dispatcherProfileId,
+    p_reason: reason && reason.trim() ? reason.trim() : null,
+  });
+  if (error) throw error;
+}
+
 // Load times are read against the carrier timezone, never the viewer's machine.
 const dateTime = new Intl.DateTimeFormat('en-US', {
   month: 'short', day: 'numeric', year: 'numeric',
