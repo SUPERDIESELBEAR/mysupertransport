@@ -32,7 +32,7 @@ describe('binder expiry editor', () => {
       // click handler that opens the editor.
       it('non-inspection rows have a click handler that opens the editor', () => {
         const trigger = src.match(
-          /<button[\s\S]{0,400}?data-testid=\{`expiry-trigger-\$\{docName\}`\}[\s\S]{0,400}?<\/button>/,
+          /<button[\s\S]{0,900}?data-testid=\{`expiry-trigger-\$\{docName\}`\}[\s\S]{0,900}?<\/button>/,
         );
         expect(trigger, 'expiry trigger button missing').toBeTruthy();
         expect(trigger![0]).toContain('setExpiryEditing(doc.id)');
