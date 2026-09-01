@@ -3569,3 +3569,63 @@ like a missing delivery instant: a warning triangle on the Rate cell of the
 loads list, and a banner plus an "estimated tons — not a payable figure" hint on
 Load Detail's Rate Details. Whoever chases settlement sees it before payday
 rather than in a driver's short check.
+
+## Module 4, Pass 3 — what the driver sees (2026-09-01)
+
+The settlement now has a driver-facing reading. **Read-only, phone-first, and
+derived from nothing.** The screen renders `settlements`, `settlement_line_items`
+and the withheld-load rows the engine produced; it re-computes no amount and it
+holds no second copy of any explanatory sentence.
+
+**Where the strings come from.** Withheld wording arrives as
+`settlement_withheld_loads.message`, which is `WithholdReason.message` from
+`src/lib/settlementEngine.ts` — the claim case renders
+`CLAIM_HOLD_DRIVER_MESSAGE` ("One of your loads is under review.") verbatim, so
+the driver can never be told a different story than the engine's. Status wording
+is `SETTLEMENT_STATUS_DRIVER_EXPLANATIONS` in `src/lib/settlementConfig.ts`.
+
+**What he must not see, and how that is enforced.** Gross linehaul, the pay
+percentage, the departing flag and the nature of a claim never appear.
+`src/components/operator/MySettlements/__tests__/mySettlements.test.tsx` asserts
+against RENDERED OUTPUT — the absence of "gross", of any `N%`, of "departing",
+of "claim" and of "damaged" — because a source-level grep would pass on a screen
+that computed them into view. The word "escrow" never appears and a settlement
+under the minimum **rolls into the next one**; the word "holdback" is absent from
+the whole tree, guarded by the existing vocabulary test.
+
+**Isolation is asserted at the database, not in the UI.** The portal only ever
+asks for its own `operator_id`, so a component test would pass even if the policy
+admitted every row. `src/test/operator-settlement-isolation.test.ts` reads
+`pg_policy`: every SELECT policy on the three settlement tables is scoped by
+`auth.uid()`, no non-SELECT policy admits a driver, `anon` holds no privilege on
+any of them, and `my_rm_deposit()` is definer, pinned, not PUBLIC, and returns
+two numerics for the caller's row alone.
+
+**Two Pass 1 guards were amended, deliberately.** "Settlement data is closed to
+operators — every policy is management or owner" was true until this pass and is
+now wrong as written; it was rewritten to allow exactly two doors (own
+settlement, own line items, own withheld loads), each self-scoped and read-only,
+with the other five tables still fully closed. `my_rm_deposit` was added to the
+SECURITY DEFINER inventory with its reason and `KNOWN_AUTHENTICATED_EXECUTABLE_MAX`
+bumped 109 → 110.
+
+**Verified at 390x844.** Net pay leads at 2xl; the Repair & Maintenance Deposit
+reads "Balance $800.00 of $2,000.00 target"; pay lines, the pass-through fuel
+discount as its own line, and deductions all itemise; both withheld loads render
+with the engine's own sentence; the below-minimum settlement says
+"$61.25 rolls into your next settlement."
+
+**Baselines, both shapes green:**
+
+```text
+with a database:     Test Files  133 passed | 2 skipped (135)
+                          Tests  1106 passed | 15 skipped (1121)
+
+without a database:  Test Files  123 passed | 12 skipped (135)
+                          Tests  1031 passed | 82 skipped (1113)
+```
+
+**Still open after this pass.** Nothing writes `settlements`,
+`settlement_line_items` or `settlement_withheld_loads` yet — the engine runs, but
+no persistence path calls it, so the driver's screen is correct and empty until
+Pass 4 lands the writer.
