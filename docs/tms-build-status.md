@@ -3247,6 +3247,27 @@ home screen before payday, while he can still act on it. The paperwork tail
 already renders there; the settlement engine surfaces the hold status alongside
 it. A short check discovered on payday is the failure mode this avoids.
 
+### 9. Cash advances — population trigger only, no recovery schedule
+
+A cash advance currently puts a driver into a settlement run (it is a population
+trigger) but produces NO recovery line. The schema has no repayment schedule,
+so the engine and the gathering layer correctly deduct nothing for an outstanding
+advance. This is deliberate: inventing a weekly recovery amount would be the
+settlement layer making a pay rule that does not exist.
+
+A future repayment schedule must decide all three of:
+
+- **Recovery amount** — whether the advance is recovered in full on the next
+  settlement or spread over installments (for example, $N per week, N of M).
+- **Negative-net suspension** — whether recovery is suspended when the resulting
+  net would go negative, or whether it is allowed to drive the settlement further
+  negative and carry forward.
+- **Priority order** — whether advance recovery applies before or after R&M
+  Deposit, fuel, and other deductions when net is constrained.
+
+Until those three decisions are recorded, a driver with an outstanding advance
+settles with nothing deducted for it.
+
 ### Open items in this record, in one place
 
 | # | Open question |
