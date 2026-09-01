@@ -553,9 +553,23 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
             return (
             <div
               key={row.operatorId}
-              onClick={() => onSelectOperator(row.operatorId)}
-              className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer p-4 flex flex-col gap-3 ${isDeactivated ? 'opacity-75' : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={e => {
+                const el = e.target as HTMLElement | null;
+                if (el?.closest('button, a, input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
+                onSelectOperator(row.operatorId);
+              }}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  if (e.target !== e.currentTarget) return;
+                  e.preventDefault();
+                  onSelectOperator(row.operatorId);
+                }
+              }}
+              className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer select-none p-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isDeactivated ? 'opacity-75' : ''}`}
             >
+
               {/* Header: Unit # + DOT status */}
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2 min-w-0">
