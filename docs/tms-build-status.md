@@ -2802,7 +2802,8 @@ A settlement run includes any operator with UNSETTLED WORK in the period:
 
 - a load delivered in the period, not yet on a settlement
 - fuel transactions not yet deducted
-- an outstanding cash advance balance
+- an outstanding cash advance balance (trigger only — see section 9 in
+  **Settlement rules — the authoritative record**)
 - a negative carry-forward from a prior period
 - an R&M deduction due
 
