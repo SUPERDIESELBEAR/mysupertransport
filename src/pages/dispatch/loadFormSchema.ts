@@ -254,6 +254,7 @@ export const loadFormDefaults = (): LoadFormValues => ({
   rate_per_mile: '',
   rate_per_ton: '',
   estimated_tons: '',
+  confirmed_tons: '',
   fsc_bundled_into_linehaul: true,
   fsc_amount: '',
   loaded_miles: '',
