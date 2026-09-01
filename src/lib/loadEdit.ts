@@ -153,8 +153,14 @@ export function financialChanges(before: LoadFormValues, after: LoadFormValues):
   const changed: string[] = [];
 
   FINANCIAL_FIELDS.forEach(key => {
-    const a = before[key];
-    const b = after[key];
+    let a = before[key];
+    let b = after[key];
+    // Tri-state, mirroring the RPC: unstated means bundled, so NULL and true
+    // are the same answer and only a real turn-off is a financial change.
+    if (key === 'fsc_bundled_into_linehaul') {
+      a = a !== false;
+      b = b !== false;
+    }
     if (typeof a === 'boolean' || typeof b === 'boolean') {
       if (!!a !== !!b) changed.push(key);
       return;
