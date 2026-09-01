@@ -162,7 +162,7 @@ A settlement is linehaul plus accessorials minus fuel and deductions, so Modules
 
 Schema-shaped work is expensive to retrofit; view-shaped work is not. These must ship with the module that owns them:
 
-- **Module 4** — chargebacks with signed authorization attached, the R&M Deposit statement (running balance, deposits, withdrawals), the reimbursement pay class payout rule, and the settlement preview with a driver dispute window.
+- **Module 4** — chargebacks with signed authorization attached, the R&M Deposit statement (running balance, deposits, withdrawals), the reimbursement pay class payout rule, and the settlement preview with a driver dispute window. The reimbursement pay class payout rule was recorded twice — here and in `docs/tms-wish-list.md` — and is now MERGED into the single Module 4 entry "Reimbursement pay class — payout rule (Module 4)" in the wish list, which is authoritative for its detail and its trigger.
 - **Module 4 / Phase 2 reimbursement decision** — if lumper should move from the existing 100% percentage treatment to `reimbursement`, make that as an explicit data migration/review step. Do not infer it from the presence of `lumper_reimbursement_pct`, and do not automatically reclassify existing lumper charges.
 - **Module 7** — short-pay tracking (invoiced versus received, with reason) and factoring reconciliation (submitted, funded, reserves held, fees).
 - **Module 9** — broker scorecard, per-truck P&L, cash flow forecast, and Xero sync are view-shaped and can come later once the underlying modules are live.
