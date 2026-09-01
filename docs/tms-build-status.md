@@ -3832,3 +3832,91 @@ The reverse direction — a grant no policy backs — was swept separately and i
 `INSERT` to `authenticated` with no policy admitting that command. RLS denies
 those writes; the grant is inert. No `anon` grant and no `SELECT` grant is
 unbacked. Left as-is — narrowing them would be cosmetic.
+
+---
+
+## FIXED 2026-08-31 — the engine omitted linehaul entirely (header rates)
+
+**Found by the first real settlement run, not by the suite.** Johnathan Pratt's
+ST-TEST-002 settled at **$204.00 on a $3,415.00 load**. `computeSettlement` read
+only `load_charges`, so the two largest numbers on a normal load — `linehaul_rate`
+(2,850.00) and `fsc_amount` (340.00), which live in **header columns on `loads`**,
+not in `load_charges` — were never seen. Only the accessorials paid.
+
+**Fix.** `settlementEngine.ts` gained `headerRateLines()`, which turns the header
+figures into pay lines before the charge lines are added: `linehaul_rate`,
+`fsc_amount` (suppressed when `fsc_bundled_into_linehaul` is true or NULL, since
+both mean "inside the linehaul rate"), `rate_per_ton x confirmed_tons`, and
+`loadout_relocation_fee`. Charges continue to pay on top; nothing is double-paid
+because charge entry never touches the header fields and a test pins that.
+
+**Why a green suite missed it.** Every engine fixture built its loads out of
+`load_charges` rows. The fixtures agreed with the engine's wrong assumption, so
+the arithmetic was correct against a shape real loads do not have. A pure engine
+is only as honest as the shapes it is fed — this is the case that argues for
+running a real row through the real path at the end of every money pass.
+
+---
+
+## The six reported issues of 2026-09-01 — three real, three stale
+
+| # | Report | Verdict |
+|---|---|---|
+| 1 | — | **Stale.** Already closed in this document. |
+| 2 | `update_load_with_stops` writes an inline per-ton total over the scale-ticket total | **Real, fixed.** |
+| 3 | Expiry editing dead in both binder views | **Real, fixed.** |
+| 4 | `permission denied` on `carrier_profile`, blocking driver ELD screens | **Real, fixed.** |
+| 5 | Equipment serial guard | **Stale.** Fixed 2026-08-29. |
+| 6 | — | **Stale.** Already closed in this document. |
+
+### Issue 2 — one implementation of the money
+
+Migration `20260831203038` redefined `update_load_with_stops` with its **own**
+inline total, `rate_per_ton x estimated_tons`, and never called
+`recompute_load_total_value`. The later per-ton corrections (`20260831212039`,
+`20260831214215`) patched the shared helper only, so the **edit path stayed
+unpatched** and every load save wrote the estimate over the scale-ticket total.
+
+- The inline block is gone. The RPC writes the row and then calls
+  `public.recompute_load_total_value(p_load_id, v_reason)` — one implementation,
+  with the edit's typed reason landing on the `total_load_value` history row. The
+  helper is revoked from PUBLIC, `anon` and `authenticated`; it is internal only.
+- `confirmed_tons` now travels in the payload (`loadFormSchema.ts`,
+  `loadEdit.ts`, `loadSavePayload.ts`), counts as a financial field, and is
+  diffed and recorded by the RPC.
+- **Verified on the real row.** ST-TEST-003 edited through the form, estimated
+  tons 24 → 25: `total_load_value` stayed **455.47** (18.50 x 24.62), where the
+  pre-fix save would have written 462.50, or 444.00 on a plain re-save. Row
+  restored afterwards.
+- **Provenance: written before the fix, not a deliberate duplicate.**
+  `recompute_load_total_value` was created at `20260831192947` carrying the same
+  then-correct estimate formula; `20260831203038` sits between that and the
+  correction. The copy was inlined for convenience because the edit path needed
+  the total *before* its single `UPDATE`. That convenience is exactly what let
+  the one-line fix miss a caller.
+
+### Issue 2a — the `fsc_bundled_into_linehaul` tri-state
+
+The RPC coerced a NULL to `true`/`false` on save, so **every** edit of such a
+load registered a spurious financial change and demanded a reason — which trains
+people to type reasons reflexively and erodes the signal. NULL and `true` both
+mean "bundled into the linehaul rate"; the tri-state is now preserved end to end
+through the payload and the RPC. **2 of 10 existing loads carry NULL** and now
+edit without a false financial warning.
+
+### The pattern: a broad edit made while narrowing one case
+
+Issue 2 and issue 3 share a shape, three days apart. Issue 3 locked the expiry
+editor for *every* document row while intending to lock only Periodic DOT
+Inspections; issue 2 inlined a total for *every* load save while intending to
+serve one code path. **Caution: when locking or specialising one case, enumerate
+what else the change reaches.** Both defects shipped green.
+
+---
+
+## OPERATIONAL follow-up — app installs (measured 2026-09-01)
+
+**48 of 61** active operators have installed the PWA. **11 are web-only** and
+**2 have never signed in**. Not a code task: the install reminder path exists
+(daily cron plus a manual per-driver reminder with a 24h cooldown). The two who
+have never signed in cannot receive an in-app anything and need a phone call.
