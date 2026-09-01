@@ -3803,3 +3803,32 @@ expected — not part of this list.
 Lease Agreement (ICA) is configured `hasExpiry: false`, so 83 of 83 carry no
 expiry by design. An ICA is a contract with a term. Whether that term should be
 expiry-tracked and alerted on is a business decision, not a defect. Unresolved.
+
+## The database can be MISSING what the migration file contains (2026-09-01)
+
+`carrier_profile` carried its four RLS policies but **no table grants at all** —
+the Data API refused every signed-in read, which is what killed the driver ELD
+screens. The grants are present in the 2026-07-30 creating migration
+(`20260730132021_*.sql`, lines 21-23) and are absent from the live catalog.
+
+This is the **first observed case of the database missing something the migration
+file contains**. Every prior divergence ran the other way — a change applied to
+the database and the file never committed.
+
+> **Standing conclusion.** The migration history on disk is not a reliable
+> description of the live schema **in either direction**. Do not read a
+> migration file as evidence that the database is in that state, and do not read
+> the absence of a file as evidence that it is not. Current-state catalog checks
+> — `pg_class.relacl`, `has_table_privilege`, `pg_policy`,
+> `public.grant_parity_report()` — are the only authority.
+
+**Parity sweep run after the fix.** `grant_parity_report()` returns **zero rows**:
+no `policy_without_grant`, no `anon_policy_without_grant`, no
+`service_role_without_grant`, no `policies_without_rls` anywhere in `public`.
+`carrier_profile` was the only table in that state, and it is now closed.
+
+The reverse direction — a grant no policy backs — was swept separately and is
+**benign by design**: 62 tables grant `DELETE`, 41 grant `UPDATE` and 23 grant
+`INSERT` to `authenticated` with no policy admitting that command. RLS denies
+those writes; the grant is inert. No `anon` grant and no `SELECT` grant is
+unbacked. Left as-is — narrowing them would be cosmetic.
