@@ -80,7 +80,8 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     estimated_tons: text(l.estimated_tons),
     // The scale ticket travels with the form so a save round-trips it.
     confirmed_tons: text(l.confirmed_tons),
-    fsc_bundled_into_linehaul: l.fsc_bundled_into_linehaul !== false,
+    // NULL stays NULL so a save that does not touch it writes nothing.
+    fsc_bundled_into_linehaul: l.fsc_bundled_into_linehaul,
     fsc_amount: text(l.fsc_amount),
     loaded_miles: text(l.loaded_miles),
     deadhead_miles: text(l.deadhead_miles),

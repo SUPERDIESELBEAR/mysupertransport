@@ -748,7 +748,7 @@ export function buildRevisionDiff(
 
   const revisedFsc = use(parsed.rate.fsc_amount);
   if (revisedFsc !== null) {
-    const cur = current.fsc_bundled_into_linehaul ? 0 : num(current.fsc_amount);
+    const cur = current.fsc_bundled_into_linehaul !== false ? 0 : num(current.fsc_amount);
     const delta = money(num(revisedFsc), cur);
     if (delta !== 0) {
       financial.push({
@@ -965,7 +965,7 @@ export function applyRevision(
     }
 
     if (klass === 'fsc') {
-      const currentFsc = values.fsc_bundled_into_linehaul ? 0 : num(values.fsc_amount);
+      const currentFsc = values.fsc_bundled_into_linehaul !== false ? 0 : num(values.fsc_amount);
       const next = d.kind === 'fsc'
         ? d.revised
         : Math.round((currentFsc + d.delta) * 100) / 100;
