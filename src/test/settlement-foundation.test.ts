@@ -139,6 +139,8 @@ describe('departing is invisible to the driver', () => {
     for (const surface of OPERATOR_SURFACES) {
       for (const file of walk(surface)) {
         if (!/\.(ts|tsx)$/.test(file)) continue;
+        // A test that ASSERTS the word's absence must be allowed to name it.
+        if (/__tests__/.test(file)) continue;
         if (/\bdeparting\b/i.test(fs.readFileSync(file, 'utf8'))) offenders.push(file);
       }
     }
@@ -331,6 +333,9 @@ describe('forbidden vocabulary', () => {
         if (!/\.(ts|tsx|sql)$/.test(file)) continue;
         if (allowed.has(file)) continue;
         if (file.endsWith('settlement-foundation.test.ts')) continue;
+        // Same allowance: the guards that assert the words are absent from the
+        // driver's screen have to spell them out to do it.
+        if (/__tests__/.test(file)) continue;
         if (/escrow|holdback/i.test(fs.readFileSync(file, 'utf8'))) offenders.push(file);
       }
     }
@@ -405,16 +410,41 @@ describe('settlement foundation — live schema', () => {
     expect(trigger).not.toContain('authenticated=X/');
   });
 
-  itLive('settlement data is closed to operators — every policy is management or owner', () => {
+  // Pass 3 opened exactly two doors: a driver reads HIS OWN settlement and its
+  // line items. Nothing else moved, and both doors are scoped by auth.uid() —
+  // a policy that merely mentions the operator role without tying the row to
+  // the caller is the failure this asserts against.
+  itLive('settlement data is closed to operators except their own settlement rows', () => {
     const open = psql(`
       select tablename || '.' || policyname
       from pg_policies
       where schemaname='public'
-        and tablename in ('settlements','settlement_line_items','deductions','deduction_installments',
+        and tablename in ('deductions','deduction_installments',
                           'rm_deposits','rm_deposit_transactions','cash_advances')
         and coalesce(qual,'') !~ 'management'
       order by 1`);
     expect(open).toEqual([]);
+
+    const unscoped = psql(`
+      select tablename || '.' || policyname
+      from pg_policies
+      where schemaname='public'
+        and tablename in ('settlements','settlement_line_items','settlement_withheld_loads')
+        and coalesce(qual,'') !~ 'management'
+        and coalesce(qual,'') !~ 'auth\\.uid\\(\\)'
+      order by 1`);
+    expect(unscoped).toEqual([]);
+
+    // And the driver's door is READ ONLY.
+    const writable = psql(`
+      select tablename || '.' || policyname
+      from pg_policies
+      where schemaname='public'
+        and tablename in ('settlements','settlement_line_items','settlement_withheld_loads')
+        and coalesce(qual,'') !~ 'management'
+        and cmd <> 'SELECT'
+      order by 1`);
+    expect(writable).toEqual([]);
   });
 
   itLive('every new table is reachable through the Data API', () => {

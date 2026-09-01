@@ -317,6 +317,14 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // deliberately does NOT appear in KNOWN_ANON_EXECUTABLE.
   "public.driver_load_pay_estimate(uuid)",
 
+  // my_rm_deposit (2026-09-01), the driver's own Repair & Maintenance Deposit
+  // balance and target on his settlement screen. rm_deposits carries no
+  // operator-readable policy and must not: the function resolves the caller's
+  // operator row through operators.user_id = auth.uid(), returns TWO numeric
+  // columns for that row alone, and can name no other driver. authenticated
+  // only; PUBLIC and anon are revoked in the migration that creates it.
+  "public.my_rm_deposit()",
+
   // Raises the WATCH claim behind a loadout damage note. claim_flags is
   // staff-write only, and it has to stay that way: the driver may record damage
   // on HIS OWN load and nothing else. The function verifies the caller either
@@ -401,7 +409,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   the only writers for a charge that arises during a load. Each checks
 //   dispatcher/management/owner in its own body, refuses a settled load, and
 //   records the actor and reason in load_change_history.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 109;
+// + my_rm_deposit (2026-09-01), the driver's own deposit balance, self-scoped
+//   through operators.user_id = auth.uid() and returning nothing else.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 110;
 
 
 
