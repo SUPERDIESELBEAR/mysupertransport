@@ -123,6 +123,12 @@ export const loadFormSchema = z
     rate_per_mile: optionalNumber,
     rate_per_ton: optionalNumber,
     estimated_tons: optionalNumber,
+    /**
+     * What actually crossed the scale. Authoritative for a per-ton load's
+     * money; the form carries it so an edit cannot overwrite the scale ticket
+     * with the pre-load estimate.
+     */
+    confirmed_tons: optionalNumber,
     fsc_bundled_into_linehaul: z.boolean(),
     fsc_amount: optionalNumber,
     loaded_miles: optionalNumber,
