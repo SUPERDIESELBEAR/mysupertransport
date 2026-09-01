@@ -3722,10 +3722,12 @@ no deductions, and both withheld reasons in the engine's own words.
 
 **Open after this pass:**
 
-- **Cash advances are a population trigger only.** No repayment schedule exists
+- **Cash advances are a population trigger only.** See section 9 in
+  **Settlement rules — the authoritative record**. No repayment schedule exists
   anywhere in the schema, so the gathering layer records the outstanding balance
   as a reason to include the driver and produces NO recovery line. Inventing a
-  weekly recovery there would be the gathering layer making a pay rule.
+  weekly recovery there would be the gathering layer making a pay rule. A driver
+  with an outstanding advance currently settles with nothing deducted for it.
 - **The correction route is still missing.** Immutability is enforced now, but
   `accessorial_adjustments`, invoices and supplemental invoices do not exist, the
   `-A1` scheme is documented and unimplemented, and the engine's `adjustment`
