@@ -4177,27 +4177,33 @@ the roof check matching a label nothing wrote.
 **TRIGGER: before any pay policy other than the company default is created, or
 before anyone is told these fields work.**
 
-### `loads.dispatcher_id` has no production writer, and the fake hides it
+### `loads.dispatcher_id` is written only for dispatcher-role creators, and `pgFake` hides the gap
 
-`create_load_with_stops` accepts `dispatcher_id` from its payload. Nothing in
-`CreateLoadPage.tsx`, `loadFormSchema.ts` or `loadSavePayload.ts` ever puts it
-there. Every reference in `src/` is display or filter.
+`create_load_with_stops` (current definition `20260827222017`) resolves the actor
+with `public.current_profile_id()` and stamps `loads.dispatcher_id` only when
+`public.has_role(auth.uid(), 'dispatcher')` is true. The RPC's authorization
+gate admits `management`, `owner`, or `dispatcher`, but the stamp has no role
+implication: a load created by an owner or management user gets a NULL
+`dispatcher_id` silently.
 
-Worse: `src/test/helpers/pgFake.ts` hardcodes `dispatcher_id` to the acting
-profile on every simulated create, overriding the payload. The fake produces a
-shape production never produces, so a test asserting dispatcher attribution
-passes green while the real column stays null.
+`update_load_with_stops` (current definition `20260827222017`) does not touch
+`dispatcher_id`, so attribution cannot be corrected after creation — not for a
+load entered by an owner, and not for a load that changes hands between
+dispatchers.
 
-Live data confirms it: 5 of 10 loads populated (seed or hand SQL), and **zero of
+`src/test/helpers/pgFake.ts` stamps `dispatcher_id` to the acting profile with NO
+role check, unconditionally. The real SQL stamps only for dispatchers. The fake
+therefore shows a stamped dispatcher for an owner actor where production writes
+NULL — it hides precisely the case that is broken. The divergence is a MISSING
+ROLE CONDITION, not an invented value.
+
+Live data matches: 5 of 10 loads populated (seed or hand SQL), and **zero of
 the two delivered loads**.
-
-Same class as the `verbatim_verification` envelope shipping unreadable, and
-sharper — there the fake stored what the caller sent; here it invents a value the
-SQL was never given.
 
 **TRIGGER: FIXED IN THE NEXT PASS, before freight accumulates.** A month of loads
 created with a null dispatcher cannot be attributed retroactively without
-guessing. The `pgFake` override is removed in the same change.
+guessing. The fix adds an editable Dispatcher field on Load Detail and corrects
+`pgFake` to respect the same dispatcher-only role condition.
 
 ### A mis-keyed loadout settles silently at zero
 
