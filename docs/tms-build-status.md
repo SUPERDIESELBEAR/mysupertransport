@@ -3920,3 +3920,111 @@ what else the change reaches.** Both defects shipped green.
 **2 have never signed in**. Not a code task: the install reminder path exists
 (daily cron plus a manual per-driver reminder with a 24h cooldown). The two who
 have never signed in cannot receive an in-app anything and need a phone call.
+
+---
+
+## KNOWN DEBT — findings from the dispatch settlement investigation (2026-09-01)
+
+Same format as the entries in `docs/tms-wish-list.md`: each carries an explicit
+TRIGGER. These are recorded here rather than there because each one is a live
+defect or a live silence in built code, not a parked capability.
+
+### `per_ton_pct` and `loadout_pct` are read by nothing
+
+`pay_policies` carries `per_ton_pct` and `loadout_pct`, both NOT NULL DEFAULT
+72.00. They appear in `src/integrations/supabase/types.ts` and **nowhere else**.
+The engine pays both a per-ton load and a loadout at `linehaul_pct`; the
+classification-to-column map has no entry for either.
+
+Consequence: setting `loadout_pct` to 50 does nothing — the driver is paid
+`linehaul_pct`. Two configuration surfaces that silently do nothing, on money,
+both NOT NULL so both always look configured.
+
+Same class as `pay_policies` being UI-gated while the table stayed readable, and
+the roof check matching a label nothing wrote.
+
+**TRIGGER: before any pay policy other than the company default is created, or
+before anyone is told these fields work.**
+
+### `loads.dispatcher_id` has no production writer, and the fake hides it
+
+`create_load_with_stops` accepts `dispatcher_id` from its payload. Nothing in
+`CreateLoadPage.tsx`, `loadFormSchema.ts` or `loadSavePayload.ts` ever puts it
+there. Every reference in `src/` is display or filter.
+
+Worse: `src/test/helpers/pgFake.ts` hardcodes `dispatcher_id` to the acting
+profile on every simulated create, overriding the payload. The fake produces a
+shape production never produces, so a test asserting dispatcher attribution
+passes green while the real column stays null.
+
+Live data confirms it: 5 of 10 loads populated (seed or hand SQL), and **zero of
+the two delivered loads**.
+
+Same class as the `verbatim_verification` envelope shipping unreadable, and
+sharper — there the fake stored what the caller sent; here it invents a value the
+SQL was never given.
+
+**TRIGGER: FIXED IN THE NEXT PASS, before freight accumulates.** A month of loads
+created with a null dispatcher cannot be attributed retroactively without
+guessing. The `pgFake` override is removed in the same change.
+
+### A mis-keyed loadout settles silently at zero
+
+On the broker's paperwork a loadout is an ordinary flat-rate load — IEL shows
+Rate Type "Flat Rate" $100.00, Rolling River shows Pay Type "Flat" $150.00.
+Neither has a "relocation fee" concept. So the money arrives in `linehaul_rate`.
+
+If `load_type` is then set to `loadout`, both `recompute_load_total_value` and the
+engine's header-rate path take the loadout branch, read
+`loadout_relocation_fee`, find null, and return **$0**. The driver is paid nothing
+and the broker-facing total is zero.
+
+This is undetectable by inspection, because a $0 loadout is LEGITIMATE — the
+trailer use is the value. The wrong answer is indistinguishable from a correct one.
+
+Proposed guard: a load at `load_type` `loadout` with a null or zero
+`loadout_relocation_fee` AND a non-zero `linehaul_rate` is almost certainly
+mis-keyed and should be refused or flagged rather than settled.
+
+**TRIGGER: before the first real loadout settles.**
+
+### Broker chargebacks are not representable
+
+Real rate confirmations carry substantial deductions against the carrier. IEL:
+$100 per day a trailer is late, $100 for not emailing within two hours of
+delivery, $200 for an unreported trailer swap, $125 for a missed check call, $35
+per comcheck. Rolling River: $100 per day late on all loadouts, and a 10%
+settlement deduction if the driver does not maintain their tracking app.
+
+There is no negative charge in the model. `assert_known_charge_type` accepts nine
+classifications and none is a chargeback.
+
+The settlement consequences are recorded in section 4 of **Settlement rules — the
+authoritative record**: the dispatch base is unaffected; the driver IS deducted,
+with the cause governing and discretion retained.
+
+**TRIGGER: before the first chargeback has to be applied to a real settlement.**
+
+### A loadout drops its charges from the broker-facing total
+
+`recompute_load_total_value` on `load_type` `loadout` sets the total to
+`loadout_relocation_fee` alone and never adds the charge sum, unlike every other
+load type. A lumper or detention charge added to a loadout load never reaches
+`total_load_value`.
+
+It does not affect the dispatch base, which is built from parts and does not read
+`total_load_value`. It appears to be a defect on its own terms.
+
+**TRIGGER: before any loadout load carries a charge, or before `total_load_value`
+is used for invoicing in Module 7.**
+
+### A recorded live verification no longer has surviving evidence
+
+The Module 4 Pass 2b charge-identity verification cites ST26035. `load_charges`
+and `detention_claims` are both now EMPTY: the rows were reverted after the test —
+an ordinary habit here, and the same habit `docs/tms-wish-list.md` records as
+producing orphaned storage objects. The Pass 2b entry has been amended in place to
+say so, so that a future session does not go looking for evidence that is gone and
+conclude the verification never happened.
+
+**TRIGGER: none — this is a documentation correction.**
