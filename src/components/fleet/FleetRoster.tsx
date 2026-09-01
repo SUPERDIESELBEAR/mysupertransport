@@ -557,7 +557,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               tabIndex={0}
               onClick={e => {
                 const el = e.target as HTMLElement | null;
-                if (el?.closest('button, a, input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
+                if (el?.closest('a[href], input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
                 onSelectOperator(row.operatorId);
               }}
               onKeyDown={e => {
