@@ -4074,6 +4074,27 @@ reads plausibly. The practical rule: when checking what a database function
 does, list EVERY migration defining it and read the NEWEST, never the first
 match.
 
+**VERIFICATION AGAINST THE REPO CAN TRAIL LOVABLE'S WORKSPACE (2026-09-01).**
+A migration or file Lovable has just created and applied may not yet be present
+in the GitHub repository when it is checked from outside. On 2026-09-01 the
+`set_load_dispatcher` search_path correction was applied and reported accurately
+(`20260901203654_c2f3424d-5689-42af-b11c-f867e8dd191b.sql`), but the commit
+(`b911eed`) landed after an external check of the repo, which therefore found
+only the older defective definition (`20260901200506`) and concluded the
+correction migration did not exist.
+
+> **Standing rule.** When an external check of the repository contradicts a
+> report about a file that was JUST created, re-fetch before concluding anything.
+> "Not in the repo" means "not pushed yet" at least as often as it means "not
+> written."
+
+**What this was NOT.** This was not the first-match-is-oldest trap already
+recorded under the `recompute_load_total_value` correction. That check enumerated
+every migration defining the function and sorted them, correctly, and one file was
+genuinely all that existed at that moment. Misattributing a timing lag to a
+search-discipline failure would obscure a real operational fact and credit a
+lesson that was already applied.
+
 
 ---
 
