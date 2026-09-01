@@ -81,7 +81,7 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     // The scale ticket travels with the form so a save round-trips it.
     confirmed_tons: text(l.confirmed_tons),
     // NULL stays NULL so a save that does not touch it writes nothing.
-    fsc_bundled_into_linehaul: l.fsc_bundled_into_linehaul,
+    fsc_bundled_into_linehaul: (l.fsc_bundled_into_linehaul ?? null) as boolean | null,
     fsc_amount: text(l.fsc_amount),
     loaded_miles: text(l.loaded_miles),
     deadhead_miles: text(l.deadhead_miles),
