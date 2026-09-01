@@ -71,8 +71,9 @@ describe('set_load_dispatcher', () => {
   it('refuses a caller who is only a dispatcher', async () => {
     fake.setActorRoles(['dispatcher']);
     const id = await createLoad();
-    await expect(rpc('set_load_dispatcher', { p_load_id: id, p_dispatcher_id: OTHER_PROFILE }))
-      .rejects.toThrow(/management or the owner/i);
+    const { error } = await rpc('set_load_dispatcher', { p_load_id: id, p_dispatcher_id: OTHER_PROFILE });
+    expect((error as { message: string } | null)?.message).toMatch(/management or the owner/i);
+    expect(fake.tables.load_change_history).toHaveLength(0);
   });
 
   it('refuses a target who does not hold the dispatcher role', async () => {
@@ -80,8 +81,8 @@ describe('set_load_dispatcher', () => {
     const id = await createLoad();
     fake.tables.user_roles.push({ user_id: 'someone', role: 'management' });
     fake.tables.profiles.push({ id: 'profile-x', user_id: 'someone', first_name: 'Not', last_name: 'Dispatcher' });
-    await expect(rpc('set_load_dispatcher', { p_load_id: id, p_dispatcher_id: 'profile-x' }))
-      .rejects.toThrow(/not a dispatcher/i);
+    const { error } = await rpc('set_load_dispatcher', { p_load_id: id, p_dispatcher_id: 'profile-x' });
+    expect((error as { message: string } | null)?.message).toMatch(/not a dispatcher/i);
   });
 
   it('management assigns a dispatcher and the change is recorded', async () => {
