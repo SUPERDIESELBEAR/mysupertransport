@@ -3288,6 +3288,28 @@ the carrier before the calculation pass depends on it.
 
 ---
 
+## Verification standard — the dispatch settlement can only produce SEEDED-DATA EVIDENCE (2026-09-01)
+
+The dispatch company settlement CANNOT be verified the way the driver settlement
+was. As of 2026-09-01 the database holds **ten loads, two with a `delivered_at`,
+ZERO rows in `load_charges`, zero loads at status `tonu`, and one settlement**. No
+accessorial of any kind exists, so the exclusion predicate in section 4.3 — the
+part of this formula most likely to be wrong — cannot be exercised by any existing
+row.
+
+**Therefore: every result produced for this module is SEEDED-DATA EVIDENCE and
+must be labelled as such in every report.** It is explicitly weaker than the Pratt
+run.
+
+The reason this matters is already on the record. The two defects that mattered on
+the driver side — the omitted header rates, and the per-ton total silently
+rewriting itself — both surfaced from REAL rows moving through REAL paths. The
+fixtures agreed with the wrong assumption in both cases. A green result against
+seeded data must never be reported as though it carried the same weight.
+
+---
+
+
 ## Module 4, Pass 2 — the settlement engine (2026-09-01)
 
 `src/lib/settlementEngine.ts` computes a settlement and returns it. It is
