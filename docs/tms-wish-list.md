@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-08-31
+Last updated: 2026-09-01
 
 ---
 
@@ -111,40 +111,42 @@ over a driver-centric system.
 TRIGGER: after the claim record has been in real use long enough to know what
 the chase workflow needs.
 
-### Dispatch company settlement (Module 6)
+### Dispatch company settlement (Module 4)
 The dispatch team is ONE 1099 vendor — a separate company, owner plus team, all
 carrying @mysupertransport.com addresses and representing themselves as part of
 the SUPERTRANSPORT team, dispatching exclusively for SUPERTRANSPORT.
 
-SETTLED:
-  - Payee is the COMPANY, not the individual dispatcher. Attribution by dispatcher
-    is for visibility; exactly one settlement and one 1099.
-  - 5% of each load.
-  - MONTHLY calendar period. August 1–31 pays on or around September 10 or sooner.
-  - No R&M deposit, no minimum net pay threshold, no two-week holdback. Those are
-    driver-side rules and must not be applied here.
-  - Two deduction kinds:
-      * Recurring, configured once: phone service, share of factoring costs
-      * Per-settlement, hand-entered: transaction fees, one-off items such as a
-        claim or a load not handled properly
+**The rules are no longer open and are NOT restated here.** Section 4 of
+"Settlement rules — the authoritative record" in `docs/tms-build-status.md` is
+authoritative for all of: which loads enter the base (4.1), which money (4.2), the
+100%-and-reimbursement exclusion predicate (4.3), broker chargebacks (4.4),
+factoring as a reduction of the base (4.5), attribution (4.6), schema shape (4.7),
+the absence of driver-side machinery (4.8), and loadout loads (4.9).
+
+Four questions previously listed here as OPEN — what the 5% applies to, which
+month a load belongs to, whether the factoring share is flat or a percentage, and
+whether the dispatch company earns on detention — are all ANSWERED there.
+
+Two things this entry previously said that the build status now supersedes:
+
+  - factoring described as a recurring deduction alongside phone service. It is a
+    2% REDUCTION OF THE BASE taken before the 5%; there is no recurring factoring
+    line.
+  - "the settlement tables must serve two payee types." Decided otherwise: the
+    dispatch settlement gets its OWN tables and `settlements` is not widened. See
+    4.7 for the reasoning, which is recorded so it is not relitigated.
+
+What remains true and unsuperseded here:
+
+  - Two deduction kinds: recurring and configured once (phone service, DAT), and
+    per-settlement hand-entered (transaction fees, one-off items such as a claim
+    or a load not handled properly).
   - One-off deductions must carry a LOAD REFERENCE. "Claim — $400" is unarguable
     six months later; tied to a specific load it defends itself.
-  - Module 6 therefore serves TWO payee types. The settlement tables must not be
-    designed around drivers alone and retrofitted later.
 
-OPEN:
-  - What is the 5% a percentage of? Linehaul only, linehaul plus fuel surcharge,
-    or gross including accessorials? Detention pays 100% to the driver — does the
-    dispatch company earn on it?
-  - Which month does a load belong to: booked, delivered, or invoiced? A load
-    booked Aug 30 and delivered Sep 2 must land in exactly one month, and the rule
-    must be the same every month.
-  - Is the factoring cost share a flat monthly amount or a percentage of actual
-    factoring cost that month?
+TRIGGER: before the dispatch settlement tables are designed (Module 4).
 
-TRIGGER: before Module 6 settlement tables are designed.
-
-### Driver revenue report period basis (Module 6)
+### Driver revenue report period basis (Module 9)
 Gross revenue, net revenue, and itemized deductions with totals, over monthly,
 yearly, and total-to-date from first load.
 
@@ -152,6 +154,7 @@ OPEN: does it aggregate by settlement PERIOD or by settlement PAYMENT DATE? The
 two-week holdback puts those in different months, and a driver's 1099 cares which.
 
 TRIGGER: before the driver revenue report is built.
+
 
 ### Per-dispatcher revenue attribution (Module 9)
 TWO dispatcher relationships exist and they give different answers:
