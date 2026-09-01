@@ -2802,7 +2802,8 @@ A settlement run includes any operator with UNSETTLED WORK in the period:
 
 - a load delivered in the period, not yet on a settlement
 - fuel transactions not yet deducted
-- an outstanding cash advance balance
+- an outstanding cash advance balance (trigger only — see section 9 in
+  **Settlement rules — the authoritative record**)
 - a negative carry-forward from a prior period
 - an R&M deduction due
 
@@ -3247,6 +3248,27 @@ home screen before payday, while he can still act on it. The paperwork tail
 already renders there; the settlement engine surfaces the hold status alongside
 it. A short check discovered on payday is the failure mode this avoids.
 
+### 9. Cash advances — population trigger only, no recovery schedule
+
+A cash advance currently puts a driver into a settlement run (it is a population
+trigger) but produces NO recovery line. The schema has no repayment schedule,
+so the engine and the gathering layer correctly deduct nothing for an outstanding
+advance. This is deliberate: inventing a weekly recovery amount would be the
+settlement layer making a pay rule that does not exist.
+
+A future repayment schedule must decide all three of:
+
+- **Recovery amount** — whether the advance is recovered in full on the next
+  settlement or spread over installments (for example, $N per week, N of M).
+- **Negative-net suspension** — whether recovery is suspended when the resulting
+  net would go negative, or whether it is allowed to drive the settlement further
+  negative and carry forward.
+- **Priority order** — whether advance recovery applies before or after R&M
+  Deposit, fuel, and other deductions when net is constrained.
+
+Until those three decisions are recorded, a driver with an outstanding advance
+settles with nothing deducted for it.
+
 ### Open items in this record, in one place
 
 | # | Open question |
@@ -3257,6 +3279,9 @@ it. A short check discovered on payday is the failure mode this avoids.
 | 6 | Does the rolled below-threshold amount appear as a line item next period? |
 | 6 | Does it accumulate toward the next period's minimum? |
 | 6 | Is `authorize_below_threshold_payment` one-time or standing? |
+| 9 | Cash advance: recovered in full or in installments? |
+| 9 | Cash advance: suspend recovery when net would go negative? |
+| 9 | Cash advance: recovery priority vs R&M, fuel, other deductions? |
 
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
@@ -3701,10 +3726,12 @@ no deductions, and both withheld reasons in the engine's own words.
 
 **Open after this pass:**
 
-- **Cash advances are a population trigger only.** No repayment schedule exists
+- **Cash advances are a population trigger only.** See section 9 in
+  **Settlement rules — the authoritative record**. No repayment schedule exists
   anywhere in the schema, so the gathering layer records the outstanding balance
   as a reason to include the driver and produces NO recovery line. Inventing a
-  weekly recovery there would be the gathering layer making a pay rule.
+  weekly recovery there would be the gathering layer making a pay rule. A driver
+  with an outstanding advance currently settles with nothing deducted for it.
 - **The correction route is still missing.** Immutability is enforced now, but
   `accessorial_adjustments`, invoices and supplemental invoices do not exist, the
   `-A1` scheme is documented and unimplemented, and the engine's `adjustment`
