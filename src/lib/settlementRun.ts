@@ -1,0 +1,400 @@
+/**
+ * MODULE 4, PASS 4 — the settlement RUN: gather, compute, store.
+ *
+ * Three layers, deliberately separate:
+ *
+ *   GATHERING  collects rows. It decides nothing. It does NOT drop a load with
+ *              a claim hold or missing paperwork, because the engine owns those
+ *              rules and a filtering gathering layer could silently disagree
+ *              with it — the same reasoning already recorded for claim holds in
+ *              docs/tms-build-status.md.
+ *   COMPUTE    is `computeSettlement`, untouched by this pass.
+ *   STORE      is `store_settlement_run`, a single definer RPC that writes the
+ *              settlement, EVERY line item and EVERY withheld load in one
+ *              transaction, with the actor recorded.
+ *
+ * POPULATION is the recorded rule, read through `selectSettlementPopulation`:
+ * anyone with unsettled work in the period. No `is_active`, no parked, no
+ * departing, no `excluded_from_dispatch`, no `fully_onboarded`, no
+ * `lease_terminations`.
+ *
+ * Once stored, a settlement is READ, never recomputed. Nothing in the driver's
+ * path imports this module.
+ */
+import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput } from '@/lib/settlementEngine';
+import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
+import { workPeriodForDate, deliveredInPeriod, type WorkPeriod } from '@/lib/settlementPeriod';
+import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
+import type { PayPolicyRates } from '@/lib/payTreatment';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+type Client = any;
+
+const num = (v: unknown): number => {
+  const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
+  return Number.isFinite(n) ? n : 0;
+};
+
+export interface GatheredOperator {
+  operatorId: string;
+  operatorName: string;
+  input: SettlementComputeInput;
+  work: UnsettledWork;
+  reasons: string[];
+}
+
+export interface GatheredRun {
+  period: WorkPeriod;
+  settings: SettlementSettings;
+  operators: GatheredOperator[];
+  /** Settlements that already exist for this period, keyed by operator. */
+  existing: Record<string, { id: string; status: string; net_amount: number }>;
+}
+
+export interface PreviewRow {
+  operatorId: string;
+  operatorName: string;
+  computed: ComputedSettlement;
+  reasons: string[];
+  /** A settlement already stored for this operator and period, if any. */
+  existing: { id: string; status: string; net_amount: number } | null;
+}
+
+export interface RunPreview {
+  period: WorkPeriod;
+  rows: PreviewRow[];
+}
+
+/* ------------------------------------------------------------------ */
+/* Gathering                                                           */
+/* ------------------------------------------------------------------ */
+
+export async function loadSettlementSettings(sb: Client): Promise<SettlementSettings> {
+  const { data } = await sb.from('settlement_settings').select('*').maybeSingle();
+  if (!data) return SETTLEMENT_SETTINGS_DEFAULTS;
+  return {
+    minimum_net_pay_threshold: num(data.minimum_net_pay_threshold),
+    hold_buffer: num(data.hold_buffer),
+    equipment_value_per_driver: num(data.equipment_value_per_driver),
+    rm_deposit_target: num(data.rm_deposit_target),
+    rm_weekly_deduction: num(data.rm_weekly_deduction),
+    work_week_start_dow: num(data.work_week_start_dow),
+  };
+}
+
+const DAY = 86_400_000;
+const shift = (date: string, days: number) =>
+  new Date(Date.parse(`${date}T00:00:00Z`) + days * DAY).toISOString().slice(0, 10);
+
+/**
+ * Every row the engine could need, for the whole period, for every operator.
+ * Nothing is dropped on the way in.
+ */
+export async function gatherSettlementRun(sb: Client, anchorDate: string): Promise<GatheredRun> {
+  const settings = await loadSettlementSettings(sb);
+  const period = workPeriodForDate(anchorDate, settings.work_week_start_dow);
+
+  // Widened by a day at each end because `delivered_at` is an instant and the
+  // period is a set of CARRIER-ZONE dates; the exact test is `deliveredInPeriod`.
+  const fromIso = `${shift(period.periodStart, -1)}T00:00:00Z`;
+  const toIso = `${shift(period.periodEnd, 2)}T00:00:00Z`;
+
+  const [loadRes, existingRes, alreadySettledRes, policyRes, assignRes] = await Promise.all([
+    sb.from('loads')
+      .select('id, load_number, load_type, operator_id, delivered_at, rate_type, linehaul_rate, '
+        + 'rate_per_mile, loaded_miles, rate_per_ton, confirmed_tons, estimated_tons, fsc_amount, '
+        + 'fsc_bundled_into_linehaul, loadout_relocation_fee, '
+        + 'load_charges(id, charge_type, description, amount, funding_source, actual_cost), '
+        + 'load_documents(document_type, photo_label), '
+        + 'document_exceptions(document_type, status, photo_label), '
+        + 'claim_flags(id, flag_level, is_active, resolved_at, claim_type)')
+      .not('operator_id', 'is', null)
+      .not('delivered_at', 'is', null)
+      .gte('delivered_at', fromIso)
+      .lt('delivered_at', toIso),
+    sb.from('settlements')
+      .select('id, operator_id, status, net_amount')
+      .eq('period_start', period.periodStart),
+    sb.from('settlement_line_items').select('source_table, source_id'),
+    sb.from('pay_policies').select('*').eq('is_company_default', true).maybeSingle(),
+    sb.from('pay_policy_assignments')
+      .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
+  ]);
+
+  const settledSources = new Set<string>(
+    ((alreadySettledRes?.data ?? []) as any[])
+      .filter(r => r.source_id)
+      .map(r => `${r.source_table}:${r.source_id}`),
+  );
+
+  const companyPolicy = (policyRes?.data ?? null) as PayPolicyRates | null;
+
+  const driverPolicies: Record<string, PayPolicyRates> = {};
+  for (const a of (assignRes?.data ?? []) as any[]) {
+    const startsOk = !a.effective_start_date || a.effective_start_date <= period.periodEnd;
+    const endsOk = !a.effective_end_date || a.effective_end_date >= period.periodStart;
+    if (startsOk && endsOk && a.pay_policies) driverPolicies[a.operator_id] = a.pay_policies as PayPolicyRates;
+  }
+
+  const loadsByOperator: Record<string, SettlementLoadInput[]> = {};
+  for (const l of (loadRes?.data ?? []) as any[]) {
+    if (!deliveredInPeriod(l.delivered_at, period)) continue;
+    if (settledSources.has(`loads:${l.id}`)) continue;
+    (loadsByOperator[l.operator_id] ??= []).push({
+      id: l.id,
+      loadNumber: l.load_number,
+      loadType: l.load_type,
+      deliveredAt: l.delivered_at,
+      charges: (l.load_charges ?? []) as any[],
+      rateType: l.rate_type,
+      linehaulRate: l.linehaul_rate,
+      ratePerMile: l.rate_per_mile,
+      loadedMiles: l.loaded_miles,
+      ratePerTon: l.rate_per_ton,
+      confirmedTons: l.confirmed_tons,
+      estimatedTons: l.estimated_tons,
+      fscAmount: l.fsc_amount,
+      fscBundledIntoLinehaul: l.fsc_bundled_into_linehaul,
+      loadoutRelocationFee: l.loadout_relocation_fee,
+      documents: (l.load_documents ?? []) as any[],
+      exceptions: (l.document_exceptions ?? []) as any[],
+      // NOT pre-filtered. Every claim row travels to the engine, which decides.
+      claims: ((l.claim_flags ?? []) as any[]).map(c => ({
+        id: c.id,
+        flagLevel: c.flag_level,
+        isActive: c.is_active,
+        resolvedAt: c.resolved_at,
+        claimType: c.claim_type,
+      })),
+    });
+  }
+
+  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes] = await Promise.all([
+    sb.from('fuel_transactions')
+      .select('id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date')
+      .not('operator_id', 'is', null)
+      .gte('invoice_date', period.periodStart)
+      .lte('invoice_date', period.periodEnd),
+    sb.from('deductions').select('id, operator_id, label, amount, is_active, start_payday, end_payday').eq('is_active', true),
+    sb.from('cash_advances').select('id, operator_id, remaining_balance, repayment_status'),
+    sb.from('rm_deposits').select('id, operator_id, current_balance, target_amount, weekly_deduction, is_paused'),
+    sb.from('settlements')
+      .select('operator_id, carry_forward_out, period_start')
+      .lt('period_start', period.periodStart)
+      .order('period_start', { ascending: false }),
+    sb.from('operators').select('id, is_departing, applications(first_name, last_name)'),
+  ]);
+
+  const operators = ((operatorRes?.data ?? []) as any[]);
+  const nameOf = (id: string) => {
+    const a = operators.find(x => x.id === id)?.applications;
+    const app = Array.isArray(a) ? a[0] : a;
+    return app ? `${app.first_name ?? ''} ${app.last_name ?? ''}`.trim() || id : id;
+  };
+
+  const carryForward: Record<string, number> = {};
+  for (const s of (priorRes?.data ?? []) as any[]) {
+    if (carryForward[s.operator_id] === undefined) carryForward[s.operator_id] = num(s.carry_forward_out);
+  }
+
+  const rmByOperator: Record<string, any> = {};
+  for (const r of (rmRes?.data ?? []) as any[]) rmByOperator[r.operator_id] = r;
+
+  const existing: GatheredRun['existing'] = {};
+  for (const s of (existingRes?.data ?? []) as any[]) {
+    existing[s.operator_id] = { id: s.id, status: s.status, net_amount: num(s.net_amount) };
+  }
+
+  const candidateIds = new Set<string>([
+    ...Object.keys(loadsByOperator),
+    ...((fuelRes?.data ?? []) as any[]).map(f => f.operator_id),
+    ...((dedRes?.data ?? []) as any[]).map(d => d.operator_id),
+    ...((advRes?.data ?? []) as any[]).filter(a => num(a.remaining_balance) > 0).map(a => a.operator_id),
+    ...Object.keys(carryForward).filter(id => carryForward[id] < 0),
+    ...Object.keys(rmByOperator),
+  ].filter(Boolean));
+
+  const gathered: GatheredOperator[] = [];
+
+  for (const operatorId of candidateIds) {
+    const loads = loadsByOperator[operatorId] ?? [];
+
+    const fuel = ((fuelRes?.data ?? []) as any[])
+      .filter(f => f.operator_id === operatorId && !settledSources.has(`fuel_transactions:${f.id}`))
+      .map(f => {
+        const discount = Math.abs(num(f.fuel_discount_amount));
+        return {
+          id: f.id,
+          grossAmount: num(f.total_amount) + discount,
+          discountAmount: discount,
+          description: `Fuel — invoice ${f.invoice_no} (${f.invoice_date})`,
+        };
+      });
+
+    const deductions = ((dedRes?.data ?? []) as any[])
+      .filter(d => d.operator_id === operatorId
+        && (!d.start_payday || d.start_payday <= period.payday)
+        && (!d.end_payday || d.end_payday >= period.payday)
+        && !settledSources.has(`deductions:${d.id}`))
+      .map(d => ({ id: d.id, label: d.label, amount: num(d.amount), sourceTable: 'deductions' as const }));
+
+    const advanceBalance = ((advRes?.data ?? []) as any[])
+      .filter(a => a.operator_id === operatorId)
+      .reduce((t, a) => t + num(a.remaining_balance), 0);
+
+    const rmRow = rmByOperator[operatorId] ?? null;
+    const rmDeposit = rmRow
+      ? {
+          id: rmRow.id,
+          currentBalance: num(rmRow.current_balance),
+          targetAmount: rmRow.target_amount == null ? null : num(rmRow.target_amount),
+          weeklyDeduction: rmRow.weekly_deduction == null ? null : num(rmRow.weekly_deduction),
+          isPaused: Boolean(rmRow.is_paused),
+        }
+      : null;
+
+    const rmShortfall = rmDeposit && !rmDeposit.isPaused
+      ? Math.max(0, (rmDeposit.targetAmount ?? settings.rm_deposit_target) - rmDeposit.currentBalance)
+      : 0;
+
+    const carryIn = carryForward[operatorId] ?? 0;
+    const operatorRow = operators.find(o => o.id === operatorId);
+
+    let equipmentOutstanding = false;
+    try {
+      const { data } = await sb.rpc('equipment_outstanding', { _operator_id: operatorId });
+      equipmentOutstanding = data === true;
+    } catch { equipmentOutstanding = false; }
+
+    const work: UnsettledWork = {
+      operatorId,
+      deliveredLoadCount: loads.length,
+      undeductedFuelCount: fuel.length,
+      outstandingAdvanceBalance: advanceBalance,
+      negativeCarryForward: carryIn < 0 ? Math.abs(carryIn) : 0,
+      rmDeductionDue: Math.min(rmShortfall, rmDeposit?.weeklyDeduction ?? settings.rm_weekly_deduction),
+      otherDeductionsDue: deductions.reduce((t, d) => t + d.amount, 0),
+    };
+
+    gathered.push({
+      operatorId,
+      operatorName: nameOf(operatorId),
+      work,
+      reasons: populationReasons(work),
+      input: {
+        operatorId,
+        periodAnchorDate: period.periodStart,
+        settings,
+        companyPolicy,
+        driverPolicy: driverPolicies[operatorId] ?? null,
+        loads,
+        fuel,
+        deductions,
+        // Cash advances are a POPULATION trigger only: no repayment schedule is
+        // recorded anywhere, and inventing one here would be the gathering layer
+        // making a pay rule. Recorded as an open item.
+        advances: [],
+        rmDeposit,
+        carryForwardIn: carryIn,
+        isDeparting: operatorRow?.is_departing === true,
+        equipmentOutstanding,
+      },
+    });
+  }
+
+  return { period, settings, operators: gathered, existing };
+}
+
+/* ------------------------------------------------------------------ */
+/* Preview — computed, shown, and not yet written                      */
+/* ------------------------------------------------------------------ */
+
+export function previewFromGathered(run: GatheredRun): RunPreview {
+  const rows: PreviewRow[] = [];
+  for (const g of run.operators) {
+    if (!hasUnsettledWork(g.work)) continue;
+    rows.push({
+      operatorId: g.operatorId,
+      operatorName: g.operatorName,
+      computed: computeSettlement(g.input),
+      reasons: g.reasons,
+      existing: run.existing[g.operatorId] ?? null,
+    });
+  }
+  rows.sort((a, b) => a.operatorName.localeCompare(b.operatorName));
+  return { period: run.period, rows };
+}
+
+export async function previewSettlementRun(sb: Client, anchorDate: string): Promise<RunPreview> {
+  return previewFromGathered(await gatherSettlementRun(sb, anchorDate));
+}
+
+/* ------------------------------------------------------------------ */
+/* Storing                                                             */
+/* ------------------------------------------------------------------ */
+
+export type RunMode = 'refuse' | 'replace';
+
+/** The payload shape the RPC reads. Every line and every withheld load travels. */
+export function runPayload(rows: PreviewRow[]): unknown[] {
+  return rows.map(r => ({
+    operator_id: r.operatorId,
+    status: r.computed.status,
+    gross_amount: r.computed.grossAmount,
+    deductions_amount: r.computed.deductionsAmount,
+    net_amount: r.computed.netAmount,
+    carry_forward_in: r.computed.carryForwardIn,
+    carry_forward_out: r.computed.carryForwardOut,
+    hold_reason: r.computed.holdReason,
+    lines: r.computed.lines.map(l => ({
+      line_type: l.lineType,
+      amount: l.amount,
+      description: l.description,
+      source_table: l.sourceTable,
+      source_id: l.sourceId,
+    })),
+    withheld: [
+      ...r.computed.withheldLoads.flatMap(w => w.reasons.map(reason => ({
+        load_id: w.loadId,
+        load_number: w.loadNumber,
+        reason_code: reason.code,
+        message: reason.message,
+        outstanding: reason.outstanding,
+      }))),
+      ...r.computed.pendingScaleTicketLoads.map(w => ({
+        load_id: w.loadId,
+        load_number: w.loadNumber,
+        reason_code: 'scale_ticket',
+        message: w.reason,
+        outstanding: w.outstanding,
+      })),
+    ],
+  }));
+}
+
+export interface StoreResultRow {
+  operator_id: string;
+  settlement_id: string;
+  outcome: 'created' | 'replaced' | 'refused_existing';
+  net?: number;
+  status?: string;
+  existing_net?: number;
+  existing_status?: string;
+}
+
+export async function storeSettlementRun(
+  sb: Client,
+  preview: RunPreview,
+  rows: PreviewRow[],
+  mode: RunMode = 'refuse',
+): Promise<{ results: StoreResultRow[] }> {
+  const { data, error } = await sb.rpc('store_settlement_run', {
+    p_period_start: preview.period.periodStart,
+    p_period_end: preview.period.periodEnd,
+    p_payday: preview.period.payday,
+    p_runs: runPayload(rows),
+    p_mode: mode,
+  });
+  if (error) throw error;
+  return { results: ((data as any)?.results ?? []) as StoreResultRow[] };
+}

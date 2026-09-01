@@ -325,6 +325,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // only; PUBLIC and anon are revoked in the migration that creates it.
   "public.my_rm_deposit()",
 
+  // store_settlement_run (2026-09-01), the ONLY writer of a settlement. It is
+  // definer because it writes three tables no client role may write, and it
+  // gates itself on management/owner in its own body before anything is
+  // stored. It refuses to overwrite an existing settlement unless the caller
+  // asks for a recomputation, refuses a PAID one outright, and stamps the
+  // actor through current_profile_id(). authenticated only; PUBLIC and anon
+  // are revoked in the migration that creates it. The trigger guards and the
+  // transaction-local writer flag it sets are executable by NO client role.
+  "public.store_settlement_run(date,date,date,jsonb,text)",
+
   // Raises the WATCH claim behind a loadout damage note. claim_flags is
   // staff-write only, and it has to stay that way: the driver may record damage
   // on HIS OWN load and nothing else. The function verifies the caller either
@@ -411,7 +421,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   records the actor and reason in load_change_history.
 // + my_rm_deposit (2026-09-01), the driver's own deposit balance, self-scoped
 //   through operators.user_id = auth.uid() and returning nothing else.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 110;
+// + store_settlement_run (2026-09-01), the only settlement writer, gated on
+//   management/owner in its own body.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 111;
 
 
 

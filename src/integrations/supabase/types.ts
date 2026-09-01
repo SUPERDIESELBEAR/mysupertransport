@@ -11421,8 +11421,19 @@ export type Database = {
         }
         Returns: string
       }
+      settlement_writer_active: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
+      store_settlement_run: {
+        Args: {
+          p_mode?: string
+          p_payday: string
+          p_period_end: string
+          p_period_start: string
+          p_runs: Json
+        }
+        Returns: Json
+      }
       submit_application_correction: {
         Args: {
           p_application_id: string
