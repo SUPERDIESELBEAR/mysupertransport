@@ -92,6 +92,7 @@ skipped: the above, plus
   equipment serial guard catalog x4  no PGHOST, live catalog unreadable
   fuel import live structure x12     no PGHOST, live catalog unreadable
   ST-TEST-005 claim hold, real load  no PGHOST, live claim row unreadable
+  operator settlement isolation x4   no PGHOST, live policy catalog unreadable
 
 ```
 
