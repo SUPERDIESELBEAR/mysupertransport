@@ -131,10 +131,24 @@ Two things this entry previously said that the build status now supersedes:
 
   - factoring described as a recurring deduction alongside phone service. It is a
     2% REDUCTION OF THE BASE taken before the 5%; there is no recurring factoring
-    line.
+    line. Superseded by section 4.5 of "Settlement rules — the authoritative
+    record" in `docs/tms-build-status.md`.
   - "the settlement tables must serve two payee types." Decided otherwise: the
     dispatch settlement gets its OWN tables and `settlements` is not widened. See
     4.7 for the reasoning, which is recorded so it is not relitigated.
+
+    WHY THE REVERSAL, recorded because the distinction matters: the caution was
+    NOT mistaken when it was written. It was written BEFORE the driver settlement
+    tables existed, when serving two payee types would have cost almost nothing.
+    It was then not applied. By the time the dispatch settlement was designed,
+    `settlements.operator_id` was NOT NULL with a cascade FK, the immutability
+    triggers were live, and a `paid` settlement existed that any migration would
+    have to survive. Separate tables is a decision made AGAINST A KNOWN COST, not
+    a judgement that the original caution was wrong.
+
+    The lesson worth carrying: a caution recorded and not applied gets more
+    expensive with every pass, and the cost is paid by the pass that finally
+    reaches it.
 
 What remains true and unsuperseded here:
 
