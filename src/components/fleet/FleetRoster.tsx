@@ -653,6 +653,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Truck photos */}
                     <button
                       type="button"
+                      data-no-card-nav
                       onClick={e => { e.stopPropagation(); if (truckCount === 0) return; setTruckPhotoTarget(row); }}
                       aria-disabled={truckCount === 0}
                       className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${truckCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
@@ -671,6 +672,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     {/* Decal photos */}
                     <button
                       type="button"
+                      data-no-card-nav
                       onClick={e => { e.stopPropagation(); if (decalCount === 0) return; setDecalPhotoTarget(row); }}
                       aria-disabled={decalCount === 0}
                       className={`flex items-center gap-2 text-left rounded-md px-1 py-1 transition-colors ${decalCount === 0 ? 'cursor-default' : 'hover:bg-muted/30'}`}
@@ -706,6 +708,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     size="sm"
                     variant="ghost"
                     className="h-8 gap-1.5"
+                    data-no-card-nav
                     onClick={e => { e.stopPropagation(); setEditTarget(row); }}
                     title="Edit truck specs (VIN, plate, unit #)"
                   >
@@ -716,6 +719,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     size="sm"
                     variant="outline"
                     className="h-8 gap-1.5"
+                    data-no-card-nav
                     onClick={e => { e.stopPropagation(); setLogUpdateTarget(row); }}
                     title="Log a repair, inspection, or note"
                   >
@@ -728,6 +732,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   <Button
                     size="sm"
                     className="h-8 w-full gap-1.5"
+                    data-no-card-nav
                     onClick={e => { e.stopPropagation(); setConfirmReactivate(row); }}
                     title="Put this unit back on the active roster"
                   >
@@ -775,7 +780,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                     className={`cursor-pointer select-none hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
                     onClick={e => {
                       const el = e.target as HTMLElement | null;
-                      if (el?.closest('button, a, input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
+                      if (el?.closest('a[href], input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
                       onSelectOperator(row.operatorId);
                     }}
                   >
