@@ -4095,6 +4095,25 @@ genuinely all that existed at that moment. Misattributing a timing lag to a
 search-discipline failure would obscure a real operational fact and credit a
 lesson that was already applied.
 
+**A test report must name WHICH SUITES RAN (2026-09-01).** "All tests pass" and
+"N tests green" are not acceptable when only a subset was executed. Recorded
+because: the pass that added `set_load_dispatcher` reported "all 9 pass, and 151
+tests across the pgFake-consuming suites stay green" while shipping a SECURITY
+DEFINER pinned to `public` instead of `public, extensions`.
+`src/test/definer-search-path.test.ts` guards exactly that, is correct, and
+would have failed — but it does not consume pgFake, so it was never run. The
+report was accurate about what it ran and misleading about what that covered.
+
+> **Standing rule.** When a pass adds or alters a SECURITY DEFINER function, an
+> RPC, or an RLS policy, the relevant structural guards run and are NAMED in the
+> report — `definer-search-path.test.ts`, `definer-live-catalog.test.ts`, and
+> `actor-stamp-fk.test.ts` at minimum — whether or not the pass touched anything
+> they appear to relate to.
+>
+> Note also, as evidence the rule is workable: the follow-up pass that corrected
+> the pin named the single suite it ran and stated plainly that no others were
+> run. That is the behaviour this rule makes standard, not a new burden.
+
 
 ---
 
