@@ -3324,6 +3324,19 @@ NOT extracted; almost none of its body applies.
 This supersedes the earlier note in `docs/tms-wish-list.md` that the settlement
 tables must serve two payee types.
 
+**Why the reversal — recorded because the distinction matters.** That caution was
+NOT mistaken when it was written. It was written BEFORE the driver settlement
+tables existed, at a point where serving two payee types would have cost almost
+nothing. It was then not applied. By the time the dispatch settlement was
+designed, `settlements.operator_id` was NOT NULL with a cascade FK, the
+immutability triggers were live, and a `paid` settlement existed that any
+migration would have to survive. The decision above is therefore a decision made
+AGAINST A KNOWN COST — not a judgement that the original caution was wrong.
+
+**The lesson worth carrying:** a caution recorded and not applied gets more
+expensive with every pass, and the cost is paid by the pass that finally reaches
+it.
+
 #### 4.8 The dispatch settlement has no driver-side machinery
 
 No R&M Deposit. No minimum net pay threshold. No two-week holdback. No
