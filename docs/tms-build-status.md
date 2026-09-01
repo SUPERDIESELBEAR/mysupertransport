@@ -4063,6 +4063,17 @@ catalog beats the migration files — was applied CORRECTLY, but against a
 truncated set of files, so a correct rule produced a wrong conclusion. "The file
 does not contain X" is only evidence once ALL the files have been read.
 
+**Second instance of the same error (2026-09-01).** The original KNOWN DEBT
+entry for `loads.dispatcher_id` (now corrected above) was written from the FIRST
+migration defining `create_load_with_stops` (`20260819161111`), which quoted a
+`NULLIF(p_load->>'dispatcher_id','')::uuid` path. That path was removed in a
+later redefinition (`20260827222017`), the current definition. Both this and
+the reported `recompute_load_total_value` drift involved a function REDEFINED
+MANY TIMES, where the oldest definition is the one `grep` reaches first and
+reads plausibly. The practical rule: when checking what a database function
+does, list EVERY migration defining it and read the NEWEST, never the first
+match.
+
 
 ---
 
