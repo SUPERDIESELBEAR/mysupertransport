@@ -131,10 +131,24 @@ Two things this entry previously said that the build status now supersedes:
 
   - factoring described as a recurring deduction alongside phone service. It is a
     2% REDUCTION OF THE BASE taken before the 5%; there is no recurring factoring
-    line.
+    line. Superseded by section 4.5 of "Settlement rules — the authoritative
+    record" in `docs/tms-build-status.md`.
   - "the settlement tables must serve two payee types." Decided otherwise: the
     dispatch settlement gets its OWN tables and `settlements` is not widened. See
     4.7 for the reasoning, which is recorded so it is not relitigated.
+
+    WHY THE REVERSAL, recorded because the distinction matters: the caution was
+    NOT mistaken when it was written. It was written BEFORE the driver settlement
+    tables existed, when serving two payee types would have cost almost nothing.
+    It was then not applied. By the time the dispatch settlement was designed,
+    `settlements.operator_id` was NOT NULL with a cascade FK, the immutability
+    triggers were live, and a `paid` settlement existed that any migration would
+    have to survive. Separate tables is a decision made AGAINST A KNOWN COST, not
+    a judgement that the original caution was wrong.
+
+    The lesson worth carrying: a caution recorded and not applied gets more
+    expensive with every pass, and the cost is paid by the pass that finally
+    reaches it.
 
 What remains true and unsuperseded here:
 
@@ -187,14 +201,41 @@ an unusual constraint and will shape how the module is structured.
 
 TRIGGER: confirm still wanted before Module 9 is built.
 
-### Reimbursement pay class
-Fully designed, deliberately unbuilt pending a formal spec. Design confirmed:
-driver-funded expenses reimburse at actual cost; company-funded expenses
-(Comdata/MultiService) are company revenue; broker overage is company margin;
-proof document required; unsettled lines hold while the rest of settlement
-proceeds.
+### Reimbursement pay class — payout rule (Module 4)
 
-TRIGGER: formal spec written, before Module 6.
+Single entry. This was previously recorded twice: here, and as "the reimbursement
+pay class payout rule" in the Module 4 deferred-items list in
+`docs/tms-build-status.md`. Both versions are merged below; nothing is dropped.
+The two did not conflict — they differed only in wording and in the module each
+named.
+
+It belongs to MODULE 4. The item concerns how a reimbursement is PAID OUT on a
+settlement. Module 5 only decides that a charge carries the classification;
+Module 7 only bills it. The settlement is where the payout rule has consequence.
+
+Fully designed, deliberately unbuilt pending a formal spec. Design confirmed:
+
+  - driver-funded expenses reimburse at ACTUAL COST, and only to the party who
+    spent it;
+  - company-funded expenses (Comdata/MultiService) are company revenue;
+  - broker overage is company margin;
+  - a proof document is required; an unconfirmed driver-funded reimbursement is
+    reported as unsettled rather than paid;
+  - unsettled lines HOLD while the rest of the settlement proceeds.
+
+Carried from the Module 4 deferred-items entry: the payout rule ships with the
+same pass that brings chargebacks with signed authorization attached, the R&M
+Deposit statement (running balance, deposits, withdrawals), and the settlement
+preview with a driver dispute window.
+
+Related and deliberately kept separate (Module 4 / Phase 2 reimbursement
+decision): lumper stays `revenue` at 100% today. Moving lumper to the
+`reimbursement` class is an explicit data migration/review step. Do not infer it
+from the presence of `lumper_reimbursement_pct`, and do not automatically
+reclassify existing lumper charges.
+
+TRIGGER: formal spec written, with Module 4 (settlement payout), before the
+settlement engine pays a reimbursement line.
 
 ### Queue views over loads (Module 7 and later)
 
