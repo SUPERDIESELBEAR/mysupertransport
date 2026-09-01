@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DetailSection, Field, FieldGrid } from './DetailPrimitives';
 import AssignDriverDialog from './AssignDriverDialog';
 import UnassignDriverDialog from './UnassignDriverDialog';
+import DispatcherField from './DispatcherField';
 import { formatEnumLabel, formatShortDate } from '@/lib/loadFormat';
 import { formatWeight, type LoadDetail } from '@/lib/loadDetail';
 import { openLoadChat } from '@/lib/loadChat';
@@ -16,9 +17,13 @@ interface Props {
   canOverride?: boolean;
   /** Staff (dispatcher, onboarding, management, owner) get the message-driver button. */
   canMessage?: boolean;
+  /** Only management/owner may change which dispatcher owns the load. */
+  canEditDispatcher?: boolean;
 }
 
-export default function LoadSummaryCard({ load, canAssign = false, canOverride = false, canMessage = false }: Props) {
+export default function LoadSummaryCard({
+  load, canAssign = false, canOverride = false, canMessage = false, canEditDispatcher = false,
+}: Props) {
   const isLoadout = load.load_type === 'loadout';
   const dash = (v: string | null | undefined) => (v && v.trim() ? v : '—');
   const [assignOpen, setAssignOpen] = useState(false);
