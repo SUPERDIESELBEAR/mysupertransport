@@ -4225,8 +4225,15 @@ stamped `loads.dispatcher_id` only when `public.has_role(auth.uid(),
 `owner`, or `dispatcher`, but the stamp had no role implication: a load created
 by an owner or management user got a NULL `dispatcher_id` silently.
 `update_load_with_stops` did not touch `dispatcher_id`, so attribution could not
-be corrected after creation. Worse, `src/test/helpers/pgFake.ts` stamped
-`dispatcher_id` unconditionally, hiding the owner-creates-NULL case from tests.
+be corrected after creation. Worse, `src/test/helpers/pgFake.ts` reproduced the
+SQL's action faithfully — stamping `dispatcher_id` from the acting profile —
+but omitted the `public.has_role(auth.uid(), 'dispatcher')` gate that wraps that
+action in the real RPC. The divergence was therefore a **missing role condition**,
+not an invented value. This is a different shape from the already-recorded case
+where a fake stored what the caller sent rather than what the SQL wrote: a fake
+can mirror the SQL's action exactly and still diverge by missing its condition,
+and that divergence hides precisely the case the condition exists to create —
+here, the owner-creates-NULL path.
 
 Live data matched: 5 of 10 loads populated, and **zero of the two delivered
 loads**.
