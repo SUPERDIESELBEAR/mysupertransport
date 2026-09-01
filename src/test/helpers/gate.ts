@@ -71,6 +71,7 @@
  *       - settlement foundation live      x6   (live catalog unreadable)
  *       - ST-TEST-005 claim hold, real load x1 (live claim row unreadable)
  *       - equipment receipt live schema   x6   (live catalog unreadable)
+ *       - operator settlement isolation   x4   (live policy catalog unreadable)
  *
  * Every skip in both shapes is NAMED and COUNTED. If a skip count moves
  * without a matching named line, a gate has regressed to `runIf`/`skip`.
