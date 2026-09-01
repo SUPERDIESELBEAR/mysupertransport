@@ -180,7 +180,13 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
 
       {/* Each card is isolated: a render fault degrades that section, never the load. */}
       <SectionErrorBoundary name="Load summary">
-        <LoadSummaryCard load={load} canAssign={canChangeStatus} canOverride={isManagement} canMessage={isStaff} />
+        <LoadSummaryCard
+          load={load}
+          canAssign={canChangeStatus}
+          canOverride={isManagement}
+          canMessage={isStaff}
+          canEditDispatcher={isManagement}
+        />
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Rate details">
         <RateDetailsCard load={load} />
