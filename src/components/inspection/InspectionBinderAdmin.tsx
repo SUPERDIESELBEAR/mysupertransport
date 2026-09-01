@@ -1176,26 +1176,41 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     <Button size="sm" className="h-7 text-xs" onClick={() => saveExpiry(doc!.id)}>Save</Button>
                     <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setExpiryEditing(null)}>Cancel</Button>
                   </>
-                ) : (
-                  <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                ) : isInspectionDateDoc(docName) ? (
+                  <div
+                    className="flex items-center gap-1 text-xs text-muted-foreground"
+                    data-testid={`expiry-locked-${docName}`}
+                    title="Managed in Vehicle Hub"
+                  >
                     <Calendar className="h-3.5 w-3.5" />
                     {doc?.expires_at
-                      ? `${isInspectionDateDoc(docName) ? 'Inspection Date' : 'Expires'} ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
-                      : (isInspectionDateDoc(docName) ? 'Inspection date managed from Vehicle Hub' : 'Set expiry date')}
-                    {isInspectionDateDoc(docName) && (
-                      <Tooltip delayDuration={100}>
-                        <TooltipTrigger asChild>
-                          <span className="ml-1 inline-flex items-center justify-center rounded-full bg-gold/10 text-gold-muted border border-gold/30 px-1.5 py-0.5 text-[10px] font-semibold cursor-default">
-                            Vehicle Hub
-                          </span>
-                        </TooltipTrigger>
-                        <TooltipContent side="top" className="text-xs max-w-[220px]">
-                          Update the inspection date and certificate in the Vehicle Hub; it syncs here automatically.
-                        </TooltipContent>
-                      </Tooltip>
-                    )}
+                      ? `Inspection Date ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
+                      : 'Inspection date managed from Vehicle Hub'}
+                    <Tooltip delayDuration={100}>
+                      <TooltipTrigger asChild>
+                        <span className="ml-1 inline-flex items-center justify-center rounded-full bg-gold/10 text-gold-muted border border-gold/30 px-1.5 py-0.5 text-[10px] font-semibold cursor-default">
+                          Managed in Vehicle Hub
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs max-w-[220px]">
+                        Update the inspection date and certificate in the Vehicle Hub; it syncs here automatically.
+                      </TooltipContent>
+                    </Tooltip>
                   </div>
+                ) : (
+                  <button
+                    type="button"
+                    data-testid={`expiry-trigger-${docName}`}
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+                    onClick={() => { if (doc) { setExpiryEditing(doc.id); setExpiryValue(doc.expires_at ?? ''); } }}
+                  >
+                    <Calendar className="h-3.5 w-3.5" />
+                    {doc?.expires_at
+                      ? `Expires ${parseLocalDate(doc.expires_at).toLocaleDateString()}`
+                      : 'Set expiry date'}
+                  </button>
                 )}
+
               </div>
             )}
 
