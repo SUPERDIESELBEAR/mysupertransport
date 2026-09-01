@@ -3279,6 +3279,9 @@ settles with nothing deducted for it.
 | 6 | Does the rolled below-threshold amount appear as a line item next period? |
 | 6 | Does it accumulate toward the next period's minimum? |
 | 6 | Is `authorize_below_threshold_payment` one-time or standing? |
+| 9 | Cash advance: recovered in full or in installments? |
+| 9 | Cash advance: suspend recovery when net would go negative? |
+| 9 | Cash advance: recovery priority vs R&M, fuel, other deductions? |
 
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
