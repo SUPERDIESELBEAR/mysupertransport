@@ -129,7 +129,13 @@ export const loadFormSchema = z
      * with the pre-load estimate.
      */
     confirmed_tons: optionalNumber,
-    fsc_bundled_into_linehaul: z.boolean(),
+    /**
+     * Tri-state on purpose. NULL and true both mean "bundled into the linehaul
+     * rate" (see the coalesce in recompute_load_total_value); NULL is simply a
+     * row that never stated it. Coercing NULL to a boolean on save made every
+     * edit of such a load diff as a financial change and demand a reason.
+     */
+    fsc_bundled_into_linehaul: z.boolean().nullable(),
     fsc_amount: optionalNumber,
     loaded_miles: optionalNumber,
     deadhead_miles: optionalNumber,

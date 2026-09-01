@@ -41,7 +41,7 @@ export function buildLoadSavePayload(
     estimatedTons: v.estimated_tons,
     confirmedTons: v.confirmed_tons,
     loadedMiles: v.loaded_miles,
-    fscBundled: v.fsc_bundled_into_linehaul,
+    fscBundled: v.fsc_bundled_into_linehaul !== false,
     fscAmount: v.fsc_amount,
     relocationFee: v.loadout_relocation_fee,
     stopoffCharges: (v.stops ?? []).map(s => s?.stopoff_charge_amount),
@@ -67,8 +67,10 @@ export function buildLoadSavePayload(
     // Authoritative for per-ton money. Omitting it let the RPC write the
     // estimate over the scale-ticket total.
     confirmed_tons: isLoadout ? '' : (v.confirmed_tons ?? ''),
-    fsc_bundled_into_linehaul: v.fsc_bundled_into_linehaul,
-    fsc_amount: v.fsc_bundled_into_linehaul ? '' : (v.fsc_amount ?? ''),
+    // '' preserves an unstated flag: the RPC's NULLIF turns it back into NULL
+    // rather than inventing a false. Never coerce this tri-state.
+    fsc_bundled_into_linehaul: v.fsc_bundled_into_linehaul ?? '',
+    fsc_amount: v.fsc_bundled_into_linehaul !== false ? '' : (v.fsc_amount ?? ''),
     loaded_miles: v.loaded_miles ?? '',
     deadhead_miles: v.deadhead_miles ?? '',
     total_load_value: totalValue ? String(totalValue) : '',

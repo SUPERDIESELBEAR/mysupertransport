@@ -199,7 +199,7 @@ export default function CreateLoadPage({
     ratePerTon: values.rate_per_ton,
     estimatedTons: values.estimated_tons,
     loadedMiles: values.loaded_miles,
-    fscBundled: values.fsc_bundled_into_linehaul,
+    fscBundled: values.fsc_bundled_into_linehaul !== false,
     fscAmount: values.fsc_amount,
     relocationFee: values.loadout_relocation_fee,
     stopoffCharges: (values.stops ?? []).map(s => s?.stopoff_charge_amount),
@@ -1112,13 +1112,13 @@ export default function CreateLoadPage({
                     render={({ field }) => (
                       <FormItem className="flex items-center gap-3 space-y-0 pt-6">
                         <FormControl>
-                          <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          <Switch checked={field.value !== false} onCheckedChange={field.onChange} />
                         </FormControl>
                         <FormLabel className="font-normal">FSC bundled into linehaul</FormLabel>
                       </FormItem>
                     )}
                   />
-                  {!values.fsc_bundled_into_linehaul && (
+                  {values.fsc_bundled_into_linehaul === false && (
                     <FormField
                       control={form.control}
                       name="fsc_amount"

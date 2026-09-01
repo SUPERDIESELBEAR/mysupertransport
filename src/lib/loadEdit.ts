@@ -80,7 +80,8 @@ export function loadToFormValues(data: LoadEditData): LoadFormValues {
     estimated_tons: text(l.estimated_tons),
     // The scale ticket travels with the form so a save round-trips it.
     confirmed_tons: text(l.confirmed_tons),
-    fsc_bundled_into_linehaul: l.fsc_bundled_into_linehaul !== false,
+    // NULL stays NULL so a save that does not touch it writes nothing.
+    fsc_bundled_into_linehaul: (l.fsc_bundled_into_linehaul ?? null) as boolean | null,
     fsc_amount: text(l.fsc_amount),
     loaded_miles: text(l.loaded_miles),
     deadhead_miles: text(l.deadhead_miles),
@@ -152,8 +153,14 @@ export function financialChanges(before: LoadFormValues, after: LoadFormValues):
   const changed: string[] = [];
 
   FINANCIAL_FIELDS.forEach(key => {
-    const a = before[key];
-    const b = after[key];
+    let a = before[key];
+    let b = after[key];
+    // Tri-state, mirroring the RPC: unstated means bundled, so NULL and true
+    // are the same answer and only a real turn-off is a financial change.
+    if (key === 'fsc_bundled_into_linehaul') {
+      a = a !== false;
+      b = b !== false;
+    }
     if (typeof a === 'boolean' || typeof b === 'boolean') {
       if (!!a !== !!b) changed.push(key);
       return;
