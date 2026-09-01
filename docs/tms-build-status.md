@@ -3712,3 +3712,17 @@ no deductions, and both withheld reasons in the engine's own words.
   correction cannot yet be issued.
 - **Two withheld rows for one load render as two cards** in the driver view —
   one per reason. Correct, and readable, but grouping by load may read better.
+
+**Baselines, both shapes green (restamped for Pass 4):**
+
+```text
+with a database:     Test Files  134 passed | 2 skipped (136)
+                          Tests  1118 passed | 15 skipped (1133)
+
+without a database:  Test Files  124 passed | 12 skipped (136)
+                          Tests  1043 passed | 82 skipped (1125)
+```
+
+The no-database shape reports one unhandled error, `[vitest-worker]: Timeout
+calling "onTaskUpdate"` — a harness RPC timeout under `--maxWorkers=2`, not a
+failing assertion. No test failed in either shape.
