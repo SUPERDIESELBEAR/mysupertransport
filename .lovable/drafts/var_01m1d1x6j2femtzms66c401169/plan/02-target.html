@@ -1,0 +1,56 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Vehicle Hub card click zones">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .quiet { fill: hsl(var(--muted)); }
+    .acc { fill: hsl(var(--accent)); }
+    .accs { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+  </style>
+
+  <rect class="box" x="16" y="16" width="300" height="264" rx="8"/>
+  <rect class="accs" x="24" y="24" width="284" height="248" rx="8"/>
+  <text class="sm" x="34" y="46">UNIT</text>
+  <text class="lbl" x="34" y="66">187</text>
+  <rect class="quiet" x="220" y="34" width="76" height="20" rx="10"/>
+  <text class="sm" x="232" y="48">DOT pill</text>
+  <text class="lbl" x="34" y="98">Driver name</text>
+  <text class="sm" x="34" y="116">Owner: —</text>
+  <rect class="zone" x="34" y="132" width="264" height="52" rx="8"/>
+  <text class="sm" x="44" y="152">specs · plate · VIN · serials</text>
+  <text class="mono" x="44" y="172">all text — opens the vehicle</text>
+
+  <rect class="box" x="34" y="196" width="126" height="30" rx="8"/>
+  <text class="sm" x="46" y="215">Truck photos</text>
+  <rect class="box" x="172" y="196" width="126" height="30" rx="8"/>
+  <text class="sm" x="184" y="215">Decal photos</text>
+
+  <text class="sm" x="34" y="252">Repair Cost</text>
+  <rect class="box" x="150" y="238" width="66" height="24" rx="8"/>
+  <text class="sm" x="164" y="254">Edit</text>
+  <rect class="box" x="226" y="238" width="72" height="24" rx="8"/>
+  <text class="sm" x="236" y="254">Log Upd.</text>
+
+  <circle class="acc" cx="352" cy="40" r="10"/>
+  <text class="sm" x="348" y="45" style="fill: hsl(var(--accent-foreground));">1</text>
+  <text class="sm" x="372" y="45">Whole card area becomes one explicit activation target</text>
+  <text class="sm" x="372" y="63">(role=button, keyboard Enter/Space, no reliance on bubbling)</text>
+
+  <circle class="acc" cx="352" cy="104" r="10"/>
+  <text class="sm" x="348" y="109" style="fill: hsl(var(--accent-foreground));">2</text>
+  <text class="sm" x="372" y="109">Driver name, unit, specs, VIN, serials, Repair Cost</text>
+  <text class="sm" x="372" y="127">all open the vehicle — text set to non-selectable</text>
+
+  <circle class="acc" cx="352" cy="168" r="10"/>
+  <text class="sm" x="348" y="173" style="fill: hsl(var(--accent-foreground));">3</text>
+  <text class="sm" x="372" y="173">The four bordered controls keep swallowing the click</text>
+  <text class="sm" x="372" y="191">so they never open the vehicle by accident</text>
+
+  <circle class="acc" cx="352" cy="232" r="10"/>
+  <text class="sm" x="348" y="237" style="fill: hsl(var(--accent-foreground));">4</text>
+  <text class="sm" x="372" y="237">Table view: Driver / Unit / VIN / Repair Cost cells</text>
+  <text class="sm" x="372" y="255">verified the same way; Actions cell stays isolated</text>
+</svg>
