@@ -3753,3 +3753,53 @@ without a database:  Test Files  124 passed | 12 skipped (136)
 The no-database shape reports one unhandled error, `[vitest-worker]: Timeout
 calling "onTaskUpdate"` — a harness RPC timeout under `--maxWorkers=2`, not a
 failing assertion. No test failed in either shape.
+
+## FIXED 2026-09-01 — expiry editing was dead in both binder views
+
+**The regression.** Commit `64d0f1133` (2026-08-30) replaced the expiry-editor
+trigger in `OperatorBinderPanel.tsx` and `InspectionBinderAdmin.tsx` with a plain
+`div`. Nothing else set `expiryEditing`, so the editor branch could never become
+true — for EVERY document row, not just the one being locked. Dead for roughly
+two days in both binder views. Staff could not set or correct an expiry on a CDL,
+a Medical Certificate or anything else.
+
+The intent was narrow: Periodic DOT Inspection dates are owned by Vehicle Hub and
+should not be editable in the binder. The edit reached every row instead.
+
+**The pattern, twice in three days.** Issue 2 was the same shape — an inline
+per-ton total written into `update_load_with_stops` while narrowing one case,
+which then overwrote the scale-ticket total on every edit. Both were broad edits
+made while narrowing one case.
+
+> **Caution, standing.** When locking one case, check what else the change
+> reaches. Enumerate the sibling rows/paths the predicate touches before shipping
+> the narrowing, and write the regression test for the case that must STAY open,
+> not only for the case being closed.
+
+**The fix.** The click handler is restored for every document except those
+`isInspectionDateDoc` identifies. Those rows now carry a "Managed in Vehicle Hub"
+chip explaining the lock rather than being silently inert. Covered by
+`src/test/binder-expiry-editor.test.ts`.
+
+### OPERATIONAL follow-up — 13 documents hold a file with no `expires_at`
+
+Not a code task. These rows are invisible to `cron-cert-reminders`,
+`check-inspection-expiry` and the Compliance Summary — their alerts have been
+silently not firing. Now that the editor works, someone needs to set the dates.
+
+| Document | Count |
+| --- | --- |
+| Form 2290 | 7 |
+| Medical Certificate | 3 |
+| MC Authority | 2 |
+| ELD Procedures | 1 |
+| **Total** | **13** |
+
+The 2 Periodic DOT Inspections with no `expires_at` are Vehicle-Hub managed and
+expected — not part of this list.
+
+### OPEN — should an ICA be expiry-tracked?
+
+Lease Agreement (ICA) is configured `hasExpiry: false`, so 83 of 83 carry no
+expiry by design. An ICA is a contract with a term. Whether that term should be
+expiry-tracked and alerted on is a business decision, not a defect. Unresolved.
