@@ -3629,3 +3629,86 @@ without a database:  Test Files  123 passed | 12 skipped (135)
 `settlement_line_items` or `settlement_withheld_loads` yet — the engine runs, but
 no persistence path calls it, so the driver's screen is correct and empty until
 Pass 4 lands the writer.
+
+---
+
+## Module 4, Pass 4 — persisting a settlement (2026-09-01)
+
+**The first end-to-end path from a real load to a figure a driver would be paid.**
+`computeSettlement` now has a production caller, and the driver's screen has
+displayed a persisted number.
+
+**Three layers, deliberately separate** (`src/lib/settlementRun.ts`):
+
+- **Gathering decides nothing.** It collects loads delivered in the period with
+  their charges, documents, exceptions and claim rows, plus fuel, deductions,
+  advance balances, R&M state and carry-forward — and hands them all to the
+  engine. It does NOT drop a claim-held or paperwork-short load; a filtering
+  gathering layer could silently disagree with the engine, which is the exact
+  reasoning already recorded for claim holds. A guard asserts this.
+- **Compute** is the engine, untouched by this pass.
+- **Store** is `store_settlement_run(date, date, date, jsonb, text)` — the only
+  writer. Definer, `search_path` pinned to `public, extensions`, revoked from
+  PUBLIC and anon, gated on management/owner in its own body, actor stamped via
+  `current_profile_id()`. It writes the settlement, EVERY line item and EVERY
+  withheld load in one transaction, and writes `settlement_stored` /
+  `settlement_recomputed` rows to `audit_log`.
+
+**Population** is read from the recorded rule through `selectSettlementPopulation`:
+anyone with unsettled work. No `is_active`, parked, departing,
+`excluded_from_dispatch`, `fully_onboarded` or `lease_terminations`. A driver
+with only deductions is included and settles negative.
+
+**A settlement is a statement, not a live calculation.**
+
+- The driver view reads stored rows and imports neither the engine nor the run.
+  Asserted by source scan, comments stripped.
+- **Re-running a period that already has a settlement REFUSES by default.** The
+  recommendation, and what shipped: refuse, and offer an explicit recomputation
+  the runner must accept in the UI. A recomputation deletes and rewrites the
+  settlement with the previous net and status recorded in `audit_log` first. It
+  never happens silently.
+- **A PAID settlement is immutable** — refused even in recompute mode, and
+  enforced at the database by `enforce_settlement_immutability` (settlement) and
+  `enforce_settlement_child_immutability` (lines, withheld loads). Both trigger
+  functions and the transaction-local writer flag `settlement_writer_active()`
+  are executable by NO client role.
+
+**Placement.** Management → Accounting → **Settlement Run**, beside Fuel Import
+and Settlement Settings, per the standing navigation rule. Management and owner
+only. No schedule, no cron: a run is a deliberate act, previewed in full —
+drivers included, each net, each status, every line and every withheld load with
+its reason — and only written after the runner approves.
+
+**Live verification, Johnathan Pratt, work week Wed 12 – Tue 18 Aug 2026:**
+
+```text
+settlements       f77911b0-50cd-4ae3-bff2-ebb0bc4331af  2026-08-12 → 2026-08-18
+                  payday 2026-09-01  status paid
+                  gross 327.94  deductions 0.00  net 327.94  carry 0.00 → 0.00
+line items        load_pay 327.94  "Load ST-TEST-003 — Linehaul (per ton, from
+                  scale ticket)"  loads:c222d62f-…
+withheld loads    ST-TEST-005  paperwork   "paperwork outstanding: Proof of
+                                            delivery."   {Proof of delivery}
+                  ST-TEST-005  claim_hold  "One of your loads is under review."
+                                           {Load under review}
+re-run, same week → {"outcome": "refused_existing", "existing_net": 327.94,
+                     "existing_status": "paid"}
+```
+
+The driver view at 390×844 rendered THAT row: NET $327.94, PAID, one pay line,
+no deductions, and both withheld reasons in the engine's own words.
+
+**Open after this pass:**
+
+- **Cash advances are a population trigger only.** No repayment schedule exists
+  anywhere in the schema, so the gathering layer records the outstanding balance
+  as a reason to include the driver and produces NO recovery line. Inventing a
+  weekly recovery there would be the gathering layer making a pay rule.
+- **The correction route is still missing.** Immutability is enforced now, but
+  `accessorial_adjustments`, invoices and supplemental invoices do not exist, the
+  `-A1` scheme is documented and unimplemented, and the engine's `adjustment`
+  line kind has no producer. A PAID settlement can be refused a rewrite but a
+  correction cannot yet be issued.
+- **Two withheld rows for one load render as two cards** in the driver view —
+  one per reason. Correct, and readable, but grouping by load may read better.

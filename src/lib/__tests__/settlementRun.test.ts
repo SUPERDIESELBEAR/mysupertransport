@@ -1,0 +1,194 @@
+/**
+ * MODULE 4, PASS 4 — the run: gather, compute, store.
+ *
+ * These tests guard the three rules that make a stored settlement trustworthy:
+ * gathering decides nothing, the whole result is stored, and once stored a
+ * settlement is read rather than recomputed.
+ */
+import { describe, it, expect } from 'vitest';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+import { gatherSettlementRun, previewFromGathered, runPayload } from '@/lib/settlementRun';
+
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+const PERIOD_ANCHOR = '2026-08-14'; // inside Wed 12 – Tue 18 Aug 2026
+const OP_LOADS = '11111111-1111-4111-8111-111111111111';
+const OP_DEDUCTIONS_ONLY = '22222222-2222-4222-8222-222222222222';
+const OP_QUIET = '33333333-3333-4333-8333-333333333333';
+
+function fakeClient(tables: Record<string, any[]>) {
+  const builder = (rows: any[]) => {
+    const chain: any = {
+      select: () => chain,
+      eq: () => chain, not: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
+      order: () => chain,
+      maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
+      then: (res: any, rej: any) => Promise.resolve({ data: rows, error: null }).then(res, rej),
+    };
+    return chain;
+  };
+  return {
+    from: (t: string) => builder(tables[t] ?? []),
+    rpc: async () => ({ data: false, error: null }),
+  };
+}
+
+const baseTables = () => ({
+  settlement_settings: [{
+    minimum_net_pay_threshold: 100, hold_buffer: 500, equipment_value_per_driver: 1200,
+    rm_deposit_target: 2000, rm_weekly_deduction: 200, work_week_start_dow: 3,
+  }],
+  pay_policies: [{ id: 'p1', is_company_default: true, linehaul_pct: 72, fsc_pct: 72, detention_pct: 100, other_accessorial_pct: 72 }],
+  pay_policy_assignments: [],
+  settlement_line_items: [],
+  settlements: [],
+  fuel_transactions: [],
+  cash_advances: [],
+  rm_deposits: [],
+  operators: [
+    { id: OP_LOADS, first_name: 'Held', last_name: 'Driver', is_departing: false },
+    { id: OP_DEDUCTIONS_ONLY, first_name: 'Debt', last_name: 'Only', is_departing: false },
+    { id: OP_QUIET, first_name: 'Quiet', last_name: 'Week', is_departing: false },
+  ],
+  deductions: [],
+  loads: [],
+});
+
+describe('gathering decides nothing', () => {
+  it('hands the engine a claim-held, paperwork-short load instead of dropping it', async () => {
+    const t: any = baseTables();
+    t.loads = [{
+      id: 'load-1', load_number: 'ST-HOLD', load_type: 'standard', operator_id: OP_LOADS,
+      delivered_at: '2026-08-14T18:00:00Z', rate_type: 'flat', linehaul_rate: 1000,
+      load_charges: [], load_documents: [], document_exceptions: [],
+      claim_flags: [{ id: 'c1', flag_level: 'hold', is_active: true, resolved_at: null, claim_type: 'damaged_goods' }],
+    }];
+    const run = await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR);
+    const g = run.operators.find(o => o.operatorId === OP_LOADS)!;
+    expect(g.input.loads.map(l => l.loadNumber)).toEqual(['ST-HOLD']);
+    expect(g.input.loads[0].claims?.[0].flagLevel).toBe('hold');
+
+    // The ENGINE, not the gathering layer, is what withholds it.
+    const preview = previewFromGathered(run);
+    const row = preview.rows.find(r => r.operatorId === OP_LOADS)!;
+    expect(row.computed.withheldLoads.map(w => w.loadNumber)).toContain('ST-HOLD');
+  });
+
+  it('skips a load already carried on a stored settlement line', async () => {
+    const t: any = baseTables();
+    t.loads = [{
+      id: 'load-1', load_number: 'ST-DONE', load_type: 'standard', operator_id: OP_LOADS,
+      delivered_at: '2026-08-14T18:00:00Z', rate_type: 'flat', linehaul_rate: 1000,
+      load_charges: [], load_documents: [], document_exceptions: [], claim_flags: [],
+    }];
+    t.settlement_line_items = [{ source_table: 'loads', source_id: 'load-1' }];
+    const run = await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR);
+    expect(run.operators.find(o => o.operatorId === OP_LOADS)).toBeUndefined();
+  });
+});
+
+describe('the population rule', () => {
+  it('includes a driver with only deductions and excludes a driver with nothing', async () => {
+    const t: any = baseTables();
+    t.deductions = [{ id: 'd1', operator_id: OP_DEDUCTIONS_ONLY, label: 'Insurance', amount: 75, is_active: true, start_payday: null, end_payday: null }];
+    const run = await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR);
+    const ids = previewFromGathered(run).rows.map(r => r.operatorId);
+    expect(ids).toContain(OP_DEDUCTIONS_ONLY);
+    expect(ids).not.toContain(OP_QUIET);
+  });
+
+  it('does not consult any active-operator predicate', () => {
+    const src = readFileSync('src/lib/settlementRun.ts', 'utf8');
+    for (const forbidden of ['is_active', 'excluded_from_dispatch', 'fully_onboarded', 'is_parked', 'lease_terminations', 'account_status']) {
+      // `is_active` appears only on deductions, never on operators.
+      const operatorScoped = new RegExp(`operators[^)]*${forbidden}`);
+      expect(src).not.toMatch(operatorScoped);
+    }
+  });
+});
+
+describe('the whole result is stored, not the total', () => {
+  it('carries every line item and every withheld reason into the payload', async () => {
+    const t: any = baseTables();
+    t.loads = [{
+      id: 'load-1', load_number: 'ST-PAY', load_type: 'standard', operator_id: OP_LOADS,
+      delivered_at: '2026-08-14T18:00:00Z', rate_type: 'flat', linehaul_rate: 1000,
+      load_charges: [], load_documents: [{ document_type: 'pod' }, { document_type: 'bol' }],
+      document_exceptions: [], claim_flags: [],
+    }, {
+      id: 'load-2', load_number: 'ST-HELD', load_type: 'standard', operator_id: OP_LOADS,
+      delivered_at: '2026-08-15T18:00:00Z', rate_type: 'flat', linehaul_rate: 500,
+      load_charges: [], load_documents: [], document_exceptions: [],
+      claim_flags: [{ id: 'c1', flag_level: 'hold', is_active: true, resolved_at: null }],
+    }];
+    const rows = previewFromGathered(await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR)).rows;
+    const payload = runPayload(rows) as any[];
+    const p = payload.find(x => x.operator_id === OP_LOADS)!;
+    expect(p.lines.length).toBe(rows.find(r => r.operatorId === OP_LOADS)!.computed.lines.length);
+    expect(p.lines.every((l: any) => l.line_type && l.description)).toBe(true);
+    expect(p.withheld.some((w: any) => w.reason_code === 'claim_hold')).toBe(true);
+    expect(p.net_amount).toBe(rows.find(r => r.operatorId === OP_LOADS)!.computed.netAmount);
+  });
+});
+
+describe('a settlement is a statement, not a live calculation', () => {
+  const dir = 'src/components/operator/MySettlements';
+  /** Comments are stripped: a doc line naming the engine is not a call to it. */
+  const stripComments = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  const sources = readdirSync(dir).filter(f => f.endsWith('.tsx') || f.endsWith('.ts'))
+    .map(f => ({ f, src: stripComments(readFileSync(join(dir, f), 'utf8')) }));
+
+  it('the driver view never calls the engine or the run', () => {
+    for (const { f, src } of sources) {
+      expect(src, f).not.toMatch(/settlementEngine/);
+      expect(src, f).not.toMatch(/computeSettlement/);
+      expect(src, f).not.toMatch(/settlementRun/);
+      expect(src, f).not.toMatch(/settlementPopulation/);
+    }
+  });
+
+  it('the driver view reads stored rows', () => {
+    const all = sources.map(s => s.src).join('\n');
+    expect(all).toMatch(/from\('settlements'\)/);
+    expect(all).toMatch(/settlement_line_items/);
+    expect(all).toMatch(/settlement_withheld_loads/);
+  });
+
+  it('a pay policy edit cannot reach a stored settlement', () => {
+    const all = sources.map(s => s.src).join('\n');
+    expect(all).not.toMatch(/pay_policies/);
+    expect(all).not.toMatch(/linehaul_pct/);
+  });
+});
+
+describe('the writer', () => {
+  const sql = readdirSync('supabase/migrations')
+    .filter(f => f.endsWith('.sql'))
+    .map(f => readFileSync(join('supabase/migrations', f), 'utf8'))
+    .filter(s => s.includes('store_settlement_run'))
+    .join('\n');
+
+  it('refuses an existing settlement rather than silently overwriting', () => {
+    expect(sql).toMatch(/refused_existing/);
+    expect(sql).toMatch(/p_mode = 'refuse'/);
+  });
+
+  it('refuses to recompute a PAID settlement even in replace mode', () => {
+    expect(sql).toMatch(/status = 'paid'/);
+    expect(sql).toMatch(/PAID and cannot be recomputed/);
+  });
+
+  it('records the actor through current_profile_id and is management-only', () => {
+    expect(sql).toMatch(/public\.current_profile_id\(\)/);
+    expect(sql).not.toMatch(/v_actor uuid := auth\.uid\(\)/);
+    expect(sql).toMatch(/Only management or owner may run a settlement/);
+  });
+
+  it('carries the four standing definer guarantees', () => {
+    expect(sql).toMatch(/SECURITY DEFINER/);
+    expect(sql).toMatch(/SET search_path TO 'public', 'extensions'/);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.store_settlement_run[^\n]*FROM PUBLIC/);
+    expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.store_settlement_run[^\n]*FROM anon/);
+  });
+});
