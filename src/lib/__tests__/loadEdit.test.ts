@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { financialChanges, loadToFormValues, removedStops, toLocalInput } from '@/lib/loadEdit';
+import { buildLoadSavePayload } from '@/lib/loadSavePayload';
 import { emptyStop, loadFormDefaults, type LoadFormValues } from '@/pages/dispatch/loadFormSchema';
 
 const baseStop = (over: Partial<ReturnType<typeof emptyStop>> = {}) => ({
@@ -81,8 +82,7 @@ describe('removedStops', () => {
   });
 });
 
-describe('loadToFormValues', () => {
-  const editData = {
+const editData = {
     load: {
       id: 'l1', load_number: 'ST-1042', load_type: 'standard', status: 'in_transit',
       linehaul_rate: 1000, fsc_bundled_into_linehaul: true, equipment_type: 'dry_van',
@@ -102,8 +102,9 @@ describe('loadToFormValues', () => {
       { id: 'c1', load_stop_id: null, charge_type: 'other', description: 'Extra Stop', amount: 50, source: 'parsed_rate_confirmation' },
       { id: 'c2', load_stop_id: 's2', charge_type: 'stopoff', description: 'Stop-off charge', amount: 75, source: 'manual' },
     ],
-  } as never;
+} as never;
 
+describe('loadToFormValues', () => {
   it('marks stops the driver has already checked into', () => {
     const v = loadToFormValues(editData);
     expect(v.stops[0].has_driver_data).toBe(true);
@@ -129,5 +130,28 @@ describe('toLocalInput', () => {
 
   it('produces a datetime-local shaped value', () => {
     expect(toLocalInput('2026-01-05T14:04:00Z')).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/);
+  });
+});
+
+describe('fsc_bundled_into_linehaul tri-state', () => {
+  it('is not a financial change when an unstated flag stays unstated', () => {
+    const before = values({ fsc_bundled_into_linehaul: null });
+    const after = values({ fsc_bundled_into_linehaul: null, commodity: 'Corn' });
+    expect(financialChanges(before, after)).toEqual([]);
+  });
+
+  it('still flags a real turn-off', () => {
+    expect(financialChanges(values({ fsc_bundled_into_linehaul: null }), values({ fsc_bundled_into_linehaul: false })))
+      .toContain('fsc_bundled_into_linehaul');
+  });
+
+  it('sends an empty string so the RPC writes NULL back, not false', () => {
+    const p = buildLoadSavePayload(values({ fsc_bundled_into_linehaul: null }), { isEdit: true });
+    expect(p.load.fsc_bundled_into_linehaul).toBe('');
+  });
+
+  it('hydrates an unstated flag as null rather than true', () => {
+    const v = loadToFormValues({ ...editData, load: { ...editData.load, fsc_bundled_into_linehaul: null } } as never);
+    expect(v.fsc_bundled_into_linehaul).toBeNull();
   });
 });
