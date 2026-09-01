@@ -4165,6 +4165,79 @@ have never signed in cannot receive an in-app anything and need a phone call.
 
 ---
 
+## Module 2, Pass 1 — dispatcher reassignment after creation (2026-09-01)
+
+**Goal.** Close the attribution gap where `loads.dispatcher_id` was stamped only
+for users who held the `dispatcher` role outright, while the create RPC's
+authorization gate also admitted `management` and `owner`. A load created by an
+owner or management user therefore got a NULL `dispatcher_id`, and no correction
+path existed after creation.
+
+**Single writer: `public.set_load_dispatcher(p_load_id uuid, p_dispatcher_id uuid, p_reason text)`**
+
+- `SECURITY DEFINER`, `search_path` pinned to `public` (see outstanding defect below).
+- Granted to `authenticated` and `service_role`; revoked from `PUBLIC` and `anon`.
+- Caller must hold `management` or `owner`.
+- Target profile must hold `dispatcher` (rejects non-dispatcher profiles); `NULL`
+  clears the field.
+- No-op change writes nothing; every real change writes one `load_change_history`
+  row with `field_path = dispatcher_id`, `change_source = dispatcher_reassign`,
+  and actor from `current_profile_id()`.
+
+**`update_load_with_stops` deliberately not extended.** One writer per state
+change. The edit RPC continues to ignore `dispatcher_id`; financial-change locking
+and stop reconciliation are unrelated to attribution.
+
+**Create path deliberately unchanged.** `create_load_with_stops` still stamps
+`dispatcher_id` automatically when the creator holds `dispatcher`, via
+`current_profile_id()`. The owner/management case is handled by editing after
+the fact, not by adding a dispatcher field to the create form.
+
+**Load Detail UI.** `DispatcherField.tsx` renders the dispatcher as editable text
+for management and owner, using a profile selector with an explicit
+"Unassigned" state. Everyone else sees plain text.
+
+**No reassignment notification.** Reassignment happens in conversation between
+the owner and the dispatcher; the system does not generate a notification or
+message.
+
+**Test correction.** `src/test/helpers/pgFake.ts` gained a `user_roles` table and
+`setActorRoles()`. The create path now reads the dispatcher gate out of the SQL
+via `roleGateFor(body, 'v_dispatcher')`, so an owner actor produces NULL
+`dispatcher_id` exactly as production does. Reinstating the old unconditional
+`dispatcher_id: actor` line made the owner-creates-NULL and clearing tests fail;
+restoring the role-gated fix made all nine pass, and the broader pgFake-consuming
+suites stayed green.
+
+**Outstanding defect.** `set_load_dispatcher` is pinned
+`SET search_path = public` rather than `public, extensions`, contrary to §1 of
+`docs/database-security-conventions.md`. The pass shipped with this defect; a
+separate prompt fixes it.
+
+---
+
+## FIXED 2026-09-01 — `loads.dispatcher_id` attribution after creation
+
+**What was wrong.** `create_load_with_stops` (current definition
+`20260827222017`) resolved the actor with `public.current_profile_id()` and
+stamped `loads.dispatcher_id` only when `public.has_role(auth.uid(),
+'dispatcher')` was true. The RPC's authorization gate admitted `management`,
+`owner`, or `dispatcher`, but the stamp had no role implication: a load created
+by an owner or management user got a NULL `dispatcher_id` silently.
+`update_load_with_stops` did not touch `dispatcher_id`, so attribution could not
+be corrected after creation. Worse, `src/test/helpers/pgFake.ts` stamped
+`dispatcher_id` unconditionally, hiding the owner-creates-NULL case from tests.
+
+Live data matched: 5 of 10 loads populated, and **zero of the two delivered
+loads**.
+
+**What resolved it.** Module 2, Pass 1 added `public.set_load_dispatcher(...)`
+as the single post-creation writer, an editable Dispatcher field on Load Detail
+for management and owner, and corrected `pgFake` to respect the dispatcher-only
+role condition. See the pass entry for details.
+
+---
+
 ## KNOWN DEBT — findings from the dispatch settlement investigation (2026-09-01)
 
 Same format as the entries in `docs/tms-wish-list.md`: each carries an explicit
