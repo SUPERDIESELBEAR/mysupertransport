@@ -102,23 +102,23 @@ const editData = {
       { id: 'c1', load_stop_id: null, charge_type: 'other', description: 'Extra Stop', amount: 50, source: 'parsed_rate_confirmation' },
       { id: 'c2', load_stop_id: 's2', charge_type: 'stopoff', description: 'Stop-off charge', amount: 75, source: 'manual' },
     ],
-} as never;
+};
 
 describe('loadToFormValues', () => {
   it('marks stops the driver has already checked into', () => {
-    const v = loadToFormValues(editData);
+    const v = loadToFormValues(editData as never);
     expect(v.stops[0].has_driver_data).toBe(true);
     expect(v.stops[1].has_driver_data).toBe(false);
   });
 
   it('lists only load-level charges — stop-attached ones live on their stop card', () => {
-    const v = loadToFormValues(editData);
+    const v = loadToFormValues(editData as never);
     expect(v.charges).toHaveLength(1);
     expect(v.charges[0].description).toBe('Extra Stop');
   });
 
   it('keeps stop ids so the server can reconcile rather than replace', () => {
-    expect(loadToFormValues(editData).stops.map(s => s.id)).toEqual(['s1', 's2']);
+    expect(loadToFormValues(editData as never).stops.map(s => s.id)).toEqual(['s1', 's2']);
   });
 });
 
