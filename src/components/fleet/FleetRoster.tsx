@@ -772,9 +772,14 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   return (
                   <TableRow
                     key={row.operatorId}
-                    className={`cursor-pointer hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
-                    onClick={() => onSelectOperator(row.operatorId)}
+                    className={`cursor-pointer select-none hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
+                    onClick={e => {
+                      const el = e.target as HTMLElement | null;
+                      if (el?.closest('button, a, input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
+                      onSelectOperator(row.operatorId);
+                    }}
                   >
+
                     <TableCell className="text-sm font-mono font-semibold text-primary">
                       <div className="flex flex-col gap-0.5">
                         <span>{row.unitNumber || '—'}</span>
