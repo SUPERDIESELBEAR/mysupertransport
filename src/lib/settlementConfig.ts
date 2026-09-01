@@ -97,6 +97,27 @@ export const SETTLEMENT_STATUS_EXPLANATIONS: Record<SettlementStatus, string> = 
     'Under the minimum net pay, so it rolls forward to the next period. Management can authorise payment anyway.',
 };
 
+/**
+ * DRIVER-FACING explanations. Same vocabulary, no staff mechanics, and the two
+ * forbidden words never appear: a settlement under the minimum ROLLS INTO THE
+ * NEXT ONE, and the deposit is always the Repair & Maintenance Deposit. The
+ * below-threshold line takes the amount so the driver reads a number.
+ */
+export const SETTLEMENT_STATUS_DRIVER_EXPLANATIONS: Record<SettlementStatus, string> = {
+  upcoming: 'This work week is still in progress.',
+  processing: 'The week is closed and your settlement is being reconciled.',
+  paid: 'Paid and deposited.',
+  held: 'Your settlement is computed in full. Payment is held pending return of company equipment.',
+  below_threshold: 'This settlement is under the minimum, so it rolls into your next settlement.',
+};
+
+/** Below-threshold, said plainly, with the amount. */
+export function belowThresholdDriverLine(netAmount: number): string {
+  const amount = netAmount.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
+  return `${amount} rolls into your next settlement.`;
+}
+
+
 /** The three states in which a driver is not paid this period. */
 export const NON_PAYMENT_STATES = ['below_threshold', 'held'] as const;
 

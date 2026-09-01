@@ -9482,6 +9482,64 @@ export type Database = {
           },
         ]
       }
+      settlement_withheld_loads: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          load_id: string | null
+          load_number: string
+          message: string
+          outstanding: string[]
+          reason_code: string
+          settlement_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          load_id?: string | null
+          load_number: string
+          message: string
+          outstanding?: string[]
+          reason_code: string
+          settlement_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          load_id?: string | null
+          load_number?: string
+          message?: string
+          outstanding?: string[]
+          reason_code?: string
+          settlement_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "settlement_withheld_loads_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_withheld_loads_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_withheld_loads_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       settlements: {
         Row: {
           below_threshold_authorization_reason: string | null
@@ -11039,6 +11097,13 @@ export type Database = {
           source_queue: string
         }
         Returns: number
+      }
+      my_rm_deposit: {
+        Args: never
+        Returns: {
+          current_balance: number
+          target_amount: number
+        }[]
       }
       operator_awaiting_return: {
         Args: { _operator_id: string }
