@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { DetailSection, Field, FieldGrid } from './DetailPrimitives';
 import AssignDriverDialog from './AssignDriverDialog';
 import UnassignDriverDialog from './UnassignDriverDialog';
+import DispatcherField from './DispatcherField';
 import { formatEnumLabel, formatShortDate } from '@/lib/loadFormat';
 import { formatWeight, type LoadDetail } from '@/lib/loadDetail';
 import { openLoadChat } from '@/lib/loadChat';
@@ -16,9 +17,13 @@ interface Props {
   canOverride?: boolean;
   /** Staff (dispatcher, onboarding, management, owner) get the message-driver button. */
   canMessage?: boolean;
+  /** Only management/owner may change which dispatcher owns the load. */
+  canEditDispatcher?: boolean;
 }
 
-export default function LoadSummaryCard({ load, canAssign = false, canOverride = false, canMessage = false }: Props) {
+export default function LoadSummaryCard({
+  load, canAssign = false, canOverride = false, canMessage = false, canEditDispatcher = false,
+}: Props) {
   const isLoadout = load.load_type === 'loadout';
   const dash = (v: string | null | undefined) => (v && v.trim() ? v : '—');
   const [assignOpen, setAssignOpen] = useState(false);
@@ -97,7 +102,18 @@ export default function LoadSummaryCard({ load, canAssign = false, canOverride =
           value={driverValue}
           hint={canMessage && !hasDriver ? 'No driver assigned to this load yet. Messages already linked to this load stay visible here.' : undefined}
         />
-        <Field label="Dispatcher" value={load.dispatcher_name ?? 'Unassigned'} />
+        <Field
+          label="Dispatcher"
+          value={canEditDispatcher ? (
+            <DispatcherField
+              loadId={load.id}
+              dispatcherId={load.dispatcher_id}
+              dispatcherName={load.dispatcher_name}
+            />
+          ) : (
+            load.dispatcher_name ?? 'Unassigned'
+          )}
+        />
         <Field label="Equipment" value={formatEnumLabel(load.equipment_type)} />
         <Field label="Handling" value={formatEnumLabel(load.handling_type)} />
         <Field label="Commodity" value={dash(load.commodity)} />

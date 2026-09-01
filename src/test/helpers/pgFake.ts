@@ -267,6 +267,21 @@ export interface PgFake {
   tables: Record<string, Row[]>;
   client: unknown;
   reset(): void;
+  /** Roles held by the acting user (AUTH_UID). Defaults to ['dispatcher']. */
+  setActorRoles(roles: string[]): void;
+}
+
+/**
+ * The role gate the SQL puts in front of an assignment, read from its own text:
+ * `IF public.has_role(auth.uid(), 'dispatcher') THEN v_dispatcher := v_profile`.
+ * Returns the role name, or null when the assignment is unconditional.
+ */
+export function roleGateFor(body: string, target: string): string | null {
+  const re = new RegExp(
+    `has_role\\s*\\(\\s*auth\\.uid\\(\\)\\s*,\\s*'([a-z_]+)'[\\s\\S]{0,200}?${target}\\s*:=`,
+    'i',
+  );
+  return re.exec(body)?.[1] ?? null;
 }
 
 export function createPgFake(): PgFake {
@@ -297,12 +312,17 @@ export function createPgFake(): PgFake {
     rm_deposits: [],
     rm_deposit_transactions: [],
     cash_advances: [],
+    user_roles: [],
   };
 
 
   const seed = () => {
     Object.keys(tables).forEach(k => { tables[k].length = 0; });
     tables.profiles.push({ id: PROFILE_ID, user_id: AUTH_UID, full_name: 'Test Dispatcher' });
+    // Roles are DATA here, not a constant: the SQL gates `dispatcher_id` on
+    // has_role(auth.uid(), 'dispatcher'), so the fake must be able to act as
+    // someone who does not hold it.
+    tables.user_roles.push({ user_id: AUTH_UID, role: 'dispatcher' });
     tables.loads.push({ id: 'load-1', load_number: 'TEST-1' });
     tables.operators.push({
       id: 'op-1', user_id: 'user-op-1', is_active: true, excluded_from_dispatch: false,
@@ -349,6 +369,9 @@ export function createPgFake(): PgFake {
     );
   };
   seed();
+
+  const hasRole = (userId: unknown, role: string) =>
+    tables.user_roles.some(r => r.user_id === userId && r.role === role);
 
   const enforce = (table: string, row: Row) => {
     for (const col of PROFILE_FK_COLUMNS[table] ?? []) {
@@ -854,10 +877,14 @@ export function createPgFake(): PgFake {
         const chargesIn = (args.p_charges ?? []) as Row[];
         if (stopsIn.length < 2) throw new Error('A load requires at least two stops');
 
+        // The database only stamps the creator as dispatcher when the creator
+        // HOLDS that role; an owner-created load has no dispatcher. The gate is
+        // read from the SQL, not asserted here.
+        const gate = roleGateFor(body, 'v_dispatcher');
         const load: Row = {
           ...coerceLoadColumns(p),
           status: 'available',
-          dispatcher_id: actor,
+          dispatcher_id: gate === null || hasRole(AUTH_UID, gate) ? actor : null,
           created_by: actor,
           updated_by: actor,
         };
@@ -891,6 +918,50 @@ export function createPgFake(): PgFake {
           }, 'charge');
 
         });
+
+        return { data: loadId, error: null };
+      }
+
+      if (fn === 'set_load_dispatcher') {
+        const body = functionBody(fn) ?? '';
+        if (!body) throw new Error('set_load_dispatcher is not in the migration set');
+        const actor = actorValue(classifyActorExpression('v_actor', body));
+        if (!(hasRole(AUTH_UID, 'management') || hasRole(AUTH_UID, 'owner'))) {
+          throw new Error('Only management or the owner may change the dispatcher on a load');
+        }
+        const loadId = args.p_load_id as string;
+        const target = (args.p_dispatcher_id as string | null) ?? null;
+        const load = tables.loads.find(l => l.id === loadId);
+        if (!load) throw new Error('Load not found');
+
+        if (target !== null) {
+          const prof = tables.profiles.find(p2 => p2.id === target);
+          if (!prof) throw new Error('That person does not have a profile');
+          if (!hasRole(prof.user_id, 'dispatcher')) throw new Error('That person is not a dispatcher');
+        }
+
+        const prev = (load.dispatcher_id as string | null) ?? null;
+        if (prev === target) return { data: loadId, error: null };
+
+        const label = (id: string | null) => {
+          if (!id) return null;
+          const prof = tables.profiles.find(p2 => p2.id === id);
+          const name = [prof?.first_name, prof?.last_name].filter(Boolean).join(' ').trim();
+          return name || id;
+        };
+
+        load.dispatcher_id = target;
+        load.updated_by = actor;
+        insertRows('load_change_history', {
+          load_id: loadId,
+          field_path: 'dispatcher_id',
+          previous_value: label(prev),
+          new_value: label(target),
+          is_financial: false,
+          reason: txt(args.p_reason),
+          change_source: 'dispatcher_reassign',
+          changed_by: actor,
+        }, 'hist');
 
         return { data: loadId, error: null };
       }
@@ -1147,5 +1218,15 @@ export function createPgFake(): PgFake {
     },
   };
 
-  return { tables, client, reset: seed };
+  return {
+    tables,
+    client,
+    reset: seed,
+    setActorRoles(roles: string[]) {
+      for (let i = tables.user_roles.length - 1; i >= 0; i -= 1) {
+        if (tables.user_roles[i].user_id === AUTH_UID) tables.user_roles.splice(i, 1);
+      }
+      roles.forEach(role => tables.user_roles.push({ user_id: AUTH_UID, role }));
+    },
+  };
 }
