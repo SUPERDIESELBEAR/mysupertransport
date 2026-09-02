@@ -3490,11 +3490,89 @@ rewriting itself — both surfaced from REAL rows moving through REAL paths. The
 fixtures agreed with the wrong assumption in both cases. A green result against
 seeded data must never be reported as though it carried the same weight.
 
-**What the seed loads do NOT cover (2026-09-02).** The six seed loads
-deliberately exercise the DRIVER-FUNDED lumper case only. The COMPANY-FUNDED
-case — the one that double-pays, per the known-debt entry "A company-funded
-lumper is paid to the driver in full" — is NOT covered by the seed data. A green
-run against these loads is not evidence about company-funded reimbursements.
+**CORRECTED 2026-09-02 — which lumper case the seed data covers.** An earlier
+version of this section recorded the opposite of the truth: it said the seed
+loads "deliberately exercise the DRIVER-FUNDED lumper case only". **That is
+backwards.** The single lumper charge in the set (ST26063, $200) has
+`funding_source` NULL and its change-history reason reads "Paid by
+SUPERTRANSPORT" — the **COMPANY-FUNDED** case. The claim was written before that
+fact was known.
+
+The seed data exercises the **COMPANY-FUNDED lumper case**. The **DRIVER-FUNDED
+case is NOT covered.** A green run against these loads is not evidence about
+driver-funded reimbursements.
+
+This was left as-is **deliberately**: it places a live instance of known-debt
+"A company-funded lumper is paid to the driver in full" in the data, so the
+eventual funding-source fix has a real row to verify against rather than a
+fixture.
+
+> **DO NOT SETTLE ST26063 ON THE DRIVER SIDE** until that known-debt entry is
+> fixed. Today it would pay a driver $200 that SUPERTRANSPORT already spent. All
+> six seed loads have `operator_id` NULL, so no driver settlement can currently
+> reach it — **that is protection by accident, not by design, and must not be
+> relied on.**
+
+### The six seed loads — the verification set for the dispatch company settlement (2026-09-02)
+
+| Load | Broker | Contribution | What it exists to prove |
+|---|---|---|---|
+| ST26056 | GlobalTranz | $2,800 | a $500 detention charge is EXCLUDED at 100% |
+| ST26058 | ITS National | $2,300 | a three-stop load with nothing excluded |
+| ST26059 | Eclipse | $6,750 | per-ton header rate, 270 × 25 **confirmed** tons |
+| ST26060 | Rolling River | $150 | loadout relocation fee; `dispatcher_id` NULL |
+| ST26061 | Fide Freight | $0 | carries a $150 TONU charge, excluded by **STATUS** |
+| ST26063 | Nationwide | $1,708 | $1,600 linehaul, $200 lumper excluded at 100%, $150 TONU **charge** INCLUDED at 72% |
+
+**Expected August 2026 eligible base: $13,708.**
+
+Attribution, which must sum to the same figure:
+
+| Dispatcher | Base | Loads |
+|---|---|---|
+| Jack Barney | $9,050 | ST26058, ST26059 |
+| Daniel Brown | $4,508 | ST26056, ST26063 (ST26061 is his and contributes nothing) |
+| Unattributed | $150 | ST26060 |
+
+**Every wrong total is diagnostic — that is the value of the set.** Each failure
+mode produces a distinct figure:
+
+- detention leaking into the base: **+$500**;
+- the lumper leaking into the base: **+$200**;
+- the TONU **charge** wrongly excluded: **−$108**;
+- the TONU-**status** load wrongly included: **+$150**;
+- a base built from `total_load_value` rather than from parts: **+$6,750 on
+  ST26059 alone**.
+
+**What the set does NOT cover.** Two gaps, both deliberate to record:
+
+- **No month-boundary case.** Every `delivered_at` falls in the same calendar
+  month whether evaluated in UTC or America/Chicago, so period assignment across
+  a boundary is untested.
+- **`operator_id` is NULL on all six**, so none of them can exercise the driver
+  side at all.
+
+### The ST26059 `confirmed_tons` correction — a documented exception (2026-09-02)
+
+ST26059's `confirmed_tons` was set to 25 by a **direct database write**, not
+through `update_load_with_stops`, because **no UI control for `confirmed_tons`
+exists anywhere** (see the known-debt entry "`confirmed_tons` has no input
+control anywhere"). `public.recompute_load_total_value` was then called for the
+load so the derived total was refreshed by the real function; it returned 6750.00
+— unchanged, confirming the confirmed-vs-estimated rewrite defect is not live.
+
+**The direct write produced NO `load_change_history` row.** Recorded here so a
+future reader does not wonder where the confirmed tonnage came from, or conclude
+the history is incomplete.
+
+This is an **exception justified by the absent control, NOT a precedent.** The
+standing rule that real data moves through real paths is unchanged.
+
+Note also: the rate-type conversion on ST26059 (flat → per_ton, with
+`rate_per_ton` 270 and `estimated_tons` 25) carries the change-history reason
+**"Testing the functions."** That was the seed-data correction, recorded here so
+the history reads coherently later.
+
 
 ---
 
@@ -4435,6 +4513,13 @@ payout rule (Module 4)" defers moving lumper from `revenue` to `reimbursement`
 pending a formal spec. That deferral has a **LIVE FINANCIAL CONSEQUENCE** which
 was not previously written down; the wish-list entry now cross-references this one.
 
+> **DO NOT SETTLE ST26063 ON THE DRIVER SIDE** until this is fixed. That seed
+> load carries the live instance of this defect: a $200 lumper, `funding_source`
+> NULL, change-history reason "Paid by SUPERTRANSPORT". Settling it today would
+> pay a driver $200 that SUPERTRANSPORT already spent. All six seed loads have
+> `operator_id` NULL, so no driver settlement can currently reach it — **that is
+> protection by accident, not by design, and must not be relied on.**
+
 **TRIGGER: before any settlement pays a lumper line.**
 
 ### Load numbers are consumed on form open and never released
@@ -4504,3 +4589,71 @@ and then discarded it.
 
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
+
+### `confirmed_tons` has no input control anywhere — no per-ton load can ever settle
+
+The field is fully plumbed on the **write** side: validated at
+`loadFormSchema.ts:131`, defaulted at `:263`, sent by `loadSavePayload.ts:69`,
+listed editable at `loadEdit.ts:144`, and writable by `update_load_with_stops`.
+
+There is no door into it. `CreateLoadPage.tsx` references `confirmed_tons`
+**zero** times. Load Detail's `RateDetailsCard.tsx:75` shows it **read-only** as
+"Awaiting scale ticket".
+
+Consequence: tonnage cannot be confirmed through the UI, and the settlement
+engine withholds a per-ton load until confirmed tons exist. **No per-ton load can
+reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually hauls.
+
+This is the **SEVENTH recorded instance** of the pattern where a correct
+implementation has no caller on the path that mattered, and the cleanest example
+of it: nothing is miscalculated — there is simply no door into the feature.
+
+**TRIGGER: before any per-ton load reaches settlement. Strong candidate to jump
+the queue — small fix, blocks an entire equipment type.**
+
+### `delivered_at` writes leave no change-history trail
+
+Across all six seed loads, five `delivered_at` values were written and **not one**
+produced a `load_change_history` row. `dispatcher_id` changes are recorded;
+delivery instants are not.
+
+`delivered_at` determines which settlement period a load's revenue falls into,
+for both the driver and the dispatch company. It is financially load-bearing and
+its writes are unattributed in the history — even though the trigger at
+`20260831182742` does stamp `delivered_at_source` and `delivered_at_by` on the
+row itself.
+
+**TRIGGER: before the first dispatch settlement is paid, or the first time a
+delivery instant is disputed.**
+
+### "Mark TONU" and a TONU charge are different things, and the UI does not say so
+
+"Mark TONU" sits in the Load Detail top action bar beside "Mark Covered" and
+"Mark Cancelled". It changes load **STATUS** and does not prompt for an amount. A
+TONU **CHARGE** is entered separately, in the Charges card, further down the page.
+
+The distinction is load-bearing: TONU **status** excludes a load from the dispatch
+base entirely (section 4.1), while a TONU **charge** on a delivered load stays IN
+the base at `tonu_pct`. Clicking the button when a charge was intended silently
+removes the load's entire revenue from the period.
+
+Recorded because the person who designed the system had to ask which one to use.
+
+**TRIGGER: before a dispatcher other than the owner records a TONU.**
+
+### The parser did not extract an itemised TONU line
+
+ST26061 was created from a rate confirmation itemising freight charges of USD 0.00
+and an accessorial line "TONU — Fixed Cost 1.00 — USD 150.00". The parse produced
+`linehaul_rate` 0, a pickup reference and detention terms, but **no charge row**
+and **no "rate lines that need a decision" prompt** — unlike the GlobalTranz
+detention line, which did prompt. The $150 in the database was entered by hand 14
+hours later.
+
+**Limitation on this finding:** the Create Load screen does not persist its parse
+result, and `parser_diagnostics` holds zero rows for this load, so there is no
+stored evidence of what the parser saw. It **cannot currently be established**
+whether the TONU line was extracted and dropped, or never extracted.
+
+**TRIGGER: before relying on the parser for accessorial lines; investigate
+together with the absence of a persisted parse result on the Create Load path.**
