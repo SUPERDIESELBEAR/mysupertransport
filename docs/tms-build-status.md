@@ -4589,3 +4589,71 @@ and then discarded it.
 
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
+
+### `confirmed_tons` has no input control anywhere — no per-ton load can ever settle
+
+The field is fully plumbed on the **write** side: validated at
+`loadFormSchema.ts:131`, defaulted at `:263`, sent by `loadSavePayload.ts:69`,
+listed editable at `loadEdit.ts:144`, and writable by `update_load_with_stops`.
+
+There is no door into it. `CreateLoadPage.tsx` references `confirmed_tons`
+**zero** times. Load Detail's `RateDetailsCard.tsx:75` shows it **read-only** as
+"Awaiting scale ticket".
+
+Consequence: tonnage cannot be confirmed through the UI, and the settlement
+engine withholds a per-ton load until confirmed tons exist. **No per-ton load can
+reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually hauls.
+
+This is the **SEVENTH recorded instance** of the pattern where a correct
+implementation has no caller on the path that mattered, and the cleanest example
+of it: nothing is miscalculated — there is simply no door into the feature.
+
+**TRIGGER: before any per-ton load reaches settlement. Strong candidate to jump
+the queue — small fix, blocks an entire equipment type.**
+
+### `delivered_at` writes leave no change-history trail
+
+Across all six seed loads, five `delivered_at` values were written and **not one**
+produced a `load_change_history` row. `dispatcher_id` changes are recorded;
+delivery instants are not.
+
+`delivered_at` determines which settlement period a load's revenue falls into,
+for both the driver and the dispatch company. It is financially load-bearing and
+its writes are unattributed in the history — even though the trigger at
+`20260831182742` does stamp `delivered_at_source` and `delivered_at_by` on the
+row itself.
+
+**TRIGGER: before the first dispatch settlement is paid, or the first time a
+delivery instant is disputed.**
+
+### "Mark TONU" and a TONU charge are different things, and the UI does not say so
+
+"Mark TONU" sits in the Load Detail top action bar beside "Mark Covered" and
+"Mark Cancelled". It changes load **STATUS** and does not prompt for an amount. A
+TONU **CHARGE** is entered separately, in the Charges card, further down the page.
+
+The distinction is load-bearing: TONU **status** excludes a load from the dispatch
+base entirely (section 4.1), while a TONU **charge** on a delivered load stays IN
+the base at `tonu_pct`. Clicking the button when a charge was intended silently
+removes the load's entire revenue from the period.
+
+Recorded because the person who designed the system had to ask which one to use.
+
+**TRIGGER: before a dispatcher other than the owner records a TONU.**
+
+### The parser did not extract an itemised TONU line
+
+ST26061 was created from a rate confirmation itemising freight charges of USD 0.00
+and an accessorial line "TONU — Fixed Cost 1.00 — USD 150.00". The parse produced
+`linehaul_rate` 0, a pickup reference and detention terms, but **no charge row**
+and **no "rate lines that need a decision" prompt** — unlike the GlobalTranz
+detention line, which did prompt. The $150 in the database was entered by hand 14
+hours later.
+
+**Limitation on this finding:** the Create Load screen does not persist its parse
+result, and `parser_diagnostics` holds zero rows for this load, so there is no
+stored evidence of what the parser saw. It **cannot currently be established**
+whether the TONU line was extracted and dropped, or never extracted.
+
+**TRIGGER: before relying on the parser for accessorial lines; investigate
+together with the absence of a persisted parse result on the Create Load path.**
