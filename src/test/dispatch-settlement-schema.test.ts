@@ -52,6 +52,9 @@ const TABLES = [
   'dispatch_settlement_rates_history',
 ];
 
+const TABLE_LIST = TABLES.map(t => `'${t}'`).join(', ');
+
+
 const FUNCTIONS = [
   'dispatch_settlement_writer_active',
   'enforce_dispatch_settlement_immutability',
