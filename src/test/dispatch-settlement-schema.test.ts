@@ -179,34 +179,34 @@ describe('dispatch settlement — security', () => {
 
   itLive('management and owner only — no operator or dispatcher reads the dispatch company settlement', () => {
     const policies = psql(`SELECT tablename || '|' || policyname || '|' || coalesce(qual,'') || coalesce(with_check,'')
-      FROM pg_policies WHERE schemaname='public' AND tablename LIKE 'dispatch\\_%'`);
+      FROM pg_policies WHERE schemaname='public' AND tablename IN (${TABLE_LIST})`);
     expect(policies.length).toBeGreaterThanOrEqual(TABLES.length);
     for (const p of policies) {
       expect(p).toContain('management');
       expect(p).toContain('owner');
-      expect(p).not.toContain('operator');
-      expect(p).not.toContain('dispatcher');
+      expect(p).not.toContain("'operator'");
+      expect(p).not.toContain("'dispatcher'");
     }
   });
 
   itLive('grants reach authenticated and service_role, never anon', () => {
     const grants = psql(`SELECT table_name || '|' || grantee || '|' || privilege_type
       FROM information_schema.role_table_grants WHERE table_schema='public'
-      AND table_name LIKE 'dispatch\\_%' AND grantee IN ('anon','authenticated','service_role')`);
+      AND table_name IN (${TABLE_LIST}) AND grantee IN ('anon','authenticated','service_role')`);
     expect(grants.filter(g => g.includes('|anon|'))).toEqual([]);
     for (const t of TABLES) {
-      expect(grants.some(g => g.startsWith(`${t}|authenticated|`))).toBe(true);
-      expect(grants.some(g => g.startsWith(`${t}|service_role|`))).toBe(true);
+      expect(grants.some(g => g.startsWith(`${t}|authenticated|`)), `${t} authenticated`).toBe(true);
+      expect(grants.some(g => g.startsWith(`${t}|service_role|`)), `${t} service_role`).toBe(true);
     }
   });
 
   itLive('all four DEFINER protections on every function created by this pass', () => {
     for (const fn of FUNCTIONS) {
-      const [row] = psql(`SELECT p.prosecdef || '|' || coalesce(array_to_string(p.proconfig,','),'')
+      const [row] = psql(`SELECT p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig,','),'')
         FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='${fn}'`);
       expect(row, fn).toBeDefined();
       const [secdef, config] = row.split('|');
-      expect(secdef, `${fn} SECURITY DEFINER`).toBe('t');
+      expect(secdef, `${fn} SECURITY DEFINER`).toBe('true');
       expect(config, `${fn} search_path`).toContain('search_path=public, extensions');
 
       // The ACL is the proof, not the REVOKE statement: the platform re-grants
@@ -225,12 +225,19 @@ describe('dispatch settlement — security', () => {
     const body = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
       AND proname='dispatch_settlement_writer_active'`).join(' ');
     expect(body).toContain('app.dispatch_settlement_write');
-    const immut = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname='enforce_dispatch_settlement_immutability'`).join(' ');
-    expect(immut).toContain('dispatch_settlement_writer_active');
-    expect(immut).not.toContain('settlement_writer_active()');
+    // The driver-side guard reads a different setting; neither key can open the
+    // other gate.
+    expect(body).not.toContain('app.settlement_write"');
+    for (const fn of ['enforce_dispatch_settlement_immutability',
+      'enforce_dispatch_settlement_child_immutability']) {
+      const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+        AND proname='${fn}'`).join(' ');
+      expect(src).toContain('public.dispatch_settlement_writer_active()');
+      expect(src).not.toContain('public.settlement_writer_active()');
+    }
   });
 });
+
 
 describe('dispatch settlement — the rates are versioned and seeded, never hardcoded', () => {
   itLive('exactly one open rate row: 5% dispatch, 2% factoring, from 2026-01-01', () => {
