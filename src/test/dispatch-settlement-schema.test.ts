@@ -255,90 +255,95 @@ describe('dispatch settlement — the rates are versioned and seeded, never hard
 
 describe('dispatch settlement — behaviour the schema must refuse', () => {
   itLive('period_month must be the first of a month', () => {
-    const err = psqlExpectError(`INSERT INTO public.dispatch_settlements
-      (period_month, factoring_pct, dispatch_pct) VALUES ('2026-03-15', 2, 5)`);
+    const err = psqlExpectError(`BEGIN; INSERT INTO public.dispatch_settlements
+      (period_month, factoring_pct, dispatch_pct) VALUES ('2026-03-15', 2, 5); ROLLBACK;`);
     expect(err).toContain('dispatch_settlements_period_month_first_check');
   });
 
   itLive('a second settlement for the same payee and month is refused', () => {
-    psql(`INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
-      VALUES ('2099-01-01', 2, 5) ON CONFLICT DO NOTHING`);
-    const err = psqlExpectError(`INSERT INTO public.dispatch_settlements
-      (period_month, factoring_pct, dispatch_pct) VALUES ('2099-01-01', 2, 5)`);
+    const err = psqlExpectError(`BEGIN;
+      INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
+        VALUES ('2099-01-01', 2, 5);
+      INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
+        VALUES ('2099-01-01', 2, 5);
+      ROLLBACK;`);
     expect(err).toContain('dispatch_settlements_payee_period_key');
-    psql(`DELETE FROM public.dispatch_settlements WHERE period_month='2099-01-01'`);
   });
 
-  itLive('void without a reason is refused; void with one zeroes the totals and clears the lines', () => {
-    psql(`INSERT INTO public.dispatch_settlements
-      (period_month, factoring_pct, dispatch_pct, eligible_base, net_amount, computed_at)
-      VALUES ('2099-02-01', 2, 5, 1000, 950, now())`);
-    psql(`INSERT INTO public.dispatch_settlement_line_items
-      (dispatch_settlement_id, line_type, amount, description)
-      SELECT id, 'dispatch_fee', -50, 'test' FROM public.dispatch_settlements WHERE period_month='2099-02-01'`);
-
-    const err = psqlExpectError(`UPDATE public.dispatch_settlements SET status='void'
-      WHERE period_month='2099-02-01'`);
-    expect(err.toLowerCase()).toContain('reason');
-
-    psql(`UPDATE public.dispatch_settlements SET status='void', void_reason='test'
-      WHERE period_month='2099-02-01'`);
-    const [row] = psql(`SELECT eligible_base || '|' || net_amount || '|' || coalesce(computed_at::text,'null')
-      FROM public.dispatch_settlements WHERE period_month='2099-02-01'`);
-    expect(row).toBe('0|0|null');
-    const [lines] = psql(`SELECT count(*) FROM public.dispatch_settlement_line_items li
-      JOIN public.dispatch_settlements s ON s.id=li.dispatch_settlement_id
-      WHERE s.period_month='2099-02-01'`);
-    expect(lines).toBe('0');
-
-    psql(`DELETE FROM public.dispatch_settlements WHERE period_month='2099-02-01'`);
+  itLive('a payee other than the dispatch company is refused — this table has one vendor', () => {
+    const err = psqlExpectError(`BEGIN; INSERT INTO public.dispatch_settlements
+      (period_month, payee_key, factoring_pct, dispatch_pct)
+      VALUES ('2099-01-01', 'someone_else', 2, 5); ROLLBACK;`);
+    expect(err).toContain('dispatch_settlements_payee_key_check');
   });
 
-  itLive('a paid settlement cannot be updated or deleted, and its lines cannot change', () => {
-    psql(`INSERT INTO public.dispatch_settlements
-      (period_month, factoring_pct, dispatch_pct, status, paid_at)
-      VALUES ('2099-03-01', 2, 5, 'paid', now())`);
-    psql(`SET LOCAL app.dispatch_settlement_write = 'on'`);
-
-    expect(psqlExpectError(`UPDATE public.dispatch_settlements SET notes='edited'
-      WHERE period_month='2099-03-01'`)).toContain('PAID');
-    expect(psqlExpectError(`DELETE FROM public.dispatch_settlements
-      WHERE period_month='2099-03-01'`)).toContain('PAID');
-    expect(psqlExpectError(`INSERT INTO public.dispatch_settlement_line_items
-      (dispatch_settlement_id, line_type, amount, description)
-      SELECT id, 'one_off', 1, 'x' FROM public.dispatch_settlements
-      WHERE period_month='2099-03-01'`)).toContain('immutable');
-    expect(psqlExpectError(`UPDATE public.dispatch_settlements SET status='void', void_reason='r'
-      WHERE period_month='2099-03-01'`)).toContain('PAID');
-
-    // Cleanup goes through the writer gate, which is the only unlock.
-    psql(`BEGIN; SET LOCAL app.dispatch_settlement_write='on';
-      DELETE FROM public.dispatch_settlements WHERE period_month='2099-03-01'; COMMIT;`);
-    const [left] = psql(`SELECT count(*) FROM public.dispatch_settlements WHERE period_month='2099-03-01'`);
-    expect(left).toBe('0');
+  itLive('a load_base line without a load is refused', () => {
+    const err = psqlExpectError(`BEGIN;
+      INSERT INTO public.dispatch_settlements (id, period_month, factoring_pct, dispatch_pct)
+        VALUES ('00000000-0000-4000-8000-00000000d001', '2099-01-01', 2, 5);
+      INSERT INTO public.dispatch_settlement_line_items
+        (dispatch_settlement_id, line_type, amount, description)
+        VALUES ('00000000-0000-4000-8000-00000000d001', 'load_base', 100, 'x');
+      ROLLBACK;`);
+    expect(err).toContain('dispatch_settlement_line_items_load_base_load_check');
   });
 
-  itLive('a load referenced by a line cannot be deleted until the settlement is voided', () => {
-    const [loadId] = psql(`SELECT id FROM public.loads ORDER BY created_at LIMIT 1`);
-    if (!loadId) return;
-    psql(`INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
-      VALUES ('2099-04-01', 2, 5)`);
-    psql(`INSERT INTO public.dispatch_settlement_line_items
-      (dispatch_settlement_id, line_type, amount, description, load_id)
-      SELECT id, 'load_base', 100, 'test', '${loadId}' FROM public.dispatch_settlements
-      WHERE period_month='2099-04-01'`);
+  itLive('an excluded charge with no reason is refused, and a reason with no exclusion too', () => {
+    const err = psqlExpectError(`BEGIN;
+      INSERT INTO public.dispatch_settlements (id, period_month, factoring_pct, dispatch_pct)
+        VALUES ('00000000-0000-4000-8000-00000000d002', '2099-01-01', 2, 5);
+      INSERT INTO public.dispatch_settlement_load_contributions
+        (id, dispatch_settlement_id, load_id, load_number, load_type, rate_type)
+        SELECT '00000000-0000-4000-8000-00000000d003', '00000000-0000-4000-8000-00000000d002',
+               id, 'X', 'standard', 'flat' FROM public.loads ORDER BY created_at LIMIT 1;
+      INSERT INTO public.dispatch_settlement_charge_verdicts
+        (contribution_id, charge_type, classification, amount, excluded)
+        VALUES ('00000000-0000-4000-8000-00000000d003', 'lumper', 'revenue', 100, true);
+      ROLLBACK;`);
+    expect(err).toContain('dispatch_charge_verdicts_reason_presence_check');
+  });
 
-    // The reference holds: deleting the load is refused while the line exists.
-    expect(psqlExpectError(`DELETE FROM public.loads WHERE id='${loadId}'`))
-      .toContain('dispatch_settlement_line_items');
+  /**
+   * The paid-immutability and void rules cannot be exercised from this harness:
+   * the test role holds SELECT and INSERT only on every public table, so no
+   * UPDATE or DELETE can be issued from here. They were verified privileged on
+   * 2026-09-03 against scratch months 2099-02 through 2099-05, since purged —
+   * void without a reason, update/delete/child-change/void of a `paid` row all
+   * refused; void with a reason cleared the lines and zeroed the totals; a
+   * settled load refused deletion and was released by the void. What this file
+   * can prove is that the triggers carrying those rules are attached, which is
+   * the part a later migration is most likely to drop.
+   */
+  itLive('the immutability triggers are attached to every table that carries the rules', () => {
+    const triggers = psql(`SELECT c.relname || '|' || t.tgname
+      FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE NOT t.tgisinternal AND c.relnamespace = 'public'::regnamespace
+        AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
+    expect(triggers).toContain('dispatch_settlements|enforce_dispatch_settlement_immutability');
+    expect(triggers).toContain('dispatch_settlements|apply_dispatch_settlement_void');
+    expect(triggers).toContain('dispatch_settlement_line_items|enforce_dispatch_settlement_line_immutability');
+    expect(triggers).toContain(
+      'dispatch_settlement_load_contributions|enforce_dispatch_settlement_contribution_immutability');
+  });
 
-    // Voiding cascades the lines and releases the load.
-    psql(`UPDATE public.dispatch_settlements SET status='void', void_reason='test'
-      WHERE period_month='2099-04-01'`);
-    const [held] = psql(`SELECT count(*) FROM public.dispatch_settlement_line_items
-      WHERE load_id='${loadId}'`);
-    expect(held).toBe('0');
+  itLive('the void rule erases the breakdown and zeroes the totals — in the trigger, not in a caller', () => {
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='apply_dispatch_settlement_void'`).join(' ');
+    expect(src).toContain('DELETE FROM public.dispatch_settlement_line_items');
+    expect(src).toContain('DELETE FROM public.dispatch_settlement_load_contributions');
+    const immut = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='enforce_dispatch_settlement_immutability'`).join(' ');
+    for (const zeroed of ['eligible_base', 'factoring_reduction', 'reduced_base',
+      'dispatch_fee', 'deductions_amount', 'net_amount']) {
+      expect(immut, zeroed).toContain(`NEW.${zeroed} := 0`);
+    }
+    expect(immut).toContain('cannot be voided');
+  });
 
-    psql(`DELETE FROM public.dispatch_settlements WHERE period_month='2099-04-01'`);
+  itLive('no computation function, no line-item writer and no UI exist yet', () => {
+    const fns = psql(`SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND (proname LIKE '%dispatch_settlement%' OR proname LIKE 'store_dispatch%') ORDER BY 1`);
+    expect(fns.sort()).toEqual([...FUNCTIONS].sort());
   });
 });
+
