@@ -3490,6 +3490,12 @@ rewriting itself — both surfaced from REAL rows moving through REAL paths. The
 fixtures agreed with the wrong assumption in both cases. A green result against
 seeded data must never be reported as though it carried the same weight.
 
+**What the seed loads do NOT cover (2026-09-02).** The six seed loads
+deliberately exercise the DRIVER-FUNDED lumper case only. The COMPANY-FUNDED
+case — the one that double-pays, per the known-debt entry "A company-funded
+lumper is paid to the driver in full" — is NOT covered by the seed data. A green
+run against these loads is not evidence about company-funded reimbursements.
+
 ---
 
 
@@ -4114,8 +4120,26 @@ report was accurate about what it ran and misleading about what that covered.
 > the pin named the single suite it ran and stated plainly that no others were
 > run. That is the behaviour this rule makes standard, not a new burden.
 
+**FRONTEND CHANGES REQUIRE AN EXPLICIT PUBLISH, AND A PASS ENTRY DESCRIBES THE
+REPO, NOT THE SITE (2026-09-02).** The existing standing rule about explicit
+deploys was written for edge functions (`parse-rate-confirmation`,
+`receive-rate-con-email`). The same divergence occurs on the FRONTEND: a
+component can be committed, recorded as shipped, and be absent from the published
+site. On 2026-09-01 `DispatcherField.tsx` was committed and recorded as shipped
+while the deployed bundle predated it by six hours.
+
+> **Standing rule.** A pass entry records what reached the REPOSITORY. It is not
+> evidence that a user can see the change. When a pass adds or alters user-facing
+> UI, the entry states that a publish is required before the change is live, and
+> any report of "the feature is missing" checks the deployed build time against
+> the commit time BEFORE investigating the code.
+
+Method that established it, worth reusing: compare `/version.json` buildTime
+against the commit timestamp, then search the deployed bundle for a string unique
+to the new code.
 
 ---
+
 
 ## FIXED 2026-08-31 — the engine omitted linehaul entirely (header rates)
 
@@ -4233,9 +4257,17 @@ and stop reconciliation are unrelated to attribution.
 `current_profile_id()`. The owner/management case is handled by editing after
 the fact, not by adding a dispatcher field to the create form.
 
-**Load Detail UI.** `DispatcherField.tsx` renders the dispatcher as editable text
-for management and owner, using a profile selector with an explicit
-"Unassigned" state. Everyone else sees plain text.
+**Load Detail UI — IN THE REPOSITORY, not yet on the site at the time of this
+entry.** `DispatcherField.tsx` renders the dispatcher as editable text for
+management and owner, using a profile selector with an explicit "Unassigned"
+state. Everyone else sees plain text. That describes the repository. The
+deployed site did NOT carry it: the published build reported version `36355a`,
+buildTime `2026-09-01T14:16:39Z`, while the commit adding `DispatcherField.tsx`
+(`5507153f`) landed `2026-09-01T20:06:32Z` — six hours later. A bundle walk found
+`set_load_dispatcher` **zero times** in the deployed dispatch chunk, and a user
+holding owner, management AND dispatcher correctly saw the plain-text branch.
+The change did not reach the site until a later publish. See the standing rule
+"FRONTEND CHANGES REQUIRE AN EXPLICIT PUBLISH" (2026-09-02).
 
 **No reassignment notification.** Reassignment happens in conversation between
 the owner and the dispatcher; the system does not generate a notification or
@@ -4369,3 +4401,106 @@ say so, so that a future session does not go looking for evidence that is gone a
 conclude the verification never happened.
 
 **TRIGGER: none — this is a documentation correction.**
+
+### A company-funded lumper is paid to the driver in full — the company pays twice
+
+`settlementEngine.ts:459` guards reimbursements correctly: `funding_source !==
+'driver'` skips the line. But that guard sits INSIDE
+`if (payClassOf(klass, policy) === 'reimbursement')`. Under the live policy
+"SUPERTRANSPORT Standard", lumper's pay class is `revenue`, so a lumper charge
+never reaches the guard. It falls through to the percentage path, resolves
+`lumper_reimbursement_pct = 100`, and pays the driver the full amount.
+
+Consequence: a lumper SUPERTRANSPORT paid on the fuel card, entered as a lumper
+charge, is paid to the driver as well. **The company pays for it twice.**
+
+Nothing warns. `LoadChargesCard`'s "unconfirmed reimbursement" banner is gated on
+the same reimbursement class, so a revenue-class charge with NULL funding shows no
+warning and displays "100% to driver" as established fact.
+`ChargeEntryDialog.tsx:64` renders the funding-source selector only when the pay
+class is `reimbursement`, so the user is never asked who paid. `add_load_charge`
+stores a plain NULL when funding source is absent — there is no distinction
+between "company funded", "never asked" and "cleared". Live data: 2 of 2
+`load_charges` rows have NULL `funding_source`.
+
+This is the **SIXTH recorded instance** of the pattern where a correct
+implementation sits on a path the money does not travel.
+
+**Detention is structurally identical but is NOT the same risk.** It is also
+revenue class, 100%, NULL funding — but detention is earned from the broker and
+passed through, not funded by anyone. The fix must not over-reach into detention.
+
+Related and already recorded: the wish-list item "Reimbursement pay class —
+payout rule (Module 4)" defers moving lumper from `revenue` to `reimbursement`
+pending a formal spec. That deferral has a **LIVE FINANCIAL CONSEQUENCE** which
+was not previously written down; the wish-list entry now cross-references this one.
+
+**TRIGGER: before any settlement pays a lumper line.**
+
+### Load numbers are consumed on form open and never released
+
+`CreateLoadPage.tsx:167` calls `generate_load_number()` from a mount effect,
+before any input. The generator locks the single `load_number_config` row,
+formats `prefix + YY + lpad(seq,3)`, and increments `next_sequence`
+unconditionally. There is no reservation, no release, no reuse. Every abandoned
+form, navigate-away, and session loss permanently burns a number.
+
+Live data on 2026-09-02: `next_sequence` = 64; eleven `ST26nnn` loads exist
+(003, 015, 033, 034, 035, 056, 058, 059, 060, 061, 063). **52 of 63 allocated
+numbers appear on no load.**
+
+No allocation ledger exists and `loads` has no soft-delete column, so an abandoned
+allocation cannot be distinguished from a deleted load.
+
+Why it matters beyond tidiness: load numbers appear on invoices sent to the
+factoring company. An invoice sequence missing most of its numbers invites
+questions from a factor or an auditor, and a load number is not a reliable count
+of loads.
+
+**TRIGGER: before the first invoice carrying a load number is sent to factoring.**
+
+### The Create Load form can be destroyed by a spurious sign-out
+
+Reported symptom: the app reloaded unprompted several times mid-form and landed
+on the sign-in page, losing the in-progress load.
+
+Mechanism identified as **FITTING BUT NOT PROVEN** — recorded at that strength,
+and not to be upgraded without reproduction:
+
+- On a Lovable preview host the Supabase client does not use localStorage.
+  `previewAuthStorage.ts` brokers every read/write to the editor parent frame
+  over `postMessage` with a 2000 ms timeout; a broker reply of the empty-string
+  tombstone deletes the local copy and returns null — i.e. treated as signed out.
+- `App.tsx` route guards redirect on `user === null` immediately, with no retry
+  window and no distinction between "no session" and "session state momentarily
+  unavailable".
+- The Create Load form state lives in a `useForm` instance inside that subtree and
+  is destroyed with it; the unsaved-changes guard only intercepts in-app
+  navigation.
+- No application code signs a user out on a 401 or an expired JWT — that was
+  checked and ruled out.
+
+Note also: a parse spanning a token-refresh boundary is the window where this is
+most likely, and nothing preserves the uploaded rate confirmation or the parse
+result.
+
+**TRIGGER: if the symptom recurs on the PUBLISHED site rather than a preview host
+— the mechanism above is preview-specific and may not affect production at all.**
+
+### The charge reason is write-only and the field invites the wrong content
+
+`ChargeEntryDialog.tsx:56` resets `reason` to empty on every open, including when
+editing an existing charge. `add_load_charge` and `update_load_charge` require a
+non-blank reason and write it to `load_change_history`. `load_charges` has no
+reason column, so it is never stored on the charge. The only surface displaying it
+is `ChangeHistoryCard.tsx:53`.
+
+Working as designed. Recorded because the design misleads in practice: a user
+entered "Paid by SUPERTRANSPORT" — a fact about the charge — into a field that
+wants a justification for the edit, and the answer was filed where they would not
+look for it. That fact is exactly what the company-funded lumper finding above
+says the system fails to capture, so the field attracted the missing information
+and then discarded it.
+
+**TRIGGER: with the funding-source fix above, since they concern the same missing
+fact.**
