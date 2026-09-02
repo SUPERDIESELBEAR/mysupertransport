@@ -3556,17 +3556,22 @@ mode produces a distinct figure:
 
 ST26059's `confirmed_tons` was set to 25 by a **direct database write**, not
 through `update_load_with_stops`, because **no UI control for `confirmed_tons`
-exists anywhere** (see the known-debt entry "`confirmed_tons` has no input
-control anywhere"). `public.recompute_load_total_value` was then called for the
-load so the derived total was refreshed by the real function; it returned 6750.00
-— unchanged, confirming the confirmed-vs-estimated rewrite defect is not live.
+existed at that time**. `public.recompute_load_total_value` was then called for
+the load so the derived total was refreshed by the real function; it returned
+6750.00 — unchanged, confirming the confirmed-vs-estimated rewrite defect is not
+live.
+
+**The control now exists.** Module 2, Pass 2 added an edit-only
+`confirmed_tons` input to `CreateLoadPage.tsx`, so the field is reachable through
+the real path. The direct write stands as a historical record of how the value
+got there, not as an open irregularity.
 
 **The direct write produced NO `load_change_history` row.** Recorded here so a
 future reader does not wonder where the confirmed tonnage came from, or conclude
 the history is incomplete.
 
-This is an **exception justified by the absent control, NOT a precedent.** The
-standing rule that real data moves through real paths is unchanged.
+This remains an **exception, NOT a precedent.** The standing rule that real data
+moves through real paths is unchanged.
 
 Note also: the rate-type conversion on ST26059 (flat → per_ton, with
 `rate_per_ton` 270 and `estimated_tons` 25) carries the change-history reason
@@ -4393,6 +4398,46 @@ as the single post-creation writer, an editable Dispatcher field on Load Detail
 for management and owner, and corrected `pgFake` to respect the dispatcher-only
 role condition. See the pass entry for details.
 
+
+## Module 2, Pass 2 — per-ton confirmed tons input control (2026-09-02)
+
+**Goal.** Close the gap where `confirmed_tons` was fully writable by
+`update_load_with_stops` but unreachable in the UI, blocking every per-ton load
+from settlement.
+
+**What changed.** A single input control was added to
+`src/pages/dispatch/CreateLoadPage.tsx` in the Rate section, immediately after
+Estimated Tons. It renders only when `isEdit && values.rate_type === 'per_ton'`.
+The field is clearable to NULL rather than zero; the existing
+`FINANCIAL_FIELDS` reason prompt covers it, so no additional prompt was added.
+
+**What did not change.** No RPC, column, or save-payload change was needed. The
+write path was already complete: `loadFormSchema.ts` validates the field,
+`loadSavePayload.ts` sends it, `loadEdit.ts` lists it as editable, and
+`update_load_with_stops` accepts it. The only missing piece was the caller.
+
+**Design decision.** The control is edit-only because confirmed tonnage comes
+from the scale ticket after pickup. A control on the create path would invite
+entering the estimate as confirmed, and a wrong confirmed figure is worse than a
+missing one — it is the figure the driver is paid on.
+
+**This entry records what reached the repository.** A publish is required before
+the control is live on the site.
+
+**Suites run (structural guards named, as required):**
+- `src/lib/__tests__/confirmedTons.test.ts` (new)
+- `src/lib/__tests__/loadEdit.test.ts`
+- `src/lib/__tests__/perTonScale.test.ts`
+- `src/test/definer-search-path.test.ts`
+- `src/test/definer-fail-open.test.ts`
+- `src/test/caller-evaluated-functions.test.ts`
+- `src/test/policy-grant-parity.test.ts`
+- `src/test/load-dispatcher-editing.test.ts`
+
+The structural guards were run and named even though this pass touched no
+SECURITY DEFINER function — that is the "name which suites ran" rule being
+applied as intended.
+
 ---
 
 ## KNOWN DEBT — findings from the dispatch settlement investigation (2026-09-01)
@@ -4590,26 +4635,36 @@ and then discarded it.
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
 
-### `confirmed_tons` has no input control anywhere — no per-ton load can ever settle
+### RESOLVED — `confirmed_tons` had no input control (was known debt)
 
-The field is fully plumbed on the **write** side: validated at
+The field was fully plumbed on the **write** side: validated at
 `loadFormSchema.ts:131`, defaulted at `:263`, sent by `loadSavePayload.ts:69`,
 listed editable at `loadEdit.ts:144`, and writable by `update_load_with_stops`.
 
-There is no door into it. `CreateLoadPage.tsx` references `confirmed_tons`
-**zero** times. Load Detail's `RateDetailsCard.tsx:75` shows it **read-only** as
+There was no door into it. `CreateLoadPage.tsx` referenced `confirmed_tons`
+**zero** times. Load Detail's `RateDetailsCard.tsx:75` showed it **read-only** as
 "Awaiting scale ticket".
 
-Consequence: tonnage cannot be confirmed through the UI, and the settlement
-engine withholds a per-ton load until confirmed tons exist. **No per-ton load can
-reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually hauls.
+Consequence: tonnage could not be confirmed through the UI, and the settlement
+engine withheld a per-ton load until confirmed tons existed. **No per-ton load
+could reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually
+hauls.
 
-This is the **SEVENTH recorded instance** of the pattern where a correct
+This was the **SEVENTH recorded instance** of the pattern where a correct
 implementation has no caller on the path that mattered, and the cleanest example
-of it: nothing is miscalculated — there is simply no door into the feature.
+of it: nothing was miscalculated — there was simply no door into the feature.
 
-**TRIGGER: before any per-ton load reaches settlement. Strong candidate to jump
-the queue — small fix, blocks an entire equipment type.**
+**What resolved it.** Module 2, Pass 2 added an edit-only `confirmed_tons`
+control in the Rate section of `CreateLoadPage.tsx`, gated on
+`isEdit && values.rate_type === 'per_ton'`. The control is clearable to NULL
+rather than zero; the existing `FINANCIAL_FIELDS` reason prompt already covers
+it, and no second prompt was added. No RPC, column, or save-payload change was
+needed — the write path was already complete.
+
+**Design decision and reason.** The control is **edit-only** because confirmed
+tonnage comes from the scale ticket after pickup. A control on the create path
+would invite entering the estimate as confirmed, and a wrong confirmed figure is
+worse than a missing one — it is the figure the driver is paid on.
 
 ### `delivered_at` writes leave no change-history trail
 
