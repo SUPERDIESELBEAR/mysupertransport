@@ -3490,11 +3490,89 @@ rewriting itself — both surfaced from REAL rows moving through REAL paths. The
 fixtures agreed with the wrong assumption in both cases. A green result against
 seeded data must never be reported as though it carried the same weight.
 
-**What the seed loads do NOT cover (2026-09-02).** The six seed loads
-deliberately exercise the DRIVER-FUNDED lumper case only. The COMPANY-FUNDED
-case — the one that double-pays, per the known-debt entry "A company-funded
-lumper is paid to the driver in full" — is NOT covered by the seed data. A green
-run against these loads is not evidence about company-funded reimbursements.
+**CORRECTED 2026-09-02 — which lumper case the seed data covers.** An earlier
+version of this section recorded the opposite of the truth: it said the seed
+loads "deliberately exercise the DRIVER-FUNDED lumper case only". **That is
+backwards.** The single lumper charge in the set (ST26063, $200) has
+`funding_source` NULL and its change-history reason reads "Paid by
+SUPERTRANSPORT" — the **COMPANY-FUNDED** case. The claim was written before that
+fact was known.
+
+The seed data exercises the **COMPANY-FUNDED lumper case**. The **DRIVER-FUNDED
+case is NOT covered.** A green run against these loads is not evidence about
+driver-funded reimbursements.
+
+This was left as-is **deliberately**: it places a live instance of known-debt
+"A company-funded lumper is paid to the driver in full" in the data, so the
+eventual funding-source fix has a real row to verify against rather than a
+fixture.
+
+> **DO NOT SETTLE ST26063 ON THE DRIVER SIDE** until that known-debt entry is
+> fixed. Today it would pay a driver $200 that SUPERTRANSPORT already spent. All
+> six seed loads have `operator_id` NULL, so no driver settlement can currently
+> reach it — **that is protection by accident, not by design, and must not be
+> relied on.**
+
+### The six seed loads — the verification set for the dispatch company settlement (2026-09-02)
+
+| Load | Broker | Contribution | What it exists to prove |
+|---|---|---|---|
+| ST26056 | GlobalTranz | $2,800 | a $500 detention charge is EXCLUDED at 100% |
+| ST26058 | ITS National | $2,300 | a three-stop load with nothing excluded |
+| ST26059 | Eclipse | $6,750 | per-ton header rate, 270 × 25 **confirmed** tons |
+| ST26060 | Rolling River | $150 | loadout relocation fee; `dispatcher_id` NULL |
+| ST26061 | Fide Freight | $0 | carries a $150 TONU charge, excluded by **STATUS** |
+| ST26063 | Nationwide | $1,708 | $1,600 linehaul, $200 lumper excluded at 100%, $150 TONU **charge** INCLUDED at 72% |
+
+**Expected August 2026 eligible base: $13,708.**
+
+Attribution, which must sum to the same figure:
+
+| Dispatcher | Base | Loads |
+|---|---|---|
+| Jack Barney | $9,050 | ST26058, ST26059 |
+| Daniel Brown | $4,508 | ST26056, ST26063 (ST26061 is his and contributes nothing) |
+| Unattributed | $150 | ST26060 |
+
+**Every wrong total is diagnostic — that is the value of the set.** Each failure
+mode produces a distinct figure:
+
+- detention leaking into the base: **+$500**;
+- the lumper leaking into the base: **+$200**;
+- the TONU **charge** wrongly excluded: **−$108**;
+- the TONU-**status** load wrongly included: **+$150**;
+- a base built from `total_load_value` rather than from parts: **+$6,750 on
+  ST26059 alone**.
+
+**What the set does NOT cover.** Two gaps, both deliberate to record:
+
+- **No month-boundary case.** Every `delivered_at` falls in the same calendar
+  month whether evaluated in UTC or America/Chicago, so period assignment across
+  a boundary is untested.
+- **`operator_id` is NULL on all six**, so none of them can exercise the driver
+  side at all.
+
+### The ST26059 `confirmed_tons` correction — a documented exception (2026-09-02)
+
+ST26059's `confirmed_tons` was set to 25 by a **direct database write**, not
+through `update_load_with_stops`, because **no UI control for `confirmed_tons`
+exists anywhere** (see the known-debt entry "`confirmed_tons` has no input
+control anywhere"). `public.recompute_load_total_value` was then called for the
+load so the derived total was refreshed by the real function; it returned 6750.00
+— unchanged, confirming the confirmed-vs-estimated rewrite defect is not live.
+
+**The direct write produced NO `load_change_history` row.** Recorded here so a
+future reader does not wonder where the confirmed tonnage came from, or conclude
+the history is incomplete.
+
+This is an **exception justified by the absent control, NOT a precedent.** The
+standing rule that real data moves through real paths is unchanged.
+
+Note also: the rate-type conversion on ST26059 (flat → per_ton, with
+`rate_per_ton` 270 and `estimated_tons` 25) carries the change-history reason
+**"Testing the functions."** That was the seed-data correction, recorded here so
+the history reads coherently later.
+
 
 ---
 
