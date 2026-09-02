@@ -3556,17 +3556,22 @@ mode produces a distinct figure:
 
 ST26059's `confirmed_tons` was set to 25 by a **direct database write**, not
 through `update_load_with_stops`, because **no UI control for `confirmed_tons`
-exists anywhere** (see the known-debt entry "`confirmed_tons` has no input
-control anywhere"). `public.recompute_load_total_value` was then called for the
-load so the derived total was refreshed by the real function; it returned 6750.00
-— unchanged, confirming the confirmed-vs-estimated rewrite defect is not live.
+existed at that time**. `public.recompute_load_total_value` was then called for
+the load so the derived total was refreshed by the real function; it returned
+6750.00 — unchanged, confirming the confirmed-vs-estimated rewrite defect is not
+live.
+
+**The control now exists.** Module 2, Pass 2 added an edit-only
+`confirmed_tons` input to `CreateLoadPage.tsx`, so the field is reachable through
+the real path. The direct write stands as a historical record of how the value
+got there, not as an open irregularity.
 
 **The direct write produced NO `load_change_history` row.** Recorded here so a
 future reader does not wonder where the confirmed tonnage came from, or conclude
 the history is incomplete.
 
-This is an **exception justified by the absent control, NOT a precedent.** The
-standing rule that real data moves through real paths is unchanged.
+This remains an **exception, NOT a precedent.** The standing rule that real data
+moves through real paths is unchanged.
 
 Note also: the rate-type conversion on ST26059 (flat → per_ton, with
 `rate_per_ton` 270 and `estimated_tons` 25) carries the change-history reason
