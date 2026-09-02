@@ -2060,6 +2060,471 @@ export type Database = {
           },
         ]
       }
+      dispatch_deductions: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          effective_from: string
+          effective_to: string | null
+          id: string
+          is_active: boolean
+          label: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_deductions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_deductions_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlement_charge_verdicts: {
+        Row: {
+          amount: number
+          charge_type: string
+          classification: string
+          contribution_id: string
+          created_at: string
+          excluded: boolean
+          exclusion_reason: string | null
+          id: string
+          load_charge_id: string | null
+          pct_column: string | null
+          resolved_pct: number | null
+        }
+        Insert: {
+          amount: number
+          charge_type: string
+          classification: string
+          contribution_id: string
+          created_at?: string
+          excluded: boolean
+          exclusion_reason?: string | null
+          id?: string
+          load_charge_id?: string | null
+          pct_column?: string | null
+          resolved_pct?: number | null
+        }
+        Update: {
+          amount?: number
+          charge_type?: string
+          classification?: string
+          contribution_id?: string
+          created_at?: string
+          excluded?: boolean
+          exclusion_reason?: string | null
+          id?: string
+          load_charge_id?: string | null
+          pct_column?: string | null
+          resolved_pct?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlement_charge_verdicts_contribution_id_fkey"
+            columns: ["contribution_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_settlement_load_contributions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_charge_verdicts_load_charge_id_fkey"
+            columns: ["load_charge_id"]
+            isOneToOne: false
+            referencedRelation: "load_charges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlement_line_items: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          deduction_id: string | null
+          description: string
+          dispatch_settlement_id: string
+          dispatcher_id: string | null
+          id: string
+          line_type: string
+          load_id: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          deduction_id?: string | null
+          description: string
+          dispatch_settlement_id: string
+          dispatcher_id?: string | null
+          id?: string
+          line_type: string
+          load_id?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          deduction_id?: string | null
+          description?: string
+          dispatch_settlement_id?: string
+          dispatcher_id?: string | null
+          id?: string
+          line_type?: string
+          load_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlement_line_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_line_items_deduction_id_fkey"
+            columns: ["deduction_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_deductions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_line_items_dispatch_settlement_id_fkey"
+            columns: ["dispatch_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_line_items_dispatcher_id_fkey"
+            columns: ["dispatcher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_line_items_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlement_load_contributions: {
+        Row: {
+          base_total: number
+          carrier_delivery_date: string | null
+          charges_excluded_amount: number
+          charges_included_amount: number
+          created_at: string
+          created_by: string | null
+          delivered_at: string | null
+          dispatch_settlement_id: string
+          dispatcher_id: string | null
+          fsc_component: number
+          header_component: number
+          id: string
+          load_id: string
+          load_number: string
+          load_type: string
+          pay_policy_id: string | null
+          rate_type: string
+        }
+        Insert: {
+          base_total?: number
+          carrier_delivery_date?: string | null
+          charges_excluded_amount?: number
+          charges_included_amount?: number
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          dispatch_settlement_id: string
+          dispatcher_id?: string | null
+          fsc_component?: number
+          header_component?: number
+          id?: string
+          load_id: string
+          load_number: string
+          load_type: string
+          pay_policy_id?: string | null
+          rate_type: string
+        }
+        Update: {
+          base_total?: number
+          carrier_delivery_date?: string | null
+          charges_excluded_amount?: number
+          charges_included_amount?: number
+          created_at?: string
+          created_by?: string | null
+          delivered_at?: string | null
+          dispatch_settlement_id?: string
+          dispatcher_id?: string | null
+          fsc_component?: number
+          header_component?: number
+          id?: string
+          load_id?: string
+          load_number?: string
+          load_type?: string
+          pay_policy_id?: string | null
+          rate_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlement_load_contributi_dispatch_settlement_id_fkey"
+            columns: ["dispatch_settlement_id"]
+            isOneToOne: false
+            referencedRelation: "dispatch_settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_load_contributions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_load_contributions_dispatcher_id_fkey"
+            columns: ["dispatcher_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_load_contributions_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_load_contributions_pay_policy_id_fkey"
+            columns: ["pay_policy_id"]
+            isOneToOne: false
+            referencedRelation: "pay_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlement_rates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          dispatch_pct: number
+          effective_from: string
+          effective_to: string | null
+          factoring_pct: number
+          id: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          dispatch_pct: number
+          effective_from: string
+          effective_to?: string | null
+          factoring_pct: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          dispatch_pct?: number
+          effective_from?: string
+          effective_to?: string | null
+          factoring_pct?: number
+          id?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlement_rates_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_rates_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlement_rates_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          field: string
+          id: string
+          new_value: string | null
+          previous_value: string | null
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          field: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          field?: string
+          id?: string
+          new_value?: string | null
+          previous_value?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlement_rates_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dispatch_settlements: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          computed_at: string | null
+          created_at: string
+          created_by: string | null
+          deductions_amount: number
+          dispatch_fee: number
+          dispatch_pct: number
+          eligible_base: number
+          factoring_pct: number
+          factoring_reduction: number
+          id: string
+          net_amount: number
+          notes: string | null
+          paid_at: string | null
+          payee_key: string
+          period_month: string
+          reduced_base: number
+          status: Database["public"]["Enums"]["dispatch_settlement_status"]
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          computed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deductions_amount?: number
+          dispatch_fee?: number
+          dispatch_pct: number
+          eligible_base?: number
+          factoring_pct: number
+          factoring_reduction?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          payee_key?: string
+          period_month: string
+          reduced_base?: number
+          status?: Database["public"]["Enums"]["dispatch_settlement_status"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          computed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          deductions_amount?: number
+          dispatch_fee?: number
+          dispatch_pct?: number
+          eligible_base?: number
+          factoring_pct?: number
+          factoring_reduction?: number
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          paid_at?: string | null
+          payee_key?: string
+          period_month?: string
+          reduced_base?: number
+          status?: Database["public"]["Enums"]["dispatch_settlement_status"]
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dispatch_settlements_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlements_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlements_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       dispatch_status_history: {
         Row: {
           changed_at: string
@@ -10578,6 +11043,7 @@ export type Database = {
         Returns: undefined
       }
       discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
+      dispatch_settlement_writer_active: { Args: never; Returns: boolean }
       driver_load_pay_estimate: {
         Args: { _load_id: string }
         Returns: {
@@ -11608,6 +12074,7 @@ export type Database = {
         | "abandoned"
       detention_clock_start: "appointment" | "arrival" | "gate_checkin"
       detention_notification_method: "email" | "phone" | "text" | "load_board"
+      dispatch_settlement_status: "draft" | "approved" | "paid" | "void"
       dispatch_status: "not_dispatched" | "dispatched" | "home" | "truck_down"
       doc_review_status: "pending" | "approved" | "rejected"
       document_exception_reason:
@@ -11974,6 +12441,7 @@ export const Constants = {
       ],
       detention_clock_start: ["appointment", "arrival", "gate_checkin"],
       detention_notification_method: ["email", "phone", "text", "load_board"],
+      dispatch_settlement_status: ["draft", "approved", "paid", "void"],
       dispatch_status: ["not_dispatched", "dispatched", "home", "truck_down"],
       doc_review_status: ["pending", "approved", "rejected"],
       document_exception_reason: [
