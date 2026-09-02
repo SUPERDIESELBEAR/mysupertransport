@@ -4590,26 +4590,36 @@ and then discarded it.
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
 
-### `confirmed_tons` has no input control anywhere — no per-ton load can ever settle
+### RESOLVED — `confirmed_tons` had no input control (was known debt)
 
-The field is fully plumbed on the **write** side: validated at
+The field was fully plumbed on the **write** side: validated at
 `loadFormSchema.ts:131`, defaulted at `:263`, sent by `loadSavePayload.ts:69`,
 listed editable at `loadEdit.ts:144`, and writable by `update_load_with_stops`.
 
-There is no door into it. `CreateLoadPage.tsx` references `confirmed_tons`
-**zero** times. Load Detail's `RateDetailsCard.tsx:75` shows it **read-only** as
+There was no door into it. `CreateLoadPage.tsx` referenced `confirmed_tons`
+**zero** times. Load Detail's `RateDetailsCard.tsx:75` showed it **read-only** as
 "Awaiting scale ticket".
 
-Consequence: tonnage cannot be confirmed through the UI, and the settlement
-engine withholds a per-ton load until confirmed tons exist. **No per-ton load can
-reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually hauls.
+Consequence: tonnage could not be confirmed through the UI, and the settlement
+engine withheld a per-ton load until confirmed tons existed. **No per-ton load
+could reach settlement.** Hopper bottom bulk is freight SUPERTRANSPORT actually
+hauls.
 
-This is the **SEVENTH recorded instance** of the pattern where a correct
+This was the **SEVENTH recorded instance** of the pattern where a correct
 implementation has no caller on the path that mattered, and the cleanest example
-of it: nothing is miscalculated — there is simply no door into the feature.
+of it: nothing was miscalculated — there was simply no door into the feature.
 
-**TRIGGER: before any per-ton load reaches settlement. Strong candidate to jump
-the queue — small fix, blocks an entire equipment type.**
+**What resolved it.** Module 2, Pass 2 added an edit-only `confirmed_tons`
+control in the Rate section of `CreateLoadPage.tsx`, gated on
+`isEdit && values.rate_type === 'per_ton'`. The control is clearable to NULL
+rather than zero; the existing `FINANCIAL_FIELDS` reason prompt already covers
+it, and no second prompt was added. No RPC, column, or save-payload change was
+needed — the write path was already complete.
+
+**Design decision and reason.** The control is **edit-only** because confirmed
+tonnage comes from the scale ticket after pickup. A control on the create path
+would invite entering the estimate as confirmed, and a wrong confirmed figure is
+worse than a missing one — it is the figure the driver is paid on.
 
 ### `delivered_at` writes leave no change-history trail
 
