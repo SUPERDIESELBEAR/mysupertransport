@@ -4233,9 +4233,17 @@ and stop reconciliation are unrelated to attribution.
 `current_profile_id()`. The owner/management case is handled by editing after
 the fact, not by adding a dispatcher field to the create form.
 
-**Load Detail UI.** `DispatcherField.tsx` renders the dispatcher as editable text
-for management and owner, using a profile selector with an explicit
-"Unassigned" state. Everyone else sees plain text.
+**Load Detail UI — IN THE REPOSITORY, not yet on the site at the time of this
+entry.** `DispatcherField.tsx` renders the dispatcher as editable text for
+management and owner, using a profile selector with an explicit "Unassigned"
+state. Everyone else sees plain text. That describes the repository. The
+deployed site did NOT carry it: the published build reported version `36355a`,
+buildTime `2026-09-01T14:16:39Z`, while the commit adding `DispatcherField.tsx`
+(`5507153f`) landed `2026-09-01T20:06:32Z` — six hours later. A bundle walk found
+`set_load_dispatcher` **zero times** in the deployed dispatch chunk, and a user
+holding owner, management AND dispatcher correctly saw the plain-text branch.
+The change did not reach the site until a later publish. See the standing rule
+"FRONTEND CHANGES REQUIRE AN EXPLICIT PUBLISH" (2026-09-02).
 
 **No reassignment notification.** Reassignment happens in conversation between
 the owner and the dispatcher; the system does not generate a notification or
