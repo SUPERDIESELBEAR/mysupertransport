@@ -234,6 +234,14 @@ decision): lumper stays `revenue` at 100% today. Moving lumper to the
 from the presence of `lumper_reimbursement_pct`, and do not automatically
 reclassify existing lumper charges.
 
+**This deferral has a LIVE FINANCIAL CONSEQUENCE (recorded 2026-09-02).** Because
+lumper is `revenue`, the engine's `funding_source !== 'driver'` guard is never
+reached and a lumper SUPERTRANSPORT funded on the fuel card is ALSO paid to the
+driver in full — the company pays twice, with no warning anywhere in the UI. See
+"A company-funded lumper is paid to the driver in full" in the known-debt section
+of `docs/tms-build-status.md`. Detention shares the shape (revenue, 100%, NULL
+funding) but not the risk: it is earned from the broker and passed through.
+
 TRIGGER: formal spec written, with Module 4 (settlement payout), before the
 settlement engine pays a reimbursement line.
 
