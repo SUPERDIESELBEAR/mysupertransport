@@ -4513,6 +4513,13 @@ payout rule (Module 4)" defers moving lumper from `revenue` to `reimbursement`
 pending a formal spec. That deferral has a **LIVE FINANCIAL CONSEQUENCE** which
 was not previously written down; the wish-list entry now cross-references this one.
 
+> **DO NOT SETTLE ST26063 ON THE DRIVER SIDE** until this is fixed. That seed
+> load carries the live instance of this defect: a $200 lumper, `funding_source`
+> NULL, change-history reason "Paid by SUPERTRANSPORT". Settling it today would
+> pay a driver $200 that SUPERTRANSPORT already spent. All six seed loads have
+> `operator_id` NULL, so no driver settlement can currently reach it — **that is
+> protection by accident, not by design, and must not be relied on.**
+
 **TRIGGER: before any settlement pays a lumper line.**
 
 ### Load numbers are consumed on form open and never released
