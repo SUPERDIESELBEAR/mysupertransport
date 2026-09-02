@@ -3490,6 +3490,12 @@ rewriting itself — both surfaced from REAL rows moving through REAL paths. The
 fixtures agreed with the wrong assumption in both cases. A green result against
 seeded data must never be reported as though it carried the same weight.
 
+**What the seed loads do NOT cover (2026-09-02).** The six seed loads
+deliberately exercise the DRIVER-FUNDED lumper case only. The COMPANY-FUNDED
+case — the one that double-pays, per the known-debt entry "A company-funded
+lumper is paid to the driver in full" — is NOT covered by the seed data. A green
+run against these loads is not evidence about company-funded reimbursements.
+
 ---
 
 
