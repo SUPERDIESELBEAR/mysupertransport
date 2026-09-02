@@ -1098,11 +1098,40 @@ export default function CreateLoadPage({
                           <FormItem>
                             <FormLabel>Estimated Tons</FormLabel>
                             <FormControl><Input inputMode="decimal" {...field} /></FormControl>
-                            <FormDescription>Confirmed tonnage comes from the scale ticket after pickup.</FormDescription>
+                            <FormDescription>Estimate from the rate confirmation, before the load is weighed.</FormDescription>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
+                      {/* Scale-ticket tonnage only exists after pickup, so this
+                          control is edit-only. On the create path an entered
+                          "confirmed" figure would just be the estimate wearing
+                          the label the driver is paid on. */}
+                      {isEdit && (
+                        <FormField
+                          control={form.control}
+                          name="confirmed_tons"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Confirmed Tons (scale ticket)</FormLabel>
+                              <FormControl>
+                                <Input
+                                  inputMode="decimal"
+                                  placeholder="Awaiting scale ticket"
+                                  {...field}
+                                  value={field.value ?? ''}
+                                />
+                              </FormControl>
+                              <FormDescription>
+                                Weighed tonnage from the scale ticket. Pay and the load total are
+                                computed from this once entered. Leave blank if no ticket yet — blank
+                                stores no value, not zero.
+                              </FormDescription>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
                     </>
                   )}
 
