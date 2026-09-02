@@ -4712,3 +4712,34 @@ whether the TONU line was extracted and dropped, or never extracted.
 
 **TRIGGER: before relying on the parser for accessorial lines; investigate
 together with the absence of a persisted parse result on the Create Load path.**
+
+## Dispatch settlement schema — rows to purge before cutover
+
+Added by Module 4, dispatch company settlement, Pass 1 (schema only). This is an
+ADDITION to the existing purge material — the six seed loads (ST26056, ST26058,
+ST26059, ST26060, ST26061, ST26063), ST-TEST-001 through ST-TEST-005, the
+retained Pratt settlement and `load_number_config.next_sequence` are unchanged
+and still apply.
+
+- **`dispatch_settlement_rates` — the single seeded row: `dispatch_pct` 5.00,
+  `factoring_pct` 2.00, `effective_from` 2026-01-01.** These are the figures
+  section 4.8 records as the current arrangement, but the row is a PLACEHOLDER
+  in the sense that matters: nobody has confirmed 2026-01-01 as the date the
+  arrangement began, and the first real month computed against it would inherit
+  that date silently. Before cutover, either confirm the effective date and keep
+  the row, or delete it and insert the real one. Do not leave it unexamined
+  because the percentages look right.
+
+- **No other rows were created by this pass.** `dispatch_settlements`,
+  `dispatch_settlement_line_items`, `dispatch_settlement_load_contributions`,
+  `dispatch_settlement_charge_verdicts` and `dispatch_deductions` are all empty.
+
+- **Scratch months 2099-01 through 2099-05 were created and purged during
+  verification on 2026-09-03**, together with their line items. They were used to
+  exercise the immutability pair privileged, because the test harness role holds
+  only SELECT and INSERT. `SELECT count(*) FROM dispatch_settlements` returned 0
+  afterwards. If any `2099-nn-01` row is ever found in this table it is residue
+  from that verification and must be removed — deleting a `paid` one requires
+  `SET LOCAL app.dispatch_settlement_write = 'on'`, which is the only unlock.
+
+**TRIGGER: before the first real dispatch settlement month is computed.**
