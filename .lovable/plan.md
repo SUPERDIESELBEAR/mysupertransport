@@ -1,183 +1,201 @@
-# Read-only investigation — five findings
+# Dispatch company settlement — design proposal
 
-No code, migrations or file edits were made. Every count below is from a live query.
+Design only. No code, no migrations. Every schema claim below comes from a live
+catalog query, named inline. Function bodies were read from `pg_get_functiondef`
+in the live catalog after listing every migration that defines them
+(`store_settlement_run`: 2 migrations, newest `20260901113705`;
+`enforce_settlement_immutability`: 2, newest `20260901113215`).
 
-## 1. Session loss on the Create Load form
+Queries used: (Q1) `information_schema.columns` for `settlements`,
+`settlement_line_items`, `settlement_withheld_loads`, `settlement_settings`,
+`settlement_settings_history`, `pay_policies`, `load_charges`; (Q2)
+`pg_constraint` + `pg_get_constraintdef` for those tables and `loads`; (Q3)
+`pg_policies` for the four settlement tables; (Q4) `pg_proc` (`prosecdef`,
+`proconfig`, `has_function_privilege`, `pg_get_functiondef`).
 
-How the session is held:
+## 1. Tables
 
-- `src/integrations/supabase/client.ts` creates the client with `persistSession: true`,
-  `autoRefreshToken: true`, and `storage: brokeredPreviewStorage()`.
-- On a Lovable preview host inside an iframe, `previewAuthStorage.ts` does NOT use
-  localStorage. It brokers every `getItem`/`setItem` to the editor parent frame over
-  `postMessage`, with a **2000 ms timeout** per request and one 250 ms retry on the first
-  read. If the broker replies with the empty-string tombstone, the local copy is deleted
-  and `null` is returned — i.e. a broker reply of `''` is treated as "signed out".
-- `useAuth.tsx` subscribes to `onAuthStateChange`. Any event carrying no session
-  (`SIGNED_OUT`, which supabase-js emits when a refresh definitively fails) sets
-  `user = null`.
+**`dispatch_settlements`** — one row per calendar month.
 
-Every path to the sign-in route:
+- `id uuid pk default gen_random_uuid()`
+- `period_month date NOT NULL` — first day of the month; `CHECK (extract(day from period_month) = 1)`
+- `payee_key text NOT NULL DEFAULT 'dispatch_company'` with `CHECK (payee_key = 'dispatch_company')`
+- `status dispatch_settlement_status NOT NULL DEFAULT 'draft'` (section 2)
+- `eligible_base numeric NOT NULL DEFAULT 0`
+- `factoring_pct numeric NOT NULL`, `dispatch_pct numeric NOT NULL` — the rates **as applied**, copied onto the row
+- `factoring_reduction numeric NOT NULL DEFAULT 0`, `reduced_base numeric NOT NULL DEFAULT 0`, `dispatch_fee numeric NOT NULL DEFAULT 0`
+- `deductions_amount numeric NOT NULL DEFAULT 0`, `net_amount numeric NOT NULL DEFAULT 0`
+- `computed_at timestamptz`, `approved_at/by`, `paid_at`, `notes text`
+- `created_at/updated_at/created_by/updated_by` (`profiles(id) ON DELETE SET NULL`)
+- `UNIQUE (payee_key, period_month)`
 
-| Path | Trigger |
-|---|---|
-| `App.tsx` route guards (`!user ? <LoginRedirect />` at lines 189, 198, 227, 233, 239, 245, 251, 266, 277) | `user` becomes null for any reason |
-| `useAuth.signOut()` → `replaceWithLogin()` (hard `window.location.replace`) | explicit sign out |
-| `IdleWarningModal` → `signOut()` | 120 min idle + 5 min countdown |
-| `PreviewSessionBanner` → `signOut()` | preview-session marker expired, checked every 30 s |
-| `StaffDirectory.tsx:45` → `signOut()` | own-account action |
-| `PortalErrorBoundary.tsx:80` → `window.location.assign('/login')` | user clicks after a render crash |
+**`dispatch_settlement_line_items`** — every amount, one line, mirroring the
+driver-side principle that the net is the sum of the lines.
 
-Which can fire while a user sits on Create Load:
+- `id`, `dispatch_settlement_id uuid NOT NULL REFERENCES dispatch_settlements(id) ON DELETE CASCADE`
+- `line_type text NOT NULL CHECK (line_type IN ('load_base','factoring_reduction','dispatch_fee','flat_deduction','one_off'))`
+- `amount numeric NOT NULL` (signed)
+- `description text NOT NULL`
+- `load_id uuid REFERENCES loads(id) ON DELETE RESTRICT`
+- `dispatcher_id uuid REFERENCES profiles(id) ON DELETE SET NULL` — attribution copy, visibility only (4.6)
+- `deduction_id uuid REFERENCES dispatch_deductions(id) ON DELETE RESTRICT`
+- `created_at`, `created_by`
+- `CHECK (line_type <> 'one_off' OR load_id IS NOT NULL)` — section 4's load-reference requirement as a **database constraint**, not a convention
+- `CHECK (line_type <> 'load_base' OR load_id IS NOT NULL)`
+- `UNIQUE (dispatch_settlement_id, line_type, load_id)` for `load_base` via a partial unique index — one base line per load per month
 
-- The `!user` guards. They are the realistic cause: they react to `user === null`
-  with an immediate `<Navigate replace>`, and the Create Load form state lives only
-  in a `useForm` instance inside that subtree, so it is destroyed. The unsaved-changes
-  guard only intercepts in-app clicks, not this guard-driven swap.
-- `IdleWarningModal` — but the form is long-lived typing, and it warns first, so it does
-  not match "reloaded on its own without warning".
-- `PreviewSessionBanner` — only if a preview-session marker is present.
+**`dispatch_settlement_load_contributions`** (optional but proposed) — per-load
+base breakdown: header component, charges included, charges excluded with the
+resolved percentage that excluded them. Rejected alternative: folding this into
+`description` text. Rejected because the exclusion predicate (4.3) is the part
+most likely to be wrong and a diagnostic must be queryable, not parsed.
 
-Does anything treat a transient error as a reason to sign out? Two observations:
+**`dispatch_deductions`** — DAT, phone service: `id`, `label text NOT NULL`,
+`amount numeric NOT NULL CHECK (amount >= 0)`, `is_active boolean NOT NULL DEFAULT true`,
+`effective_from date NOT NULL`, `effective_to date`, attribution columns.
 
-- No application code inspects 401 / `PGRST301` / "JWT expired" and signs out. A grep
-  across `src/hooks`, `src/lib`, `src/components`, `src/pages` finds no such handling.
-  So a 401 from an unrelated query does not itself log the user out.
-- The guards contain no distinction between "no session" and "session state momentarily
-  unavailable". `App.tsx` gates on `loading` only during the initial `getSession()`;
-  after that, any transition to `user === null` redirects immediately, with no retry
-  window and no grace period. Combined with the brokered preview storage — whose reads
-  fail over to a 2 s timeout and whose `''` reply deletes the local token — a broker
-  hiccup on a preview host is a plausible route to a spurious null session. I could not
-  reproduce this live, so I am reporting it as the mechanism that fits, not as proven.
+**Borrowed from the driver side** (Q1/Q2/Q3): the every-amount-is-a-line-item
+shape of `settlement_line_items`; `created_by/updated_by → profiles(id)`; the
+`has_role(auth.uid(),'management'|'owner')` ALL policy plus a separate read
+policy; a status column driving immutability.
 
-Long-running request outliving a token: `parse-rate-confirmation` is invoked from
-`RateConfirmationParser.tsx:296` and `RevisedRateConModal.tsx:206`. The token is attached
-when the request is issued, so a long parse cannot fail mid-flight from expiry, and its
-failure does not sign anyone out — but a parse that spans a refresh boundary is exactly
-the window in which a failed refresh would blank `user` and destroy the form.
+**Deliberately NOT borrowed:** `settlements.operator_id` (NOT NULL, cascade FK
+to `operators`) and its `UNIQUE (operator_id, period_start)` — replaced by
+`UNIQUE (payee_key, period_month)`; `carry_forward_in/out`, `hold_*`,
+`below_threshold_*`, `payday` as a driver-cycle date — none apply (4.8);
+`settlement_line_items.source_table` CHECK (Q2 confirms its seven values are
+driver-side) — replaced by explicit typed FK columns, which is stronger than a
+text discriminator; `settlement_withheld_loads` entirely — there is no per-load
+paperwork hold on the vendor side.
 
-## 2. Load number allocation
+**Vendor identity.** Proposed: a **constrained singleton payee key**
+(`payee_key` with a one-value CHECK) rather than a `vendors` table or an
+unkeyed singleton. Rejected `vendors` table: it invents a directory nothing
+populates and no rule references. Rejected bare singleton (one row, no key):
+the month is already the natural key and a payee column makes the eventual
+second vendor a CHECK relaxation plus a unique index that is already correct,
+not a table redesign.
 
-- `CreateLoadPage.tsx:167` calls `supabase.rpc('generate_load_number')` from a `useEffect`
-  that runs **on mount**, before any input, and writes the result into the form field.
-  Save happens much later via `create_load_with_stops`, which stores whatever
-  `load_number` the payload carries (`loadSavePayload.ts:52`).
-- The generator (live definition, `SET search_path TO 'public','extensions'`) selects the
-  single `load_number_config` row `FOR UPDATE`, reads `next_sequence`, formats
-  `prefix + YY + lpad(seq,3)`, then **unconditionally increments `next_sequence`** and
-  commits. There is no reservation, no release, no reuse.
-- Therefore: a number allocated to a form that is never submitted is **permanently
-  consumed and unrecoverable**. Every abandoned form, every navigate-away, and every
-  session loss burns one number. Concurrency does not cause gaps (the row lock serialises
-  allocation), but two open Create Load tabs consume two numbers.
-- `loads.load_number` is `NOT NULL` with a `UNIQUE` constraint, so a burned number can
-  only be reclaimed by typing it back in by hand.
+## 2. Status
 
-Live data — 16 rows in `loads`; 5 are `ST-TEST-00x`, 11 match `ST26nnn`:
+`dispatch_settlement_status` — new enum, not `settlement_status` (4.8; two of
+its five members are unreachable here per 4.7).
 
-Present: 003, 015, 033, 034, 035, 056, 058, 059, 060, 061, 063.
-`load_number_config.next_sequence` = 64 (updated 2026-09-01 23:59:41Z).
-
-Missing in 001–063: 001, 002, 004–014, 016–032, 036–055, 057, 062.
-**Gap count: 52 of 63 allocated numbers do not appear on any load.**
-
-I cannot separate "abandoned form" from "load created and later deleted" — no allocation
-ledger exists and `loads` has no soft-delete column, so consumed-but-unused numbers leave
-no trace anywhere.
-
-## 3. Dispatcher field renders as plain text
-
-Not a roles bug:
-
-- `useAuth.fetchRoles` selects **all** rows from `user_roles` for the user and stores the
-  full array in `roles`. `activeRole` is a separate piece of state; `setActiveRole` never
-  touches `roles`. `isManagement = roles.includes('management') || isOwner` is therefore
-  unaffected by an active-role switch.
-- Live check: Marcus Mueller's `user_roles` rows are
-  `{operator, onboarding_staff, dispatcher, management, owner}`. `isManagement` is true
-  for that account. `LoadDetailPage.tsx:188` passes it straight through.
-
-The cause is the deployed build. How I determined it:
-
-- `https://gosuperdrive.com/version.json` reports version `36355a`, buildTime
-  **2026-09-01T14:16:39Z**. The workspace `public/version.json` is `33345a`,
-  2026-09-02T12:18Z.
-- The commit that added `DispatcherField.tsx` is `5507153f`, **2026-09-01T20:06:32Z** —
-  after the deployed build was cut.
-- I walked the live bundle graph (`index-BRT-41DO.js` → `App-DkeQf3C2.js` →
-  `DispatchPortal-BW-1kT5o.js`). `set_load_dispatcher` appears **0 times** in the deployed
-  dispatch chunk. The two `"Assign Dispatcher"` strings in that chunk are the dispatch
-  board's `__unassigned__` filter selects, not `DispatcherField` (which uses
-  `__none__` and the `dispatcher-options` query key — neither string is present).
-
-Conclusion: the deployed build does not contain `DispatcherField.tsx`. A user on the
-published site sees the pre-change plain-text branch regardless of roles. Nothing to fix
-in the code; the build is stale.
-
-## 4. The charge reason is write-only
-
-- `ChargeEntryDialog.tsx:56` sets `reason: ''` on every open, edit included.
-- Live `add_load_charge` and `update_load_charge` (both `SECURITY DEFINER`,
-  `search_path public, extensions`) require a non-blank `p_reason` and write it into
-  `load_change_history(load_id, field_path, previous_value, new_value, is_financial,
-  reason, changed_by)`.
-- `load_charges` has 14 columns and **no reason column**. The reason is never stored on
-  the charge row.
-- The only surface that displays it is `ChangeHistoryCard.tsx:53` — "Reason: …" on the
-  load's change-history entries, readable by management/owner/dispatcher/onboarding_staff
-  per the `load_change_history_staff_read` policy.
-
-So: a user editing an existing charge cannot see the reason previously given from the
-dialog. It exists only as a history entry on the load, and each edit demands a fresh one.
-
-## 5. Funding source is not asked for a lumper
-
-Live `load_charges` — 2 rows total:
-
-| charge_type | rows | NULL funding_source |
+| Member | Transition cause | Who |
 |---|---|---|
-| detention | 1 | 1 |
-| lumper | 1 | 1 |
+| `draft` | the writer computes a month | management/owner |
+| `approved` | figures reviewed and accepted | management/owner |
+| `paid` | payment issued (on or around the 10th) | management/owner |
+| `void` | a draft or approved month is abandoned | owner |
 
-Both rows are NULL: **2 of 2 (100%)**. The detention row came from
-`parsed_rate_confirmation`, the lumper row from `manual`.
+Rejected: a `processing` member — that word is driver-facing vocabulary with a
+defined meaning; reusing it invites confusion. Rejected: allowing `paid → void`.
 
-What `add_load_charge` stores when `p_funding_source` is NULL: it inserts
-`nullif(p_funding_source,'')` — a plain NULL. No default, no sentinel, no distinction
-between "company funded", "never asked" and "cleared".
+## 3. Configuration
 
-Downstream behaviour:
+**`dispatch_settlement_rates`** — versioned, not a singleton:
+`id`, `dispatch_pct numeric NOT NULL CHECK (dispatch_pct >= 0 AND dispatch_pct <= 100)`,
+`factoring_pct numeric NOT NULL CHECK (...)`, `effective_from date NOT NULL`,
+`effective_to date`, `CHECK (effective_to IS NULL OR effective_to > effective_from)`,
+plus attribution and a history table mirroring `settlement_settings_history`
+(Q1: field/previous/new/changed_by/changed_at).
 
-- Settlement engine (`settlementEngine.ts:459-462`): only for classes whose pay class is
-  `reimbursement` does it check `charge.funding_source !== 'driver' → skip`. NULL and
-  `'company'` are treated identically — pay nothing. A confirmed company-funded charge and
-  a never-asked charge are indistinguishable to the engine.
-- Charge list (`LoadChargesCard.tsx`): the "unconfirmed reimbursement — still missing …"
-  banner is likewise gated on `payClassOf(...) === 'reimbursement'`. A revenue-class charge
-  with NULL funding is shown with no warning at all.
-- Driver view: settlement lines carry no funding attribution, so nothing surfaces there.
+Versioning is by effective-dating **plus** copying the applied rates onto
+`dispatch_settlements` (`dispatch_pct`, `factoring_pct`). Rejected: rates on a
+singleton like `settlement_settings` (Q1 confirms it has no home for them) —
+a rate change would retroactively alter a settled month on re-read. Belt and
+braces is deliberate: the effective-dated row explains *why*, the copied
+columns guarantee the settled figure never moves.
 
-Can another charge type reach 100% pay while skipping the funding question? Yes. The
-single live pay policy, "SUPERTRANSPORT Standard", has `charge_pay_classes` marking only
-`reimbursement` as a reimbursement; everything else is `revenue`. Its percentages include
-`lumper_reimbursement_pct = 100.00` and `detention_pct = 100.00`. So **lumper and
-detention both pay the driver 100% of the charge amount** through the revenue path, with
-the funding-source selector never rendered and `funding_source` left NULL. The live lumper
-row ($200, NULL funding) and detention row ($500, NULL funding) are both in that state.
+One-offs are `line_type = 'one_off'` rows with the `load_id NOT NULL` CHECK
+above. Rejected: a `dispatch_deductions` row flagged one-off — a recurring
+table with a one-shot flag drifts.
 
-## Contradictions with `docs/tms-build-status.md`
+## 4. What is shared, what is not
 
-- Line 4236: "**Load Detail UI.** `DispatcherField.tsx` renders the dispatcher as editable
-  text for management and owner". True of the repository; **not true of the deployed
-  build**, which predates the file. The doc records the code state as though it were the
-  live state.
-- Line 3517 records that "a `funding_source` that is not the driver pays nothing" as the
-  reimbursement rule. That is accurate for the reimbursement class, but the doc does not
-  record that the revenue classes — lumper and detention at 100% under the live policy —
-  pay the driver in full without the funding question ever being asked, and that NULL is
-  indistinguishable from a confirmed "company". Findings 4 and 5 are otherwise
-  unrecorded, as is the load-number consumption behaviour in finding 2 and the
-  session-loss surface in finding 1.
+Read today (files, not migrations):
 
-Nothing else I found contradicts the record.
+- `src/lib/settlementPeriod.ts` — `carrierDateOf`, `workPeriodForDate`, `deliveredInPeriod` (already pure).
+- `src/lib/payTreatment.ts` — `payClassOf`, `PCT_FIELD`, `PayPolicyRates`, `fetchEffectivePayPolicy`.
+- `src/lib/settlementEngine.ts` — carries its **own second copy** of `PCT_FIELD` (lines 271–281) and `resolveEffectivePolicy`.
+
+Proposed extraction:
+
+- `carrierDateOf` gains `monthOf(iso): string` (`YYYY-MM`) and `inCalendarMonth(iso, month)` in `settlementPeriod.ts`. The dispatch path calls these; nothing else moves.
+- The duplicate `PCT_FIELD` in `settlementEngine.ts` is deleted and both paths import one map plus a new `pctForClassification(klass, policy): number | null` from `payTreatment.ts`. `resolveEffectivePolicy` moves to `payTreatment.ts`; `settlementEngine.ts` re-exports it so no call site breaks.
+- `computeSettlement` stays where it is and is not extracted (4.7). A new pure `computeDispatchSettlement` lives in `src/lib/dispatchSettlement.ts`.
+
+**How a test asserts the call rather than the re-derivation.** Three layers,
+because intent is not evidence: (a) a spy test — `vi.mock` the shared module and
+assert `pctForClassification` / `inCalendarMonth` were invoked with the expected
+arguments during a dispatch computation, failing if the count is zero; (b) a
+source guard in `src/test/` asserting `dispatchSettlement.ts` contains no
+literal `_pct` string, no `new Date(` on a delivery value, and no month
+arithmetic outside the shared import; (c) a behavioural coupling test — flip
+`detention_pct` from 100 to 72 in the fixture policy and assert the dispatch
+base **changes**, which a re-derived hardcoded list cannot pass.
+
+## 5. The base predicate
+
+Per load, columns from Q1 on `loads`:
+
+- Eligibility (4.1): `delivered_at IS NOT NULL` AND `carrierDateOf(delivered_at)` falls in the month AND `status NOT IN ('tonu','cancelled')`. Timezone is `America/Chicago` via `isoToNaive` (`src/lib/carrierTimezone.ts`), never `new Date(v)`.
+- Header base (4.2), by `rate_type`: `flat` and `percentage_of_load` → `linehaul_rate`; `per_mile` → `rate_per_mile * loaded_miles`; `per_ton` → `rate_per_ton * confirmed_tons` (**confirmed only**; `estimated_tons` never); `load_type = 'loadout'` → `loadout_relocation_fee`.
+- FSC: add `fsc_amount` only when `fsc_bundled_into_linehaul IS FALSE` (NULL means bundled).
+- `loads.total_load_value` is never read (4.2).
+- Charges: add every `load_charges` row, then exclude when either (a) `pctForClassification(chargeClassification(charge_type), policyInForce) === 100`, reading the `*_pct` columns on `pay_policies` (Q1 confirms `detention_pct` 100, `layover_pct` 100, `lumper_reimbursement_pct` 100 by default), or (b) `payClassOf(...) === 'reimbursement'`. `charge_pay_classes` is **not** the exclusion source (4.3).
+- Then: base × factoring_pct → reduction; base − reduction → reduced base; × dispatch_pct → fee; less flat deductions; less one-offs (4.5).
+
+## 6. Writer and immutability
+
+Single writer `public.compute_dispatch_settlement(p_month date, p_mode text default 'refuse')`:
+
+1. `SECURITY DEFINER`
+2. `SET search_path TO 'public','extensions'`
+3. `REVOKE ALL ON FUNCTION ... FROM PUBLIC`
+4. `REVOKE EXECUTE ... FROM anon` (no public route needs it)
+
+Authorization inside the body: `has_role(auth.uid(),'management') OR
+has_role(auth.uid(),'owner')`, raising `42501` otherwise — the same shape
+`store_settlement_run` uses (Q4). Actor from `current_profile_id()`, stamped
+server-side; the client never supplies it.
+
+Idempotency: `p_mode` `refuse` (default) returns the existing row untouched;
+`replace` deletes children and rewrites, and refuses outright when status is
+`paid`. Same two-mode contract as `store_settlement_run` (Q4).
+
+Immutability: its own trigger pair mirroring
+`enforce_settlement_immutability` / `enforce_settlement_child_immutability`
+(Q4 shows both are DEFINER, pinned, `anon_x=false`, `auth_x=false`, and gated by
+`settlement_writer_active()`). Borrowing the *approach*, not the functions — the
+driver-side ones read `settlement_status` and `settlements`. A separate
+`dispatch_settlement_writer_active()` guard keeps the two write gates from
+unlocking each other.
+
+## 7. Build order
+
+- **Pass 1 — schema.** Tables, enum, rates table, grants, RLS, triggers. Verified by a `settlement-foundation`-style live-catalog test asserting columns, CHECKs, grants and DEFINER protections.
+- **Pass 2 — shared extraction.** The `PCT_FIELD` de-duplication and month helpers, with the three-layer caller test from section 4. Verified by the existing engine suites staying green.
+- **Pass 3 — pure computation.** `computeDispatchSettlement` against the six seed loads: ST26056 proves the 100% detention exclusion; ST26058 the plain multi-stop case; ST26059 the per-ton confirmed-tons header; ST26060 the loadout fee and the unattributed bucket (`dispatcher_id` NULL); ST26061 exclusion by **status**; ST26063 the lumper exclusion alongside a TONU **charge** that stays in.
+- **Pass 4 — writer and persistence**, then attribution rollup that must sum to the total.
+- **Pass 5 — the management screen.**
+
+## 8. What cannot be verified
+
+All of this is **SEEDED-DATA EVIDENCE** and weaker than the Pratt run, per the
+verification-standard entry. Specific gaps:
+
+- No month boundary: every seed `delivered_at` lands in the same month in UTC and Central, so carrier-timezone attribution is asserted but not exercised.
+- No rate change across a settled month, so the versioning in section 3 has nothing real to prove itself against.
+- No reimbursement-class charge and no driver-funded lumper, so exclusion branch (b) is fixture-only.
+- No `per_mile` load and no `percentage_of_load` load in the set, so two of the four `rate_type` branches are untested against real rows.
+- No factoring or DAT amounts confirmed against a real invoice beyond the single figure already recorded.
+- After the first green result, what stays unproven is that the exclusion predicate behaves under a *new* accessorial type configured at 100% — the automatic-drop-out intent in 4.3 — and that a second dispatcher's attribution reconciles across a month with a real volume of loads.
+
+## CONTRADICTIONS
+
+Two, both reportable rather than reconciled:
+
+1. **Section 4.3 refers to "the classification-to-column mapping the engine already uses" as though it were one thing. There are two divergent copies.** `src/lib/payTreatment.ts` (`PCT_FIELD`) and `src/lib/settlementEngine.ts` lines 271–281 each define their own. They agree today, but the document's premise that a single mapping exists is not true of the code.
+
+2. **`pay_policies.per_ton_pct` and `pay_policies.loadout_pct` exist in the live catalog (Q1) and are read by nothing.** A grep across `src/` and `supabase/functions` finds them only in generated `types.ts`. The engine values a loadout at `linehaul_pct` and per-ton linehaul at `linehaul_pct`, not at these columns. The document lists per-ton and loadout as header components (4.2) without naming which percentage governs, so this is not a direct contradiction of a stated rule — but it is an eighth instance of the "correct implementation with no caller" pattern, sitting in the exact table this proposal reads its percentages from, and it should be resolved before Pass 3 rather than inherited.
