@@ -193,9 +193,12 @@ describe('dispatch settlement — security', () => {
   });
 
   itLive('grants reach authenticated and service_role, never anon', () => {
-    const grants = psql(`SELECT table_name || '|' || grantee || '|' || privilege_type
-      FROM information_schema.role_table_grants WHERE table_schema='public'
-      AND table_name IN (${TABLE_LIST}) AND grantee IN ('anon','authenticated','service_role')`);
+    // relacl, not information_schema: the views hide grants the current role is
+    // not party to, and this harness role is party to almost none of them.
+    const grants = psql(`SELECT c.relname || '|' || a.grantee::regrole::text || '|' || a.privilege_type
+      FROM pg_class c JOIN LATERAL aclexplode(c.relacl) a ON true
+      WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
+        AND a.grantee::regrole::text IN ('anon','authenticated','service_role')`);
     expect(grants.filter(g => g.includes('|anon|'))).toEqual([]);
     for (const t of TABLES) {
       expect(grants.some(g => g.startsWith(`${t}|authenticated|`)), `${t} authenticated`).toBe(true);
@@ -204,25 +207,26 @@ describe('dispatch settlement — security', () => {
   });
 
   itLive('all four DEFINER protections on every function created by this pass', () => {
-    for (const fn of FUNCTIONS) {
-      const [row] = psql(`SELECT p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig,','),'')
-        FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='${fn}'`);
-      expect(row, fn).toBeDefined();
-      const [secdef, config] = row.split('|');
+    // The ACL is the proof, not the REVOKE statement: the platform re-grants
+    // EXECUTE to anon and authenticated after a migration applies.
+    const rows = psql(`SELECT p.proname || '|' || p.prosecdef::text || '|'
+        || coalesce(array_to_string(p.proconfig, ' '), '') || '|'
+        || coalesce((SELECT string_agg(DISTINCT a.grantee::regrole::text, ',')
+                     FROM aclexplode(p.proacl) a), 'PUBLIC')
+      FROM pg_proc p WHERE p.pronamespace='public'::regnamespace
+        AND p.proname IN (${FUNCTIONS.map(f => `'${f}'`).join(', ')}) ORDER BY 1`);
+    expect(rows.map(r => r.split('|')[0])).toEqual([...FUNCTIONS].sort());
+    for (const row of rows) {
+      const [fn, secdef, config, grantees] = row.split('|');
       expect(secdef, `${fn} SECURITY DEFINER`).toBe('true');
       expect(config, `${fn} search_path`).toContain('search_path=public, extensions');
-
-      // The ACL is the proof, not the REVOKE statement: the platform re-grants
-      // EXECUTE after a migration applies.
-      const grantees = psql(`SELECT coalesce(array_to_string(array_agg(DISTINCT a.grantee::regrole::text),','),'PUBLIC')
-        FROM pg_proc p LEFT JOIN LATERAL aclexplode(p.proacl) a ON true
-        WHERE p.pronamespace='public'::regnamespace AND p.proname='${fn}'`).join('');
       expect(grantees, `${fn} must not be PUBLIC-executable`).not.toBe('PUBLIC');
       expect(grantees, `${fn} anon`).not.toContain('anon');
       expect(grantees, `${fn} authenticated`).not.toContain('authenticated');
       expect(grantees, `${fn} service_role`).toContain('service_role');
     }
   });
+
 
   itLive('the dispatch write gate is its own — it cannot be unlocked by the driver-side guard', () => {
     const body = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
