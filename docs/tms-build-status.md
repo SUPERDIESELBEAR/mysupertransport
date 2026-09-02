@@ -4398,6 +4398,46 @@ as the single post-creation writer, an editable Dispatcher field on Load Detail
 for management and owner, and corrected `pgFake` to respect the dispatcher-only
 role condition. See the pass entry for details.
 
+
+## Module 2, Pass 2 — per-ton confirmed tons input control (2026-09-02)
+
+**Goal.** Close the gap where `confirmed_tons` was fully writable by
+`update_load_with_stops` but unreachable in the UI, blocking every per-ton load
+from settlement.
+
+**What changed.** A single input control was added to
+`src/pages/dispatch/CreateLoadPage.tsx` in the Rate section, immediately after
+Estimated Tons. It renders only when `isEdit && values.rate_type === 'per_ton'`.
+The field is clearable to NULL rather than zero; the existing
+`FINANCIAL_FIELDS` reason prompt covers it, so no additional prompt was added.
+
+**What did not change.** No RPC, column, or save-payload change was needed. The
+write path was already complete: `loadFormSchema.ts` validates the field,
+`loadSavePayload.ts` sends it, `loadEdit.ts` lists it as editable, and
+`update_load_with_stops` accepts it. The only missing piece was the caller.
+
+**Design decision.** The control is edit-only because confirmed tonnage comes
+from the scale ticket after pickup. A control on the create path would invite
+entering the estimate as confirmed, and a wrong confirmed figure is worse than a
+missing one — it is the figure the driver is paid on.
+
+**This entry records what reached the repository.** A publish is required before
+the control is live on the site.
+
+**Suites run (structural guards named, as required):**
+- `src/lib/__tests__/confirmedTons.test.ts` (new)
+- `src/lib/__tests__/loadEdit.test.ts`
+- `src/lib/__tests__/perTonScale.test.ts`
+- `src/test/definer-search-path.test.ts`
+- `src/test/definer-fail-open.test.ts`
+- `src/test/caller-evaluated-functions.test.ts`
+- `src/test/policy-grant-parity.test.ts`
+- `src/test/load-dispatcher-editing.test.ts`
+
+The structural guards were run and named even though this pass touched no
+SECURITY DEFINER function — that is the "name which suites ran" rule being
+applied as intended.
+
 ---
 
 ## KNOWN DEBT — findings from the dispatch settlement investigation (2026-09-01)
