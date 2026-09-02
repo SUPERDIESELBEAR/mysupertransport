@@ -4114,8 +4114,26 @@ report was accurate about what it ran and misleading about what that covered.
 > the pin named the single suite it ran and stated plainly that no others were
 > run. That is the behaviour this rule makes standard, not a new burden.
 
+**FRONTEND CHANGES REQUIRE AN EXPLICIT PUBLISH, AND A PASS ENTRY DESCRIBES THE
+REPO, NOT THE SITE (2026-09-02).** The existing standing rule about explicit
+deploys was written for edge functions (`parse-rate-confirmation`,
+`receive-rate-con-email`). The same divergence occurs on the FRONTEND: a
+component can be committed, recorded as shipped, and be absent from the published
+site. On 2026-09-01 `DispatcherField.tsx` was committed and recorded as shipped
+while the deployed bundle predated it by six hours.
+
+> **Standing rule.** A pass entry records what reached the REPOSITORY. It is not
+> evidence that a user can see the change. When a pass adds or alters user-facing
+> UI, the entry states that a publish is required before the change is live, and
+> any report of "the feature is missing" checks the deployed build time against
+> the commit time BEFORE investigating the code.
+
+Method that established it, worth reusing: compare `/version.json` buildTime
+against the commit timestamp, then search the deployed bundle for a string unique
+to the new code.
 
 ---
+
 
 ## FIXED 2026-08-31 — the engine omitted linehaul entirely (header rates)
 
