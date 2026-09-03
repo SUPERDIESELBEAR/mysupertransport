@@ -234,3 +234,100 @@ describe('the writer', () => {
     expect(sql).toMatch(/REVOKE ALL ON FUNCTION public\.store_settlement_run[^\n]*FROM anon/);
   });
 });
+
+/**
+ * A READ THAT FAILED IS NOT AN EMPTY RESULT.
+ *
+ * Each of these reads feeds a dollar figure, an exclusion set or a guard. The
+ * previous shape turned a failed read into `[]`, `null` or `false`, which
+ * quietly moved money — the equipment case RELEASED a hold that exists to stop
+ * paying a driver who still holds company equipment.
+ */
+describe('a failed read aborts the run', () => {
+  const failingClient = (tables: any, failTable: string, rpc?: () => Promise<any>) => {
+    const err = { code: '42501', message: `permission denied for table ${failTable}` };
+    const builder = (t: string, rows: any[]) => {
+      const failed = t === failTable;
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain, not: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
+        order: () => chain,
+        maybeSingle: async () => (failed ? { data: null, error: err } : { data: rows[0] ?? null, error: null }),
+        then: (res: any, rej: any) =>
+          Promise.resolve(failed ? { data: null, error: err } : { data: rows, error: null }).then(res, rej),
+      };
+      return chain;
+    };
+    return {
+      from: (t: string) => builder(t, tables[t] ?? []),
+      rpc: rpc ?? (async () => ({ data: false, error: null })),
+    };
+  };
+
+  const withOneLoad = () => {
+    const t: any = baseTables();
+    t.loads = [{
+      id: 'load-1', load_number: 'ST-1', load_type: 'standard', operator_id: OP_LOADS,
+      delivered_at: '2026-08-14T18:00:00Z', rate_type: 'flat', linehaul_rate: 1000,
+      load_charges: [], load_documents: [], document_exceptions: [], claim_flags: [],
+    }];
+    return t;
+  };
+
+  const cases: [string, string][] = [
+    ['loads', 'loads'],
+    ['settlement_line_items', 'settlement_line_items'],
+    ['pay_policies', 'pay_policies'],
+    ['pay_policy_assignments', 'pay_policy_assignments'],
+    ['fuel_transactions', 'fuel_transactions'],
+    ['deductions', 'deductions'],
+    ['cash_advances', 'cash_advances'],
+    ['rm_deposits', 'rm_deposits'],
+    ['operators', 'operators'],
+    ['settlement_settings', 'settlement_settings'],
+  ];
+
+  for (const [label, table] of cases) {
+    it(`throws, naming the read, when ${label} fails`, async () => {
+      await expect(gatherSettlementRun(failingClient(withOneLoad(), table), PERIOD_ANCHOR))
+        .rejects.toThrow(new RegExp(`${label}[\\s\\S]*FAILED|FAILED[\\s\\S]*${label}`));
+    });
+  }
+
+  it('throws when the equipment_outstanding RPC returns an error', async () => {
+    const sb = failingClient(withOneLoad(), '__none__',
+      async () => ({ data: null, error: { code: '42501', message: 'permission denied for function equipment_outstanding' } }));
+    await expect(gatherSettlementRun(sb, PERIOD_ANCHOR)).rejects.toThrow(/equipment_outstanding[\s\S]*FAILED/);
+  });
+
+  it('throws when the equipment_outstanding RPC throws', async () => {
+    const sb = failingClient(withOneLoad(), '__none__', async () => { throw new Error('network down'); });
+    await expect(gatherSettlementRun(sb, PERIOD_ANCHOR)).rejects.toThrow(/equipment_outstanding[\s\S]*FAILED/);
+  });
+
+  it('throws when the equipment_outstanding RPC returns null instead of a boolean', async () => {
+    const sb = failingClient(withOneLoad(), '__none__', async () => ({ data: null, error: null }));
+    await expect(gatherSettlementRun(sb, PERIOD_ANCHOR)).rejects.toThrow(/instead of a boolean/);
+  });
+
+  it('names the operator on an equipment failure, so the run can be traced', async () => {
+    const sb = failingClient(withOneLoad(), '__none__', async () => ({ data: undefined, error: null }));
+    await expect(gatherSettlementRun(sb, PERIOD_ANCHOR)).rejects.toThrow(new RegExp(OP_LOADS));
+  });
+
+  it('a genuinely empty week still gathers, with no operators and no throw', async () => {
+    const run = await gatherSettlementRun(failingClient(baseTables(), '__none__'), PERIOD_ANCHOR);
+    expect(run.operators).toEqual([]);
+    expect(run.settings.equipment_value_per_driver).toBe(1200);
+  });
+
+  it('an equipment hold still applies when the RPC genuinely says true', async () => {
+    const t = withOneLoad();
+    t.operators = t.operators.map((o: any) => o.id === OP_LOADS ? { ...o, is_departing: true } : o);
+    const sb = failingClient(t, '__none__', async () => ({ data: true, error: null }));
+    const run = await gatherSettlementRun(sb, PERIOD_ANCHOR);
+    const g = run.operators.find(o => o.operatorId === OP_LOADS)!;
+    expect(g.input.equipmentOutstanding).toBe(true);
+    expect(previewFromGathered(run).rows.find(r => r.operatorId === OP_LOADS)!.computed.status).toBe('held');
+  });
+});
