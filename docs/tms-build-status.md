@@ -4926,6 +4926,16 @@ row itself.
 **TRIGGER: before the first dispatch settlement is paid, or the first time a
 delivery instant is disputed.**
 
+### `dispatchSettlementRun.ts` gather block still swallows read errors
+
+`src/lib/dispatchSettlementRun.ts:120-159` gathers rates, policies, loads, and
+deductions for dispatch-company settlements using `res?.data ?? []` /
+`?? null` patterns without inspecting `error`. A failed query yields a smaller or
+unrated settlement, or drops deductions entirely. This is the same shape that was
+just fixed on the driver side.
+
+**TRIGGER: before the first dispatch settlement is PAID.**
+
 ### "Mark TONU" and a TONU charge are different things, and the UI does not say so
 
 "Mark TONU" sits in the Load Detail top action bar beside "Mark Covered" and
@@ -5715,6 +5725,7 @@ which is why it was left rather than fixed.
 ### `equipment_outstanding(uuid)` — no caller check
 
 Carries no caller check: a boolean fact about an operator's returned kit,
-readable by any signed-in user holding an operator UUID. See the existing entry
-"`equipment_outstanding` AND CATCH-AS-FALSE ON AN AUTHORIZATION FAILURE" above —
-this is the authorization half of the same function, not a separate debt.
+readable by any signed-in user holding an operator UUID. The catch-as-false half
+of this function is now RESOLVED above; this caller-check half remains open.
+
+**TRIGGER: before any external or customer-facing account type exists.**
