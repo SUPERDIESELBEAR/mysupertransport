@@ -5177,7 +5177,8 @@ approver only when `approved_by` is populated, and prints "actor not recorded"
 when `approved_at` exists without it. Paid and void actor identity CANNOT be
 displayed today. Status changes are plain `UPDATE`s of status and timestamp
 with no actor column touched. **KNOWN DEBT 5.1: approve/paid/void have no
-actor attribution on the dispatch settlement.** The fix is a migration adding
+actor attribution on the dispatch settlement.** — RESOLVED 2026-09-03 by
+Module 4 (dispatch) Pass 5b; see that section. The fix is a migration adding
 `paid_by`/`voided_by` and a stamping trigger — not client-supplied ids.
 
 Second, smaller: the page offers "Recompute month" on a `void` row. That is
