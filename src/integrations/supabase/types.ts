@@ -10825,6 +10825,103 @@ export type Database = {
         }
         Relationships: []
       }
+      vacant_units: {
+        Row: {
+          created_at: string
+          disposition: string
+          held_at: string
+          held_by: string | null
+          id: string
+          notes: string | null
+          operator_id: string
+          release_reason: string | null
+          released_at: string | null
+          released_by: string | null
+          resolved_operator_id: string | null
+          trailer_number: string | null
+          truck_make: string | null
+          truck_model: string | null
+          truck_owner_id: string | null
+          truck_owner_name: string | null
+          truck_plate: string | null
+          truck_plate_state: string | null
+          truck_vin: string | null
+          truck_year: string | null
+          unit_number: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          disposition?: string
+          held_at?: string
+          held_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          resolved_operator_id?: string | null
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_owner_id?: string | null
+          truck_owner_name?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          disposition?: string
+          held_at?: string
+          held_by?: string | null
+          id?: string
+          notes?: string | null
+          operator_id?: string
+          release_reason?: string | null
+          released_at?: string | null
+          released_by?: string | null
+          resolved_operator_id?: string | null
+          trailer_number?: string | null
+          truck_make?: string | null
+          truck_model?: string | null
+          truck_owner_id?: string | null
+          truck_owner_name?: string | null
+          truck_plate?: string | null
+          truck_plate_state?: string | null
+          truck_vin?: string | null
+          truck_year?: string | null
+          unit_number?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vacant_units_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacant_units_resolved_operator_id_fkey"
+            columns: ["resolved_operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "vacant_units_truck_owner_id_fkey"
+            columns: ["truck_owner_id"]
+            isOneToOne: false
+            referencedRelation: "truck_owners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       v_compliance_items: {
