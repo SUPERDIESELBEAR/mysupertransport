@@ -1,207 +1,91 @@
-# Cutover Purge Procedure — written before the day, executed on the day
+# "permission denied on `profiles`" — read-only triage
 
-Read-only investigation. Nothing was deleted. Every fact below was confirmed by a
-live query today (2026-09-03) or by reading the live catalog.
+No code, migrations, or fixes. Every claim below names its source.
 
-## Headline findings
+## 1. Is it real and current?
 
-1. **The whole `loads` table is test data.** All 16 rows. The recorded purge list
-   names 11 (six ST260xx + five ST-TEST-00x). It **misses five**: `ST26003`,
-   `ST26015`, `ST26033`, `ST26034`, `ST26035`. Two are `cancelled`, one is
-   `covered` and assigned to a real operator (`71221960…`), which is exactly the
-   row most likely to be mistaken for real work on the day.
-2. **The Pratt settlement is `paid` and CANNOT be deleted by an ordinary DELETE.**
-   `enforce_settlement_immutability` raises `42501` on DELETE when
-   `status = 'paid'` unless `settlement_writer_active()` is true. That function
-   reads `current_setting('app.settlement_write')`. So there **is** a documented
-   route — `SET LOCAL app.settlement_write = 'on'` in the same transaction — and
-   it is not a trigger disable. It is the intended unlock. Flagged for an explicit
-   decision anyway, because it is the one step that destroys a `paid` money row.
-3. **The demo environment shares this database and has no revenue-layer isolation.**
-   `is_demo` exists on 10 tables — `operators`, `applications`, `profiles` and
-   seven ELD tables. It does **not** exist on `loads`, `load_documents`,
-   `brokers`, `settlements`, `dispatch_settlements`, `fuel_transactions`,
-   `deductions` or any settlement child. There is exactly **one** demo operator
-   ("ELD Test Harness"), one pay policy, one settlement-settings row, one dispatch
-   rate row — all shared. **Post-cutover testing of loads, settlements, fuel or
-   billing would write to the same production tables the purge just cleaned.**
-   This is the item that determines whether cutover as described is possible.
+**Live analytics query.** The Postgres log store currently retains **19 rows spanning 2026-09-03 23:48:00Z to 23:56:00Z — about eight minutes.** `function_edge_logs` retains 9 rows over the same window; `edge_logs` holds a single row at 23:56:37Z.
 
-## 1. Inventory — what must go
+A `match(event_message, 'permission denied')` filter over `postgres_logs` returns **zero rows**. There is therefore **no permission-denied error on `profiles`, on any table, at any role, inside the retained window** — and the window is far too short to say anything about when the reported errors supposedly occurred. No role, no timestamp, and no error text can be produced, because no matching record exists to produce them.
 
-Confirmed live counts. Rows marked NEW were not on the recorded list.
+This item cannot be confirmed or refuted from logs. Items 2 and 3 carry the verdict.
 
-| Object | Count | Note |
-|---|---|---|
-| `loads` | 16 | all test; five NEW (ST26003, ST26015, ST26033/34/35) |
-| `load_stops` | 33 | cascades from loads |
-| `load_documents` | 23 | cascades; 23 objects in `load-documents` bucket do NOT |
-| `load_charges` | 4 | ST26056 detention, ST26063 lumper, ST26061 tonu, ST26063 tonu |
-| `load_references` / `load_reference_citations` | 13 / 7 | cascade |
-| `load_change_history` / `load_status_history` | 45 / 15 | cascade |
-| `claim_flags` / `claim_flag_history` | 1 / 1 | the HOLD on ST-TEST-005; cascades |
-| `detention_claims`, `document_exceptions` | 0 / 0 | nothing to do |
-| `settlements` | 1 | Pratt, 2026-08-12→08-18, payday 2026-09-01, `paid`, 327.94 |
-| `settlement_line_items` | 1 | `load_pay 327.94`, cascades from settlement |
-| `settlement_withheld_loads` | 2 | NEW as an explicit item; cascades from settlement |
-| `dispatch_settlements` | 1 | 2026-08-01, `draft` |
-| `dispatch_settlement_line_items` / `contributions` / `verdicts` | 9 / 7 / 3 | cascade |
-| `dispatch_settlement_rates` | 1 | the unconfirmed `effective_from 2026-01-01` row |
-| `brokers` | 11 | 2 clearly test, 9 real names from real rate cons (see §3) |
-| `facilities` | 2 | NEW — "J M Exotic Foods", "Braswell's", from seed rate cons |
-| `rate_con_ingest_queue` | 5 | NEW — 3 hold storage paths under `rate-con-ingest` |
-| `parser_diagnostics` | 74 | NEW — largest missed table; FKs are SET NULL, so it survives a load delete silently |
-| `audit_log` | 5 | NEW — `load`, `settlements`, `dispatch_settlements` entities |
-| storage `load-documents` | 23 objects | NEW — no FK, orphaned by any delete |
-| storage `rate-con-ingest` | 4 objects | NEW |
-| `preview_sessions` | 112 | NEW — mobile-preview handoff rows |
-| `load_number_config` | `ST next=64` | reset to 1 |
-| Craig Pate application | 1 | `08066a41…`, `revisions_requested`, 1 resume token, 0 document-history rows, **1 operator row references it** |
+## 2. Grants and policies as they are now
 
-Empty and needing nothing: `fuel_transactions`, `fuel_import_batches`,
-`deductions`, `deduction_installments`, `rm_deposits`, `cash_advances`,
-`dispatch_deductions`, `pay_policy_assignments`, `dispatch_settlement_rates_history`.
+**First, a correction that matters.** `information_schema.role_table_grants` returned **zero rows** for `public.profiles`. That is the same misleading source recorded in `src/test/grant-parity-live.test.ts` — the view only exposes grants the calling role is party to. Reading it as "no grants exist" is exactly the false alarm that view has produced before. The real catalog says otherwise.
 
-**What the recorded list was missing, in one line:** five loads, all storage
-objects, `parser_diagnostics` (74), `rate_con_ingest_queue` (5), `facilities` (2),
-`audit_log` (5), `settlement_withheld_loads` (2), `preview_sessions` (112), and the
-fact that the seed brokers are real companies.
+**`pg_class.relacl`, verbatim:**
 
-## 2. The order, and why each step sits where it does
-
-Run each step in its own transaction. Verify before moving on.
-
-**Step 0 — snapshot.** Full database backup plus a manifest of the 27 storage
-objects (23 + 4). Steps 4, 5 and 6 are irreversible.
-
-**Step 1 — delete the dispatch settlement (2026-08-01, `draft`).**
-`DELETE FROM dispatch_settlements WHERE period_month = '2026-08-01'`.
-*Why first:* `dispatch_settlement_line_items.load_id` and
-`…_load_contributions.load_id` are **ON DELETE RESTRICT** to `loads`. While those
-rows exist, seven of the loads cannot be deleted at all. The settlement is `draft`,
-so `enforce_dispatch_settlement_immutability` does not fire the paid branch and no
-`SET LOCAL` unlock is needed. Children cascade on `dispatch_settlement_id`.
-*Verify:* all four dispatch tables count 0.
-
-**Step 2 — decide and act on `dispatch_settlement_rates`.** Either confirm
-2026-01-01 as the real effective date and keep the row, or delete and insert the
-real one. *Why here:* no FK forces it, but it must be settled before any real month
-is computed, and this is the last moment it is unambiguously test-adjacent.
-
-**Step 3 — delete the Pratt settlement. THE DECISION STEP.**
-It is `paid`. `enforce_settlement_immutability` raises `42501` on DELETE unless
-`settlement_writer_active()` returns true, which reads
-`current_setting('app.settlement_write')`. The only route is:
-
-```
-BEGIN;
-SET LOCAL app.settlement_write = 'on';
-DELETE FROM public.settlements WHERE id = 'f77911b0-50cd-4ae3-bff2-ebb0bc4331af';
-COMMIT;
+```text
+{postgres=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,
+ sandbox_exec_qgxpkcudwjmacrdcyvhj=ar/postgres,sandbox_exec=ar/postgres}
 ```
 
-This is the mechanism the schema provides, not a trigger disable — no
-`ALTER TABLE … DISABLE TRIGGER` is proposed. It still needs a named human decision
-because it deletes a `paid` money row, and because the same unlock in a careless
-hand would delete a real one. **Recommendation: run it as a single-row DELETE by
-literal id, never by predicate.**
-*Why before the loads:* `settlement_withheld_loads.load_id` is SET NULL and
-`settlement_line_items` has no `load_id`, so this does not strictly block the load
-delete — but doing it after would leave a settlement whose withheld rows silently
-nulled their load reference, which is unauditable. Order it here.
-*Verify:* `settlements`, `settlement_line_items`, `settlement_withheld_loads` all 0.
+**`has_table_privilege`:**
 
-**Step 4 — delete storage objects BEFORE the rows that name them.**
-23 objects in `load-documents`, 4 in `rate-con-ingest`. There is no FK from
-`storage.objects` to `load_documents`; deleting the load first destroys the only
-record of which object belonged to it. *Verify:* both buckets 0 for the recorded
-prefixes; the other 19 buckets untouched.
+```text
+anon           SELECT=false INSERT=false UPDATE=false DELETE=false
+authenticated  SELECT=true  INSERT=true  UPDATE=true  DELETE=true
+service_role   SELECT=true  INSERT=true  UPDATE=true  DELETE=true
+```
 
-**Step 5 — null the SET NULL referrers explicitly, then delete the loads.**
-`parser_diagnostics.load_id/document_id`, `rate_con_ingest_queue.matched_load_id/
-converted_load_id` and `messages.load_id` are all **ON DELETE SET NULL** — they
-survive a load delete as orphans that look like real diagnostics. Delete
-`parser_diagnostics` (74) and `rate_con_ingest_queue` (5) outright first
-(`messages.load_id` count is 0, nothing to do), then:
-`DELETE FROM public.loads` — the whole table, since all 16 rows are test.
-Cascades take stops, documents, charges, references, citations, both histories,
-claim flags and claim-flag history.
-*Verify:* `loads` 0 and each of the ten cascade tables 0.
+RLS is **enabled** (`relrowsecurity = true`), not forced.
 
-**Step 6 — brokers and facilities.** Delete the two `TEST-1000xx` brokers
-unconditionally. The other nine are real companies (§3) — decision, not deletion.
-Delete the two facilities. Broker children cascade.
+**Policies (`pg_policy`), all with `roles = NULL`, i.e. PUBLIC, so gated purely by the grant above:**
 
-**Step 7 — Craig Pate's application.** `application_resume_tokens`,
-`application_document_history`, `application_correction_requests` and
-`application_revision_attachments` all cascade. **But one `operators` row carries
-`application_id = 08066a41…`** and that FK is not a cascade — resolve that operator
-row first (delete if it is the test operator, null the link if not).
-*Verify:* the application and its 1 resume token are gone; `operators` count is
-unchanged at 154 minus whatever was deliberately removed.
+| Policy | Cmd | USING | WITH CHECK |
+|---|---|---|---|
+| Users can view their own profile | SELECT | `auth.uid() = user_id` | — |
+| Staff can view all profiles | SELECT | `is_staff(auth.uid())` | — |
+| Users can update their own profile | UPDATE | `auth.uid() = user_id` | — |
+| Staff can update profiles | UPDATE | `is_staff(auth.uid())` | — |
+| Allow insert on signup | INSERT | — | `auth.uid() = user_id` |
 
-**Step 8 — resets.** `load_number_config.next_sequence = 1`. Clear
-`preview_sessions` (112). *Why last:* nothing depends on them, and resetting the
-sequence earlier would let a mid-purge load creation collide.
+**Plainly:**
 
-## 3. What must not be deleted, and how each step is scoped
+- A signed-in user **can** read their own profile row. Grant present, policy matches.
+- **Staff screens work.** Driver roster, staff directory, dispatch load detail, inspection binder admin all run as staff, and `is_staff(auth.uid())` admits them to every row.
+- **Operator-side reads of other people's profiles return nothing** — and this is by design, already recorded in `src/lib/staffContacts.ts`: the SELECT policy is self-or-staff, so a driver reading `profiles` for a dispatcher's name gets an empty set, not an error. That is an RLS filter, **not** `permission denied`. The two are different failure shapes and must not be conflated.
 
-- **The 60 active operators** (154 total rows, 60 `is_active`, 1 demo). No step
-  deletes from `operators` except the single Pate-linked row in Step 7, addressed
-  by literal id. **Note: the ST-TEST loads and the Pratt settlement both point at
-  `f2051752…`, who is a REAL active non-demo operator.** Deleting "the operator
-  that owns the test loads" would delete a live driver. Never delete by joining
-  through loads.
-- **326 real applications.** Step 7 touches one literal id.
-- **Real ELD, compliance, equipment, inspection, vault data.** No step reaches
-  those tables; the ELD demo operator is the only `is_demo` operator and is
-  unaffected.
-- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 4
-  names bucket ids explicitly, never a wildcard.
+There is no GRANT-level defect on `profiles`.
 
-**Hard to distinguish — say so now, decide before the day:** the nine non-TEST
-brokers (Integrity Express, Cahaba, Blue Grace, Globaltranz, ITS National, Eclipse
-Transervices, Rolling River, Fide Freight, Nationwide) are **real companies whose
-real rate confirmations were used as test input**. The rows are legitimate trading
-partners with a test provenance. They are not distinguishable by any column —
-`factoring_status` is `unknown` on all nine. Proposal: keep them, review each
-factoring status manually before the first real load, and record the review. Do not
-try to separate them with a query.
+## 3. The sign-in path
 
-## 4. The demo environment — finding
+`src/hooks/useAuth.tsx`, `fetchProfile` (lines 110–130), runs as `authenticated` after `getSession`:
 
-**It exists, it shares this database, and it does not cover the revenue layer.**
+```ts
+const { data } = await supabase.from('profiles').select(...).eq('user_id', userId).single();
+if (data) { setProfile(data as ProfileData);
+  if (data.account_status === 'pending') {
+    supabase.from('profiles').update({ account_status: 'active' }).eq('user_id', userId).then(...)
+```
 
-- Demo mode is a `sessionStorage` flag (`useDemoMode`) that blocks writes in the UI
-  and a `show_demo_accounts` visibility toggle. It is a client-side guard, not an
-  environment.
-- Demo isolation at the data layer is the `is_demo` column, present on 10 tables:
-  `operators`, `applications`, `profiles`, and seven ELD tables. One demo operator
-  exists.
-- `is_demo` is **absent** from `loads`, `load_stops`, `load_documents`, `brokers`,
-  `facilities`, `settlements`, `dispatch_settlements`, `fuel_transactions`,
-  `deductions`, `cash_advances`, `rm_deposits` and every settlement child.
-- There is one `pay_policies` row, one `settlement_settings` row and one
-  `dispatch_settlement_rates` row — shared, not per-environment.
+Both halves match the project's recorded discarded-error pattern:
 
-**Therefore: testing a load, a settlement, a fuel import or an invoice "in demo"
-after cutover writes to the same production tables and, for settlements, into the
-same immutability regime.** The cutover cleans the tables; it does not stop them
-being dirtied again the same way. Either the revenue tables gain a demo flag with
-RLS and UI filtering before cutover, or post-cutover revenue testing needs a
-separate project. This is a prerequisite, not a follow-up.
+- **The read destructures `data` and never inspects `error`.** On any failure — permission, network, RLS returning zero rows through `.single()` — `data` is null, the `if` is skipped, and `profile` silently stays `null`. Nothing is thrown, logged, or shown.
+- **The write is worse.** The `pending → active` update is fire-and-forget: no `error` is destructured at all, and the `.then()` optimistically sets local state to `active` **whether or not the row was actually updated**. A refused or zero-row update leaves the database at `pending` while the UI shows `active` — the exact symptom the report describes, reachable without any permission error at all.
 
-## 5. Verification and reversibility
+Neither refusal is surfaced to the user. Both are swallowed.
 
-Per-step verification is named inline above; each is a `count(*)` on the target
-plus a `count(*)` on the neighbouring real table that must not move (`operators`
-154, `applications` 327 before Step 7, the other 19 buckets).
+The grants and policies in §2 mean neither call should be refused today for a signed-in user updating their own row. But the reported symptom does not require a refusal — a silent read miss reproduces it.
 
-Irreversible without the Step 0 backup: **Step 3** (a `paid` settlement, gone),
-**Step 4** (storage objects — object bytes are not in a Postgres backup; the
-manifest and a download are the only recovery), **Step 5** (45 change-history and
-15 status-history rows that cannot be reconstructed).
+## 4. Is anything anonymous touching `profiles`?
 
-Cannot be verified before running: **Step 3**. The trigger either accepts the
-`SET LOCAL` unlock or raises `42501`, and the only way to find out is to run it.
-Run it inside an explicit transaction and inspect the row count before `COMMIT`.
+- **Direct table access: no.** `anon` holds no privilege at all on `profiles`, so every anonymous PostgREST read is refused at the grant layer before RLS. No public route reads it: `/apply`, `/apply/ssn`, `/welcome`, `/inspect/:token`, `/pei/*`, `/ica/review/:token`, `/s/:code`, `/qpassport/view`, `/install`, `/splash` contain no `from('profiles')`.
+- **Through functions: worth a separate look.** Eight anon-executable functions reference `profiles` in their bodies — `is_staff`, `add_pei_staff_note`, `archive_applicant_pei` (both overloads), `log_pei_manual_send`, `log_pei_phone_attempt`, `move_revisions_to_pending`, `submit_application_correction`. `is_staff` is the deliberately retained one recorded on 2026-09-03. The other seven are **staff-action** functions reachable anonymously; whether each carries its own internal authorization check was not established here. This is not the reported finding and is not a permission-denied path, but it is the more serious question in the vicinity.
+
+## 5. Verdict
+
+**The permission-denied claim is not establishable, and is not supported by the catalog.** The eight-minute log window cannot refute it — absence of evidence is not evidence of absence — but §2 shows no GRANT or policy on `profiles` that would produce `permission denied` for a signed-in user reading or updating their own row, and `anon` cannot reach the table at all. The most likely reading is a **stale re-emission consistent with the rest of the batch**.
+
+**The pending→active concern is separate, real, and latent.** It is a genuine defect in `useAuth.tsx` regardless of any permission error: a silently discarded read and an unverified optimistic write. Classify it **live but latent** — it will not raise an error, it will quietly leave a driver at `pending` while the UI claims `active`.
+
+## Contradicting the record
+
+1. **`information_schema.role_table_grants` produced a false "no grants" reading again** on `profiles`, precisely as `grant-parity-live.test.ts` warns. If the monitoring finding was derived from that view, that alone explains the report.
+2. **Seven anon-executable PEI/correction functions touching `profiles`** are not accounted for in the 2026-09-03 anon inventory narrative as staff-action functions; the record covers `is_staff` explicitly but these deserve a caller-authorization check of their own.
+3. `permission denied` and "RLS returned zero rows" are being conflated in the incoming report. On `profiles` the operator-side empty result is designed behaviour, already documented in `staffContacts.ts`.
+
+## Recommended next step (not executed)
+
+Have `fetchProfile` inspect `error` and have the `pending → active` update verify it actually wrote before the UI claims `active`. Nothing on the grant or policy side needs to change.
