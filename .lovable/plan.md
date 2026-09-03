@@ -1,100 +1,88 @@
-# Investigation: duplicate reference numbers after a revised rate con
+# Did anyone call `get_pei_requests_needing_action` during the exposure window?
 
-Conclusion up front: **stale, and already closed once.** Every link in the described
-chain is broken in the current code, there are zero duplicate rows live, and zero rows
-carry a class the current classifier would not assign.
+Read-only investigation. No fixes applied. Bottom line first: **cannot be established for
+the exposure window.** The only usable evidence covers minutes-to-hours of today, not
+2026-05-13 → 2026-09-03.
 
-## 1. Is it live?
+## 1. Can I reach the API request logs?
 
-No. The stale-issues table in `docs/tms-build-status.md` already carries the row:
+**Yes — the analytics log store is reachable** from here (Supabase analytics query
+interface, `logs` table). But it is effectively empty for the period that matters.
 
-```text
-| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27 |
-  Fixed in the same 2026-08-27 pass that introduced the reclassification path. |
-```
+Query: `select source, count(*), min(timestamp), max(timestamp) from logs group by source`
 
-Link by link, against the current files:
-
-**`classifyReferenceLabel`** (`src/lib/referenceClasses.ts:112`) — the description is
-accurate and intended. An absent label returns `other`; an unrecognised one returns
-`unclassified`. The comment above it says why the two must not be collapsed. Not a
-defect.
-
-**`buildRevisionDiff`** (`src/lib/revisedRateCon.ts`) — does **not** emit an add plus a
-remove. It carries a third op:
-
-```ts
-op: 'added' | 'removed' | 'reclassified';
-/** The class the row is filed under today; set only on `reclassified`. */
-from_reference_class?: string;
-```
-
-and at line ~671 it looks up the same `value_key` filed under another class, adds it to
-a `reclassified` set — "Stored keys accounted for by a reclassification; never reported
-removed" — and pushes a single "Reference filed differently" entry.
-
-**`saveLoadReferences`** (`src/lib/loadReferences.ts:59`) — takes a `reclassifications`
-option and applies each one as an in-place UPDATE *before* the upsert:
-
-```ts
-* Class moves applied IN PLACE, before the upsert runs. The upsert key is
-* (load_id, reference_class, value_key): writing the new class straight
-* through would miss the stored row entirely and insert a second one, which
-* is exactly the duplicate this path exists to prevent.
-```
-
-It locates the row, then updates by id so the id, citations and `created_at` survive.
-
-**`LoadReferencesCard`** — displays whatever rows exist; with no duplicate written there
-is nothing to double-render.
-
-The chain is broken at links two and three. Stopping there, per the instruction.
-
-## 2. Is there affected data?
-
-**Zero.** Live query over `public.load_references` grouped by
-`(load_id, coalesce(nullif(label,''), reference_class), value_key)` having `count(*) > 1`
-returned **0 rows**.
-
-The whole table is 13 rows: pickup 5, delivery 2, unclassified 2, bol 2, pro 1, po 1.
-There are **no `other` rows at all**, so the specific stale-`other` shape the finding
-describes has no instances to act on.
-
-## 3. Mechanism
-
-Not applicable — items 1 and 2 both come back negative. The mechanism the finding
-describes is real as *history*: it is the defect the 2026-08-27 pass was written to
-close, and the record documents it under "Reference classes go stale, and that is
-normal."
-
-## 4. The backfill question
-
-A backfill exists, and it is deliberately not a migration:
-`src/lib/referenceBackfill.ts` plans the repair and `scripts/reference-backfill.ts`
-runs it. It imports `classifyReferenceLabel` rather than reimplementing the rule in SQL,
-precisely so the prefix fallback and `labelKey` normalization cannot drift. It exists to
-avoid the trap that a reference with no printed label is stored with
-`label = <class name>` and is *correctly* `other`.
-
-Current exposure, checked row by row against `LABEL_MAP` and the prefix fallback:
-
-| stored class | label | classifier today | match |
+| source | rows | oldest | newest |
 |---|---|---|---|
-| bol | Bill of Lading # / BOL | bol | yes |
-| delivery x2 | Delivery Number | delivery | yes |
-| pickup x5 | Pickup Number | pickup | yes |
-| po | PO Number | po | yes |
-| pro | PRO | pro | yes |
-| unclassified | QUOTE | unclassified | yes |
-| unclassified | Customer Ref # | unclassified | yes |
+| edge_logs (API gateway) | 283 | 2026-09-03 19:53:36Z | 2026-09-03 20:01:19Z |
+| pgbouncer_logs | 34 | 19:58:31Z | 20:01:05Z |
+| postgres_logs | 24 | 19:52:00Z | 20:01:00Z |
+| function_logs | 22 | 19:52:02Z | 20:01:20Z |
+| auth_logs | 15 | 20:00:08Z | 20:00:09Z |
+| function_edge_logs | 12 | 19:52:02Z | 20:01:03Z |
+| storage_logs | 12 | 19:59:49Z | 20:00:43Z |
+| postgrest_logs | 10 | 19:51:44Z | 20:01:21Z |
 
-**0 of 13 rows carry a class the current classifier would not assign.** That matches the
-record's note that "the live audit found 0 rows needing reclassification and 0 sentinel
-rows, so the script has not had to run."
+**Oldest timestamp available anywhere in the log store: 2026-09-03 19:51:44Z** — roughly
+ten minutes before this investigation. An explicit query for anything between
+2026-05-01 and 2026-09-03 00:00 returned **0 rows**, and widening the `edge_logs` filter
+to "since 2026-01-01" still returned the same 283 rows starting 19:53:36Z. So the window
+is not a query-range artifact: nothing older is retained or exposed to this interface.
 
-## Contradictions with the record
+## 2. Hits for the function path
 
-None found. The record's stale-issues table, the "Reference classes go stale" entry, the
-current source and the live data all agree. Worth appending a second occurrence date
-(2026-09-03) to the existing stale-table row — this is now the second report of the same
-closed finding, and the seventh stale finding in this batch of nine.
+Searching `edge_logs` for the function name over the widest range available returned
+**zero rows**. The only PEI-adjacent traffic in the retained window is REST table reads
+(`/rest/v1/pei_requests`, `/rest/v1/applications`, status 200) from the last few minutes
+— ordinary staff-portal activity, not RPC calls to the function.
+
+Because retention starts 19:51:44Z today, this result says nothing at all about
+2026-05-13 → 2026-09-03. Source IP and auth-role attribution could not be reported for
+any hit, because there were no hits.
+
+## 3. What Postgres itself records
+
+- **`track_functions` = `none`** (`select current_setting('track_functions', true)`).
+  Function-level statistics were never collected. `pg_stat_user_functions` contains
+  **0 rows** for every function in the database, not just this one. This is the evidence
+  that could have predated log retention, and it does not exist.
+- **`pg_stat_statements` is installed** (in schema `extensions`). It holds 4,758
+  statement entries, oldest `stats_since` **2026-03-07 01:59:49Z**. Filtering for the
+  function name returns 7 entries, all from today:
+  - two PostgREST RPC calls — `stats_since` **19:02:04Z** and **19:16:13Z** on 2026-09-03,
+    which are the investigation's own pre-fix anon test and post-fix authenticated test
+  - five DDL/GRANT/REVOKE statements from the 19:15:35Z remediation
+  No entry exists with an earlier first-seen time. **This is suggestive, not conclusive**:
+  `pg_stat_statements` has a fixed entry cap (4,758 entries are already tracked) and
+  evicts least-used entries under pressure, so an RPC called once in June could have been
+  evicted without trace. It also carries no caller identity, no IP, and no role — even a
+  surviving entry could not have told you whether the caller was anon.
+- **No audit trail of the call.** The function body is a bare `RETURN QUERY` with no
+  logging of its own, and `public.audit_log` records application actions (296 PEI-related
+  rows) written by app code and triggers — none of it records RPC invocation of this
+  function.
+
+## 4. The answer, stated precisely
+
+**Cannot be established.**
+
+- Not "no calls occurred." Nothing supports that claim.
+- Not even "no calls in the retained window, covering X to Y" in any meaningful sense:
+  the retained gateway window is **2026-09-03 19:51:44Z → 20:01:21Z**, about ten minutes,
+  entirely after the fix landed at 19:15:35Z. It has zero overlap with the four-month
+  exposure.
+- `pg_stat_statements` gives partial, identity-free coverage back to at most
+  2026-03-07 and shows no pre-2026-09-03 execution — but eviction means absence there is
+  not proof, and it could not distinguish an anon caller from an authenticated one even
+  if a row had survived.
+
+Absence of evidence here is **not** evidence of absence. Any statement to counsel should
+say: the carrier's own tooling cannot determine whether the endpoint was called during
+the exposure window; longer-horizon API logs, if Supabase retains them outside this
+interface, are the only remaining avenue.
+
+## Suggested next step (not taken)
+
+The one avenue not exhausted from here is a support/retention request to the platform for
+API gateway logs covering 2026-05-13 → 2026-09-03. If the answer is that they are not
+retained beyond a short window, that answer itself should be recorded in the incident
+entry, which currently leaves the question OPEN.
