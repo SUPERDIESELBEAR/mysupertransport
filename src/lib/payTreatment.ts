@@ -142,8 +142,8 @@ export function payTreatment(
   if (payClassOf(klass, policy) === 'reimbursement') {
     return { kind: 'at_cost', label: 'reimbursed at cost' };
   }
-  const pct = Number(policy[PCT_FIELD[klass]]);
-  if (!Number.isFinite(pct)) return { kind: 'unknown', label: null };
+  const pct = pctForClassification(klass, policy);
+  if (pct === null) return { kind: 'unknown', label: null };
   return { kind: 'percentage', pct, label: `${trimPct(pct)}% to driver` };
 }
 
