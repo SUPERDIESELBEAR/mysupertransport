@@ -354,7 +354,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
-  "public.replace_rods_document(uuid,text,text,uuid,text,boolean)",
+  // replace_rods_document removed 2026-09-03: no live function of that name.
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
