@@ -3524,24 +3524,37 @@ fixture.
 | ST26059 | Eclipse | $6,750 | per-ton header rate, 270 × 25 **confirmed** tons |
 | ST26060 | Rolling River | $150 | loadout relocation fee; `dispatcher_id` NULL |
 | ST26061 | Fide Freight | $0 | carries a $150 TONU charge, excluded by **STATUS** |
-| ST26063 | Nationwide | $1,708 | $1,600 linehaul, $200 lumper excluded at 100%, $150 TONU **charge** INCLUDED at 72% |
+| ST26063 | Nationwide | $1,750 | $1,600 linehaul, $200 lumper EXCLUDED (resolves to 100%), $150 TONU **charge** INCLUDED AT ITS FULL AMOUNT (resolves to 72%, which is not 100, so it stays — the 72% is not applied to it) |
 
-**Expected August 2026 eligible base: $13,708.**
+**Expected August 2026 eligible base: $13,750.**
 
 Attribution, which must sum to the same figure:
 
 | Dispatcher | Base | Loads |
 |---|---|---|
 | Jack Barney | $9,050 | ST26058, ST26059 |
-| Daniel Brown | $4,508 | ST26056, ST26063 (ST26061 is his and contributes nothing) |
+| Daniel Brown | $4,550 | ST26056, ST26063 (ST26061 is his and contributes nothing) |
 | Unattributed | $150 | ST26060 |
+
+### How the $13,708 error was caught (2026-09-03)
+
+Section 4.3 was written correctly: a charge is excluded only when its resolved percentage is 100% or its pay class is `reimbursement`; otherwise it enters the base at its full amount. The worked example beneath section 4.5 — gross $471,608, less 2% factoring, then × 5% dispatch fee — confirmed the arithmetic is performed on gross revenue, not on margin.
+
+The verification set, however, recorded ST26063 as $1,708, implicitly applying the 72% TONU percentage as a multiplier. That produced an expected base of $13,708 and Daniel Brown at $4,508. All three contradicted the rule and the example.
+
+It was caught because the Pass 3 prompt instructed the builder to compute the six-load figure independently and **STOP AND REPORT** rather than reconcile. The code produced $13,750; the document said $13,708. The builder reported the difference instead of closing the gap.
+
+If the builder had reconciled, the dispatch company would have been underpaid on every non-excluded accessorial, and the authoritative document would have certified the underpayment.
+
+**Lesson:** a worked example is part of the rule and must be checked against the rule it illustrates. Prose and arithmetic in the same entry can disagree, and the arithmetic is what gets implemented.
 
 **Every wrong total is diagnostic — that is the value of the set.** Each failure
 mode produces a distinct figure:
 
 - detention leaking into the base: **+$500**;
 - the lumper leaking into the base: **+$200**;
-- the TONU **charge** wrongly excluded: **−$108**;
+- the TONU **charge** wrongly excluded: **−$150**;
+- applying a non-100% charge percentage as a multiplier instead of a pass/fail test: **−$42** on this set (the TONU charge);
 - the TONU-**status** load wrongly included: **+$150**;
 - a base built from `total_load_value` rather than from parts: **+$6,750 on
   ST26059 alone**.
@@ -3553,6 +3566,13 @@ mode produces a distinct figure:
   a boundary is untested.
 - **`operator_id` is NULL on all six**, so none of them can exercise the driver
   side at all.
+
+**The six-load figure is a SUBSET, not what the system computes for August 2026.**
+ST-TEST-003 ($455.47) and ST-TEST-005 ($1,875.00) also carry `delivered_at` in
+August, so a real month run against live August data yields **$16,080.47**. Both
+test loads are on the purge list and this resolves at cutover, but until then any
+dispatch computation against real August data includes them. A report of
+"$13,750" is only correct for the defined six-load subset.
 
 ### The ST26059 `confirmed_tons` correction — a documented exception (2026-09-02)
 
