@@ -148,11 +148,12 @@ describe('the dispatch settlement calls the shared logic, it does not re-derive 
   });
 
   it('reads a boundary instant in Central, not in the machine zone', () => {
-    // 7pm Aug 31 Pacific is Sep 1 Central, so the load leaves August.
+    // 1am Sep 1 Central (06:00 UTC) is September, though a UTC-minus reading
+    // of the same instant could still call it August.
     const r = runDispatch({
       loads: [{
         id: 'l1', loadNumber: 'ST-1', loadType: 'standard', rateType: 'flat',
-        status: 'delivered', deliveredAt: '2026-09-01T02:00:00+00:00',
+        status: 'delivered', deliveredAt: '2026-09-01T06:00:00+00:00',
         linehaulRate: 1000, dispatcherId: null, charges: [],
       }],
     });
