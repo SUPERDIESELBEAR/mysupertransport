@@ -676,3 +676,105 @@ export async function readStoredDispatchMonth(
       : null,
   };
 }
+
+/* ------------------------------------------------------------------ */
+/* The months a person may choose between                              */
+/* ------------------------------------------------------------------ */
+
+export interface DispatchMonthOption {
+  /** 'YYYY-MM' */
+  month: string;
+  /** 'August 2026' */
+  label: string;
+  /** A settlement row exists for this month. */
+  hasSettlement: boolean;
+  /** The stored status, when there is a row. */
+  status: string | null;
+  /** Delivered loads sit in this month (carrier zone), settled or not. */
+  deliveredLoads: number;
+}
+
+/**
+ * The months worth offering, newest first.
+ *
+ * Two sources, and NEITHER is an open-ended range of empty months:
+ *  1. every month that HAS a stored settlement — the things that exist;
+ *  2. recent months (a rolling 13-month window) with at least one delivered
+ *     load and no settlement yet — the ones somebody would come here to
+ *     compute. The delivery month is read in the CARRIER zone through
+ *     `monthOf`, exactly as the engine attributes a load.
+ *
+ * This reads `loads` only to decide WHICH MONTHS TO LIST. No figure on the
+ * screen comes from it.
+ */
+export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOption[]> {
+  const now = new Date();
+  const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 12, 1));
+
+  const [settRes, loadRes] = await Promise.all([
+    sb.from('dispatch_settlements')
+      .select('period_month, status')
+      .order('period_month', { ascending: false }),
+    sb.from('loads')
+      .select('delivered_at')
+      .not('delivered_at', 'is', null)
+      .gte('delivered_at', windowStart.toISOString()),
+  ]);
+  if (settRes.error) throw settRes.error;
+  if (loadRes.error) throw loadRes.error;
+
+  const byMonth = new Map<string, DispatchMonthOption>();
+  const put = (month: string): DispatchMonthOption => {
+    let o = byMonth.get(month);
+    if (!o) {
+      o = { month, label: monthLabel(month), hasSettlement: false, status: null, deliveredLoads: 0 };
+      byMonth.set(month, o);
+    }
+    return o;
+  };
+
+  for (const row of (settRes.data ?? []) as any[]) {
+    const month = String(row.period_month).slice(0, 7);
+    const o = put(month);
+    o.hasSettlement = true;
+    o.status = row.status ?? null;
+  }
+  for (const row of (loadRes.data ?? []) as any[]) {
+    const month = monthOf(row.delivered_at);
+    if (!month) continue;
+    put(month).deliveredLoads += 1;
+  }
+
+  return [...byMonth.values()].sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
+}
+
+/** 'YYYY-MM' → 'August 2026'. */
+export function monthLabel(month: string): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m) return month;
+  return new Date(Date.UTC(y, m - 1, 15)).toLocaleDateString('en-US', {
+    month: 'long', year: 'numeric', timeZone: 'UTC',
+  });
+}
+
+/**
+ * The month the screen opens on.
+ *
+ * The screen exists to CHECK a settlement, not to trigger one, so it opens on
+ * the most recent month that HAS one. Only when none has ever been stored does
+ * it fall back to the most recent COMPLETED month with delivered loads, and
+ * failing that to last month. It never opens on the current month, which is
+ * always incomplete and would show a figure nobody should act on.
+ */
+export function defaultDispatchMonth(
+  options: DispatchMonthOption[],
+  today: Date = new Date(),
+): string {
+  const current = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;
+  const stored = options.find(o => o.hasSettlement);
+  if (stored) return stored.month;
+  const completed = options.find(o => o.month < current && o.deliveredLoads > 0);
+  if (completed) return completed.month;
+  const prev = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
+  return prev.toISOString().slice(0, 7);
+}
