@@ -1065,10 +1065,21 @@ export function DeactivationWizardContent({
               </div>
             </div>
             {safetySent ? (
-              <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
-                <CheckCircle2 className="h-4 w-4" /> Notice sent to {consultantLabel}
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
+                  <CheckCircle2 className="h-4 w-4" /> Notice sent to {sentToLabel}
+                </div>
+                {safetySentTo.length > 1 && (
+                  <p className="text-[11px] text-muted-foreground break-all pl-6">{safetySentTo.join(', ')}</p>
+                )}
+                {!safetyConsultantIncluded && (
+                  <p className="text-[11px] text-muted-foreground pl-6">
+                    {consultantLabel} was not included — the driver's DOT Consultant notification is still outstanding.
+                  </p>
+                )}
               </div>
             ) : (
+
               <Button className="w-full bg-gold hover:bg-gold/90 text-black gap-1.5" onClick={handleSendSafetyNotice} disabled={!deactivationDate || !deactivationReason || !rehire || saving}>
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 Send Deactivation Notice
