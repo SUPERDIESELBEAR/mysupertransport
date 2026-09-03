@@ -27,7 +27,8 @@
  */
 import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
 import { AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL } from '@/lib/perTonScale';
-import { payClassOf, type PayPolicyRates } from '@/lib/payTreatment';
+import { payClassOf, pctForClassification, type PayPolicyRates, type PayRateKey } from '@/lib/payTreatment';
+import type { ClassificationKey } from '@/lib/revisedRateCon';
 import {
   evaluateLoadPaperwork,
   type PaperworkDocumentInput,
@@ -305,10 +306,7 @@ function headerRateLines(
 ): { lines: Array<{ lineType: SettlementLineType; amount: number; description: string }>; pendingScaleTicket: boolean } {
   const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
   let pendingScaleTicket = false;
-  const pctOf = (klass: keyof typeof PCT_FIELD): number | null => {
-    const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
-    return Number.isFinite(pct) ? pct : null;
-  };
+  const pctOf = (klass: PayRateKey): number | null => pctForClassification(klass, policy);
 
   if (load.loadType === 'loadout') {
     // A $0 relocation fee pays $0. The trailer use IS the value.
@@ -362,7 +360,7 @@ function headerRateLines(
   return { lines: out, pendingScaleTicket };
 }
 
-function lineTypeForCharge(klass: keyof typeof PCT_FIELD, isReimbursement: boolean): SettlementLineType {
+function lineTypeForCharge(klass: ClassificationKey, isReimbursement: boolean): SettlementLineType {
   if (isReimbursement) return 'reimbursement';
   return klass === 'linehaul' ? 'load_pay' : 'accessorial';
 }
@@ -463,8 +461,8 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         continue;
       }
 
-      const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
-      if (!Number.isFinite(pct)) continue;
+      const pct = pctForClassification(klass, policy);
+      if (pct === null) continue;
       const amount = round2(num(charge.amount) * (pct / 100));
       if (!amount) continue;
       lines.push({
