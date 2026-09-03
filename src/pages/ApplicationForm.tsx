@@ -821,6 +821,14 @@ export default function ApplicationForm() {
             </div>
           </div>
         </div>
+        {/* Same self-service request flow as the home page, rate limited to 3
+            per email per hour — no new capability, just reachable from here. */}
+        <ResumeApplicationDialog
+          key={recoveryEmail}
+          open={recoveryOpen}
+          onOpenChange={setRecoveryOpen}
+          initialEmail={recoveryEmail}
+        />
       </div>
     );
   }
