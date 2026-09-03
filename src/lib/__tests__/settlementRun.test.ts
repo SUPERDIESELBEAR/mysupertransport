@@ -88,6 +88,48 @@ describe('gathering decides nothing', () => {
   });
 });
 
+describe('a recurring deduction is due every period, a one-time deduction once', () => {
+  const THIS_PERIOD = '2026-08-12'; // Wed of the week PERIOD_ANCHOR falls in
+  const PRIOR_PERIOD = '2026-08-05';
+  const recurring = (id: string) => ({ id, operator_id: OP_DEDUCTIONS_ONLY, label: 'R&M Deposit', amount: 200, is_active: true, is_recurring: true, start_payday: null, end_payday: null });
+  const oneTime = (id: string) => ({ id, operator_id: OP_DEDUCTIONS_ONLY, label: 'Uniform', amount: 75, is_active: true, is_recurring: false, start_payday: null, end_payday: null });
+  const dedOf = async (t: any) => {
+    const run = await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR);
+    return run.operators.find(o => o.operatorId === OP_DEDUCTIONS_ONLY)?.input.deductions ?? [];
+  };
+
+  it('charges a recurring deduction again after it settled in a PRIOR period', async () => {
+    const t: any = baseTables();
+    t.deductions = [recurring('d1')];
+    t.settlement_line_items = [{ source_table: 'deductions', source_id: 'd1', settlements: { period_start: PRIOR_PERIOD } }];
+    expect((await dedOf(t)).map((d: any) => d.id)).toEqual(['d1']);
+  });
+
+  it('does not charge a recurring deduction twice inside the SAME period', async () => {
+    const t: any = baseTables();
+    t.deductions = [recurring('d1')];
+    t.settlement_line_items = [{ source_table: 'deductions', source_id: 'd1', settlements: { period_start: THIS_PERIOD } }];
+    expect(await dedOf(t)).toEqual([]);
+  });
+
+  it('never charges a one-time deduction twice, however old the settlement', async () => {
+    const t: any = baseTables();
+    t.deductions = [oneTime('d2')];
+    t.settlement_line_items = [{ source_table: 'deductions', source_id: 'd2', settlements: { period_start: PRIOR_PERIOD } }];
+    expect(await dedOf(t)).toEqual([]);
+  });
+
+  it('keeps a driver whose only unsettled item is a recurring deduction in the population', async () => {
+    const t: any = baseTables();
+    t.deductions = [recurring('d1')];
+    t.settlement_line_items = [{ source_table: 'deductions', source_id: 'd1', settlements: { period_start: PRIOR_PERIOD } }];
+    const run = await gatherSettlementRun(fakeClient(t), PERIOD_ANCHOR);
+    expect(previewFromGathered(run).rows.map(r => r.operatorId)).toContain(OP_DEDUCTIONS_ONLY);
+  });
+});
+
+
+
 describe('the population rule', () => {
   it('includes a driver with only deductions and excludes a driver with nothing', async () => {
     const t: any = baseTables();
