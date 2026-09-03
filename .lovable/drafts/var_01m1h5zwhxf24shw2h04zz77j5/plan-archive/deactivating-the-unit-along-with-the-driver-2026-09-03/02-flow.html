@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 330" width="640" height="330">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+  </style>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M1 1 L7 4 L1 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="bx" x="8" y="130" width="130" height="52" rx="8"/>
+  <text class="lbl" x="73" y="152" text-anchor="middle">Reason &amp; date</text>
+  <text class="sm" x="73" y="169" text-anchor="middle">existing step 1</text>
+
+  <line class="wire" x1="138" y1="156" x2="176" y2="156" marker-end="url(#ch)"/>
+
+  <rect class="bx" x="180" y="122" width="146" height="68" rx="8" fill="hsl(var(--accent))"/>
+  <text class="lbl" x="253" y="148" text-anchor="middle" fill="hsl(var(--accent-foreground))">Unit disposition</text>
+  <text class="sm" x="253" y="166" text-anchor="middle" fill="hsl(var(--accent-foreground))">new — what happens</text>
+  <text class="sm" x="253" y="180" text-anchor="middle" fill="hsl(var(--accent-foreground))">to the truck?</text>
+
+  <line class="wire" x1="326" y1="140" x2="392" y2="70" marker-end="url(#ch)"/>
+  <line class="wire" x1="326" y1="170" x2="392" y2="240" marker-end="url(#ch)"/>
+
+  <rect class="bx" x="396" y="40" width="230" height="62" rx="8"/>
+  <text class="lbl" x="411" y="63">Truck leaves with driver</text>
+  <text class="sm" x="411" y="82">unit retired · plate released · ICA void</text>
+
+  <rect class="bx" x="396" y="212" width="230" height="72" rx="8"/>
+  <text class="lbl" x="411" y="235">Truck stays / not sure</text>
+  <text class="sm" x="411" y="254">unit held vacant with truck + owner</text>
+  <text class="sm" x="411" y="270">plate may stay · ICA void warned</text>
+
+  <rect class="zone" x="380" y="196" width="252" height="122" rx="8"/>
+  <text class="sm" x="392" y="310">vehicle hub · vacant units → assign new driver</text>
+
+  <circle cx="392" cy="24" r="9" fill="hsl(var(--accent))"/>
+  <text class="sm" x="392" y="28" text-anchor="middle" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="sm" x="408" y="28">Answer is recorded on the deactivation either way</text>
+</svg>

@@ -94,9 +94,25 @@ function matchesSearch(r: FleetRow, q: string): boolean {
   );
 }
 
+/** A truck that stayed leased after its driver was deactivated. */
+interface VacantUnit {
+  id: string;
+  unitNumber: string | null;
+  truckYear: string | null;
+  truckMake: string | null;
+  truckModel: string | null;
+  truckVin: string | null;
+  ownerName: string | null;
+  disposition: string;
+  notes: string | null;
+  heldAt: string;
+}
+
 export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [activeRows, setActiveRows] = useState<FleetRow[]>([]);
   const [deactivatedRows, setDeactivatedRows] = useState<FleetRow[]>([]);
+  const [vacantUnits, setVacantUnits] = useState<VacantUnit[]>([]);
+  const [releasingUnit, setReleasingUnit] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [backfilling, setBackfilling] = useState(false);
@@ -279,14 +295,55 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
 
   const fetchFleet = useCallback(async () => {
     setLoading(true);
-    const [active, deactivated] = await Promise.all([
+    const [active, deactivated, vacant] = await Promise.all([
       buildRows(true),
       buildRows(false),
+      (supabase as any)
+        .from('vacant_units')
+        .select('id, unit_number, truck_year, truck_make, truck_model, truck_vin, truck_owner_name, disposition, notes, held_at')
+        .is('released_at', null)
+        .order('held_at', { ascending: false }),
     ]);
     setActiveRows(active);
     setDeactivatedRows(deactivated);
+    setVacantUnits(
+      ((vacant?.data as any[]) ?? []).map(v => ({
+        id: v.id,
+        unitNumber: v.unit_number,
+        truckYear: v.truck_year,
+        truckMake: v.truck_make,
+        truckModel: v.truck_model,
+        truckVin: v.truck_vin,
+        ownerName: v.truck_owner_name,
+        disposition: v.disposition,
+        notes: v.notes,
+        heldAt: v.held_at,
+      }))
+    );
     setLoading(false);
   }, [buildRows]);
+
+  const handleReleaseVacantUnit = async (unit: VacantUnit) => {
+    if (!window.confirm(`Release unit ${unit.unitNumber ?? ''} from the vacant list? The truck is no longer waiting on a driver.`)) return;
+    setReleasingUnit(unit.id);
+    const { data: sessionUser } = await supabase.auth.getUser();
+    const { error } = await (supabase as any)
+      .from('vacant_units')
+      .update({
+        released_at: new Date().toISOString(),
+        released_by: sessionUser?.user?.id ?? null,
+        release_reason: 'Released from Vehicle Hub',
+      })
+      .eq('id', unit.id);
+    if (error) {
+      toast({ title: 'Could not release unit', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: `Unit ${unit.unitNumber ?? ''} released`.trim() });
+      fetchFleet();
+    }
+    setReleasingUnit(null);
+  };
+
 
   useEffect(() => { fetchFleet(); }, [fetchFleet]);
 
@@ -528,6 +585,54 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           </SelectContent>
         </Select>
       </div>
+
+      {!showDeactivated && vacantUnits.length > 0 && (
+        <div className="border border-gold/40 bg-gold/5 rounded-lg p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <Truck className="h-4 w-4 text-gold" />
+            <h2 className="text-sm font-semibold text-foreground">
+              Vacant units ({vacantUnits.length})
+            </h2>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            These trucks stayed leased after their driver was deactivated and are waiting on a new driver.
+          </p>
+          <div className="space-y-2">
+            {vacantUnits.map(u => (
+              <div key={u.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-card border border-border rounded-md p-2.5">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium">
+                    Unit {u.unitNumber ?? '—'}
+                    {u.disposition === 'undecided' && (
+                      <Badge variant="secondary" className="ml-2 text-[10px]">Undecided</Badge>
+                    )}
+                  </p>
+                  <p className="text-xs text-muted-foreground truncate">
+                    {[u.truckYear, u.truckMake, u.truckModel].filter(Boolean).join(' ') || '—'}
+                    {u.ownerName ? ` · Owner: ${u.ownerName}` : ''}
+                  </p>
+                  {u.notes && <p className="text-xs text-muted-foreground mt-0.5">{u.notes}</p>}
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => navigate('/management/drivers')}>
+                    <UserCheck className="h-3.5 w-3.5" /> Assign new driver
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="h-8 text-xs"
+                    disabled={releasingUnit === u.id}
+                    onClick={() => handleReleaseVacantUnit(u)}
+                  >
+                    {releasingUnit === u.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : 'Release unit'}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {loading ? (
         <div className="text-center py-16 text-muted-foreground">

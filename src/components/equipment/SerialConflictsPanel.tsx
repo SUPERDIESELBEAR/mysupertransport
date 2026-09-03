@@ -40,6 +40,18 @@ const DEVICE_LABEL: Record<DeviceType, string> = {
 
 const LEGACY_DISMISS_KEY = 'onboard_systems_serial_conflicts_dismissed';
 
+/**
+ * Data API errors are plain objects, not Error instances, so `instanceof Error`
+ * swallowed real messages like "permission denied" as "Unknown error".
+ */
+function errMessage(err: unknown): string {
+  if (err && typeof err === 'object' && 'message' in err) {
+    const m = (err as { message?: unknown }).message;
+    if (typeof m === 'string' && m.trim()) return m;
+  }
+  return 'Unknown error';
+}
+
 function readLegacyDismissed(): Set<string> {
   try {
     const raw = localStorage.getItem(LEGACY_DISMISS_KEY);
@@ -216,7 +228,7 @@ export default function SerialConflictsPanel({
     } catch (err: unknown) {
       toast({
         title: 'Could not load resolved conflicts',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: errMessage(err),
         variant: 'destructive',
       });
     } finally {
@@ -284,7 +296,7 @@ export default function SerialConflictsPanel({
     } catch (err: unknown) {
       toast({
         title: 'Could not mark as different devices',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: errMessage(err),
         variant: 'destructive',
       });
     }
@@ -305,7 +317,7 @@ export default function SerialConflictsPanel({
     } catch (err: unknown) {
       toast({
         title: 'Could not restore hidden pairs',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: errMessage(err),
         variant: 'destructive',
       });
     }
@@ -365,7 +377,7 @@ export default function SerialConflictsPanel({
     } catch (err: unknown) {
       toast({
         title: 'Merge failed',
-        description: err instanceof Error ? err.message : 'Unknown error',
+        description: errMessage(err),
         variant: 'destructive',
       });
     } finally {
