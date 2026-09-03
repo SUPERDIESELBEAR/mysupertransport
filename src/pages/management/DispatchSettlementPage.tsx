@@ -164,49 +164,77 @@ export default function DispatchSettlementPage() {
         on it.
       </p>
 
-      <Card className="p-4 flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="dispatch-month">Month</Label>
-          <Input
-            id="dispatch-month"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="w-[180px]"
-          />
-        </div>
-        {!isPaid && (
-          <Button onClick={compute} disabled={!!busy || loading}>
-            {busy === 'compute' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {stored ? 'Recompute month' : 'Compute month'}
-          </Button>
-        )}
-        {s && s.status === 'draft' && (
-          <Button
-            variant="secondary"
-            disabled={!!busy}
-            onClick={() => setStatus({ status: 'approved', approved_at: new Date().toISOString() }, 'approved')}
-          >
-            {busy === 'approved' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Approve
-          </Button>
-        )}
-        {s && s.status === 'approved' && (
-          <Button
-            variant="secondary"
-            disabled={!!busy}
-            onClick={() => setStatus({ status: 'paid', paid_at: new Date().toISOString() }, 'paid')}
-          >
-            {busy === 'paid' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Mark paid
-          </Button>
-        )}
-        {s && !isPaid && !isVoid && (
-          <Button variant="outline" disabled={!!busy} onClick={() => setVoidOpen(true)}>
-            Void
-          </Button>
-        )}
+      {/* ------------------------------------------------ choose a month */}
+      <Card className="p-4 space-y-1">
+        <Label htmlFor="dispatch-month">Month</Label>
+        <Select value={month} onValueChange={setMonth}>
+          <SelectTrigger id="dispatch-month" className="w-[260px]">
+            <SelectValue placeholder="Choose a month" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map(o => (
+              <SelectItem key={o.month} value={o.month}>
+                {o.label}
+                {o.hasSettlement
+                  ? ` — ${(o.status ?? '').toUpperCase()}`
+                  : ' — not yet computed'}
+              </SelectItem>
+            ))}
+            {/* The chosen month is always listed, even if nothing matched. */}
+            {month && !months.some(o => o.month === month) && (
+              <SelectItem value={month}>{monthLabel(month)}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Months with a stored settlement, plus recent months with delivered loads that have
+          not been computed. Choosing a month only changes what you are reading.
+        </p>
       </Card>
+
+      {/* ----------------------------------- act on the month, separately */}
+      {month && (
+        <Card className="p-4 space-y-2 border-dashed">
+          <h2 className="font-semibold text-sm">Actions for {monthLabel(month)}</h2>
+          <p className="text-xs text-muted-foreground">
+            These act on {monthLabel(month)} — the month selected above.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            {!isPaid && (
+              <Button onClick={compute} disabled={!!busy || loading}>
+                {busy === 'compute' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {stored ? `Recompute ${monthLabel(month)}` : `Compute ${monthLabel(month)}`}
+              </Button>
+            )}
+            {s && s.status === 'draft' && (
+              <Button
+                variant="secondary"
+                disabled={!!busy}
+                onClick={() => setStatus({ status: 'approved', approved_at: new Date().toISOString() }, 'approved')}
+              >
+                {busy === 'approved' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Approve {monthLabel(month)}
+              </Button>
+            )}
+            {s && s.status === 'approved' && (
+              <Button
+                variant="secondary"
+                disabled={!!busy}
+                onClick={() => setStatus({ status: 'paid', paid_at: new Date().toISOString() }, 'paid')}
+              >
+                {busy === 'paid' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Mark {monthLabel(month)} paid
+              </Button>
+            )}
+            {s && !isPaid && !isVoid && (
+              <Button variant="outline" disabled={!!busy} onClick={() => setVoidOpen(true)}>
+                Void {monthLabel(month)}
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
 
       {loading && (
         <p className="text-sm text-muted-foreground">Loading…</p>
