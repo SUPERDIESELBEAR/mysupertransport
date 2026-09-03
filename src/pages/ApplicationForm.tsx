@@ -787,11 +787,21 @@ export default function ApplicationForm() {
               <Link2Off className="h-8 w-8 text-destructive" />
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Resume link unavailable</h1>
-            <p className="text-muted-foreground text-sm leading-relaxed">{resumeError}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {resumeError} We can send you a fresh one right now — your application is safe.
+            </p>
             <div className="mt-6 flex flex-col gap-2">
+              <button
+                type="button"
+                data-testid="resume-recovery-open"
+                onClick={() => setRecoveryOpen(true)}
+                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+              >
+                Email me a new link
+              </button>
               <a
                 href="/"
-                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
               >
                 Back to home
               </a>
