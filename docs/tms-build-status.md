@@ -4364,6 +4364,39 @@ to the new code.
 ---
 
 
+**AUTOMATED MONITORING FINDINGS ARE TRIAGED BY SOURCE BEFORE THEY ARE INVESTIGATED
+(2026-09-03).** Of nine findings in the 2026-09-03 monitoring batch, seven were
+stale and two were real. The split follows source exactly:
+
+- The two **real** findings came from **error logs or live data** — eight
+  `token_used` responses in a day; a gathering query observable in the code AND
+  confirmed against live rows. Both were also escalated by email rather than left
+  in the list.
+- All seven **stale** findings came from **reading code**, and each described a
+  definition that was no longer live. One described a state that existed for about
+  24 hours. Two had already been reported and closed once before.
+
+> **Standing rule.** A finding sourced from error logs or live data is investigated.
+> A finding sourced from code reading gets TWO CHECKS FIRST, before any analysis:
+> (a) is the definition it cites the NEWEST one — list every migration or read the
+> current file; and (b) does the stale-issues table already carry it. If either
+> check disposes of it, record the occurrence and stop.
+>
+> The stale-issues table records **every** occurrence date, not only the first, so a
+> third report of the same finding is recognised rather than re-investigated.
+>
+> Cross-reference the existing standing lesson about reading the newest migration.
+> This batch produced its fourth and fifth instances. The equipment-serial case is
+> the sharpest: the finding was accurate about the code, and wrong about which code
+> was live.
+
+**A COMMENT EXPLAINING WHY SOMETHING IS NOT A BUG IS EVIDENCE THE BUG WAS ALREADY
+FOUND (2026-09-03).** The reference-number and equipment-serial investigations
+both found the live code carried a comment explaining precisely the defect the
+finding described — because each comment was written by the pass that fixed it.
+Such comments are worth reading before investigating further.
+
+
 ## FIXED 2026-08-31 — the engine omitted linehaul entirely (header rates)
 
 **Found by the first real settlement run, not by the suite.** Johnathan Pratt's
