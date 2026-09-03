@@ -1,0 +1,46 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: hsl(var(--muted-foreground)); }
+  </style>
+  <defs>
+    <marker id="ch" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+      <path d="M0 0 L7 3.5 L0 7" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="20" width="200" height="180" rx="8"/>
+  <text class="note" x="20" y="40">what the form showed</text>
+  <rect class="box" x="28" y="55" width="160" height="48" rx="8"/>
+  <text class="lbl" x="42" y="75">To</text>
+  <text class="mono" x="42" y="93">marc@…</text>
+  <rect class="box" x="28" y="123" width="160" height="48" rx="8"/>
+  <text class="lbl" x="42" y="143">CC</text>
+  <text class="mono" x="42" y="161">Marcus Mueller</text>
+
+  <path class="wire" d="M212 79 H 268" marker-end="url(#ch)"/>
+  <path class="wire" d="M212 147 H 268" marker-end="url(#ch)"/>
+
+  <rect class="box" x="272" y="70" width="150" height="106" rx="8" fill="hsl(var(--muted))"/>
+  <text class="lbl" x="290" y="112">drop any CC</text>
+  <text class="lbl" x="290" y="132">already in To</text>
+
+  <path class="wire" d="M426 123 H 486" marker-end="url(#ch)"/>
+
+  <rect class="zone" x="492" y="20" width="140" height="180" rx="8"/>
+  <text class="note" x="504" y="40">what was sent</text>
+  <rect class="box" x="504" y="70" width="116" height="48" rx="8"/>
+  <text class="lbl" x="518" y="90">To</text>
+  <text class="mono" x="518" y="108">marc@…</text>
+  <rect class="box" x="504" y="138" width="116" height="38" rx="8"/>
+  <text class="note" x="518" y="162">CC — empty</text>
+
+  <circle cx="24" cy="228" r="9" fill="hsl(var(--accent))"/>
+  <text x="24" y="232" text-anchor="middle" style="font-size:11px;font-weight:480;fill:hsl(var(--accent-foreground))">1</text>
+  <text class="note" x="42" y="232">Same person in both fields, so the CC copy is removed — you are addressed once, Tracey not at all.</text>
+</svg>
