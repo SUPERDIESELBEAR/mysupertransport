@@ -488,14 +488,19 @@ When something is raised that is not being built now:
 
 Do not let items accumulate without triggers.
 
-### 246 edge-function queries destructure `data` and discard `error`
-Counted across 78 files in `supabase/functions`: `const { data } = await
-supabase.from(...)...` with no `error` binding. A rejected query is then
-indistinguishable from an empty result, and the caller proceeds on `null`. This
-is exactly how the `operators.email` defect in `send-notification` stayed
-invisible in production — the audit row simply recorded a null address.
+### ~435 edge-function queries destructure `data` and discard `error`
 
-Not fixed wholesale: 246 mechanical edits across live functions is a large blast
+`rg` over `supabase/functions/**/*.ts` found **435** `const { data ... }`
+destructures. Of those, about **15** touch money or a guard vocabulary (settlement,
+charge, deduction, invoice, deposit, advance, policy, rate, hold, load, fuel).
+The older "~246" count was an undercount or an older snapshot.
+
+The concentration was never in the edge functions. It was in
+`src/lib/settlementRun.ts`'s `gatherSettlementRun`, where a single function
+discarded the error on every one of its ~12 reads. That concentration is now
+fixed; the remaining edge-function sites are a thin scatter.
+
+Not fixed wholesale: 435 mechanical edits across live functions is a large blast
 radius for a change that cannot be verified from tests, and most of the sites are
 genuinely tolerant of an empty result.
 
