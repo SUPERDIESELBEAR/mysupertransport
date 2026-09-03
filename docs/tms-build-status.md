@@ -3553,7 +3553,8 @@ mode produces a distinct figure:
 
 - detention leaking into the base: **+$500**;
 - the lumper leaking into the base: **+$200**;
-- the TONU **charge** wrongly excluded: **−$108**;
+- the TONU **charge** wrongly excluded: **−$150**;
+- applying a non-100% charge percentage as a multiplier instead of a pass/fail test: **−$42** on this set (the TONU charge);
 - the TONU-**status** load wrongly included: **+$150**;
 - a base built from `total_load_value` rather than from parts: **+$6,750 on
   ST26059 alone**.
