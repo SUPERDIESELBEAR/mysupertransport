@@ -208,7 +208,12 @@ export interface SettlementComputeInput {
   /** Departing flag — the only condition under which the hold formula applies. */
   isDeparting?: boolean;
   /** Derived fact from `equipment_outstanding(operator_id)`. */
-  equipmentOutstanding?: boolean;
+  /**
+   * REQUIRED. This releases or applies an equipment hold, so an omitted field
+   * used to mean "no equipment outstanding" on evidence nobody read. Callers
+   * must determine it (see gatherSettlementRun) or fail.
+   */
+  equipmentOutstanding: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -382,7 +387,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     operatorId, periodAnchorDate, settings, companyPolicy, driverPolicy,
     loads = [], fuel = [], deductions = [], advances = [],
     rmDeposit = null, carryForwardIn = 0,
-    isDeparting = false, equipmentOutstanding = false,
+    isDeparting = false, equipmentOutstanding,
   } = input;
 
   const period = workPeriodForDate(periodAnchorDate, settings.work_week_start_dow);
