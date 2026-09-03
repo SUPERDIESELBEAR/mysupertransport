@@ -65,8 +65,27 @@ const POLICY_COLUMNS =
   + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes, '
   + 'fuel_discount_passthrough';
 
-/** Percentage column backing each classification. */
-const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
+/**
+ * Header-rate kinds that are NOT charge classifications but still take a
+ * percentage from the pay policy. A per-ton load's linehaul and a loadout's
+ * relocation fee are paid on their own columns, so a carrier can pay a
+ * different share by freight type; that is what makes the policy engine
+ * configurable rather than a single split with extra columns nobody reads.
+ */
+export type HeaderRateKey = 'per_ton' | 'loadout';
+
+/** Anything the policy can price: a charge classification or a header rate. */
+export type PayRateKey = ClassificationKey | HeaderRateKey;
+
+/**
+ * THE percentage column backing each priced thing. ONE map, project-wide.
+ *
+ * Until 2026-09-03 this map existed three times — here, in
+ * `settlementEngine.ts` and in `driverLoadPay.ts`. All three agreed, which is
+ * exactly the danger: the map behind the figure a driver is SHOWN and the map
+ * behind what he is PAID were separate objects that happened to match.
+ */
+const PCT_FIELD: Record<PayRateKey, keyof PayPolicyRates> = {
   linehaul: 'linehaul_pct',
   fsc: 'fsc_pct',
   detention: 'detention_pct',
@@ -78,7 +97,24 @@ const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
   // exhaustive and a policy that reclassifies it as revenue still resolves.
   reimbursement: 'other_accessorial_pct',
   other: 'other_accessorial_pct',
+  per_ton: 'per_ton_pct',
+  loadout: 'loadout_pct',
 };
+
+/**
+ * The percentage in force for a priced thing, or null when it cannot be read
+ * honestly — no policy, or a column that is absent or non-numeric. Callers
+ * pay nothing on null rather than falling back to a guess.
+ */
+export function pctForClassification(
+  klass: PayRateKey,
+  policy: PayPolicyRates | null | undefined,
+): number | null {
+  if (!policy) return null;
+  const raw = policy[PCT_FIELD[klass]];
+  const pct = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+  return Number.isFinite(pct) ? pct : null;
+}
 
 /** The pay class in force for a classification under this policy. */
 export function payClassOf(
