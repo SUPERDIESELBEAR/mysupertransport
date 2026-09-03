@@ -1,6 +1,11 @@
 # Roadmap
 
 ## In progress
+- ICA re-send blocked: drop the redundant `trg_enforce_ica_contracts_operator_update`
+  wrapper trigger that illegally calls another trigger function by name.
+- Deactivation notice confirmation must name the actual recipients, not the saved
+  DOT Consultant.
+
 - Module 4 (dispatch company settlement) — Pass 1: schema only. Enum, five tables,
   constraints, grants, RLS, immutability trigger pair, live-catalog tests, purge-list
   registration. No computation function, no line-item writer, no UI.
