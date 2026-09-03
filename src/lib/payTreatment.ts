@@ -54,6 +54,10 @@ export interface PayPolicyRates {
   lumper_reimbursement_pct: number;
   tonu_pct: number;
   other_accessorial_pct: number;
+  /** Per-ton freight linehaul share. NOT NULL DEFAULT 72.00 in the database. */
+  per_ton_pct?: number | null;
+  /** Trailer relocation fee share. NOT NULL DEFAULT 72.00 in the database. */
+  loadout_pct?: number | null;
   /** Classification key → pay class, as configured on this policy. */
   charge_pay_classes?: Record<string, string> | null;
   /** Off means the fuel discount is company margin and the driver never sees it. */
@@ -62,8 +66,8 @@ export interface PayPolicyRates {
 
 const POLICY_COLUMNS =
   'id, name, linehaul_pct, fsc_pct, detention_pct, layover_pct, stopoff_pct, '
-  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes, '
-  + 'fuel_discount_passthrough';
+  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, per_ton_pct, loadout_pct, '
+  + 'charge_pay_classes, fuel_discount_passthrough';
 
 /**
  * Header-rate kinds that are NOT charge classifications but still take a
