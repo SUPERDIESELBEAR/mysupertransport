@@ -52,77 +52,210 @@ function psql(sql: string): string[] {
 }
 
 /**
- * Functions that are SECURITY DEFINER and executable by the `anon` role,
- * as of the 2026-08-01 inventory.
+ * Functions that are SECURITY DEFINER and executable by the `anon` role.
  *
- * This list is a RECORD OF WHAT WAS ALREADY TRUE, not an endorsement. Some
- * entries are deliberate: token-gated public endpoints that an unauthenticated
- * applicant must reach (application drafts, PEI responses, short links). Some
- * are near-certainly wrong and simply have not been triaged yet -- each needs
- * its body read before its grant is touched, and revoking in bulk without
- * that reading would break real endpoints.
+ * EVERY ENTRY MUST CARRY A JUSTIFICATION. Membership alone proves nothing:
+ * `get_pei_requests_needing_action()` was a registered member of this list in
+ * good standing from 2026-05-13 to 2026-09-03, and returned applicant names
+ * and prior-employer contact emails to any unauthenticated caller for that
+ * whole time. The list could only prove the set had not GROWN. It could not
+ * prove any member was safe, and nobody reviewed a function nobody called.
  *
- * The point of pinning the list here is that it cannot GROW quietly. A new
- * anon-executable definer function fails this test on the next run, whether it
- * arrived via a migration or via an out-of-band grant.
+ * So the reason is now part of the entry, and the test below fails without
+ * one. A reason must start with:
  *
- * Tracked as open register #6. Entries come off as they are triaged.
+ *   ROUTE — an unauthenticated route genuinely needs it. Name the route AND
+ *           the file that calls it.
+ *   GUARD — anon may call it but the body refuses without a valid token,
+ *           secret, or signed-in identity. QUOTE the guard.
+ *
+ * Classifications below come from the 2026-09-03 investigation; the class-(c)
+ * entries it found (no anon caller at all) were revoked that day rather than
+ * justified, which is why they no longer appear here.
+ *
+ * This list may only SHRINK. Tracked as open register #6.
  */
-const KNOWN_ANON_EXECUTABLE: readonly string[] = [
-  "public._audit_actor_name(uuid)",
-  "public.add_pei_staff_note(uuid,text)",
-  "public.approve_application_correction(text,text,text,jsonb)",
-  "public.archive_applicant_pei(uuid,text,text)",
-  "public.archive_applicant_pei(uuid,text)",
-  "public.can_driver_message_staff(uuid,uuid)",
-  "public.cancel_application_correction(uuid)",
-  "public.check_application_email_taken(text)",
-  "public.consume_application_resume_token(text)",
-  "public.get_application_by_draft_token(uuid)",
-  "public.get_application_correction_by_token(text)",
-  "public.get_application_pei_summary(uuid)",
-  "public.get_equipment_shipping_for_operator(uuid)",
-  "public.get_inspection_doc_by_token(uuid)",
-  "public.get_or_create_short_link(text)",
-  "public.get_pei_request_for_response(uuid)",
-  "public.get_thread_participants(uuid)",
-  "public.get_user_roles(uuid)",
-  "public.has_role(uuid,app_role)",
-  "public.is_own_rods_operator(uuid)",
-  "public.is_staff(uuid)",
-  "public.is_thread_participant(uuid,uuid)",
-  "public.is_truck_owner_for_operator(uuid,uuid)",
-  "public.is_valid_application_draft_token(text)",
-  "public.list_driver_contacts(uuid)",
-  "public.list_my_group_threads()",
-  "public.list_staff_auto_assigned_drivers(uuid)",
-  "public.log_pei_manual_send(uuid,timestamp with time zone,text,text)",
-  "public.log_pei_phone_attempt(uuid,timestamp with time zone,text,text)",
-  "public.mark_thread_read(uuid)",
-  "public.move_revisions_to_pending(uuid)",
-  "public.operator_awaiting_return(uuid)",
-  "public.operator_return_requested(uuid)",
-  "public.reject_application_correction(text,text,jsonb)",
-  "public.resolve_share_token(uuid)",
-  "public.resolve_short_link(text)",
-  "public.restore_applicant_pei(uuid)",
-  "public.save_application_draft(uuid,jsonb)",
-  "public.submit_application_correction(uuid,text,text,jsonb)",
-  "public.submit_application_draft(uuid,jsonb,text)",
-  "public.submit_pei_response(uuid,jsonb,jsonb,jsonb)",
-  "public.submit_pei_response(uuid,jsonb,jsonb)",
-  "public.unacked_go_live_blockers(uuid)",
+type AnonExecutableEntry = {
+  /** `public.name(argtypes)` exactly as pg_proc renders it. */
+  readonly signature: string;
+  /** Starts with `ROUTE ` or `GUARD ` — see above. Enforced by a test. */
+  readonly reason: string;
+};
+
+const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
+  // ---- Staff-only bodies. anon reaches the function and is refused. ----
+  {
+    signature: "public.add_pei_staff_note(uuid,text)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.archive_applicant_pei(uuid,text,text)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.archive_applicant_pei(uuid,text)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.restore_applicant_pei(uuid)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.log_pei_manual_send(uuid,timestamp with time zone,text,text)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.log_pei_phone_attempt(uuid,timestamp with time zone,text,text)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.get_application_pei_summary(uuid)",
+    reason:
+      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.cancel_application_correction(uuid)",
+    reason:
+      "GUARD IF NOT public.is_staff(v_actor) THEN RAISE EXCEPTION 'forbidden'; END IF; -- v_actor := auth.uid()",
+  },
+  {
+    signature: "public.submit_application_correction(uuid,text,text,jsonb)",
+    reason:
+      "GUARD IF NOT public.is_staff(v_actor) THEN RAISE EXCEPTION 'forbidden'; END IF; -- v_actor := auth.uid()",
+  },
+  {
+    signature: "public.move_revisions_to_pending(uuid)",
+    reason:
+      "GUARD IF NOT public.is_staff(v_actor) THEN RAISE EXCEPTION 'not_authorized'; END IF;",
+  },
+  {
+    signature: "public.get_equipment_shipping_for_operator(uuid)",
+    reason:
+      "GUARD IF NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.id = p_operator_id AND o.user_id = auth.uid()) AND NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
+  },
+  {
+    signature: "public.get_or_create_short_link(text)",
+    reason:
+      "GUARD IF auth.uid() IS NULL THEN RAISE EXCEPTION 'authentication required' USING ERRCODE = 'P0051'; END IF;",
+  },
+  {
+    signature: "public.list_my_group_threads()",
+    reason:
+      "GUARD self-scoped: WHERE tp.user_id = auth.uid() — a null auth.uid() matches no thread_participants row, so anon gets an empty set.",
+  },
+  {
+    signature: "public.mark_thread_read(uuid)",
+    reason:
+      "GUARD self-scoped: UPDATE ... WHERE thread_id = _thread_id AND user_id = auth.uid() — anon updates zero rows.",
+  },
+  {
+    signature: "public.is_staff(uuid)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx) — evaluated FOR anon by the TO-public 'Staff can insert applications' WITH CHECK on public.applications, the TO-public 'Staff can view all FAQs' USING clause on public.faq, and by validate_public_application_insert(), a NON-definer trigger that runs as the inserting role. Revoking anon here returns 42501 on the public application form. Returns a boolean only.",
+  },
+
+  // ---- Token-gated public routes. ----
+  {
+    signature: "public.approve_application_correction(text,text,text,jsonb)",
+    reason:
+      "ROUTE /application/approve via supabase/functions/respond-application-correction/index.ts. GUARD token lookup then IF NOT FOUND THEN RAISE EXCEPTION 'invalid_token'; plus not_pending and expired checks.",
+  },
+  {
+    signature: "public.reject_application_correction(text,text,jsonb)",
+    reason:
+      "ROUTE /application/approve via supabase/functions/respond-application-correction/index.ts. GUARD IF NOT FOUND THEN RAISE EXCEPTION 'invalid_token'; and IF v_req.status <> 'pending' THEN RAISE EXCEPTION 'not_pending';",
+  },
+  {
+    signature: "public.get_application_correction_by_token(text)",
+    reason:
+      "ROUTE /application/approve (src/pages/ApplicationApprove.tsx). GUARD WHERE r.token = p_token — returns nothing without the token, and only the fields that page renders.",
+  },
+  {
+    signature: "public.get_pei_request_for_response(uuid)",
+    reason:
+      "ROUTE /pei/respond (src/pages/PEIRespond.tsx). GUARD WHERE pr.response_token = p_token, then IF NOT FOUND THEN RETURN;",
+  },
+  {
+    signature: "public.submit_pei_response(uuid,jsonb,jsonb,jsonb)",
+    reason:
+      "ROUTE /pei/respond (src/pages/PEIRespond.tsx). GUARD WHERE response_token = p_token, then IF NOT FOUND THEN RAISE EXCEPTION 'invalid_token';",
+  },
+  {
+    signature: "public.submit_pei_response(uuid,jsonb,jsonb)",
+    reason:
+      "ROUTE /pei/respond (src/pages/PEIRespond.tsx), prior overload kept for cached bundles. GUARD IF NOT FOUND THEN RAISE EXCEPTION 'invalid_token';",
+  },
+  {
+    signature: "public.resolve_short_link(text)",
+    reason:
+      "ROUTE /s/:code (src/pages/ShortLinkRedirect.tsx). GUARD WHERE code = _code — returns only the share token the code stands for, nothing else.",
+  },
+  {
+    signature: "public.resolve_share_token(uuid)",
+    reason:
+      "ROUTE /inspect/:token (src/pages/InspectionSharePage.tsx). GUARD delegates to public._share_token_gate(p_token) and returns 'throttled' or nothing unless the gate returns 'ok'.",
+  },
+  {
+    signature: "public.get_inspection_doc_by_token(uuid)",
+    reason:
+      "ROUTE /inspect/:token, legacy delegator kept for stale cached bundles (§8). GUARD it is a thin SELECT over public.resolve_share_token(p_token), so the same gate applies.",
+  },
+  {
+    signature: "public.save_application_draft(uuid,jsonb)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx), the signed-out draft autosave. GUARD IF p_token IS NULL THEN RAISE EXCEPTION 'token_required'; and the draft row is matched on that token.",
+  },
+  {
+    signature: "public.submit_application_draft(uuid,jsonb,text)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx), the signed-out submit. GUARD IF p_token IS NULL THEN RAISE EXCEPTION 'token_required'; and WHERE draft_token = p_token::text.",
+  },
+  {
+    signature: "public.get_application_by_draft_token(uuid)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx) rehydrating a draft. GUARD WHERE draft_token = p_token AND is_draft = true. KNOWN SENSITIVITY (finding 4.2, 2026-09-03): it returns SETOF applications — every column — to anyone holding the token.",
+  },
+  {
+    signature: "public.is_valid_application_draft_token(text)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx) — the draft-token probe. GUARD WHERE a.draft_token::text = _token AND a.is_draft = true; returns a boolean and nothing else.",
+  },
+  {
+    signature: "public.consume_application_resume_token(text)",
+    reason:
+      "ROUTE the emailed resume link via supabase/functions/consume-application-resume/index.ts. GUARD the token is looked up, checked for expiry, and accepted a second time only inside the 30-minute idempotent reuse window added 2026-09-03.",
+  },
+  {
+    signature: "public.check_application_email_taken(text)",
+    reason:
+      "ROUTE /apply (src/pages/ApplicationForm.tsx) — tells the applicant an application already exists for the address. GUARD none; returns a single boolean. KNOWN SENSITIVITY: permits email enumeration, one address per call.",
+  },
   // Token-gated public endpoints, verified 2026-08-20 by reading each body.
-  // get_ica_review_link: /ica-review/:token (IcaReview.tsx). Looks the token up
-  // in ica_review_links and returns {valid:false} when missing, revoked, or
-  // expired; exposes only recipient name, note, and expiry — no financial data.
-  "public.get_ica_review_link(text)",
-  // get_share_bundle_meta / resolve_share_bundle: /binder-share/:token
-  // (BinderShareBundlePage.tsx). Both filter on the bundle token AND
-  // expires_at > now(), and return nothing at all when either fails.
-  "public.get_share_bundle_meta(uuid)",
-  "public.resolve_share_bundle(uuid)",
+  {
+    signature: "public.get_ica_review_link(text)",
+    reason:
+      "ROUTE /ica-review/:token (src/pages/IcaReview.tsx). GUARD looks the token up in ica_review_links and returns {valid:false} when missing, revoked or expired; exposes recipient name, note and expiry only — no financial data.",
+  },
+  {
+    signature: "public.get_share_bundle_meta(uuid)",
+    reason:
+      "ROUTE /binder-share/:token (src/pages/BinderShareBundlePage.tsx). GUARD filters on the bundle token AND expires_at > now(), returning nothing when either fails.",
+  },
+  {
+    signature: "public.resolve_share_bundle(uuid)",
+    reason:
+      "ROUTE /binder-share/:token (src/pages/BinderShareBundlePage.tsx). GUARD filters on the bundle token AND expires_at > now(), returning nothing when either fails.",
+  },
 ];
+
+const KNOWN_ANON_EXECUTABLE: readonly string[] =
+  KNOWN_ANON_EXECUTABLE_ENTRIES.map((e) => e.signature);
 
 /**
  * Asserted, not advisory. Adding an entry to the list above requires editing
@@ -132,10 +265,12 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
 // 58 minus the four whose creating-migration REVOKE the platform re-grant had
 // undone (discard_rods_amendment, log_ica_event, match_staff_help_knowledge,
 // revoke_share_token), re-asserted 2026-08-03 and re-read live.
-// 54 + the three token-gated public endpoints registered 2026-08-20
-// (get_ica_review_link, get_share_bundle_meta, resolve_share_bundle), minus the
-// seven entries no longer anon-executable, removed in the same 2026-08-20 pass.
-const KNOWN_ANON_EXECUTABLE_MAX = 48;
+// 54 + the three token-gated public endpoints registered 2026-08-20, minus the
+// seven entries no longer anon-executable, removed in the same pass = 48.
+// 48 - 2 (get_pei_requests_needing_action, email_queue_dispatch, revoked
+// 2026-09-03) = 46, - 13 class-(c) helpers revoked 2026-09-03 = 33.
+const KNOWN_ANON_EXECUTABLE_MAX = 33;
+
 
 
 /**
@@ -173,11 +308,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // are in docs/deferred-removals.md.
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)",
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb,jsonb)",
-  // HEIC path: both gained p_display_document_path / p_display_conversion_failed.
-  // Definer because they enforce the record_source and source_document_path
-  // guards that a direct table write would bypass; a driver may only reach
-  // their own operator row through them.
-  "public.create_eld_document_day(uuid,date,text,jsonb,uuid,text,boolean)",
+  // create_eld_document_day / replace_rods_document (HEIC signatures) are
+  // GONE: no function of either name exists live (pg_proc, 2026-09-03). Both
+  // entries removed and the MAX lowered, because a ceiling inflated by dead
+  // entries hides real growth.
+
   "public.discard_rods_amendment(uuid)",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
@@ -219,7 +354,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
-  "public.replace_rods_document(uuid,text,text,uuid,text,boolean)",
+  // replace_rods_document removed 2026-09-03: no live function of that name.
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
@@ -453,7 +588,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   company settlement. Management or owner in the body, actor stamped, paid
 //   months refused, and the payload refused when its rates, arithmetic or load
 //   set do not follow from the record.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
+// - email_queue_dispatch() (2026-09-03), revoked to service_role only: 113 -> 112.
+// - create_eld_document_day(...) and replace_rods_document(...) (2026-09-03),
+//   neither exists live any more: 112 -> 110.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 110;
+
 
 
 
@@ -616,6 +755,29 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
       "duplicate entries in KNOWN_ANON_EXECUTABLE",
     ).toEqual([]);
   });
+
+  it("every anon-executable entry carries a justification", () => {
+    // WHY THIS EXISTS. Membership proved only that the set had not grown.
+    // get_pei_requests_needing_action() was a registered member for four
+    // months while returning applicant names and prior-employer contact
+    // emails to any unauthenticated caller. Nobody reviewed it because
+    // nothing forced anyone to write down why anon may call it.
+    const bad = KNOWN_ANON_EXECUTABLE_ENTRIES.filter((e) => {
+      const reason = (e.reason ?? "").trim();
+      if (!/^(ROUTE|GUARD) /.test(reason)) return true;
+      // A prefix with nothing after it is not a justification.
+      return reason.replace(/^(ROUTE|GUARD) /, "").length < 20;
+    }).map((e) => e.signature);
+
+    expect(
+      bad,
+      `KNOWN_ANON_EXECUTABLE entr(y|ies) without a usable justification. ` +
+        `Every entry's reason must begin with "ROUTE " -- naming the ` +
+        `unauthenticated route AND the file that calls it -- or "GUARD " -- ` +
+        `quoting the in-body check that refuses anon:\n  ${bad.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
 
   itLive(
     "every SECURITY DEFINER function in public pins search_path",
