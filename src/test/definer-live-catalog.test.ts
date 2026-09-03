@@ -308,11 +308,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // are in docs/deferred-removals.md.
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb)",
   "public.certify_rods_day(uuid,text,text,text,text,uuid,jsonb,jsonb)",
-  // HEIC path: both gained p_display_document_path / p_display_conversion_failed.
-  // Definer because they enforce the record_source and source_document_path
-  // guards that a direct table write would bypass; a driver may only reach
-  // their own operator row through them.
-  "public.create_eld_document_day(uuid,date,text,jsonb,uuid,text,boolean)",
+  // create_eld_document_day / replace_rods_document (HEIC signatures) are
+  // GONE: no function of either name exists live (pg_proc, 2026-09-03). Both
+  // entries removed and the MAX lowered, because a ceiling inflated by dead
+  // entries hides real growth.
+
   "public.discard_rods_amendment(uuid)",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
