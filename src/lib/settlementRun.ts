@@ -195,7 +195,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .not('operator_id', 'is', null)
       .gte('invoice_date', period.periodStart)
       .lte('invoice_date', period.periodEnd),
-    sb.from('deductions').select('id, operator_id, label, amount, is_active, start_payday, end_payday').eq('is_active', true),
+    sb.from('deductions').select('id, operator_id, label, amount, is_active, is_recurring, start_payday, end_payday').eq('is_active', true),
     sb.from('cash_advances').select('id, operator_id, remaining_balance, repayment_status'),
     sb.from('rm_deposits').select('id, operator_id, current_balance, target_amount, weekly_deduction, is_paused'),
     sb.from('settlements')
