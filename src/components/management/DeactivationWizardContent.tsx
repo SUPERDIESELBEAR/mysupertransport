@@ -340,6 +340,9 @@ export function DeactivationWizardContent({
     setDeactivationDate(new Date().toISOString().slice(0, 10));
     setEffectiveTerminationDate(new Date().toISOString().slice(0, 10));
     setSafetySent(false);
+    setSafetySentTo([]);
+    setSafetyConsultantIncluded(true);
+
     setTerminationCreated(false);
     setExistingTerminationId(null);
     setIcaVoided(false);
