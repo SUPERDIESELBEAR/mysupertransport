@@ -12,7 +12,7 @@
  * Wednesday) and runs seven days, ending 23:59 on the seventh. Payday is the
  * Tuesday two weeks after the week ends — end + 14 days.
  */
-import { isoToNaive } from '@/lib/carrierTimezone';
+import { isoToNaive, naiveToIso } from '@/lib/carrierTimezone';
 
 export interface WorkPeriod {
   /** "YYYY-MM-DD", the first day of the work week, carrier zone. */
@@ -95,4 +95,57 @@ export function deliveredInPeriod(
   const date = carrierDateOf(deliveredAtIso);
   if (!date) return false;
   return date >= period.periodStart && date <= period.periodEnd;
+}
+
+/**
+ * CARRIER-ZONE MONTH ARITHMETIC.
+ *
+ * Added beside `monthOf` and `inCalendarMonth` for the same reason they live
+ * here: UTC runs ahead of Central, so for roughly five hours at the start of
+ * each month "this month" read in UTC is a month that has not started yet in
+ * Pleasant Hill. On 1 September at 02:00 UTC it is still 31 August there. A
+ * consumer computing that locally is exactly the defect this file exists to
+ * prevent.
+ */
+
+/** The 'YYYY-MM' it is RIGHT NOW in the carrier timezone. */
+export function currentCarrierMonth(now: Date = new Date()): string {
+  return monthOf(now);
+}
+
+/** 'YYYY-MM' shifted by whole months. `shiftMonth('2026-01', -1)` → '2025-12'. */
+export function shiftMonth(month: string, delta: number): string {
+  const [y, m] = month.split('-').map(Number);
+  if (!y || !m) return month;
+  const d = new Date(Date.UTC(y, m - 1 + delta, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * The instant a carrier-zone month BEGINS, as an ISO string.
+ *
+ * For query boundaries against instant columns (`delivered_at`). Midnight on
+ * the first, carrier zone — not midnight UTC, which is the previous evening
+ * there and would drag in loads from the prior month.
+ */
+export function carrierMonthStartIso(month: string): string {
+  return naiveToIso(`${month}-01T00:00`);
+}
+
+/** N whole months back from the current carrier month, as 'YYYY-MM'. */
+export function carrierMonthsAgo(n: number, now: Date = new Date()): string {
+  return shiftMonth(currentCarrierMonth(now), -n);
+}
+
+/**
+ * 'YYYY-MM' from a DATE-typed column value such as `period_month`.
+ *
+ * NOT a timezone conversion, and deliberately not dressed up as one: a
+ * Postgres DATE arrives as 'YYYY-MM-DD' with no instant and no zone, so there
+ * is nothing to convert. It lives here because the source guard bans month
+ * arithmetic in consumers outright, and the honest way to satisfy that is to
+ * name the operation once, here, rather than to exempt the consumer.
+ */
+export function monthFromDateString(dateValue: string): string {
+  return String(dateValue).slice(0, 7);
 }

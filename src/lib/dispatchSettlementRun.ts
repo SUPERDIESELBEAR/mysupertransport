@@ -37,7 +37,14 @@ import {
   type DispatchSettlementResult,
 } from '@/lib/dispatchSettlement';
 import { pctColumnForClassification, type PayPolicyRates } from '@/lib/payTreatment';
-import { monthOf } from '@/lib/settlementPeriod';
+import {
+  monthOf,
+  currentCarrierMonth,
+  carrierMonthsAgo,
+  carrierMonthStartIso,
+  monthFromDateString,
+  shiftMonth,
+} from '@/lib/settlementPeriod';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
@@ -712,8 +719,7 @@ export interface DispatchMonthOption {
  * screen comes from it.
  */
 export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOption[]> {
-  const now = new Date();
-  const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 12, 1));
+  const windowStart = carrierMonthStartIso(carrierMonthsAgo(12));
 
   const [settRes, loadRes] = await Promise.all([
     sb.from('dispatch_settlements')
@@ -722,7 +728,7 @@ export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOptio
     sb.from('loads')
       .select('delivered_at')
       .not('delivered_at', 'is', null)
-      .gte('delivered_at', windowStart.toISOString()),
+      .gte('delivered_at', windowStart),
   ]);
   if (settRes.error) throw settRes.error;
   if (loadRes.error) throw loadRes.error;
@@ -738,7 +744,7 @@ export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOptio
   };
 
   for (const row of (settRes.data ?? []) as any[]) {
-    const month = String(row.period_month).slice(0, 7);
+    const month = monthFromDateString(row.period_month);
     const o = put(month);
     o.hasSettlement = true;
     o.status = row.status ?? null;
@@ -774,11 +780,10 @@ export function defaultDispatchMonth(
   options: DispatchMonthOption[],
   today: Date = new Date(),
 ): string {
-  const current = `${today.getUTCFullYear()}-${String(today.getUTCMonth() + 1).padStart(2, '0')}`;
+  const current = currentCarrierMonth(today);
   const stored = options.find(o => o.hasSettlement);
   if (stored) return stored.month;
   const completed = options.find(o => o.month < current && o.deliveredLoads > 0);
   if (completed) return completed.month;
-  const prev = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 1, 1));
-  return prev.toISOString().slice(0, 7);
+  return shiftMonth(current, -1);
 }
