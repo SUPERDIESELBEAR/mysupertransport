@@ -294,6 +294,8 @@ the tree, walks the import graph out from the create path
 fails when a tagged function is not called anywhere reachable from either.
 **A new check is not done until it is tagged and the wiring test passes.**
 
+**Eighth recorded instance, but a different variety.** The first seven were correct code that nothing called; this pass found the opposite shape: correct code that WAS called, then silently overridden by a second correct implementation written for a different purpose. The `start_payday`/`end_payday` window for recurring deductions was right, and the unbounded `settledSources` exclusion was right for stopping a one-time deduction from being charged twice — but the second correct rule defeated the first. The first variety is found by asking "does anything call this?"; the second is found by asking "does anything else override this?". No current test or review habit in this project asks the second question.
+
 ## Known revision-path gaps (deferred, not forgotten)
 
 The revision path does not yet do these things the create path does:
