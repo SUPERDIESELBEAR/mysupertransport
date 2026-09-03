@@ -1,201 +1,235 @@
-# Dispatch company settlement — design proposal
+# Resume-link "already used" — read-only investigation
 
-Design only. No code, no migrations. Every schema claim below comes from a live
-catalog query, named inline. Function bodies were read from `pg_get_functiondef`
-in the live catalog after listing every migration that defines them
-(`store_settlement_run`: 2 migrations, newest `20260901113705`;
-`enforce_settlement_immutability`: 2, newest `20260901113215`).
+Report only. Nothing was changed.
 
-Queries used: (Q1) `information_schema.columns` for `settlements`,
-`settlement_line_items`, `settlement_withheld_loads`, `settlement_settings`,
-`settlement_settings_history`, `pay_policies`, `load_charges`; (Q2)
-`pg_constraint` + `pg_get_constraintdef` for those tables and `loads`; (Q3)
-`pg_policies` for the four settlement tables; (Q4) `pg_proc` (`prosecdef`,
-`proconfig`, `has_function_privilege`, `pg_get_functiondef`).
+## 1. The token mechanism
 
-## 1. Tables
+`consume_application_resume_token(p_token text)` is defined in exactly **one** migration:
+`supabase/migrations/20260421161507_1a3e4dd0-f7c2-4200-9c38-986724be54eb.sql`. The live
+catalog definition (`pg_get_functiondef`) is byte-identical to it: `SECURITY DEFINER`,
+`SET search_path TO 'public'`, `plpgsql`.
 
-**`dispatch_settlements`** — one row per calendar month.
+What it does, in order:
 
-- `id uuid pk default gen_random_uuid()`
-- `period_month date NOT NULL` — first day of the month; `CHECK (extract(day from period_month) = 1)`
-- `payee_key text NOT NULL DEFAULT 'dispatch_company'` with `CHECK (payee_key = 'dispatch_company')`
-- `status dispatch_settlement_status NOT NULL DEFAULT 'draft'` (section 2)
-- `eligible_base numeric NOT NULL DEFAULT 0`
-- `factoring_pct numeric NOT NULL`, `dispatch_pct numeric NOT NULL` — the rates **as applied**, copied onto the row
-- `factoring_reduction numeric NOT NULL DEFAULT 0`, `reduced_base numeric NOT NULL DEFAULT 0`, `dispatch_fee numeric NOT NULL DEFAULT 0`
-- `deductions_amount numeric NOT NULL DEFAULT 0`, `net_amount numeric NOT NULL DEFAULT 0`
-- `computed_at timestamptz`, `approved_at/by`, `paid_at`, `notes text`
-- `created_at/updated_at/created_by/updated_by` (`profiles(id) ON DELETE SET NULL`)
-- `UNIQUE (payee_key, period_month)`
+1. Looks the token up by primary key; missing -> `invalid_token`.
+2. `used_at IS NOT NULL` -> `token_used`.
+3. `expires_at < now()` -> `token_expired`.
+4. **Writes `used_at = now()`** — before it has looked at the application at all.
+5. Only then reads `applications` for `draft_token` where `is_draft = true`; if that
+   fails -> `application_not_found`.
 
-**`dispatch_settlement_line_items`** — every amount, one line, mirroring the
-driver-side principle that the net is the sum of the lines.
+Two consequences follow from that ordering:
 
-- `id`, `dispatch_settlement_id uuid NOT NULL REFERENCES dispatch_settlements(id) ON DELETE CASCADE`
-- `line_type text NOT NULL CHECK (line_type IN ('load_base','factoring_reduction','dispatch_fee','flat_deduction','one_off'))`
-- `amount numeric NOT NULL` (signed)
-- `description text NOT NULL`
-- `load_id uuid REFERENCES loads(id) ON DELETE RESTRICT`
-- `dispatcher_id uuid REFERENCES profiles(id) ON DELETE SET NULL` — attribution copy, visibility only (4.6)
-- `deduction_id uuid REFERENCES dispatch_deductions(id) ON DELETE RESTRICT`
-- `created_at`, `created_by`
-- `CHECK (line_type <> 'one_off' OR load_id IS NOT NULL)` — section 4's load-reference requirement as a **database constraint**, not a convention
-- `CHECK (line_type <> 'load_base' OR load_id IS NOT NULL)`
-- `UNIQUE (dispatch_settlement_id, line_type, load_id)` for `load_base` via a partial unique index — one base line per load per month
+- The token is burned on the *attempt*, not on a successful delivery to the browser. If
+  the caller never receives the response — closed tab, dropped connection, back button
+  mid-request — the token is spent anyway.
+- If the application is no longer a draft (already submitted), the exception at step 5
+  rolls the transaction back, so `used_at` is *not* persisted in that one case. In every
+  other path where the token is found, valid and unexpired, it is consumed.
 
-**`dispatch_settlement_load_contributions`** (optional but proposed) — per-load
-base breakdown: header component, charges included, charges excluded with the
-resolved percentage that excluded them. Rejected alternative: folding this into
-`description` text. Rejected because the exclusion predicate (4.3) is the part
-most likely to be wrong and a diagnostic must be queryable, not parsed.
+**No reuse is possible under any condition.** There is no grace window, no session
+binding, no counter — a single `used_at` timestamp, checked strictly for NULL.
 
-**`dispatch_deductions`** — DAT, phone service: `id`, `label text NOT NULL`,
-`amount numeric NOT NULL CHECK (amount >= 0)`, `is_active boolean NOT NULL DEFAULT true`,
-`effective_from date NOT NULL`, `effective_to date`, attribution columns.
+`application_resume_tokens` (live `information_schema`):
 
-**Borrowed from the driver side** (Q1/Q2/Q3): the every-amount-is-a-line-item
-shape of `settlement_line_items`; `created_by/updated_by → profiles(id)`; the
-`has_role(auth.uid(),'management'|'owner')` ALL policy plus a separate read
-policy; a status column driving immutability.
+| column | type | null | default |
+|---|---|---|---|
+| token | text | NO | — (PRIMARY KEY) |
+| application_id | uuid | NO | — |
+| email | text | NO | — |
+| expires_at | timestamptz | NO | — |
+| used_at | timestamptz | YES | — |
+| created_at | timestamptz | NO | now() |
 
-**Deliberately NOT borrowed:** `settlements.operator_id` (NOT NULL, cascade FK
-to `operators`) and its `UNIQUE (operator_id, period_start)` — replaced by
-`UNIQUE (payee_key, period_month)`; `carry_forward_in/out`, `hold_*`,
-`below_threshold_*`, `payday` as a driver-cycle date — none apply (4.8);
-`settlement_line_items.source_table` CHECK (Q2 confirms its seven values are
-driver-side) — replaced by explicit typed FK columns, which is stronger than a
-text discriminator; `settlement_withheld_loads` entirely — there is no per-load
-paperwork hold on the vendor side.
+Constraints (`pg_constraint`): primary key on `token`, foreign key
+`application_id -> applications(id) ON DELETE CASCADE`. **No check constraints, no unique
+constraint other than the PK, no partial index enforcing one live token per email.**
+Expiry is data-only: `expires_at` is set by the issuing edge function (24h for the
+self-service resume request, 24h–7d for the staff resend depending on status) and read
+only inside the function above. Nothing purges used or expired rows.
 
-**Vendor identity.** Proposed: a **constrained singleton payee key**
-(`payee_key` with a one-value CHECK) rather than a `vendors` table or an
-unkeyed singleton. Rejected `vendors` table: it invents a directory nothing
-populates and no rule references. Rejected bare singleton (one row, no key):
-the month is already the natural key and a payee column makes the eventual
-second vendor a CHECK relaxation plus a unique index that is already correct,
-not a table redesign.
+Grants (live): `anon` and `authenticated` have **no** table privileges on
+`application_resume_tokens`; `anon` **can** EXECUTE `consume_application_resume_token`.
+That matches the comment in `RevertRevisionModal.tsx:57`.
 
-## 2. Status
+## 2. What the token grants
 
-`dispatch_settlement_status` — new enum, not `settlement_status` (4.8; two of
-its five members are unreachable here per 4.7).
+The resume token itself grants nothing directly. It is exchanged, once, for the
+application's `draft_token`, and that is the real credential. `draft_token` is
+long-lived, never rotated, and is what sits in `localStorage` under
+`supertransport_draft_token`.
 
-| Member | Transition cause | Who |
-|---|---|---|
-| `draft` | the writer computes a month | management/owner |
-| `approved` | figures reviewed and accepted | management/owner |
-| `paid` | payment issued (on or around the 10th) | management/owner |
-| `void` | a draft or approved month is abandoned | owner |
+With a `draft_token` the holder can:
 
-Rejected: a `processing` member — that word is driver-facing vocabulary with a
-defined meaning; reusing it invites confusion. Rejected: allowing `paid → void`.
+- **Read** — `get_application_by_draft_token(uuid)`, `SECURITY DEFINER`, executable by
+  `anon`, returns `SETOF applications` — i.e. **every one of the 82 columns** of that
+  one row, restricted only to `is_draft = true`. That includes `dob`, full address and
+  address history, `cdl_number`, employment history, accident/violation history,
+  `signature_image_url`, the document URLs, and `ssn_encrypted`.
+- **Write** — `save_application_draft(uuid, jsonb)` overwrites the applicant's own
+  fields, and `submit_application_draft` submits it. `save_application_draft` refuses if
+  the row is already `is_draft = false` (`cannot_edit_submitted_application`).
 
-## 3. Configuration
+On the encryption requirement: the SSN column is `ssn_encrypted` — the plaintext is not
+in the row, and decryption goes through the separate `decrypt-ssn` function, which this
+path does not call. So the build doc's encryption requirement does hold for what the
+token reaches. Everything *else* on that row — DOB, CDL number, addresses, signature
+image URL — is plaintext and fully readable. That is the exposure a wider reuse window
+would widen.
 
-**`dispatch_settlement_rates`** — versioned, not a singleton:
-`id`, `dispatch_pct numeric NOT NULL CHECK (dispatch_pct >= 0 AND dispatch_pct <= 100)`,
-`factoring_pct numeric NOT NULL CHECK (...)`, `effective_from date NOT NULL`,
-`effective_to date`, `CHECK (effective_to IS NULL OR effective_to > effective_from)`,
-plus attribution and a history table mirroring `settlement_settings_history`
-(Q1: field/previous/new/changed_by/changed_at).
+Note also: `anon` has **no** direct SELECT on `applications`; all of this flows through
+the two DEFINER functions.
 
-Versioning is by effective-dating **plus** copying the applied rates onto
-`dispatch_settlements` (`dispatch_pct`, `factoring_pct`). Rejected: rates on a
-singleton like `settlement_settings` (Q1 confirms it has no home for them) —
-a rate change would retroactively alter a settled month on re-read. Belt and
-braces is deliberate: the effective-dated row explains *why*, the copied
-columns guarantee the settled figure never moves.
+## 3. Why it is burned so easily
 
-One-offs are `line_type = 'one_off'` rows with the `load_id NOT NULL` CHECK
-above. Rejected: a `dispatch_deductions` row flagged one-off — a recurring
-table with a one-shot flag drifts.
+Path, from the emailed link:
 
-## 4. What is shared, what is not
+1. Email links to `https://mysupertransport.lovable.app/apply?resume=<token>` (confirmed
+   from `email_send_log.metadata.resume_url`).
+2. `/apply` mounts `ApplicationForm`. In the mount effect (`ApplicationForm.tsx:202`), if
+   `?resume` is present it **immediately** invokes `consume-application-resume`.
+3. Only in the `.then()` — *after* the round trip — is `?resume` stripped
+   (`:210-212`) and `draft_token` written to `localStorage` (`:227`), then the draft is
+   loaded.
 
-Read today (files, not migrations):
+So the ordering is: consume -> respond -> strip param -> write localStorage. Every
+window before the response lands is a window in which the token is spent and the browser
+has kept nothing.
 
-- `src/lib/settlementPeriod.ts` — `carrierDateOf`, `workPeriodForDate`, `deliveredInPeriod` (already pure).
-- `src/lib/payTreatment.ts` — `payClassOf`, `PCT_FIELD`, `PayPolicyRates`, `fetchEffectivePayPolicy`.
-- `src/lib/settlementEngine.ts` — carries its **own second copy** of `PCT_FIELD` (lines 271–281) and `resolveEffectivePolicy`.
+Consuming paths:
 
-Proposed extraction:
+- **Initial load** — consumes. Intended.
+- **Refresh immediately after a successful load** — the URL has already been rewritten by
+  `setSearchParams(..., { replace: true })`, so a refresh reloads `/apply` *without*
+  `?resume` and falls through to the `localStorage` branch at `:233`. **Not** locked out,
+  provided localStorage survived. If the applicant is in a private window, has storage
+  cleared on close, or is on an iOS browser that evicts it, the fallback is gone and the
+  original link — which their email still shows — now fails.
+- **Back-navigation** to the pre-strip history entry: because the strip uses `replace`,
+  the `?resume` entry is replaced rather than pushed, so ordinary Back does not re-hit it.
+  But a re-tap of the *email link* does, and that is what an applicant naturally does.
+- **A second tap on the link** — always fails. This is the single most likely cause of the
+  reported symptom.
+- **Prefetch / link scanning** — yes, and this is the serious one. The endpoint is a POST
+  to an edge function, so a plain `GET` prefetch of the URL does not by itself consume.
+  But a scanner or preview bot that *renders* the page (Outlook Safe Links rendering,
+  some mobile mail previews, corporate URL detonation) executes the mount effect and
+  burns the token with no human present. `consume-application-resume` has
+  `verify_jwt = false` and applies no rate limit, no bot check, and no user-gesture
+  requirement.
 
-- `carrierDateOf` gains `monthOf(iso): string` (`YYYY-MM`) and `inCalendarMonth(iso, month)` in `settlementPeriod.ts`. The dispatch path calls these; nothing else moves.
-- The duplicate `PCT_FIELD` in `settlementEngine.ts` is deleted and both paths import one map plus a new `pctForClassification(klass, policy): number | null` from `payTreatment.ts`. `resolveEffectivePolicy` moves to `payTreatment.ts`; `settlementEngine.ts` re-exports it so no call site breaks.
-- `computeSettlement` stays where it is and is not extracted (4.7). A new pure `computeDispatchSettlement` lives in `src/lib/dispatchSettlement.ts`.
+Supporting evidence from the data: **30 of 38** used tokens were consumed within two
+minutes of being created, and **22** tokens were superseded by a later token for the same
+email — the pattern of an applicant repeatedly asking for a new link because the previous
+one stopped working.
 
-**How a test asserts the call rather than the re-derivation.** Three layers,
-because intent is not evidence: (a) a spy test — `vi.mock` the shared module and
-assert `pctForClassification` / `inCalendarMonth` were invoked with the expected
-arguments during a dispatch computation, failing if the count is zero; (b) a
-source guard in `src/test/` asserting `dispatchSettlement.ts` contains no
-literal `_pct` string, no `new Date(` on a delivery value, and no month
-arithmetic outside the shared import; (c) a behavioural coupling test — flip
-`detention_pct` from 100 to 72 in the fixture policy and assert the dispatch
-base **changes**, which a re-derived hardcoded list cannot pass.
+**Plainly stated:** a user who refreshes immediately after a successful load is *usually*
+fine, because localStorage carries them. A user who taps the email link a second time —
+or whose mail client rendered it first — is locked out, and the message they get sends
+them back to the home page to request yet another link.
 
-## 5. The base predicate
+## 4. What happens to the applicant now
 
-Per load, columns from Q1 on `loads`:
+- The applicant sees a dead end with a hint: *"This resume link has already been used.
+  Request a new one from the home page if needed."* (`ApplicationForm.tsx:221`). There is
+  no in-page retry, no email box, no link to the resume dialog — they must find
+  `/welcome` themselves and use the "Pick up where you left off" dialog
+  (`ResumeApplicationDialog`), which is rate-limited to 3 requests per email per hour.
+- **Staff can reissue.** `EmailLogPanel.tsx:442` exposes a resend that calls
+  `resend-application-link`, minting a fresh token (24h–7d) without bumping the revision
+  count. So there is a UI, not only a database write — but it is in a management panel,
+  not surfaced to the applicant.
+- Old tokens are never invalidated when a new one is issued, except deliberately via
+  `RevertRevisionModal`, which uses `count_unused_resume_tokens` and invalidates unused
+  links on revert.
 
-- Eligibility (4.1): `delivered_at IS NOT NULL` AND `carrierDateOf(delivered_at)` falls in the month AND `status NOT IN ('tonu','cancelled')`. Timezone is `America/Chicago` via `isoToNaive` (`src/lib/carrierTimezone.ts`), never `new Date(v)`.
-- Header base (4.2), by `rate_type`: `flat` and `percentage_of_load` → `linehaul_rate`; `per_mile` → `rate_per_mile * loaded_miles`; `per_ton` → `rate_per_ton * confirmed_tons` (**confirmed only**; `estimated_tons` never); `load_type = 'loadout'` → `loadout_relocation_fee`.
-- FSC: add `fsc_amount` only when `fsc_bundled_into_linehaul IS FALSE` (NULL means bundled).
-- `loads.total_load_value` is never read (4.2).
-- Charges: add every `load_charges` row, then exclude when either (a) `pctForClassification(chargeClassification(charge_type), policyInForce) === 100`, reading the `*_pct` columns on `pay_policies` (Q1 confirms `detention_pct` 100, `layover_pct` 100, `lumper_reimbursement_pct` 100 by default), or (b) `payClassOf(...) === 'reimbursement'`. `charge_pay_classes` is **not** the exclusion source (4.3).
-- Then: base × factoring_pct → reduction; base − reduction → reduced base; × dispatch_pct → fee; less flat deductions; less one-offs (4.5).
+Counts, from live queries:
 
-## 6. Writer and immutability
+- `application_resume_tokens`: **50** rows total; **38** have `used_at` set; **0** are
+  currently both unused and unexpired.
+- Applications still `is_draft = true` that have at least one used token: **7** distinct
+  applicants (15 token rows). Their stalled steps: step 1, step 3 (x2), step 7 (x2), step 9.
+- Of the applicants with a used token, those who later completed by another route:
+  `emmafmueller@gmail.com`, `melindanshawn@yahoo.com`, `onmysooie@gmail.com`,
+  `mcfoyronald@gmail.com` (approved) and `j.martinez4022@yahoo.com` (denied) — all
+  submitted, i.e. they got through, generally after several tokens. The seven above did
+  not.
+- **67** draft applications are open overall.
 
-Single writer `public.compute_dispatch_settlement(p_month date, p_mode text default 'refuse')`:
+The eight rejections you cite (15:57–22:04) are consistent with the token rows for
+`rmihelitch@gmail.com` — tokens issued 2026-09-01 17:05, 2026-09-01 18:57, 2026-09-02
+17:41 and 2026-09-02 22:03, three of them consumed within a minute or so of issue, the
+application still sitting at step 3. **I could not confirm the eight events directly:**
+`consume-application-resume` returned no retrievable edge-function logs in this session,
+so the count and exact timestamps come from your report, not from a query I ran.
 
-1. `SECURITY DEFINER`
-2. `SET search_path TO 'public','extensions'`
-3. `REVOKE ALL ON FUNCTION ... FROM PUBLIC`
-4. `REVOKE EXECUTE ... FROM anon` (no public route needs it)
+## 5. The options, with their risks
 
-Authorization inside the body: `has_role(auth.uid(),'management') OR
-has_role(auth.uid(),'owner')`, raising `42501` otherwise — the same shape
-`store_settlement_run` uses (Q4). Actor from `current_profile_id()`, stamped
-server-side; the client never supplies it.
+Reported, not chosen.
 
-Idempotency: `p_mode` `refuse` (default) returns the existing row untouched;
-`replace` deletes children and rewrites, and refuses outright when status is
-`paid`. Same two-mode contract as `store_settlement_run` (Q4).
+**(a) Idempotent reuse window — accept the same token for N minutes after first use.**
+Smallest change; fixes the second-tap and the scanner-prefetch case outright. Cost: for
+N minutes, anyone who obtains the link (forwarded email, shared screenshot, mail-server
+copy, corporate archive) gets the same `draft_token` the applicant got, and with it full
+read/write on the row described in section 2. Device switching is unaffected within the
+window and unchanged outside it. The exposure scales directly with N and with how noisy
+the applicant's mailbox is.
 
-Immutability: its own trigger pair mirroring
-`enforce_settlement_immutability` / `enforce_settlement_child_immutability`
-(Q4 shows both are DEFINER, pinned, `anon_x=false`, `auth_x=false`, and gated by
-`settlement_writer_active()`). Borrowing the *approach*, not the functions — the
-driver-side ones read `settlement_status` and `settlements`. A separate
-`dispatch_settlement_writer_active()` guard keeps the two write gates from
-unlocking each other.
+**(b) Reissue a fresh token on each successful consumption** (return a new token, email or
+embed it). Keeps single-use semantics. But it does not fix the failing case: the
+applicant is holding the *email*, not the new token, so a second tap on the email still
+fails. It also does nothing about a scanner burning the first token — the fresh one goes
+somewhere the human never looks. Little gain for the reported symptom.
 
-## 7. Build order
+**(c) Session-bind on first use** — record a browser-generated nonce (or a cookie) at
+consumption and allow reuse only from that browser. Reuse becomes safe for the original
+device indefinitely, and a forwarded link is worth nothing to anyone else, which is
+strictly better than (a) on exposure. What breaks: switching devices. The applicant who
+starts on a phone and finishes on a laptop must request a new link — which is exactly
+today's behaviour for that case, so it is not a regression, but it must be messaged.
+A scanner that renders the page first would bind the token to the scanner and lock the
+human out — worse than (a) unless combined with something in (d).
 
-- **Pass 1 — schema.** Tables, enum, rates table, grants, RLS, triggers. Verified by a `settlement-foundation`-style live-catalog test asserting columns, CHECKs, grants and DEFINER protections.
-- **Pass 2 — shared extraction.** The `PCT_FIELD` de-duplication and month helpers, with the three-layer caller test from section 4. Verified by the existing engine suites staying green.
-- **Pass 3 — pure computation.** `computeDispatchSettlement` against the six seed loads: ST26056 proves the 100% detention exclusion; ST26058 the plain multi-stop case; ST26059 the per-ton confirmed-tons header; ST26060 the loadout fee and the unattributed bucket (`dispatcher_id` NULL); ST26061 exclusion by **status**; ST26063 the lumper exclusion alongside a TONU **charge** that stays in.
-- **Pass 4 — writer and persistence**, then attribution rollup that must sum to the total.
-- **Pass 5 — the management screen.**
+**(d) What the code makes natural, additionally:**
 
-## 8. What cannot be verified
+- **Require a human gesture.** Do not consume on mount. Render "Continue your
+  application" and consume on click. Kills prefetch/scanner consumption entirely, costs
+  one tap, and composes with any of the above. The mount effect at `:202-231` is the only
+  place that would change.
+- **Recoverable dead end.** On `token_used`, render the `ResumeApplicationDialog` inline
+  with the email prefilled instead of a paragraph telling them to find the home page. No
+  security change at all; turns a dead end into a 10-second recovery.
+- **Reorder the function** so `used_at` is written only after the application row is
+  successfully resolved, and stop burning the token on a request whose response never
+  arrives. Narrow, but it removes one class of silent loss.
+- **Invalidate superseded tokens** when a new one is issued for the same application. Not
+  a fix for this symptom — it reduces the count of live links in inboxes, which matters
+  more if (a) widens the window.
 
-All of this is **SEEDED-DATA EVIDENCE** and weaker than the Pratt run, per the
-verification-standard entry. Specific gaps:
+Nothing here is exclusive; (d)'s gesture requirement plus (a) with a short window, or
+(c) plus the recoverable dead end, are the natural pairings.
 
-- No month boundary: every seed `delivered_at` lands in the same month in UTC and Central, so carrier-timezone attribution is asserted but not exercised.
-- No rate change across a settled month, so the versioning in section 3 has nothing real to prove itself against.
-- No reimbursement-class charge and no driver-funded lumper, so exclusion branch (b) is fixture-only.
-- No `per_mile` load and no `percentage_of_load` load in the set, so two of the four `rate_type` branches are untested against real rows.
-- No factoring or DAT amounts confirmed against a real invoice beyond the single figure already recorded.
-- After the first green result, what stays unproven is that the exclusion predicate behaves under a *new* accessorial type configured at 100% — the automatic-drop-out intent in 4.3 — and that a second dispatcher's attribution reconciles across a month with a real volume of loads.
+## 6. What I could not establish
 
-## CONTRADICTIONS
+- The eight `token_used` responses themselves. Edge-function logs for
+  `consume-application-resume` were not retrievable, so the burst is inferred from token
+  rows and the email log, not observed.
+- Whether any specific burn was a mail-client prefetch rather than a human. The function
+  records no user agent, no IP, nothing but `used_at` — so prefetch and second-tap are
+  indistinguishable in the data. That absence is itself worth noting.
+- Whether the affected applicants abandoned or are still trying. Seven drafts sit with a
+  used token; the app records no contact attempt after that point.
 
-Two, both reportable rather than reconciled:
+One incidental observation, not part of the brief: every resume email appears **twice**
+in `email_send_log`, roughly 0.3–1.2s apart, with the same token in the URL. Whether that
+is a duplicate send or a duplicate log row, I did not establish.
 
-1. **Section 4.3 refers to "the classification-to-column mapping the engine already uses" as though it were one thing. There are two divergent copies.** `src/lib/payTreatment.ts` (`PCT_FIELD`) and `src/lib/settlementEngine.ts` lines 271–281 each define their own. They agree today, but the document's premise that a single mapping exists is not true of the code.
+## CONTRADICTIONS WITH THE RECORD
 
-2. **`pay_policies.per_ton_pct` and `pay_policies.loadout_pct` exist in the live catalog (Q1) and are read by nothing.** A grep across `src/` and `supabase/functions` finds them only in generated `types.ts`. The engine values a loadout at `linehaul_pct` and per-ton linehaul at `linehaul_pct`, not at these columns. The document lists per-ton and loadout as header components (4.2) without naming which percentage governs, so this is not a direct contradiction of a stated rule — but it is an eighth instance of the "correct implementation with no caller" pattern, sitting in the exact table this proposal reads its percentages from, and it should be resolved before Pass 3 rather than inherited.
+None found. `docs/tms-build-status.md` and `docs/tms-wish-list.md` mention
+`consume_application_resume_token` only in the DEFINER inventory and the grant-revocation
+discussion, and the live catalog matches both: the function is `SECURITY DEFINER` with
+`search_path` pinned to `public`, `anon` holds EXECUTE, and the table itself carries no
+client-role grants — exactly as the record and the `RevertRevisionModal` comment state.
+The build doc records nothing about resume-token reuse semantics, so there is nothing for
+this behaviour to contradict.
