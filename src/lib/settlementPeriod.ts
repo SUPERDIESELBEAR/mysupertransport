@@ -136,3 +136,16 @@ export function carrierMonthStartIso(month: string): string {
 export function carrierMonthsAgo(n: number, now: Date = new Date()): string {
   return shiftMonth(currentCarrierMonth(now), -n);
 }
+
+/**
+ * 'YYYY-MM' from a DATE-typed column value such as `period_month`.
+ *
+ * NOT a timezone conversion, and deliberately not dressed up as one: a
+ * Postgres DATE arrives as 'YYYY-MM-DD' with no instant and no zone, so there
+ * is nothing to convert. It lives here because the source guard bans month
+ * arithmetic in consumers outright, and the honest way to satisfy that is to
+ * name the operation once, here, rather than to exempt the consumer.
+ */
+export function monthFromDateString(dateValue: string): string {
+  return String(dateValue).slice(0, 7);
+}
