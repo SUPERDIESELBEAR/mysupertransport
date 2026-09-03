@@ -10,3 +10,9 @@
 - Pass 3: the pure `computeDispatchSettlement`, verified against the six seed loads.
 - Pass 4: the writer RPC and attribution rollup.
 - Pass 5: the management screen.
+
+## Done (2026-09-03)
+- Resume-link lockout: consume on a human gesture, 30-minute idempotent reuse window,
+  `used_at` written after the application resolves, recoverable dead end. Three findings
+  recorded as known debt (bearer `draft_token`, no consumption forensics, duplicate
+  resume-email log rows).

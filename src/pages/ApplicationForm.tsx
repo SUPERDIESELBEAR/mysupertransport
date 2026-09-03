@@ -19,6 +19,7 @@ const Step7Documents = lazyWithRetry(() => import('@/components/application/Step
 const Step8Disclosures = lazyWithRetry(() => import('@/components/application/Step8Disclosures'));
 const Step9Signature = lazyWithRetry(() => import('@/components/application/Step9Signature'));
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
+import ResumeApplicationDialog from '@/components/application/ResumeApplicationDialog';
 import { parseRetakeRequests, type RetakeRequestMap } from '@/lib/applicationDocumentRetake';
 
 const STEP_LABELS = [
@@ -85,6 +86,16 @@ export default function ApplicationForm() {
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  // Set when /apply?resume=<token> is opened. The token is NOT consumed until
+  // the applicant clicks "Continue your application" on the gate screen.
+  const [pendingResumeToken, setPendingResumeToken] = useState<string | null>(null);
+  const [consumingResume, setConsumingResume] = useState(false);
+  // Email the failed resume token was issued to, used to prefill the recovery
+  // dialog so a dead end becomes a one-tap request for a fresh link.
+  const [recoveryEmail, setRecoveryEmail] = useState<string>('');
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  // `loadDraft` is defined inside the mount effect; the gate button needs it.
+  const loadDraftRef = useRef<((token: string) => void) | null>(null);
   const [revisionMessage, setRevisionMessage] = useState<string | null>(null);
   const [showRevisionBanner, setShowRevisionBanner] = useState(false);
   const [retakeRequests, setRetakeRequests] = useState<RetakeRequestMap>({});
@@ -199,34 +210,22 @@ export default function ApplicationForm() {
       });
     };
 
+    loadDraftRef.current = loadDraft;
+
     const resumeToken = searchParams.get('resume');
     if (resumeToken) {
-      // Email-based resume: exchange the resume token for a draft_token.
-      supabase.functions
-        .invoke('consume-application-resume', { body: { token: resumeToken } })
-        .then(({ data, error }) => {
-          if (cancelled) return;
-          // Always strip the resume param from the URL so the token isn't re-used/logged.
-          const next = new URLSearchParams(searchParams);
-          next.delete('resume');
-          setSearchParams(next, { replace: true });
-
-          const draftToken = (data as { draft_token?: string } | null)?.draft_token;
-          if (error || !draftToken) {
-            const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
-            setResumeError(
-              code === 'token_expired'
-                ? 'This resume link has expired. Please request a new one from the home page.'
-                : code === 'token_used'
-                ? 'This resume link has already been used. Request a new one from the home page if needed.'
-                : 'This resume link is not valid. Please request a new one from the home page.',
-            );
-            setDraftLoaded(true);
-            return;
-          }
-          localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
-          loadDraft(draftToken);
-        });
+      // DO NOT CONSUME ON MOUNT.
+      //
+      // The resume token used to be exchanged here, in the mount effect. A mail
+      // client, Safe-Links scanner or preview bot that merely RENDERS this page
+      // therefore burned the token with no human present — four real applicants
+      // were stranded that way, one at the signature step whose only token was
+      // spent 13 seconds after it was issued.
+      //
+      // A scanner cannot click. Consumption now happens in `consumeResume`,
+      // behind a real gesture on the gate screen below. The cost is one tap.
+      setPendingResumeToken(resumeToken);
+      setDraftLoaded(true);
       return () => { cancelled = true; };
     }
 
@@ -238,7 +237,44 @@ export default function ApplicationForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Field change handler ────────────────────────────────────────────────
+  // ── Resume: consume on a human gesture ──────────────────────────────────
+  // Ordering after a successful exchange is unchanged from the old mount
+  // effect: strip ?resume, write draft_token to localStorage, then load.
+  const consumeResume = useCallback(async () => {
+    const resumeToken = pendingResumeToken;
+    if (!resumeToken || consumingResume) return;
+    setConsumingResume(true);
+    const { data, error } = await supabase.functions.invoke('consume-application-resume', {
+      body: { token: resumeToken },
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('resume');
+    setSearchParams(next, { replace: true });
+    setPendingResumeToken(null);
+
+    const draftToken = (data as { draft_token?: string } | null)?.draft_token;
+    if (error || !draftToken) {
+      const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
+      const emailForRecovery = (data as any)?.email || (error as any)?.context?.email || '';
+      setRecoveryEmail(typeof emailForRecovery === 'string' ? emailForRecovery : '');
+      setResumeError(
+        code === 'token_expired'
+          ? 'This resume link has expired.'
+          : code === 'token_used'
+          ? 'This resume link has already been used.'
+          : 'This resume link is not valid.',
+      );
+      setConsumingResume(false);
+      setDraftLoaded(true);
+      return;
+    }
+    localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
+    setDraftLoaded(false);
+    loadDraftRef.current?.(draftToken);
+    setConsumingResume(false);
+  }, [pendingResumeToken, consumingResume, searchParams, setSearchParams]);
+
   // ── Field change handler ────────────────────────────────────────────────
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -705,6 +741,40 @@ export default function ApplicationForm() {
     );
   }
 
+  // ── Resume gate: consume only on a click ────────────────────────────────
+  // Rendering this screen must have NO side effect on the token. Everything
+  // that spends it lives in the button's handler.
+  if (pendingResumeToken) {
+    return (
+      <div className="min-h-dvh bg-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
+          </div>
+          <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-gold" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-2">Welcome back</h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Your driver application is saved and ready. Tap below to pick up where you left off.
+            </p>
+            <button
+              type="button"
+              data-testid="resume-continue"
+              onClick={() => { void consumeResume(); }}
+              disabled={consumingResume}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors disabled:opacity-60"
+            >
+              {consumingResume && <Loader2 className="h-4 w-4 animate-spin" />}
+              {consumingResume ? 'Opening your application…' : 'Continue your application'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Resume link error screen ────────────────────────────────────────────
   if (resumeError) {
     return (
@@ -718,11 +788,21 @@ export default function ApplicationForm() {
               <Link2Off className="h-8 w-8 text-destructive" />
             </div>
             <h1 className="text-xl font-bold text-foreground mb-2">Resume link unavailable</h1>
-            <p className="text-muted-foreground text-sm leading-relaxed">{resumeError}</p>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {resumeError} We can send you a fresh one right now — your application is safe.
+            </p>
             <div className="mt-6 flex flex-col gap-2">
+              <button
+                type="button"
+                data-testid="resume-recovery-open"
+                onClick={() => setRecoveryOpen(true)}
+                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+              >
+                Email me a new link
+              </button>
               <a
                 href="/"
-                className="inline-flex items-center justify-center h-11 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors"
+                className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
               >
                 Back to home
               </a>
@@ -742,6 +822,14 @@ export default function ApplicationForm() {
             </div>
           </div>
         </div>
+        {/* Same self-service request flow as the home page, rate limited to 3
+            per email per hour — no new capability, just reachable from here. */}
+        <ResumeApplicationDialog
+          key={recoveryEmail}
+          open={recoveryOpen}
+          onOpenChange={setRecoveryOpen}
+          initialEmail={recoveryEmail}
+        />
       </div>
     );
   }

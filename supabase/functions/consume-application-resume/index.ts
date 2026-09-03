@@ -32,7 +32,25 @@ serve(async (req) => {
       else if (msg.includes('token_used')) code = 'token_used';
       else if (msg.includes('application_not_found')) code = 'application_not_found';
       console.warn('consume-application-resume rpc error:', { code, message: error.message });
-      return new Response(JSON.stringify({ error: code }), {
+
+      // For the two recoverable failures we return the address the token was
+      // issued to, so the applicant can be shown the self-service "send me a
+      // new link" dialog with their email already filled in instead of a dead
+      // end. The caller already holds a 256-bit token that was mailed to that
+      // address, so this discloses nothing they did not have; it is withheld
+      // for invalid_token precisely so the endpoint cannot be used to probe
+      // guessed tokens for an address.
+      let recoveryEmail: string | null = null;
+      if (code === 'token_used' || code === 'token_expired') {
+        const { data: tok } = await admin
+          .from('application_resume_tokens')
+          .select('email')
+          .eq('token', token)
+          .maybeSingle();
+        recoveryEmail = tok?.email ?? null;
+      }
+
+      return new Response(JSON.stringify({ error: code, email: recoveryEmail }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
