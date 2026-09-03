@@ -48,7 +48,7 @@ const run = (loads: SettlementLoadInput[], over: Partial<SettlementComputeInput>
   computeSettlement({
     operatorId: 'op-1', periodAnchorDate: '2026-08-18',
     settings: SETTLEMENT_SETTINGS_DEFAULTS, companyPolicy: policy,
-    loads, ...over,
+    loads, equipmentOutstanding: false, ...over,
   });
 
 const hold = { flagLevel: 'hold', isActive: true, resolvedAt: null, claimType: 'damaged_goods' };

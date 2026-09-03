@@ -42,6 +42,7 @@ const base = (over: Partial<SettlementComputeInput> = {}): SettlementComputeInpu
   settings: SETTLEMENT_SETTINGS_DEFAULTS,
   companyPolicy: policy,
   loads: [load()],
+  equipmentOutstanding: false,
   ...over,
 });
 
