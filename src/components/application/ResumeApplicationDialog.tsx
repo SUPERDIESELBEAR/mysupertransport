@@ -14,10 +14,16 @@ import { Input } from '@/components/ui/input';
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /**
+   * Prefills the address. Used by the resume-link recovery screen, where the
+   * applicant arrived from a link issued to a known email and should not have
+   * to remember which address they applied with.
+   */
+  initialEmail?: string;
 }
 
-export default function ResumeApplicationDialog({ open, onOpenChange }: Props) {
-  const [email, setEmail] = useState('');
+export default function ResumeApplicationDialog({ open, onOpenChange, initialEmail }: Props) {
+  const [email, setEmail] = useState(initialEmail ?? '');
   const [submitting, setSubmitting] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
