@@ -2445,6 +2445,7 @@ export type Database = {
           net_amount: number
           notes: string | null
           paid_at: string | null
+          paid_by: string | null
           payee_key: string
           period_month: string
           reduced_base: number
@@ -2452,6 +2453,7 @@ export type Database = {
           updated_at: string
           updated_by: string | null
           void_reason: string | null
+          voided_by: string | null
         }
         Insert: {
           approved_at?: string | null
@@ -2469,6 +2471,7 @@ export type Database = {
           net_amount?: number
           notes?: string | null
           paid_at?: string | null
+          paid_by?: string | null
           payee_key?: string
           period_month: string
           reduced_base?: number
@@ -2476,6 +2479,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           void_reason?: string | null
+          voided_by?: string | null
         }
         Update: {
           approved_at?: string | null
@@ -2493,6 +2497,7 @@ export type Database = {
           net_amount?: number
           notes?: string | null
           paid_at?: string | null
+          paid_by?: string | null
           payee_key?: string
           period_month?: string
           reduced_base?: number
@@ -2500,6 +2505,7 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
           void_reason?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -2517,8 +2523,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "dispatch_settlements_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "dispatch_settlements_updated_by_fkey"
             columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlements_voided_by_fkey"
+            columns: ["voided_by"]
             isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]

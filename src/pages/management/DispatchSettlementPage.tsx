@@ -265,13 +265,24 @@ export default function DispatchSettlementPage() {
                 <dt className="text-muted-foreground">Approved</dt>
                 <dd>
                   {stamp(s.approved_at) ?? '—'}
-                  {s.approved_by_name ? ` · ${s.approved_by_name}` : (s.approved_at ? ' · actor not recorded' : '')}
+                  {s.approved_by_name ? ` · ${s.approved_by_name}` : (s.approved_at ? ' · actor not recorded (predates actor stamping)' : '')}
                 </dd>
               </div>
               <div className="flex justify-between border-b py-1">
                 <dt className="text-muted-foreground">Paid</dt>
-                <dd>{stamp(s.paid_at) ?? '—'}</dd>
+                <dd>
+                  {stamp(s.paid_at) ?? '—'}
+                  {s.paid_by_name ? ` · ${s.paid_by_name}` : (s.paid_at ? ' · actor not recorded (predates actor stamping)' : '')}
+                </dd>
               </div>
+              {isVoid && (
+                <div className="flex justify-between border-b py-1">
+                  <dt className="text-muted-foreground">Voided</dt>
+                  <dd>
+                    {s.voided_by_name ?? 'actor not recorded (predates actor stamping)'}
+                  </dd>
+                </div>
+              )}
               <div className="flex justify-between border-b py-1">
                 <dt className="text-muted-foreground">Last changed</dt>
                 <dd>{stamp(s.updated_at) ?? '—'}</dd>
