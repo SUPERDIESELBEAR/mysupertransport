@@ -132,6 +132,7 @@ const prattInput = (policy: PayPolicyRates): SettlementComputeInput => ({
   settings: SETTLEMENT_SETTINGS_DEFAULTS,
   companyPolicy: policy,
   loads: [PRATT_LOAD],
+  equipmentOutstanding: false,
 });
 
 describe('the retained Pratt settlement is unchanged by this pass', () => {

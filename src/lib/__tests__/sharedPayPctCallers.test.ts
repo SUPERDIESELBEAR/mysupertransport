@@ -63,6 +63,7 @@ const run = (load: Partial<SettlementLoadInput>) => computeSettlement({
     deliveredAt: '2026-08-18T21:10:00+00:00', charges: [],
     documents: [], exceptions: [], paperworkReleased: true, ...load,
   } as SettlementLoadInput],
+  equipmentOutstanding: false,
 });
 
 beforeEach(() => { spy.mockClear(); tzSpy.mockClear(); });

@@ -26,7 +26,7 @@ const perTonLoad = (over: Record<string, unknown> = {}) => ({
 const run = (load: Record<string, unknown>) => computeSettlement({
   operatorId: 'op-1', periodAnchorDate: '2026-08-18',
   settings: SETTLEMENT_SETTINGS_DEFAULTS, companyPolicy: policy,
-  loads: [load as never],
+  loads: [load as never], equipmentOutstanding: false,
 });
 
 describe('per-ton pays on the scale ticket', () => {
