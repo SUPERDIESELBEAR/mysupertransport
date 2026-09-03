@@ -4353,6 +4353,27 @@ have never signed in cannot receive an in-app anything and need a phone call.
 
 ---
 
+## Module 4, Pass 4b — recurring deductions no longer silenced by global history (2026-09-03)
+
+**The defect.** `gatherSettlementRun` in `src/lib/settlementRun.ts` built a single unbounded `settledSources` set from `settlement_line_items` with no period filter. A recurring deduction that had ever appeared in any settlement line item was then excluded from every later period, even though the deduction's `start_payday`/`end_payday` window said it should repeat. One-time deductions need that exclusion; recurring deductions do not.
+
+**The fix.** The same query now carries the owning settlement's period via `settlements(period_start)` and feeds two sets:
+
+- `settledSourcesEver` — any line item anywhere. Still governs loads, fuel, and **one-time** deductions, stopping any of them from being settled twice.
+- `settledSourcesThisPeriod` — line items whose settlement's `period_start` equals the current run's `period_start`. Governs **recurring** deductions only.
+
+`deductions` is now selected with `is_recurring`, and the filter branches on it. The `start_payday`/`end_payday` eligibility window was left untouched.
+
+**Why `period_start` equality is a sound key.** Driver settlement periods are weekly and non-overlapping in the current configuration, so a `period_start` uniquely identifies a period. This stops being true if the settlement cycle is ever made configurable to overlapping periods; at that point the key must include both `period_start` and `period_end`.
+
+**Control.** The retained Johnathan Pratt settlement (work week 2026-08-12 → 2026-08-18, payday 2026-09-01) was recomputed in memory through the current `gatherSettlementRun` and `computeSettlement`. Result: one `load_pay` line of **$327.94**, net **$327.94**, matching the stored row to the cent. `settlements.updated_at` on the row remained `2026-09-01 11:37:52` afterward, confirming no write occurred.
+
+**Embed check.** Adding `settlements(period_start)` cannot silently filter rows, because `settlement_line_items.settlement_id` is `NOT NULL` with a foreign-key constraint and a plain to-one embed is a left join. Only `settlements!inner(...)` would filter, and that was not used.
+
+**Suites run, by name.** `src/lib/__tests__/settlementRun.test.ts` (updated for this fix), `operator-pay-exposure.test.ts`, `operator-settlement-isolation.test.ts`, `shared-pay-percentage-source-guard.test.ts`, `sync-payload-operator-id.test.ts` — all passing. The Pratt recomputation was performed by a temporary read-only harness that was deleted after the run.
+
+**Standing rule.** This entry describes what reached the REPOSITORY. A publish is required before the change is live on the site.
+
 ## Module 2, Pass 1 — dispatcher reassignment after creation (2026-09-01)
 
 **Goal.** Close the attribution gap where `loads.dispatcher_id` was stamped only
