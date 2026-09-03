@@ -345,6 +345,21 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // migration that creates it.
   "public.set_load_dispatcher(uuid,uuid,text)",
 
+  // compute_dispatch_settlement (2026-09-03), the ONLY writer of a dispatch
+  // company settlement and its line items, contributions and charge verdicts.
+  // Definer because it writes four tables no client role may write. It gates
+  // on management or owner in its own body before anything is stored, stamps
+  // the actor through current_profile_id(), refuses an existing month unless
+  // the caller asks for a replacement, and refuses a PAID one outright. The
+  // money is computed in TypeScript, so the body is a REFUSING check and never
+  // a producing one: it reads the rates itself and refuses a mismatch, re-adds
+  // the payload's lines and refuses totals that do not follow, and re-tests
+  // eligibility both ways so a payload cannot include an ineligible load or
+  // omit an eligible one. authenticated only; PUBLIC and anon are revoked in
+  // the migration that creates it.
+  "public.compute_dispatch_settlement(date,jsonb,text)",
+
+
 
   // Raises the WATCH claim behind a loadout damage note. claim_flags is
   // staff-write only, and it has to stay that way: the driver may record damage
@@ -437,7 +452,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // + set_load_dispatcher (2026-09-01), the only writer of loads.dispatcher_id
 //   after creation. Management or owner in the body, target must hold the
 //   dispatcher role, and the column has no client write privilege.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
+// + compute_dispatch_settlement (2026-09-03), the only writer of a dispatch
+//   company settlement. Management or owner in the body, actor stamped, paid
+//   months refused, and the payload refused when its rates, arithmetic or load
+//   set do not follow from the record.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 113;
 
 
 

@@ -28,6 +28,46 @@ const CONSUMERS = [
   'src/lib/dispatchSettlement.ts',
 ];
 
+/**
+ * PASS 4: the gathering/persistence layer is NOT in CONSUMERS, and the reason
+ * is worth stating so nobody "fixes" the omission. It legitimately names
+ * `dispatch_pct` and `factoring_pct` — columns of
+ * `dispatch_settlement_rates`, which are the dispatch company's own rates and
+ * have nothing to do with the driver pay percentages this guard protects. A
+ * blanket `_pct` ban there would be a false positive. What must NOT appear is
+ * a PAY POLICY percentage column, so those are banned by name below.
+ */
+const RUN_LAYER = 'src/lib/dispatchSettlementRun.ts';
+
+/** The pay-policy percentage columns. Named here and in the owner, nowhere else. */
+const PAY_POLICY_PCT_COLUMNS = [
+  'linehaul_pct', 'fsc_pct', 'detention_pct', 'layover_pct', 'tonu_pct',
+  'stopoff_pct', 'lumper_pct', 'other_accessorial_pct', 'per_ton_pct', 'loadout_pct',
+];
+
+describe('the dispatch run layer does not restate the pay percentage map', () => {
+  it('names no pay policy percentage column', () => {
+    if (!existsSync(RUN_LAYER)) return;
+    const src = code(RUN_LAYER);
+    const hits = PAY_POLICY_PCT_COLUMNS.filter((c) => src.includes(c));
+    expect(hits, `the run layer names ${hits.join(', ')} directly`).toEqual([]);
+  });
+
+  it('gets the column name for a verdict from the owner module', () => {
+    if (!existsSync(RUN_LAYER)) return;
+    expect(code(RUN_LAYER)).toMatch(/pctColumnForClassification/);
+    expect(code(RUN_LAYER)).toMatch(/from '@\/lib\/payTreatment'/);
+  });
+
+  it('does no month arithmetic outside the shared helper', () => {
+    if (!existsSync(RUN_LAYER)) return;
+    const src = code(RUN_LAYER);
+    expect(src).not.toMatch(/slice\(\s*0\s*,\s*7\s*\)/);
+    expect(src).not.toMatch(/\.(getMonth|setMonth|getUTCMonth)\(/);
+    expect(src).toMatch(/from '@\/lib\/settlementPeriod'/);
+  });
+});
+
 /** The single module allowed to name percentage columns. */
 const OWNER = 'src/lib/payTreatment.ts';
 

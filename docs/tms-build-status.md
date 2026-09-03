@@ -4831,7 +4831,14 @@ and still apply.
   the row, or delete it and insert the real one. Do not leave it unexamined
   because the percentages look right.
 
-- **No other rows were created by this pass.** `dispatch_settlements`,
+- **The August 2026 settlement row from the Pass 4 verification (2026-09-03),
+  `period_month` 2026-08-01, net 787.94, status `draft`.** Real figures over
+  seed loads, so it is test residue no matter how correct it is. It is `draft`,
+  so `DELETE FROM public.dispatch_settlements WHERE period_month = '2026-08-01'`
+  removes it and its children; no unlock is needed unless someone has since
+  marked it paid.
+
+- **No other rows were created by Pass 1.** `dispatch_settlements`,
   `dispatch_settlement_line_items`, `dispatch_settlement_load_contributions`,
   `dispatch_settlement_charge_verdicts` and `dispatch_deductions` are all empty.
 
@@ -4990,3 +4997,124 @@ distinction matters, because a duplicate send doubles the chance a scanner
 reaches the link before the applicant does.
 
 **TRIGGER: investigate alongside any further resume-link work.**
+
+
+---
+
+## Module 4 (dispatch), Pass 4 — the writer and persistence (2026-09-03)
+
+Pass 1 built the schema, Pass 3 built the pure `computeDispatchSettlement`. This
+connects them. No UI — that is Pass 5.
+
+### WHERE THE MONEY IS COMPUTED, AND WHY
+
+Three bridges were available. **(a) the RPC recomputes from `loads`** was
+REJECTED: it puts section 4 in TypeScript and PL/pgSQL at once, and two correct
+implementations that drift is the eighth recorded failure pattern on this
+project — `update_load_with_stops` overwriting the scale-ticket total is the
+same shape. **(c) a database-only engine, deleting the TypeScript** was
+REJECTED because Pass 3's evidence, its 18 behavioural tests and the three-layer
+caller guard would all be discarded, and the shared resolvers
+(`pctForClassification`, `payClassOf`, `inCalendarMonth`) that section 4.7
+requires both settlement systems to CALL are TypeScript.
+
+**(b) the client computes, the RPC persists** was taken, with the condition that
+makes it defensible: *the RPC is a REFUSING check, never a producing one.* It
+may say no. It may not invent a figure. Concretely, before anything is stored:
+
+- it reads `dispatch_settlement_rates` ITSELF and refuses a payload whose rates
+  differ from the row in force for that month;
+- it re-adds the payload's own lines and refuses totals that do not follow to
+  the cent, across all five identities;
+- it re-tests eligibility against `loads` IN BOTH DIRECTIONS, refusing a payload
+  that includes an ineligible load *or* omits an eligible one.
+
+The one-directional version of that last check was considered and rejected: a
+caller who simply omits an expensive load produces a smaller, perfectly
+self-consistent settlement, and only the "omits" half catches it.
+
+### WHAT WAS BUILT
+
+- **`public.compute_dispatch_settlement(date, jsonb, text)`** — the ONE writer.
+  SECURITY DEFINER, `search_path = public, extensions`, management/owner gated in
+  the body, actor stamped from `current_profile_id()`, `authenticated` only with
+  PUBLIC and anon revoked. Mode `refuse` (the default) returns an existing month
+  untouched; mode `replace` rewrites it and refuses a `paid` one outright. Both
+  outcomes are written to `audit_log`.
+- **`src/lib/dispatchSettlementRun.ts`** — gather, payload, store. GATHERING
+  DECIDES NOTHING: a TONU load, a cancelled load and a load with no
+  `delivered_at` all still reach the engine, because eligibility is section 4.1
+  and a load that never arrives cannot be reported as ineligible. It also
+  asserts the five identities client-side before the round trip, so a broken
+  one is named rather than read out of a database error.
+- **`pctColumnForClassification`** in `payTreatment.ts` — diagnostics only, so
+  `dispatch_settlement_charge_verdicts.pct_column` records the column actually
+  consulted. The run layer is deliberately NOT in the `_pct` ban list of the
+  source guard, because it legitimately names `dispatch_pct`/`factoring_pct`,
+  which are dispatch-rate columns and nothing to do with driver pay
+  percentages; the pay-policy columns are banned there by name instead.
+
+### THE FIVE IDENTITIES
+
+Every stored total is also the sum of a subset of the lines:
+
+```text
+eligible_base       =  Σ load_base
+factoring_reduction = -Σ factoring_reduction
+reduced_base        =  eligible_base - factoring_reduction
+dispatch_fee        =  Σ dispatch_fee
+deductions_amount   = -Σ (flat_deduction + one_off)
+net_amount          =  Σ (dispatch_fee + flat_deduction + one_off)
+```
+
+`load_base` and `factoring_reduction` are the WORKINGS, not money owed, and are
+deliberately outside the net. Letting them in would double count.
+
+### VERIFICATION AGAINST REAL DATA — August 2026
+
+Computed and persisted through the real signed-in path (owner account, REST
+call to the RPC), then read back from the tables:
+
+```text
+eligible base 16,080.47   factoring (2%) 321.61   reduced 15,758.86
+dispatch fee (5%) 787.94  deductions 0.00         net 787.94
+```
+
+Seven contributions: ST26059 6,750 · ST26056 2,800 · ST26058 2,300 ·
+ST-TEST-005 1,875 · ST26063 1,750 · ST-TEST-003 455.47 · ST26060 150. Nine line
+items, seven contributions, three charge verdicts. ST26056 detention 500 and
+ST26063 lumper 200 excluded as `pct_100`; ST26063 TONU 150 included at 72%.
+
+**The base agrees to the cent with the corrected figure already in the
+verification-standard entry**, which was computed independently by hand. That
+agreement is the evidence, and it is **SEEDED-DATA EVIDENCE**: six of the seven
+loads are seed data and `dispatch_deductions` is empty, so the deduction and
+one-off paths are covered by unit tests only, not by a real month. No month with
+a real flat deduction has ever been computed.
+
+Refusals exercised on the same path: a tampered `net_amount` (refused, both
+figures named), a tampered `dispatch_pct` (refused against the rates in force),
+a payload with a contribution removed (refused, "omits eligible load ST26056").
+Re-running in `refuse` mode returned `refused_existing` with the stored net
+unchanged; `replace` rewrote it to the identical figures and logged both a
+`dispatch_settlement_recomputed` and a `dispatch_settlement_stored` audit row.
+
+**PURGE: the August 2026 dispatch settlement row created by this verification
+is test residue** — add it to the purge list above. It is `draft`, so an
+ordinary delete removes it and its children.
+
+### TESTS RUN (named, per the standing rule)
+
+`src/lib/__tests__/dispatchSettlementRun.test.ts` (12, new),
+`src/lib/__tests__/dispatchSettlement.test.ts` (18),
+`src/test/shared-pay-percentage-source-guard.test.ts` (16, extended),
+`src/lib/__tests__/sharedPayPctCallers.test.ts` (10),
+`src/test/dispatch-settlement-schema.test.ts` (26, extended),
+`src/test/definer-live-catalog.test.ts`, `definer-search-path.test.ts`,
+`definer-fail-open.test.ts`, `grant-parity-live.test.ts`,
+`policy-grant-parity.test.ts`, `caller-evaluated-functions.test.ts`,
+`purge-path-coverage.test.ts` — all passing.
+
+The Pass 1 assertion "no computation function exists yet" was NOT deleted when
+it failed. It was rewritten to name the one writer that may exist, because the
+point was never that nothing exists — it was that there is no SECOND writer.

@@ -11111,6 +11111,10 @@ export type Database = {
         Args: { days: number; window_days: number }
         Returns: string
       }
+      compute_dispatch_settlement: {
+        Args: { p_mode?: string; p_month: string; p_result: Json }
+        Returns: Json
+      }
       confirm_equipment_returned: {
         Args: { _note?: string; _operator_id: string }
         Returns: string
