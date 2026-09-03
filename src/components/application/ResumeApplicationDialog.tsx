@@ -29,7 +29,7 @@ export default function ResumeApplicationDialog({ open, onOpenChange, initialEma
   const [error, setError] = useState<string | null>(null);
 
   const reset = () => {
-    setEmail('');
+    setEmail(initialEmail ?? '');
     setSubmitting(false);
     setSent(false);
     setError(null);
