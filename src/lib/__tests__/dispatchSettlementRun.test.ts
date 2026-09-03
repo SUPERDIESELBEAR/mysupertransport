@@ -200,3 +200,51 @@ describe('the stored payload', () => {
     expect(periodMonthDate('2026-08')).toBe('2026-08-01');
   });
 });
+
+/* ------------------------------------------------------------------ */
+/* 4. the months a person may choose between                           */
+/* ------------------------------------------------------------------ */
+
+import { defaultDispatchMonth, listDispatchMonths, monthLabel } from '@/lib/dispatchSettlementRun';
+
+describe('the month selector offers real months only', () => {
+  const client = fakeClient({
+    dispatch_settlements: [
+      { period_month: '2026-08-01', status: 'draft' },
+      { period_month: '2026-06-01', status: 'paid' },
+    ],
+    loads: [
+      { delivered_at: '2026-08-11T12:00:00+00:00' },
+      { delivered_at: '2026-09-02T12:00:00+00:00' },
+      { delivered_at: '2026-09-03T12:00:00+00:00' },
+    ],
+  });
+
+  it('lists stored months and uncomputed months with deliveries, newest first', async () => {
+    const list = await listDispatchMonths(client);
+    expect(list.map(o => o.month)).toEqual(['2026-09', '2026-08', '2026-06']);
+    expect(list[0]).toMatchObject({ hasSettlement: false, deliveredLoads: 2, label: 'September 2026' });
+    expect(list[1]).toMatchObject({ hasSettlement: true, status: 'draft' });
+  });
+
+  it('speaks plain language, never YYYY-MM', () => {
+    expect(monthLabel('2026-08')).toBe('August 2026');
+  });
+
+  it('opens on the most recent month that HAS a settlement', async () => {
+    const list = await listDispatchMonths(client);
+    expect(defaultDispatchMonth(list, new Date('2026-09-03T12:00:00Z'))).toBe('2026-08');
+  });
+
+  it('falls back to the most recent COMPLETED month, never the current one', () => {
+    const list = [
+      { month: '2026-09', label: 'September 2026', hasSettlement: false, status: null, deliveredLoads: 2 },
+      { month: '2026-08', label: 'August 2026', hasSettlement: false, status: null, deliveredLoads: 4 },
+    ];
+    expect(defaultDispatchMonth(list, new Date('2026-09-03T12:00:00Z'))).toBe('2026-08');
+  });
+
+  it('falls back to last month when there is nothing at all', () => {
+    expect(defaultDispatchMonth([], new Date('2026-09-03T12:00:00Z'))).toBe('2026-08');
+  });
+});

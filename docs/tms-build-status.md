@@ -5240,3 +5240,47 @@ The new suite's guards are negative on purpose: no `computeDispatchSettlement`
 in the page, no read of `loads`, `load_charges` or `pay_policies` on the
 display path, no `.rpc(` call in the page, and no actor column ever sent from
 the browser.
+
+## Module 4 (dispatch), Pass 5a — the month is chosen, not typed (2026-09-03)
+
+REPOSITORY-ONLY until published. Presentation only: no writer, no RPC, no
+migration, and no displayed figure moved.
+
+The month control was a bare `type="month"` input carrying `2026-08`. It asked
+the reader to know the storage format. It is now the shadcn `Select` pattern
+already used on the sibling accounting screen `FuelImportPage.tsx` (the
+`Select / SelectTrigger / SelectValue / SelectContent / SelectItem` group from
+`@/components/ui/select`) — no new picker pattern was introduced. Options read
+"August 2026", with the stored status appended (`— DRAFT`, `— PAID`) or
+`— not yet computed`.
+
+WHICH MONTHS: `listDispatchMonths` in `src/lib/dispatchSettlementRun.ts`
+returns (1) every month with a stored settlement, and (2) months inside a
+rolling 13-month window that have at least one delivered load and no
+settlement. The delivery month is read in the CARRIER zone through `monthOf`,
+the same attribution the engine uses. No open-ended range of empty months is
+offered. `loads` is read ONLY to decide which months to list; the display path
+still derives no figure from it.
+
+DEFAULT: `defaultDispatchMonth` opens on the most recent month that HAS a
+settlement. This screen exists to check a figure before paying it, not to
+trigger a computation, so the most useful month is the one that has something
+to check. Only when nothing has ever been stored does it fall back to the most
+recent COMPLETED month with deliveries, then to last month. It never opens on
+the current month, which is always incomplete.
+
+SEPARATION OF READING FROM ACTING: the month lives alone in its own card. The
+actions moved to a second, dashed-border card headed "Actions for August 2026",
+and each button names the month — "Recompute August 2026", "Approve August
+2026", "Mark August 2026 paid", "Void August 2026". No confirmation was added
+to Recompute; Void keeps its reason dialog.
+
+### TESTS RUN (named, per the standing rule)
+
+`src/lib/__tests__/dispatchSettlementRun.test.ts` (17 — 5 new for the selector),
+`src/test/dispatch-settlement-screen.test.tsx` (7),
+`src/lib/__tests__/dispatchSettlement.test.ts` (18),
+`src/test/dispatch-settlement-schema.test.ts` (26)
+— 4 files, 68 tests, all passing. `bunx tsgo --noEmit -p tsconfig.app.json`
+exits clean. The Pass 5 source guards still hold: the page imports no engine,
+calls no RPC by name and sends no actor column.

@@ -20,18 +20,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import {
-  previewDispatchMonth, readStoredDispatchMonth, storeDispatchSettlement,
-  type StoredDispatchMonth,
+  defaultDispatchMonth, listDispatchMonths, monthLabel, previewDispatchMonth,
+  readStoredDispatchMonth, storeDispatchSettlement,
+  type DispatchMonthOption, type StoredDispatchMonth,
 } from '@/lib/dispatchSettlementRun';
+
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const pct = (n: number) => `${Number(n).toFixed(2)}%`;
@@ -55,16 +59,10 @@ const EXCLUSION_LABEL: Record<string, string> = {
   reimbursement_class: 'excluded — reimbursement',
 };
 
-function defaultMonth(): string {
-  // The month someone is settling around the 10th is the one that just closed.
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 7);
-}
-
 export default function DispatchSettlementPage() {
   const { toast } = useToast();
-  const [month, setMonth] = useState(defaultMonth);
+  const [months, setMonths] = useState<DispatchMonthOption[]>([]);
+  const [month, setMonth] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [stored, setStored] = useState<StoredDispatchMonth | null>(null);
@@ -72,7 +70,26 @@ export default function DispatchSettlementPage() {
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
+  const loadMonths = useCallback(async (): Promise<DispatchMonthOption[]> => {
+    try {
+      const list = await listDispatchMonths(supabase);
+      setMonths(list);
+      return list;
+    } catch (e) {
+      toast({ title: 'Could not list the months', description: (e as Error).message, variant: 'destructive' });
+      return [];
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void (async () => {
+      const list = await loadMonths();
+      setMonth(m => m || defaultDispatchMonth(list));
+    })();
+  }, [loadMonths]);
+
   const load = useCallback(async () => {
+    if (!month) return;
     setLoading(true);
     try {
       setStored(await readStoredDispatchMonth(supabase, month));
@@ -84,6 +101,7 @@ export default function DispatchSettlementPage() {
   }, [month, toast]);
 
   useEffect(() => { void load(); }, [load]);
+
 
   const s = stored?.settlement ?? null;
   const isPaid = s?.status === 'paid';
@@ -104,13 +122,13 @@ export default function DispatchSettlementPage() {
       const mode = stored ? 'replace' : 'refuse';
       const out = await storeDispatchSettlement(supabase, result, mode);
       toast({ title: `Month ${out.outcome === 'refused_existing' ? 'already stored' : 'computed'}` });
-      await load();
+      await Promise.all([load(), loadMonths()]);
     } catch (e) {
       toast({ title: 'The month did not compute', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setBusy(null);
     }
-  }, [month, stored, toast, load]);
+  }, [month, stored, toast, load, loadMonths]);
 
   const setStatus = useCallback(async (
     patch: Record<string, unknown>, label: string,
@@ -146,49 +164,77 @@ export default function DispatchSettlementPage() {
         on it.
       </p>
 
-      <Card className="p-4 flex flex-wrap items-end gap-3">
-        <div className="space-y-1">
-          <Label htmlFor="dispatch-month">Month</Label>
-          <Input
-            id="dispatch-month"
-            type="month"
-            value={month}
-            onChange={(e) => setMonth(e.target.value)}
-            className="w-[180px]"
-          />
-        </div>
-        {!isPaid && (
-          <Button onClick={compute} disabled={!!busy || loading}>
-            {busy === 'compute' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            {stored ? 'Recompute month' : 'Compute month'}
-          </Button>
-        )}
-        {s && s.status === 'draft' && (
-          <Button
-            variant="secondary"
-            disabled={!!busy}
-            onClick={() => setStatus({ status: 'approved', approved_at: new Date().toISOString() }, 'approved')}
-          >
-            {busy === 'approved' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Approve
-          </Button>
-        )}
-        {s && s.status === 'approved' && (
-          <Button
-            variant="secondary"
-            disabled={!!busy}
-            onClick={() => setStatus({ status: 'paid', paid_at: new Date().toISOString() }, 'paid')}
-          >
-            {busy === 'paid' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-            Mark paid
-          </Button>
-        )}
-        {s && !isPaid && !isVoid && (
-          <Button variant="outline" disabled={!!busy} onClick={() => setVoidOpen(true)}>
-            Void
-          </Button>
-        )}
+      {/* ------------------------------------------------ choose a month */}
+      <Card className="p-4 space-y-1">
+        <Label htmlFor="dispatch-month">Month</Label>
+        <Select value={month} onValueChange={setMonth}>
+          <SelectTrigger id="dispatch-month" className="w-[260px]">
+            <SelectValue placeholder="Choose a month" />
+          </SelectTrigger>
+          <SelectContent>
+            {months.map(o => (
+              <SelectItem key={o.month} value={o.month}>
+                {o.label}
+                {o.hasSettlement
+                  ? ` — ${(o.status ?? '').toUpperCase()}`
+                  : ' — not yet computed'}
+              </SelectItem>
+            ))}
+            {/* The chosen month is always listed, even if nothing matched. */}
+            {month && !months.some(o => o.month === month) && (
+              <SelectItem value={month}>{monthLabel(month)}</SelectItem>
+            )}
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">
+          Months with a stored settlement, plus recent months with delivered loads that have
+          not been computed. Choosing a month only changes what you are reading.
+        </p>
       </Card>
+
+      {/* ----------------------------------- act on the month, separately */}
+      {month && (
+        <Card className="p-4 space-y-2 border-dashed">
+          <h2 className="font-semibold text-sm">Actions for {monthLabel(month)}</h2>
+          <p className="text-xs text-muted-foreground">
+            These act on {monthLabel(month)} — the month selected above.
+          </p>
+          <div className="flex flex-wrap items-center gap-3 pt-1">
+            {!isPaid && (
+              <Button onClick={compute} disabled={!!busy || loading}>
+                {busy === 'compute' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                {stored ? `Recompute ${monthLabel(month)}` : `Compute ${monthLabel(month)}`}
+              </Button>
+            )}
+            {s && s.status === 'draft' && (
+              <Button
+                variant="secondary"
+                disabled={!!busy}
+                onClick={() => setStatus({ status: 'approved', approved_at: new Date().toISOString() }, 'approved')}
+              >
+                {busy === 'approved' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Approve {monthLabel(month)}
+              </Button>
+            )}
+            {s && s.status === 'approved' && (
+              <Button
+                variant="secondary"
+                disabled={!!busy}
+                onClick={() => setStatus({ status: 'paid', paid_at: new Date().toISOString() }, 'paid')}
+              >
+                {busy === 'paid' && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Mark {monthLabel(month)} paid
+              </Button>
+            )}
+            {s && !isPaid && !isVoid && (
+              <Button variant="outline" disabled={!!busy} onClick={() => setVoidOpen(true)}>
+                Void {monthLabel(month)}
+              </Button>
+            )}
+          </div>
+        </Card>
+      )}
+
 
       {loading && (
         <p className="text-sm text-muted-foreground">Loading…</p>
@@ -196,7 +242,7 @@ export default function DispatchSettlementPage() {
 
       {!loading && !s && (
         <Card className="p-6 text-sm text-muted-foreground">
-          No settlement has been stored for {month}.
+          No settlement has been stored for {monthLabel(month)}.
         </Card>
       )}
 
