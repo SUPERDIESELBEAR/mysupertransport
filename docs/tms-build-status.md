@@ -5548,11 +5548,47 @@ them as tidiness.
 
 ### 5. OPEN — and not a code question
 
-Whether anyone accessed the exposed data during those four months is answerable
-only from Supabase API logs, **which age out**. The question was raised on
-2026-09-03 and is **OPEN**. Whether this triggers a notification obligation is a
-matter for counsel — pre-employment investigation data carries specific handling
-expectations. No outcome is recorded here because none has happened.
+**2026-09-03 access investigation result: CANNOT BE ESTABLISHED.**
+
+The investigation was read-only: no code, migrations, or state changes.
+
+Evidence:
+
+- **The Supabase analytics log store IS reachable** from the build tooling, but the
+  oldest timestamp anywhere in it is **2026-09-03 19:51:44Z** — approximately ten
+  minutes, entirely AFTER the fix landed at 19:15:35Z. Explicit queries for
+  2026-05-01 through 2026-09-03 returned zero rows, and widening the range to
+  2026-01-01 returned the same rows, so this is retention, not a query artifact.
+  There is **zero overlap** with the four-month exposure window.
+- A search of `edge_logs` for the function path returned zero hits. This says
+  nothing about the exposure window, for the reason above.
+- `track_functions` is `none`. `pg_stat_user_functions` holds zero rows for every
+  function in the database. The one source that could have predated log retention
+  was never collecting.
+- `pg_stat_statements` is installed, oldest `stats_since` **2026-03-07**, and shows
+  no execution of this function before 2026-09-03 — only the investigation's own
+  pre-fix anon test (19:02:04Z), the post-fix authenticated test (19:16:13Z), and
+  the remediation DDL. This is **suggestive, not conclusive**: the extension has a
+  fixed entry cap, already holds 4,758 entries, and evicts least-used entries under
+  pressure, so a single call in June could have been evicted without trace. It
+  also records no caller identity, IP, or role — a surviving entry could not have
+  distinguished an anon caller from an authenticated one.
+- The function body performs no logging of its own, and `public.audit_log` records
+  application actions, not RPC invocations.
+
+**Distinction:** Absence of evidence here is **not** evidence of absence. Any
+statement made externally should say that the carrier's own tooling cannot
+determine whether the endpoint was called during the exposure window.
+
+**Remaining avenue, still OPEN:** a support or retention request to Supabase for
+API gateway logs covering 2026-05-13 to 2026-09-03. If the platform confirms
+those logs are not retained beyond a short window, that answer should itself be
+recorded here, because "the platform does not retain them" is a materially
+different and more final finding than "we could not reach them."
+
+Whether this triggers a notification obligation remains a matter for counsel —
+pre-employment investigation data carries specific handling expectations. No
+outcome is recorded here because none has happened.
 
 ## Anon surface reduction (2026-09-03)
 
