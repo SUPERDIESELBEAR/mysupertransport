@@ -76,8 +76,8 @@ describe('pctForClassification — the one map', () => {
 
   it('stands the linehaul share in only when a header column was never selected', () => {
     const partial = { ...LIVE_COMPANY_POLICY } as PayPolicyRates;
-    delete (partial as Record<string, unknown>).per_ton_pct;
-    delete (partial as Record<string, unknown>).loadout_pct;
+    delete (partial as unknown as Record<string, unknown>).per_ton_pct;
+    delete (partial as unknown as Record<string, unknown>).loadout_pct;
     expect(pctForClassification('per_ton', partial)).toBe(72);
     expect(pctForClassification('loadout', partial)).toBe(72);
   });
@@ -144,7 +144,7 @@ describe('the retained Pratt settlement is unchanged by this pass', () => {
 
   it('produces the identical figure whether per_ton_pct is read or absent', () => {
     const before = { ...LIVE_COMPANY_POLICY } as PayPolicyRates;
-    delete (before as Record<string, unknown>).per_ton_pct; // pre-wiring: linehaul_pct
+    delete (before as unknown as Record<string, unknown>).per_ton_pct; // pre-wiring: linehaul_pct
     const after = LIVE_COMPANY_POLICY;                       // post-wiring: per_ton_pct
     expect(computeSettlement(prattInput(before)).netAmount)
       .toBe(computeSettlement(prattInput(after)).netAmount);
