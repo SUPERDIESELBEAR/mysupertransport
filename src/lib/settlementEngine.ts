@@ -268,17 +268,9 @@ export interface ComputedSettlement {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-const PCT_FIELD = {
-  linehaul: 'linehaul_pct',
-  fsc: 'fsc_pct',
-  detention: 'detention_pct',
-  stopoff: 'stopoff_pct',
-  lumper: 'lumper_reimbursement_pct',
-  layover: 'layover_pct',
-  tonu: 'tonu_pct',
-  reimbursement: 'other_accessorial_pct',
-  other: 'other_accessorial_pct',
-} as const;
+// The classification-to-column map is NOT redefined here. It is the single map
+// in `payTreatment.ts`, reached through `pctForClassification`, so the driver's
+// displayed figure and his settlement resolve percentages through one object.
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
