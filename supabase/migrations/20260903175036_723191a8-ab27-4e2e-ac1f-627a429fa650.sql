@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.stamp_dispatch_settlement_actors() FROM PUBLIC, anon, authenticated;

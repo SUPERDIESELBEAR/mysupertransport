@@ -144,3 +144,25 @@ describe('the dispatch settlement screen reads the stored August 2026 month', ()
     expect(pageSource).toMatch(/disabled=\{!voidReason\.trim\(\)/);
   });
 });
+
+/**
+ * MODULE 4 (dispatch), Pass 5b — actor attribution.
+ *
+ * The August row predates actor stamping: `approved_by`, `paid_by` and
+ * `voided_by` are NULL on it. The reader must return nulls rather than throw,
+ * and the page must print an honest placeholder rather than an empty cell.
+ */
+describe('actor attribution on a row that predates stamping', () => {
+  it('reads NULL actors back as null without breaking', async () => {
+    const { settlement: s } = await readAugust();
+    expect(s.approved_by_name).toBeNull();
+    expect(s.paid_by_name).toBeNull();
+    expect(s.voided_by_name).toBeNull();
+  });
+
+  it('the page prints an honest placeholder for a missing actor', () => {
+    expect(pageSource).toContain('actor not recorded (predates actor stamping)');
+    expect(pageSource).toContain('paid_by_name');
+    expect(pageSource).toContain('voided_by_name');
+  });
+});

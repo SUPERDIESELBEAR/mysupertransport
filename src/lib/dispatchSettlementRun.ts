@@ -491,6 +491,8 @@ export interface StoredDispatchSettlement {
   updated_at: string | null;
   computed_by_name: string | null;
   approved_by_name: string | null;
+  paid_by_name: string | null;
+  voided_by_name: string | null;
 }
 
 export interface DispatcherBucket {
@@ -638,6 +640,8 @@ export async function readStoredDispatchMonth(
     updated_at: row.updated_at,
     computed_by_name: row.created_by ? dispatcherLabel(profiles.get(row.created_by)) : null,
     approved_by_name: row.approved_by ? dispatcherLabel(profiles.get(row.approved_by)) : null,
+    paid_by_name: row.paid_by ? dispatcherLabel(profiles.get(row.paid_by)) : null,
+    voided_by_name: row.voided_by ? dispatcherLabel(profiles.get(row.voided_by)) : null,
   };
 
   const totalsCheck = checkTotalsEqualLines(

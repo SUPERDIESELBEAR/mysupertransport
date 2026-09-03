@@ -60,6 +60,7 @@ const FUNCTIONS = [
   'enforce_dispatch_settlement_immutability',
   'enforce_dispatch_settlement_child_immutability',
   'apply_dispatch_settlement_void',
+  'stamp_dispatch_settlement_actors',
 ];
 
 describe('dispatch settlement — the enum is its own', () => {
@@ -97,6 +98,7 @@ describe('dispatch settlement — tables and columns', () => {
       'net_amount:numeric:NO',
       'notes:text:YES',
       'paid_at:timestamp with time zone:YES',
+      'paid_by:uuid:YES',
       'payee_key:text:NO',
       'period_month:date:NO',
       'reduced_base:numeric:NO',
@@ -104,6 +106,7 @@ describe('dispatch settlement — tables and columns', () => {
       'updated_at:timestamp with time zone:NO',
       'updated_by:uuid:YES',
       'void_reason:text:YES',
+      'voided_by:uuid:YES',
     ];
     expect(cols).toEqual(expected);
   });
@@ -401,3 +404,70 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
 });
 
 
+
+/**
+ * MODULE 4 (dispatch), Pass 5b — the actor gap on approve / paid / void.
+ *
+ * Before this pass `approved_by` existed but NOTHING wrote it: no trigger and
+ * no writer referenced the column, so approval attribution was as absent as
+ * payment and void attribution. All three are now stamped by one trigger.
+ */
+describe('dispatch settlement — who approved, paid and voided it', () => {
+  itLive('paid_by and voided_by exist and point at profiles, nulling on delete', () => {
+    const cols = psql(`SELECT column_name || '|' || data_type || '|' || is_nullable
+      FROM information_schema.columns WHERE table_schema='public'
+        AND table_name='dispatch_settlements'
+        AND column_name IN ('approved_by','paid_by','voided_by') ORDER BY 1`);
+    expect(cols).toEqual([
+      'approved_by|uuid|YES', 'paid_by|uuid|YES', 'voided_by|uuid|YES',
+    ]);
+    const fks = psql(`SELECT a.attname || '->' || cf.relname || '|' || c.confdeltype::text
+      FROM pg_constraint c
+      JOIN pg_class cf ON cf.oid = c.confrelid
+      JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = c.conkey[1]
+      WHERE c.conrelid = 'public.dispatch_settlements'::regclass AND c.contype = 'f'
+        AND a.attname IN ('approved_by','paid_by','voided_by') ORDER BY 1`);
+    expect(fks).toEqual([
+      'approved_by->profiles|n', 'paid_by->profiles|n', 'voided_by->profiles|n',
+    ]);
+  });
+
+  itLive('the stamping trigger is attached before update', () => {
+    const rows = psql(`SELECT t.tgname || '|' || t.tgtype::int
+      FROM pg_trigger t WHERE NOT t.tgisinternal
+        AND t.tgrelid = 'public.dispatch_settlements'::regclass
+        AND t.tgname = 'stamp_dispatch_settlement_actors'`);
+    expect(rows).toHaveLength(1);
+    // 2 = BEFORE, 16 = UPDATE, 1 = ROW
+    expect(Number(rows[0].split('|')[1]) & 2).toBe(2);
+    expect(Number(rows[0].split('|')[1]) & 16).toBe(16);
+  });
+
+  itLive('every actor comes from current_profile_id, and a client value is discarded', () => {
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='stamp_dispatch_settlement_actors'`).join(' ');
+    expect(src).toContain('public.current_profile_id()');
+    expect(src).not.toContain('auth.uid()');
+    // whatever the client sent is overwritten with the stored value first
+    expect(src).toContain('NEW.approved_by := OLD.approved_by');
+    expect(src).toContain('NEW.paid_by := OLD.paid_by');
+    expect(src).toContain('NEW.voided_by := OLD.voided_by');
+    // then only the transition earns the stamp
+    expect(src).toContain("NEW.status = 'approved' AND OLD.status IS DISTINCT FROM 'approved'");
+    expect(src).toContain("NEW.status = 'paid' AND OLD.status IS DISTINCT FROM 'paid'");
+    expect(src).toContain("NEW.status = 'void' AND OLD.status IS DISTINCT FROM 'void'");
+  });
+
+  itLive('the stamping function is definer, pinned, and reaches no client role', () => {
+    const row = psql(`SELECT p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig, ','), '')
+        || '|' || coalesce(array_to_string(p.proacl, ' '), '')
+      FROM pg_proc p WHERE p.pronamespace='public'::regnamespace
+        AND p.proname='stamp_dispatch_settlement_actors'`).join('');
+    const [secdef, config, acl] = row.split('|');
+    expect(secdef).toBe('true');
+    expect(config).toContain('search_path=public, extensions');
+    expect(acl).not.toContain('authenticated=X');
+    expect(acl).not.toContain('anon=X');
+    expect(acl).not.toMatch(/(^|\s)=X/);
+  });
+});
