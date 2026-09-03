@@ -115,9 +115,20 @@ export function pctForClassification(
   policy: PayPolicyRates | null | undefined,
 ): number | null {
   if (!policy) return null;
-  const raw = policy[PCT_FIELD[klass]];
-  const pct = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
-  return Number.isFinite(pct) ? pct : null;
+  const read = (col: keyof PayPolicyRates): number | null => {
+    const raw = policy[col];
+    const pct = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+    return Number.isFinite(pct) ? pct : null;
+  };
+  const direct = read(PCT_FIELD[klass]);
+  if (direct !== null) return direct;
+  // HEADER-RATE FALLBACK, deliberately narrow. `per_ton_pct` and `loadout_pct`
+  // are NOT NULL in the database, so the only way they arrive absent is a
+  // partial column selection. Paying such a load ZERO would be a far worse
+  // answer than paying it what it was paid before these columns were wired, so
+  // the linehaul share stands in. It never applies to a value that is present.
+  if (klass === 'per_ton' || klass === 'loadout') return read('linehaul_pct');
+  return null;
 }
 
 /** The pay class in force for a classification under this policy. */
