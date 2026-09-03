@@ -311,7 +311,11 @@ function headerRateLines(
   if (load.loadType === 'loadout') {
     // A $0 relocation fee pays $0. The trailer use IS the value.
     const fee = num(load.loadoutRelocationFee);
-    const pct = pctOf('linehaul');
+    // A loadout is priced on its OWN column. Both `loadout_pct` and
+    // `linehaul_pct` are 72.00 today, so nothing moves; the point is that a
+    // carrier who pays a different share for a trailer relocation can express
+    // it, which is what "configurable pay policy" has to mean.
+    const pct = pctOf('loadout');
     const amount = pct === null ? 0 : round2(fee * (pct / 100));
     if (amount) {
       out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
@@ -321,6 +325,9 @@ function headerRateLines(
 
   let base = 0;
   let label = 'Linehaul';
+  // Which policy column prices the linehaul component. Per-ton freight reads
+  // `per_ton_pct`; everything else reads `linehaul_pct`.
+  let linehaulKey: PayRateKey = 'linehaul';
   switch (String(load.rateType ?? 'flat')) {
     case 'per_mile':
       base = num(load.ratePerMile) * num(load.loadedMiles);
@@ -339,13 +346,14 @@ function headerRateLines(
         base = num(load.ratePerTon) * num(confirmed);
       }
       label = 'Linehaul (per ton, from scale ticket)';
+      linehaulKey = 'per_ton';
       break;
     }
     default:
       base = num(load.linehaulRate);
       break;
   }
-  const linehaulPct = pctOf('linehaul');
+  const linehaulPct = pctOf(linehaulKey);
   const linehaul = linehaulPct === null ? 0 : round2(base * (linehaulPct / 100));
   if (linehaul) out.push({ lineType: 'load_pay', amount: linehaul, description: label });
 
