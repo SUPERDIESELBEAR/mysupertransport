@@ -1,125 +1,100 @@
-# Investigation: equipment serial guard blocking assign / return / archive
+# Investigation: "operators_1.first_name does not exist" in the compliance summary
 
-Conclusion up front: **the reported diagnosis is stale.** The trigger was fixed on
-2026-08-29 and the live function short-circuits before the uniqueness check on every
-one of the reported paths. There is also **zero affected data**. Nothing to fix.
+Conclusion up front: **stale.** The current file does not embed name columns from
+`operators`. It goes through `applications`, which is the correct path, and the
+project's embed guard is green over that select.
 
-## 1. The trigger as it actually is
+## 1. Is it still live?
 
-Migrations defining `enforce_equipment_serial_uniqueness` (repo, oldest → newest):
+No. `src/components/inspection/InspectionComplianceSummary.tsx` line 164, verbatim:
+
+```ts
+.from('truck_dot_inspections')
+.select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, applications(first_name, last_name))')
+.order('next_due_date', { ascending: true });
+```
+
+The comment directly above it already records the exact lesson the finding restates
+("Driver names are NOT columns on `operators` — they live on `applications`, reached
+through `operators.application_id`"), and the call now surfaces `dotError` via
+`console.error` plus a destructive toast instead of swallowing it. The finding
+describes a version that predates the current file. This is the sixth stale finding
+in that batch of nine.
+
+## 2. The shape of `operators`
+
+Live catalog. `public.operators` has 41 columns; `first_name` and `last_name` are
+**not** among them. Its foreign keys:
 
 ```text
-20260828105444_aa89f414-...sql
-20260828105602_8b51a0c5-...sql
-20260828111500_equipment_serial_lookalike_guard.sql
-20260828124622_9f1b4624-...sql
-20260828173217_b1d322ff-...sql
-20260829111830_86c0fbb7-...sql   <- NEWEST, read in full
+operators_application_id_fkey            -> applications(id)
+operators_assigned_onboarding_staff_fkey -> auth.users(id)
+operators_deactivated_by_fkey            -> auth.users(id)
+operators_user_id_fkey                   -> auth.users(id)
 ```
 
-Live definition (`pg_get_functiondef`) is byte-equivalent to the newest migration:
-`SECURITY DEFINER`, `search_path` pinned to `public, extensions`, `REVOKE`d from
-PUBLIC/anon/authenticated.
+No FK to `public.profiles` — `user_id` points at `auth.users`, which PostgREST cannot
+traverse into `profiles`. Names live on `applications.first_name` / `last_name`,
+reached via `application_id`.
 
-Live trigger (`pg_get_triggerdef`), enabled (`tgenabled = 'O'`):
+Working screens using that path: `src/pages/staff/StaffPortal.tsx:452` and `:497`,
+`src/lib/loadDetail.ts:317`, `src/lib/settlementRun.ts:205`,
+`src/pages/management/TerminationsView.tsx:59`,
+`src/components/management/OperatorBroadcast.tsx:156`. StaffPortal is the clearest
+reference screen.
 
-```sql
-CREATE TRIGGER trg_equipment_serial_uniqueness
-BEFORE INSERT OR UPDATE OF serial_number, device_type, status
-ON public.equipment_items FOR EACH ROW
-EXECUTE FUNCTION enforce_equipment_serial_uniqueness()
-```
+## 3. What the embed guard asserts
 
-No WHEN clause. `status` is indeed in the event list, so the trigger *fires* on pure
-status transitions — that part of the report is correct.
+The file is `src/lib/__tests__/postgrestEmbeds.test.ts` (not `src/test/`, as the
+finding implies). It parses every `.select()` in `src/` and `supabase/functions/`,
+resolves non-literal selects rather than skipping them, and checks three things
+against the generated types: that every select was readable, that every column
+reference exists on the table it is read from, and that every embed hop crosses a
+real FK. Its own header comment names `operators(first_name)` as one of the two
+defects that motivated the column check.
 
-What it compares, when it reaches the check: another row (`ei.id <> NEW.id`), same
-`device_type`, `status <> 'deactivated'`, same `canonical_equipment_serial(...)`.
-It raises `unique_violation` with "That device is already on file as % — only
-look-alike characters differ."
-
-## 2. Does it fire when the serial is unchanged?
-
-It fires, but it **does not reach the uniqueness check**. Two early exits sit before
-the collision query in the live body:
-
-```sql
-IF NEW.status = 'deactivated' THEN RETURN NEW; END IF;
-
-IF TG_OP = 'UPDATE'
-   AND OLD.device_type = NEW.device_type
-   AND public.canonical_equipment_serial(OLD.serial_number)
-       = public.canonical_equipment_serial(NEW.serial_number)
-THEN RETURN NEW; END IF;
-```
-
-That is the exact `IS NOT DISTINCT FROM` guard the item asks about, expressed on the
-canonical form plus `device_type`. **The reported diagnosis is wrong against the live
-database.** It describes the trigger as it stood between 2026-08-28 and 2026-08-29.
-The record already carries this as "The look-alike serial guard blocked its own
-cleanup (2026-08-29)", closed, and notes it was latent even then.
-
-## 3. The four callers
-
-| Path | Columns the UPDATE sets | Trigger fires? | Reaches check? |
-|---|---|---|---|
-| `EquipmentAssignModal.tsx:214` | `{ status: 'assigned' }` | yes (`status`) | no — second early exit |
-| `EquipmentReturnModal.tsx:67` | `{ status: condition }` | yes | no — second early exit (or first, if `deactivated`) |
-| `equipmentSync.ts` `archiveEquipmentItem` | `{ status: 'deactivated' }` | yes | no — **first** early exit |
-| `EquipmentItemModal.tsx:185` | `device_type, serial_number, status, notes` | yes | only when type or canonical serial actually changed — which is the intended case |
-
-The report is over-broad in a second sense: the first three never touch a serial at
-all, and the fourth is the one path where the guard is supposed to run.
-
-## 4. What archiving does
-
-`archiveEquipmentItem(item, reason)` in `src/lib/equipmentSync.ts`:
-`releaseOpenAssignments(item, 'deactivated', reason)` → `equipment_items.update({ status: 'deactivated' })`
-→ `auditEquipment('equipment_archived', ...)`. Callers: `FuelCardDeactivateModal` and
-the Edit Device danger zone.
-
-That UPDATE does touch the event list (`status`), so the trigger fires — and hits
-`IF NEW.status = 'deactivated' THEN RETURN NEW`. The "blocks its own cleanup" shape
-(deactivated excluded as a conflict *target* but not as the *subject*) is **refuted**
-on the live definition; the NEW-side exemption is present and is the first statement
-in the body.
-
-## 5. Is there real affected data?
-
-**Zero.** Live query over `equipment_items` where `status <> 'deactivated'`, grouped
-by `device_type` and the canonical form
-(`translate(upper(regexp_replace(serial,'[-. ]','','g')),'OILS','0115')` — inlined
-because the sandbox role lacks EXECUTE on `canonical_equipment_serial`): **0 groups
-with more than one row.**
-
-Row counts: assigned 144, available 32, lost 13, deactivated 28, damaged 1.
-
-Structurally it cannot arise either — the partial unique index is live:
+Run just now:
 
 ```text
-idx_equipment_items_canonical_serial_uniq
-  UNIQUE (device_type, canonical_equipment_serial(serial_number))
-  WHERE status <> 'deactivated'
+[select-scan] 1014 selects found, 1014 read, 0 unreadable
+[column-check] 3526 column references verified
+[embed-check] 181 embed hops verified
+✓ src/lib/__tests__/postgrestEmbeds.test.ts (6 tests) 23ms
 ```
 
-So even if the trigger were bypassed, a duplicate pair could not be stored.
+So the guard does cover this file, and it is green — which is itself evidence the
+bad embed is gone. Nothing "should have caught this and did not"; the guard was built
+in response to this class of defect and now enforces it.
 
-## 6. The merge path
+## 4. Blast radius
 
-`mergeEquipmentItems(survivor, loser, { correctedSerial })` in `equipmentSync.ts`,
-driven from `SerialConflictsPanel.tsx` (rendered in the Onboard Systems inventory).
-It closes the loser's open assignment, clears that driver's onboarding serial field,
-repoints closed history to the survivor, **deletes the loser**, and only then rewrites
-the survivor's serial if a correction was chosen — deliberately, so the guard never
-sees two live rows on the corrected value.
+Not applicable while the query is correct. For the record, the current failure
+behaviour is deliberate and not silent: on `dotError` the component logs and raises a
+destructive toast, "DOT inspections could not be loaded — The rest of the compliance
+summary is shown, but DOT inspection dates are missing."
 
-Reachable from the UI, but moot: with zero conflicting pairs the panel has nothing to
-list, so there is nothing needing a workaround.
+The rest of the screen is independent: it reads `v_compliance_items` in a separate
+query, and returns early only when `rows` is absent. A DOT failure removes DOT rows
+only.
+
+No other embed in `src/` or `supabase/functions/` requests `first_name` from
+`operators` — the only other match for that pattern repo-wide is the comment inside
+the guard test itself.
+
+How long it was failing: not establishable from here. The record already carries an
+entry — "InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20 |
+Fixed before report" — in the stale-issues table, so this same finding has now been
+reported and closed twice.
+
+## 5. The correct fix
+
+None needed. The pattern the code already follows is the correct one:
+`operators(id, application_id, applications(first_name, last_name))`, matching
+StaffPortal and the other screens named above. Nothing to implement.
 
 ## Contradictions with the record
 
-None found. The record's 2026-08-29 entry, the live function, the live trigger, the
-live partial unique index and the live data all agree. The report contradicts the
-record, not the other way round — it should be added to "Reported issues closed as
-stale" as fixed-before-report (fix landed 2026-08-29, reported 2026-09-03), with the
-note that it was latent even before the fix.
+None found. The record's stale-issues table already lists this exact finding as
+closed on 2026-08-20; the current file, the live catalog and the green embed guard all
+agree with it. Worth adding a second occurrence date to that row so a third report is
+triaged rather than re-investigated.
