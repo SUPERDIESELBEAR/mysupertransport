@@ -1,6 +1,9 @@
 # Roadmap
 
 ## In progress
+- [docs] Record the authoritative cutover purge procedure in `docs/tms-build-status.md`,
+  replacing the incomplete purge-before-cutover list, and document the revenue-layer
+  demo isolation blocker.
 - ICA re-send blocked: drop the redundant `trg_enforce_ica_contracts_operator_update`
   wrapper trigger that illegally calls another trigger function by name.
 - Deactivation notice confirmation must name the actual recipients, not the saved
