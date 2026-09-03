@@ -10,12 +10,10 @@
  * Layers (b) and (c) live in `src/test/shared-pay-percentage-source-guard.test.ts`
  * and `sharedPayPct.test.ts`.
  *
- * PASS 3 EXTENSION: the dispatch settlement consumer does not exist yet. These
- * assertions are written against the driver-side path and the month helpers.
- * When Pass 3 adds the dispatch computation function, the `pctForClassification`
- * block below gains a dispatch case, and the `inCalendarMonth` block moves from
- * asserting the helper's own carrier-zone plumbing to asserting the dispatch
- * consumer invokes it.
+ * PASS 3: the dispatch consumer now exists — `computeDispatchSettlement` in
+ * `src/lib/dispatchSettlement.ts`. The `pctForClassification` block gained its
+ * dispatch case, and the month block now asserts the dispatch consumer itself
+ * drives `inCalendarMonth`, which reads the carrier zone through `isoToNaive`.
  */
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PayPolicyRates } from '@/lib/payTreatment';
@@ -38,6 +36,7 @@ const { estimateDriverLoadPay } = await import('@/lib/driverLoadPay');
 const { computeSettlement } = await import('@/lib/settlementEngine');
 const { SETTLEMENT_SETTINGS_DEFAULTS } = await import('@/lib/settlementConfig');
 const { monthOf, inCalendarMonth } = await import('@/lib/settlementPeriod');
+const { computeDispatchSettlement } = await import('@/lib/dispatchSettlement');
 
 const spy = vi.mocked(pctForClassification);
 const tzSpy = vi.mocked(isoToNaive);
@@ -111,5 +110,54 @@ describe('the month helpers resolve through the carrier timezone', () => {
     expect(monthOf(null)).toBe('');
     expect(inCalendarMonth(null, '2026-08')).toBe(false);
     expect(inCalendarMonth('nonsense', '2026-08')).toBe(false);
+  });
+});
+
+const runDispatch = (over: Partial<Parameters<typeof computeDispatchSettlement>[0]> = {}) =>
+  computeDispatchSettlement({
+    month: '2026-08', dispatchRate: 5, factoringRate: 2, companyPolicy: policy,
+    loads: [{
+      id: 'l1', loadNumber: 'ST-1', loadType: 'standard', rateType: 'flat',
+      status: 'delivered', deliveredAt: '2026-08-18T21:10:00+00:00',
+      linehaulRate: 1000, dispatcherId: null, charges: [],
+    }],
+    ...over,
+  });
+
+describe('the dispatch settlement calls the shared logic, it does not re-derive it', () => {
+  it('resolves every charge through pctForClassification', () => {
+    runDispatch({
+      loads: [{
+        id: 'l1', loadNumber: 'ST-1', loadType: 'standard', rateType: 'flat',
+        status: 'delivered', deliveredAt: '2026-08-18T21:10:00+00:00',
+        linehaulRate: 1000, dispatcherId: null,
+        charges: [
+          charge({ id: 'c1', charge_type: 'detention', amount: 500 }),
+          charge({ id: 'c2', charge_type: 'tonu', amount: 150 }),
+        ],
+      }],
+    });
+    expect(spy).toHaveBeenCalledWith('detention', policy);
+    expect(spy).toHaveBeenCalledWith('tonu', policy);
+  });
+
+  it('attributes the period through the carrier-zone month helper', () => {
+    tzSpy.mockClear();
+    runDispatch();
+    expect(tzSpy).toHaveBeenCalledWith('2026-08-18T21:10:00+00:00');
+  });
+
+  it('reads a boundary instant in Central, not in the machine zone', () => {
+    // 1am Sep 1 Central (06:00 UTC) is September, though a UTC-minus reading
+    // of the same instant could still call it August.
+    const r = runDispatch({
+      loads: [{
+        id: 'l1', loadNumber: 'ST-1', loadType: 'standard', rateType: 'flat',
+        status: 'delivered', deliveredAt: '2026-09-01T06:00:00+00:00',
+        linehaulRate: 1000, dispatcherId: null, charges: [],
+      }],
+    });
+    expect(r.eligibleBase).toBe(0);
+    expect(r.ineligible[0].reason).toBe('outside_month');
   });
 });

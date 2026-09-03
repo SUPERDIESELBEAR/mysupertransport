@@ -14,8 +14,9 @@
  * Comments are stripped before matching: this is a rule about code, and the
  * reasoning above has to be allowed to name the columns it is protecting.
  *
- * PASS 3 EXTENSION: add the dispatch computation module to CONSUMERS when it
- * exists. It is the module this guard was really written for.
+ * PASS 3: the dispatch computation module is now in CONSUMERS. It is the module
+ * this guard was really written for. It landed as `src/lib/dispatchSettlement.ts`
+ * rather than the `dispatchSettlementEngine.ts` name this comment anticipated.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
@@ -24,7 +25,7 @@ import { readFileSync, existsSync } from 'node:fs';
 const CONSUMERS = [
   'src/lib/settlementEngine.ts',
   'src/lib/driverLoadPay.ts',
-  // Pass 3: 'src/lib/dispatchSettlementEngine.ts',
+  'src/lib/dispatchSettlement.ts',
 ];
 
 /** The single module allowed to name percentage columns. */
