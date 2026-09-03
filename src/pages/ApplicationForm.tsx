@@ -85,6 +85,16 @@ export default function ApplicationForm() {
   const [applicationId, setApplicationId] = useState<string | null>(null);
   const [duplicateEmailBlocked, setDuplicateEmailBlocked] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  // Set when /apply?resume=<token> is opened. The token is NOT consumed until
+  // the applicant clicks "Continue your application" on the gate screen.
+  const [pendingResumeToken, setPendingResumeToken] = useState<string | null>(null);
+  const [consumingResume, setConsumingResume] = useState(false);
+  // Email the failed resume token was issued to, used to prefill the recovery
+  // dialog so a dead end becomes a one-tap request for a fresh link.
+  const [recoveryEmail, setRecoveryEmail] = useState<string>('');
+  const [recoveryOpen, setRecoveryOpen] = useState(false);
+  // `loadDraft` is defined inside the mount effect; the gate button needs it.
+  const loadDraftRef = useRef<((token: string) => void) | null>(null);
   const [revisionMessage, setRevisionMessage] = useState<string | null>(null);
   const [showRevisionBanner, setShowRevisionBanner] = useState(false);
   const [retakeRequests, setRetakeRequests] = useState<RetakeRequestMap>({});
