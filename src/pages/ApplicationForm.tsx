@@ -199,34 +199,22 @@ export default function ApplicationForm() {
       });
     };
 
+    loadDraftRef.current = loadDraft;
+
     const resumeToken = searchParams.get('resume');
     if (resumeToken) {
-      // Email-based resume: exchange the resume token for a draft_token.
-      supabase.functions
-        .invoke('consume-application-resume', { body: { token: resumeToken } })
-        .then(({ data, error }) => {
-          if (cancelled) return;
-          // Always strip the resume param from the URL so the token isn't re-used/logged.
-          const next = new URLSearchParams(searchParams);
-          next.delete('resume');
-          setSearchParams(next, { replace: true });
-
-          const draftToken = (data as { draft_token?: string } | null)?.draft_token;
-          if (error || !draftToken) {
-            const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
-            setResumeError(
-              code === 'token_expired'
-                ? 'This resume link has expired. Please request a new one from the home page.'
-                : code === 'token_used'
-                ? 'This resume link has already been used. Request a new one from the home page if needed.'
-                : 'This resume link is not valid. Please request a new one from the home page.',
-            );
-            setDraftLoaded(true);
-            return;
-          }
-          localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
-          loadDraft(draftToken);
-        });
+      // DO NOT CONSUME ON MOUNT.
+      //
+      // The resume token used to be exchanged here, in the mount effect. A mail
+      // client, Safe-Links scanner or preview bot that merely RENDERS this page
+      // therefore burned the token with no human present — four real applicants
+      // were stranded that way, one at the signature step whose only token was
+      // spent 13 seconds after it was issued.
+      //
+      // A scanner cannot click. Consumption now happens in `consumeResume`,
+      // behind a real gesture on the gate screen below. The cost is one tap.
+      setPendingResumeToken(resumeToken);
+      setDraftLoaded(true);
       return () => { cancelled = true; };
     }
 
