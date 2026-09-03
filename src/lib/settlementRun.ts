@@ -115,17 +115,37 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     sb.from('settlements')
       .select('id, operator_id, status, net_amount')
       .eq('period_start', period.periodStart),
-    sb.from('settlement_line_items').select('source_table, source_id'),
+    sb.from('settlement_line_items').select('source_table, source_id, settlements(period_start)'),
     sb.from('pay_policies').select('*').eq('is_company_default', true).maybeSingle(),
     sb.from('pay_policy_assignments')
       .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
   ]);
 
-  const settledSources = new Set<string>(
-    ((alreadySettledRes?.data ?? []) as any[])
-      .filter(r => r.source_id)
-      .map(r => `${r.source_table}:${r.source_id}`),
-  );
+  /**
+   * Two exclusion sets, because "already settled" means two different things.
+   *
+   * A load, a fuel transaction and a ONE-TIME deduction are each settled once
+   * and never again: for those, ANY line item anywhere is disqualifying, which
+   * is what `settledSourcesEver` carries.
+   *
+   * A RECURRING deduction is due EVERY period inside its start_payday /
+   * end_payday window. Excluding it because it appeared on some earlier
+   * settlement charged it once and never again — it also dropped a driver whose
+   * only unsettled item was that deduction out of the population entirely.
+   * For those the question is only "was it already charged on THIS period",
+   * which is `settledSourcesThisPeriod`.
+   */
+  const settledSourcesEver = new Set<string>();
+  const settledSourcesThisPeriod = new Set<string>();
+  for (const r of (alreadySettledRes?.data ?? []) as any[]) {
+    if (!r.source_id) continue;
+    const key = `${r.source_table}:${r.source_id}`;
+    settledSourcesEver.add(key);
+    const s = Array.isArray(r.settlements) ? r.settlements[0] : r.settlements;
+    if (s?.period_start === period.periodStart) settledSourcesThisPeriod.add(key);
+  }
+  const settledSources = settledSourcesEver;
+
 
   const companyPolicy = (policyRes?.data ?? null) as PayPolicyRates | null;
 
