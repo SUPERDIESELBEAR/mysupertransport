@@ -3567,6 +3567,13 @@ mode produces a distinct figure:
 - **`operator_id` is NULL on all six**, so none of them can exercise the driver
   side at all.
 
+**The six-load figure is a SUBSET, not what the system computes for August 2026.**
+ST-TEST-003 ($455.47) and ST-TEST-005 ($1,875.00) also carry `delivered_at` in
+August, so a real month run against live August data yields **$16,080.47**. Both
+test loads are on the purge list and this resolves at cutover, but until then any
+dispatch computation against real August data includes them. A report of
+"$13,750" is only correct for the defined six-load subset.
+
 ### The ST26059 `confirmed_tons` correction — a documented exception (2026-09-02)
 
 ST26059's `confirmed_tons` was set to 25 by a **direct database write**, not
