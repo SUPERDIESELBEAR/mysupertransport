@@ -141,11 +141,22 @@ export function DeactivationWizardContent({
   const [toInput, setToInput] = useState('');
   const [ccInput, setCcInput] = useState('');
   const [safetySent, setSafetySent] = useState(false);
+  // What the send actually did — recipients and whether the saved consultant was on it.
+  // The confirmation reads from this, never from the saved consultant record, so it can
+  // never claim a notice went to someone who was removed from the To field.
+  const [safetySentTo, setSafetySentTo] = useState<string[]>([]);
+  const [safetyConsultantIncluded, setSafetyConsultantIncluded] = useState(true);
   // Saved DOT Consultant record — recipients, display name, and email greeting.
   const [consultantEmails, setConsultantEmails] = useState<string[]>([]);
   const [consultantName, setConsultantName] = useState('');
   const [greetingName, setGreetingName] = useState('');
   const consultantLabel = consultantName.trim() || 'the DOT Consultant';
+  const sentToLabel = safetySentTo.length === 0
+    ? 'no recipients'
+    : safetySentTo.length === 1
+      ? safetySentTo[0]
+      : `${safetySentTo[0]} and ${safetySentTo.length - 1} other${safetySentTo.length > 2 ? 's' : ''}`;
+
 
   // Step 3: Lease termination
   const [ica, setIca] = useState<IcaContract | null>(null);
