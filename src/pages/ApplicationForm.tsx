@@ -236,7 +236,44 @@ export default function ApplicationForm() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Field change handler ────────────────────────────────────────────────
+  // ── Resume: consume on a human gesture ──────────────────────────────────
+  // Ordering after a successful exchange is unchanged from the old mount
+  // effect: strip ?resume, write draft_token to localStorage, then load.
+  const consumeResume = useCallback(async () => {
+    const resumeToken = pendingResumeToken;
+    if (!resumeToken || consumingResume) return;
+    setConsumingResume(true);
+    const { data, error } = await supabase.functions.invoke('consume-application-resume', {
+      body: { token: resumeToken },
+    });
+
+    const next = new URLSearchParams(searchParams);
+    next.delete('resume');
+    setSearchParams(next, { replace: true });
+    setPendingResumeToken(null);
+
+    const draftToken = (data as { draft_token?: string } | null)?.draft_token;
+    if (error || !draftToken) {
+      const code = (error as any)?.context?.error || (data as any)?.error || 'invalid_token';
+      const emailForRecovery = (data as any)?.email || (error as any)?.context?.email || '';
+      setRecoveryEmail(typeof emailForRecovery === 'string' ? emailForRecovery : '');
+      setResumeError(
+        code === 'token_expired'
+          ? 'This resume link has expired.'
+          : code === 'token_used'
+          ? 'This resume link has already been used.'
+          : 'This resume link is not valid.',
+      );
+      setConsumingResume(false);
+      setDraftLoaded(true);
+      return;
+    }
+    localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
+    setDraftLoaded(false);
+    loadDraftRef.current?.(draftToken);
+    setConsumingResume(false);
+  }, [pendingResumeToken, consumingResume, searchParams, setSearchParams]);
+
   // ── Field change handler ────────────────────────────────────────────────
   const handleChange = useCallback((field: keyof ApplicationFormData, value: any) => {
     setFormData(prev => ({ ...prev, [field]: value }));
