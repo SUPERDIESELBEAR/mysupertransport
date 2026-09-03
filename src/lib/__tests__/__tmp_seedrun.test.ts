@@ -10,7 +10,7 @@ it('seed run', () => {
     dispatchRate: d.rates.dispatch_pct,
     factoringRate: d.rates.factoring_pct,
     companyPolicy: d.policy,
-    loads: d.loads.map((l: any) => ({
+    loads: d.loads.filter((l:any)=>['ST26056','ST26058','ST26059','ST26060','ST26061','ST26063'].includes(l.load_number)).map((l: any) => ({
       id: l.id, loadNumber: l.load_number, loadType: l.load_type, rateType: l.rate_type,
       status: l.status, deliveredAt: l.delivered_at, linehaulRate: l.linehaul_rate,
       ratePerMile: l.rate_per_mile, loadedMiles: l.loaded_miles, ratePerTon: l.rate_per_ton,
