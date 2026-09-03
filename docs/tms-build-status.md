@@ -4697,6 +4697,25 @@ and then discarded it.
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
 
+### `equipment_outstanding` AND CATCH-AS-FALSE ON AN AUTHORIZATION FAILURE
+
+During the in-memory Pratt verification, `equipment_outstanding` returned
+"permission denied for function" to the psql role, and the verification harness's
+`catch` treated that failure as `false` — i.e. no equipment hold. In the harness this
+was harmless and was reported rather than hidden.
+
+The concern is the SHAPE: a catch that converts an authorization failure into
+"no hold" would silently RELEASE a hold rather than fail loudly. That shape is
+dangerous wherever it appears.
+
+It is **NOT established** whether the production settlement path has the same
+shape. The harness has been deleted and was not the production code path. This
+finding records the shape so it can be checked, not as a confirmed defect in
+production.
+
+**TRIGGER: establish whether the production path treats an `equipment_outstanding`
+failure as "no hold" before the next settlement is paid.**
+
 ### RESOLVED — `confirmed_tons` had no input control (was known debt)
 
 The field was fully plumbed on the **write** side: validated at
