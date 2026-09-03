@@ -740,6 +740,40 @@ export default function ApplicationForm() {
     );
   }
 
+  // ── Resume gate: consume only on a click ────────────────────────────────
+  // Rendering this screen must have NO side effect on the token. Everything
+  // that spends it lives in the button's handler.
+  if (pendingResumeToken) {
+    return (
+      <div className="min-h-dvh bg-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center">
+          <div className="flex justify-center mb-6">
+            <img src={logo} alt="SUPERTRANSPORT" className="h-28 w-auto max-w-[400px] object-contain" />
+          </div>
+          <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-gold/10 flex items-center justify-center mx-auto mb-4">
+              <FileText className="h-8 w-8 text-gold" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-2">Welcome back</h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              Your driver application is saved and ready. Tap below to pick up where you left off.
+            </p>
+            <button
+              type="button"
+              data-testid="resume-continue"
+              onClick={() => { void consumeResume(); }}
+              disabled={consumingResume}
+              className="mt-6 inline-flex w-full items-center justify-center gap-2 h-12 rounded-xl bg-gold text-surface-dark text-sm font-bold hover:bg-gold-light transition-colors disabled:opacity-60"
+            >
+              {consumingResume && <Loader2 className="h-4 w-4 animate-spin" />}
+              {consumingResume ? 'Opening your application…' : 'Continue your application'}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // ── Resume link error screen ────────────────────────────────────────────
   if (resumeError) {
     return (
