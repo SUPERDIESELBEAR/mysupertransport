@@ -1,88 +1,143 @@
-# Did anyone call `get_pei_requests_needing_action` during the exposure window?
+# Equipment-hold fail-open: findings (read-only)
 
-Read-only investigation. No fixes applied. Bottom line first: **cannot be established for
-the exposure window.** The only usable evidence covers minutes-to-hours of today, not
-2026-05-13 → 2026-09-03.
+Nothing was changed. Every claim below names the query or file that produced it.
 
-## 1. Can I reach the API request logs?
+## 1. What the hold actually does
 
-**Yes — the analytics log store is reachable** from here (Supabase analytics query
-interface, `logs` table). But it is effectively empty for the period that matters.
+`src/lib/settlementRun.ts:289-293` sets `equipmentOutstanding`, which is passed into
+`input.equipmentOutstanding` (line 326) and consumed by `computeSettlement`
+(`src/lib/settlementEngine.ts:385`, `587-598`):
 
-Query: `select source, count(*), min(timestamp), max(timestamp) from logs group by source`
+```ts
+const equipmentExposure = equipmentOutstanding ? num(settings.equipment_value_per_driver) : 0;
+const rmBalanceAfter = round2(rmBalance + rmContribution);
+const coverage = round2(netAmount + rmBalanceAfter - equipmentExposure);
 
-| source | rows | oldest | newest |
-|---|---|---|---|
-| edge_logs (API gateway) | 283 | 2026-09-03 19:53:36Z | 2026-09-03 20:01:19Z |
-| pgbouncer_logs | 34 | 19:58:31Z | 20:01:05Z |
-| postgres_logs | 24 | 19:52:00Z | 20:01:00Z |
-| function_logs | 22 | 19:52:02Z | 20:01:20Z |
-| auth_logs | 15 | 20:00:08Z | 20:00:09Z |
-| function_edge_logs | 12 | 19:52:02Z | 20:01:03Z |
-| storage_logs | 12 | 19:59:49Z | 20:00:43Z |
-| postgrest_logs | 10 | 19:51:44Z | 20:01:21Z |
+if (isDeparting && coverage < num(settings.hold_buffer)) {
+  status = 'held';
+  holdReason = equipmentOutstanding
+    ? 'Payment held pending return of company equipment.'
+    : 'Payment held while the driver is departing and coverage is below the buffer.';
+}
+```
 
-**Oldest timestamp available anywhere in the log store: 2026-09-03 19:51:44Z** — roughly
-ten minutes before this investigation. An explicit query for anything between
-2026-05-01 and 2026-09-03 00:00 returned **0 rows**, and widening the `edge_logs` filter
-to "since 2026-01-01" still returned the same 283 rows starting 19:53:36Z. So the window
-is not a query-range artifact: nothing older is retained or exposed to this interface.
+It does not block the run, does not add a deduction, and does not change any dollar
+figure. It only shifts the coverage test, and only for a **departing** driver: the
+settlement is still computed in full, and what changes is `status = 'held'` versus
+`paid`, i.e. whether payment goes out.
 
-## 2. Hits for the function path
+Live values (`select ... from settlement_settings`): `equipment_value_per_driver`
+= **1200.00**, `hold_buffer` = **500.00**, `minimum_net_pay_threshold` = 100.00.
 
-Searching `edge_logs` for the function name over the widest range available returned
-**zero rows**. The only PEI-adjacent traffic in the retained window is REST table reads
-(`/rest/v1/pei_requests`, `/rest/v1/applications`, status 200) from the last few minutes
-— ordinary staff-portal activity, not RPC calls to the function.
+Monetary consequence of a wrongly-false value: exposure drops from 1200 to 0, so
+coverage rises by 1200. A departing driver whose true coverage sits anywhere in
+[-700, +500) is flipped from `held` to `paid` and the settlement is released. The
+loss is bounded by the un-returned equipment, i.e. up to **$1,200 per driver**, plus
+whatever net pay is disbursed that would otherwise have been the lever to get the
+equipment back. Non-departing drivers are unaffected — `isDeparting` gates the
+whole branch.
 
-Because retention starts 19:51:44Z today, this result says nothing at all about
-2026-05-13 → 2026-09-03. Source IP and auth-role attribution could not be reported for
-any hit, because there were no hits.
+## 2. How often it could fire
 
-## 3. What Postgres itself records
+Live catalog (`pg_proc`) has exactly one `public.equipment_outstanding(uuid)`,
+`SECURITY DEFINER`, matching the newest and only migration defining it,
+`supabase/migrations/20260831150358_...sql:150-168`:
 
-- **`track_functions` = `none`** (`select current_setting('track_functions', true)`).
-  Function-level statistics were never collected. `pg_stat_user_functions` contains
-  **0 rows** for every function in the database, not just this one. This is the evidence
-  that could have predated log retention, and it does not exist.
-- **`pg_stat_statements` is installed** (in schema `extensions`). It holds 4,758
-  statement entries, oldest `stats_since` **2026-03-07 01:59:49Z**. Filtering for the
-  function name returns 7 entries, all from today:
-  - two PostgREST RPC calls — `stats_since` **19:02:04Z** and **19:16:13Z** on 2026-09-03,
-    which are the investigation's own pre-fix anon test and post-fix authenticated test
-  - five DDL/GRANT/REVOKE statements from the 19:15:35Z remediation
-  No entry exists with an earlier first-seen time. **This is suggestive, not conclusive**:
-  `pg_stat_statements` has a fixed entry cap (4,758 entries are already tracked) and
-  evicts least-used entries under pressure, so an RPC called once in June could have been
-  evicted without trace. It also carries no caller identity, no IP, and no role — even a
-  surviving entry could not have told you whether the caller was anon.
-- **No audit trail of the call.** The function body is a bare `RETURN QUERY` with no
-  logging of its own, and `public.audit_log` records application actions (296 PEI-related
-  rows) written by app code and triggers — none of it records RPC invocation of this
-  function.
+```sql
+REVOKE ALL ON FUNCTION public.equipment_outstanding(uuid) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.equipment_outstanding(uuid) FROM anon;
+GRANT EXECUTE ON FUNCTION public.equipment_outstanding(uuid) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.equipment_outstanding(uuid) TO service_role;
+```
 
-## 4. The answer, stated precisely
+Live ACL confirms: `authenticated=X`, `service_role=X`, no anon.
 
-**Cannot be established.**
+A management or owner user running a settlement in the browser is `authenticated`,
+so **they do hold EXECUTE**. The harness `permission denied` came from a psql role
+outside those grants; it is not the production path. So the fail-open is currently
+**latent** in the sense that the RPC normally succeeds — it becomes live on any
+transport failure, network error, PostgREST error, JWT expiry mid-run, or a future
+grant change, none of which are observable at the call site.
 
-- Not "no calls occurred." Nothing supports that claim.
-- Not even "no calls in the retained window, covering X to Y" in any meaningful sense:
-  the retained gateway window is **2026-09-03 19:51:44Z → 20:01:21Z**, about ten minutes,
-  entirely after the fix landed at 19:15:35Z. It has zero overlap with the four-month
-  exposure.
-- `pg_stat_statements` gives partial, identity-free coverage back to at most
-  2026-03-07 and shows no pre-2026-09-03 execution — but eviction means absence there is
-  not proof, and it could not distinguish an anon caller from an authenticated one even
-  if a row had survived.
+Exposure today (live counts): 0 operators with `is_departing`, 0 settlements with
+status `held`, 1 settlement total, 0 open `equipment_return_confirmations`. Note the
+last one: with zero confirmations on file, the correct answer is TRUE for every
+operator, so any silent failure is guaranteed to be wrong, not just possibly wrong.
 
-Absence of evidence here is **not** evidence of absence. Any statement to counsel should
-say: the carrier's own tooling cannot determine whether the endpoint was called during
-the exposure window; longer-horizon API logs, if Supabase retains them outside this
-interface, are the only remaining avenue.
+## 3. Other discarded errors in the settlement path
 
-## Suggested next step (not taken)
+Direction is stated as: releases a guard / pays more / pays less.
 
-The one avenue not exhausted from here is a support/retention request to the platform for
-API gateway logs covering 2026-05-13 → 2026-09-03. If the answer is that they are not
-retained beyond a short window, that answer itself should be recorded in the incident
-entry, which currently leaves the question OPEN.
+`src/lib/settlementRun.ts`
+
+- **289-293** — `catch { equipmentOutstanding = false }` and the `{ data }`
+  destructure discarding `error`. Fallback `false`. **Releases a guard.**
+- **102-122 / 140, 150, 153, 160, 208, 216, 221, 224, 230-232, 242, 254, 267** —
+  the five `Promise.all` results plus the later fetches are consumed only as
+  `res?.data ?? []` / `?? null`; no `error` is inspected anywhere. A failed `loads`
+  query yields zero loads (**pays less**, or drops the operator from the population
+  entirely); a failed `pay_policies` query yields a null company policy (rate
+  resolution falls back — **direction depends on the fallback rates**); failed
+  `settlement_line_items` yields empty exclusion sets, so already-settled items can
+  be charged again (**pays more / double-charges**); failed `fuel`/`deductions`/
+  `advances` yields no deductions (**pays more**).
+- **271-284** — missing R&M row is treated as no deposit: `rmShortfall = 0`
+  (**pays more**, no R&M deduction taken) and `rmBalance` absent from coverage.
+- **286** — `carryForward[operatorId] ?? 0`: a lost negative carry-forward
+  **pays more**.
+- **417-425** — `store_settlement_run` is the one place that does it right:
+  `if (error) throw error`.
+
+`src/lib/settlementEngine.ts` — pure computation, no I/O. Its `?? ` uses are
+defaults on optional inputs (`equipmentOutstanding = false` at 385 is the same
+release-a-guard default, reached whenever the caller omits the field).
+
+`src/lib/dispatchSettlementRun.ts` — `settRes.error` / `loadRes.error` are thrown at
+733-734, and the RPC checks `error` at 411 and 542. The gather block at 120-159
+(`rateRes.data ?? []`, `policyRes.data ?? null`, `loadRes.data ?? []`,
+`dedRes.data ?? []`) does not, so a failed query yields a smaller or unrated
+settlement (**pays less**), and a missing rate row is the same shape.
+
+`src/lib/dispatchSettlement.ts` — pure; its `??` are field defaults on already-read
+rows, no error discarding.
+
+So: the equipment hold is the only fallback in this path that **releases a guard**.
+The rest fail toward paying less or, in the exclusion-set and deduction cases,
+toward paying more — different severity, still real.
+
+## 4. Is this systemic
+
+`rg` over `supabase/functions/**/*.ts` finds **435** `const { data ... }`
+destructures (the wish list's 246 is an undercount or an older snapshot). Filtering
+those same lines for money/guard vocabulary (settlement, charge, deduction, invoice,
+deposit, advance, policy, rate, hold, load) gives **15** in the edge functions.
+
+The concentration is not in the edge functions. It is in the client-side settlement
+gather described in section 3, where a single function discards the error on every
+one of its ~12 reads. So: not one bad line, and not 246 equally bad ones — it is a
+**property of `gatherSettlementRun` specifically**, which is the worst possible place
+for it, plus a thin scatter elsewhere.
+
+## 5. What the correct behaviour is (stated, not implemented)
+
+When `equipment_outstanding` cannot be determined, the settlement run must **fail
+loudly and refuse to produce a settlement for that operator** — not default either
+way. Concretely:
+
+- Read `error` as well as `data` and throw on it; keep the `catch` only to re-throw
+  with context. No `catch {}`.
+- A non-boolean `data` (null/undefined) is also "cannot be determined" and must
+  throw, not compare-to-false.
+- Defaulting to TRUE instead would be safer than today but is still wrong: it would
+  invent a hold on evidence nobody checked, and a hold is a claim about the physical
+  world that must be traceable to a row.
+- The same rule applies to the rest of `gatherSettlementRun`: every read that feeds
+  a dollar figure or an exclusion set must throw on error. An empty result set that
+  came from a failure is indistinguishable from a true empty, and both directions
+  (underpay, double-charge) are unacceptable in a settlement.
+- The engine's `equipmentOutstanding = false` default at `settlementEngine.ts:385`
+  should become a required field so a caller cannot omit it silently.
+
+Sequencing note: fixing the RPC line alone converts a silent wrong payment into a
+visible run failure, which is the right trade. Fixing the other reads in the same
+pass is what makes the run trustworthy rather than merely noisier.
