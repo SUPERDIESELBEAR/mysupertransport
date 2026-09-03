@@ -756,6 +756,29 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
     ).toEqual([]);
   });
 
+  it("every anon-executable entry carries a justification", () => {
+    // WHY THIS EXISTS. Membership proved only that the set had not grown.
+    // get_pei_requests_needing_action() was a registered member for four
+    // months while returning applicant names and prior-employer contact
+    // emails to any unauthenticated caller. Nobody reviewed it because
+    // nothing forced anyone to write down why anon may call it.
+    const bad = KNOWN_ANON_EXECUTABLE_ENTRIES.filter((e) => {
+      const reason = (e.reason ?? "").trim();
+      if (!/^(ROUTE|GUARD) /.test(reason)) return true;
+      // A prefix with nothing after it is not a justification.
+      return reason.replace(/^(ROUTE|GUARD) /, "").length < 20;
+    }).map((e) => e.signature);
+
+    expect(
+      bad,
+      `KNOWN_ANON_EXECUTABLE entr(y|ies) without a usable justification. ` +
+        `Every entry's reason must begin with "ROUTE " -- naming the ` +
+        `unauthenticated route AND the file that calls it -- or "GUARD " -- ` +
+        `quoting the in-body check that refuses anon:\n  ${bad.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
+
   itLive(
     "every SECURITY DEFINER function in public pins search_path",
     () => {
