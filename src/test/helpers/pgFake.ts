@@ -357,6 +357,8 @@ export function createPgFake(): PgFake {
       lumper_reimbursement_pct: 100,
       tonu_pct: 72,
       other_accessorial_pct: 72,
+      per_ton_pct: 72,
+      loadout_pct: 72,
       charge_pay_classes: {
         linehaul: 'revenue', fsc: 'revenue', detention: 'revenue', stopoff: 'revenue',
         layover: 'revenue', tonu: 'revenue', other: 'revenue',

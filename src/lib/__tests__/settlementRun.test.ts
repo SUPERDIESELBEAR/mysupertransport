@@ -39,7 +39,7 @@ const baseTables = () => ({
     minimum_net_pay_threshold: 100, hold_buffer: 500, equipment_value_per_driver: 1200,
     rm_deposit_target: 2000, rm_weekly_deduction: 200, work_week_start_dow: 3,
   }],
-  pay_policies: [{ id: 'p1', is_company_default: true, linehaul_pct: 72, fsc_pct: 72, detention_pct: 100, other_accessorial_pct: 72 }],
+  pay_policies: [{ id: 'p1', is_company_default: true, linehaul_pct: 72, fsc_pct: 72, detention_pct: 100, other_accessorial_pct: 72, per_ton_pct: 72, loadout_pct: 72 }],
   pay_policy_assignments: [],
   settlement_line_items: [],
   settlements: [],

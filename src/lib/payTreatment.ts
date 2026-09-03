@@ -120,15 +120,19 @@ export function pctForClassification(
     const pct = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
     return Number.isFinite(pct) ? pct : null;
   };
-  const direct = read(PCT_FIELD[klass]);
-  if (direct !== null) return direct;
-  // HEADER-RATE FALLBACK, deliberately narrow. `per_ton_pct` and `loadout_pct`
-  // are NOT NULL in the database, so the only way they arrive absent is a
-  // partial column selection. Paying such a load ZERO would be a far worse
-  // answer than paying it what it was paid before these columns were wired, so
-  // the linehaul share stands in. It never applies to a value that is present.
-  if (klass === 'per_ton' || klass === 'loadout') return read('linehaul_pct');
-  return null;
+  // NO HEADER-RATE FALLBACK. Standing `per_ton_pct`/`loadout_pct` in as
+  // `linehaul_pct` when they are absent was considered and DELIBERATELY
+  // REJECTED — do not reintroduce it as an improvement. Both columns are NOT
+  // NULL in the database, so absence means a partial column selection: a query
+  // defect. A fallback turns that defect into a plausible number. It is
+  // invisible while all three columns are 72, and the moment a carrier sets
+  // `loadout_pct` to 50 it silently pays 72% of every relocation fee with
+  // nothing to surface it. Zero, or a line that refuses to compute, is a worse
+  // answer that gets reported in a day; a wrong percentage that looks right is
+  // never reported at all. This project has recorded several defects of exactly
+  // that shape — the $204 settlement, the $0 loadout, the recurring deduction
+  // charged once.
+  return read(PCT_FIELD[klass]);
 }
 
 /** The pay class in force for a classification under this policy. */

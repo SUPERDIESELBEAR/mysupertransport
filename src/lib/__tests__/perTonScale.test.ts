@@ -9,7 +9,8 @@ const policy: PayPolicyRates = {
   id: 'p', name: 'Company default',
   linehaul_pct: 72, fsc_pct: 72, detention_pct: 100, layover_pct: 100,
   stopoff_pct: 72, lumper_reimbursement_pct: 100, tonu_pct: 72,
-  other_accessorial_pct: 72, charge_pay_classes: null, fuel_discount_passthrough: false,
+  other_accessorial_pct: 72, per_ton_pct: 72, loadout_pct: 72,
+  charge_pay_classes: null, fuel_discount_passthrough: false,
 };
 
 const perTonLoad = (over: Record<string, unknown> = {}) => ({
