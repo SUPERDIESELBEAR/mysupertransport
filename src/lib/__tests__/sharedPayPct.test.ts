@@ -74,12 +74,21 @@ describe('pctForClassification — the one map', () => {
     expect(payTreatment('linehaul', null)).toEqual({ kind: 'unknown', label: null });
   });
 
-  it('stands the linehaul share in only when a header column was never selected', () => {
+  it('returns NULL for an absent header column — never the linehaul share', () => {
+    // Absence means a partial column selection, which is a query defect. It is
+    // not repaired here with a plausible number: see the note on
+    // `pctForClassification`.
     const partial = { ...LIVE_COMPANY_POLICY } as PayPolicyRates;
     delete (partial as unknown as Record<string, unknown>).per_ton_pct;
     delete (partial as unknown as Record<string, unknown>).loadout_pct;
-    expect(pctForClassification('per_ton', partial)).toBe(72);
-    expect(pctForClassification('loadout', partial)).toBe(72);
+    expect(pctForClassification('per_ton', partial)).toBeNull();
+    expect(pctForClassification('loadout', partial)).toBeNull();
+    expect(pctForClassification('linehaul', partial)).toBe(72);
+  });
+
+  it('a non-numeric header column is null too, not a stand-in', () => {
+    const junk = { ...LIVE_COMPANY_POLICY, loadout_pct: null } as PayPolicyRates;
+    expect(pctForClassification('loadout', junk)).toBeNull();
   });
 });
 
@@ -142,12 +151,13 @@ describe('the retained Pratt settlement is unchanged by this pass', () => {
     expect(r.netAmount).toBe(327.94);
   });
 
-  it('produces the identical figure whether per_ton_pct is read or absent', () => {
-    const before = { ...LIVE_COMPANY_POLICY } as PayPolicyRates;
-    delete (before as unknown as Record<string, unknown>).per_ton_pct; // pre-wiring: linehaul_pct
-    const after = LIVE_COMPANY_POLICY;                       // post-wiring: per_ton_pct
-    expect(computeSettlement(prattInput(before)).netAmount)
-      .toBe(computeSettlement(prattInput(after)).netAmount);
+  it('is identical to what linehaul_pct produced before per_ton_pct was wired', () => {
+    // Pre-wiring the per-ton linehaul was valued at `linehaul_pct`. Both are 72,
+    // so the figure must not move. Modelled by moving the VALUE, not by relying
+    // on a fallback — an absent column now yields null, by design.
+    const preWiring = { ...LIVE_COMPANY_POLICY, per_ton_pct: LIVE_COMPANY_POLICY.linehaul_pct };
+    expect(computeSettlement(prattInput(preWiring)).netAmount).toBe(327.94);
+    expect(computeSettlement(prattInput(LIVE_COMPANY_POLICY)).netAmount).toBe(327.94);
   });
 });
 
