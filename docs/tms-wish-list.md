@@ -319,30 +319,46 @@ nothing labelled.
 **TRIGGER: before real freight volume, or with the first load that cannot obtain
 its paperwork.**
 
-### Audit and revoke anon EXECUTE across definer functions
-**TRIGGER: before any external launch or SaaS onboarding.**
+### Audit and revoke anon EXECUTE across definer functions — LARGELY DONE 2026-09-03, NARROWED
+**TRIGGER (remaining scope): before any external launch or SaaS onboarding.**
 
-Supabase default privileges grant `anon` EXECUTE on every function created in
-schema `public` at CREATE time, and `REVOKE ALL FROM PUBLIC` does not remove it
-(PUBLIC is not anon). 49 of 205 SECURITY DEFINER functions currently carry
-`anon=X`, plus 161 non-definer functions. The full record, including the
-amended standing rule for new definer functions, is in
-`docs/tms-build-status.md`.
+**It was correct to have been open, and it was not tidiness: it contained a LIVE
+UNAUTHENTICATED DATA DISCLOSURE.** The audit ran on 2026-09-03 and found
+`public.get_pei_requests_needing_action()` — SECURITY DEFINER, no guard,
+anon-executable since 2026-05-13, returning applicant names and prior-employer
+contact emails to any holder of the anon key, and with NO CALLER anywhere in the
+codebase. Also found `public.email_queue_dispatch()` anon-executable, able to
+unschedule the mail-delivery cron. Both were fixed the same day. The full
+incident record is in `docs/tms-build-status.md`.
 
-**This cannot be done in bulk.** A subset legitimately needs anon — the
-token-gated public paths: `resolve_share_token`,
-`get_application_by_draft_token`, `get_inspection_doc_by_token`,
-`resolve_short_link`, the PEI response path (`get_pei_request_for_response`,
-`submit_pei_response`) and the application draft-save path
-(`is_valid_application_draft_token`, `save_application_draft`,
-`submit_application_draft`, `consume_application_resume_token`). Revoking one of
-those breaks `/inspect/:token` or the public application flow **with no obvious
-symptom**: the caller is unauthenticated, so the failure surfaces as a blank
-page or a silent empty result to someone outside the company, not as an error
-anyone here sees.
+Also done: thirteen no-anon-caller helpers revoked from `PUBLIC` and `anon`;
+`is_staff(uuid)` deliberately RETAINED because `/apply` needs it through a
+non-definer trigger; live anon-executable definers **48 → 33**; and the anon
+inventory guard now requires a written `ROUTE`/`GUARD` justification per entry.
 
-Each function must be classified individually — body read, callers traced,
-anon-reachability decided — before anything is revoked. Do not run a loop.
+**What remains open, and only this:**
+
+1. The 33 remaining anon-executable definers are INVENTORY — each classified by
+   hand on 2026-09-03, each now carrying a written justification. Two carry known
+   sensitivities rather than defects: `check_application_email_taken` (email
+   enumeration) and `get_application_by_draft_token` (returns all application
+   columns — tracked separately as KNOWN DEBT 4.1).
+2. The ~161 NON-definer functions carrying `anon=X` were not touched by this
+   audit and have never been classified.
+3. `KNOWN_AUTHENTICATED_EXECUTABLE` (110 entries) was deliberately not given
+   per-entry justifications; a half-populated set would be worse than none.
+4. No guard watches functions reached through non-definer triggers running as the
+   calling role — recorded as KNOWN DEBT in `docs/tms-build-status.md`.
+
+**This still cannot be done in bulk.** The token-gated public paths —
+`resolve_share_token`, `get_application_by_draft_token`,
+`get_inspection_doc_by_token`, `resolve_short_link`, the PEI response path and
+the application draft-save path — legitimately need anon. Revoking one breaks
+`/inspect/:token` or the public application flow **with no obvious symptom**: the
+failure surfaces as a blank page to someone outside the company. Classify each
+function individually — body read, callers traced, anon-reachability decided.
+Do not run a loop.
+
 
 ### Test tooling can change without a commit
 **TRIGGER: if a baseline moves and no code change explains it.**
