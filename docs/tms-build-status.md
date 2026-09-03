@@ -2213,10 +2213,13 @@ found to be stale, false, or already fixed.
 
 | Reported issue | First reported / closed | Reason |
 |---|---|---|
-| InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20 | Fixed before report; the embed error predates the 2026-08-20 redesign. |
+| InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20; **re-reported 2026-09-03** | Fixed before report; the embed error predates the 2026-08-20 redesign. Current query reads names through `applications`; embed guard green over 1014 selects, 3526 column references, 181 embed hops. |
 | Permission-denied errors on operator/document paths | 2026-08-27 / closed 2026-08-27 | `grant_parity_report` was clean; the proposed GRANT would reverse a deliberate revoke. |
-| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27 | Fixed in the same 2026-08-27 pass that introduced the reclassification path. |
-| `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29 | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
+| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27; **re-reported 2026-09-03** | Fixed in the same 2026-08-27 pass that introduced the reclassification path. `buildRevisionDiff` carries a `reclassified` op; `saveLoadReferences` applies class moves in place before the upsert. Zero duplicate rows live; 0 of 13 reference rows carry a class the current classifier would not assign. |
+| `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03** | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
+| Per-ton load edit wipes scale-ticket total | 2026-08-29 / closed 2026-09-02; **re-reported 2026-09-03** | Re-verified live 2026-09-02: `recompute_load_total_value` returned 6750 unchanged with confirmed tons present. The finding described a corrected state. |
+| Driver ELD `carrier_profile` permission denied | 2026-09-03 / closed 2026-09-03 | Grants restored in a prior pass; live `carrier_profile` grants present. |
+| Equipment serial guard blocks assign/return/archive | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03** | Described the trigger as it stood for roughly 24 hours between 2026-08-28 and 2026-08-29. The live function carries two early exits before the uniqueness check; live data has ZERO conflicting pairs; partial unique index `idx_equipment_items_canonical_serial_uniq` makes a conflicting pair unstorable. |
 
 ## The look-alike serial guard blocked its own cleanup (2026-08-29)
 
@@ -4359,6 +4362,39 @@ against the commit timestamp, then search the deployed bundle for a string uniqu
 to the new code.
 
 ---
+
+
+**AUTOMATED MONITORING FINDINGS ARE TRIAGED BY SOURCE BEFORE THEY ARE INVESTIGATED
+(2026-09-03).** Of nine findings in the 2026-09-03 monitoring batch, seven were
+stale and two were real. The split follows source exactly:
+
+- The two **real** findings came from **error logs or live data** — eight
+  `token_used` responses in a day; a gathering query observable in the code AND
+  confirmed against live rows. Both were also escalated by email rather than left
+  in the list.
+- All seven **stale** findings came from **reading code**, and each described a
+  definition that was no longer live. One described a state that existed for about
+  24 hours. Two had already been reported and closed once before.
+
+> **Standing rule.** A finding sourced from error logs or live data is investigated.
+> A finding sourced from code reading gets TWO CHECKS FIRST, before any analysis:
+> (a) is the definition it cites the NEWEST one — list every migration or read the
+> current file; and (b) does the stale-issues table already carry it. If either
+> check disposes of it, record the occurrence and stop.
+>
+> The stale-issues table records **every** occurrence date, not only the first, so a
+> third report of the same finding is recognised rather than re-investigated.
+>
+> Cross-reference the existing standing lesson about reading the newest migration.
+> This batch produced its fourth and fifth instances. The equipment-serial case is
+> the sharpest: the finding was accurate about the code, and wrong about which code
+> was live.
+
+**A COMMENT EXPLAINING WHY SOMETHING IS NOT A BUG IS EVIDENCE THE BUG WAS ALREADY
+FOUND (2026-09-03).** The reference-number and equipment-serial investigations
+both found the live code carried a comment explaining precisely the defect the
+finding described — because each comment was written by the pass that fixed it.
+Such comments are worth reading before investigating further.
 
 
 ## FIXED 2026-08-31 — the engine omitted linehaul entirely (header rates)
