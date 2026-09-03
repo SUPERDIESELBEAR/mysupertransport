@@ -4858,9 +4858,21 @@ recover it. Non-departing drivers were unaffected.
 
 **Larger unbounded exposure.** The more severe silent failure was the
 `settlement_line_items` read feeding `settledSources`. A failed read returned an
-empty exclusion set, so already-settled items could be charged again — in
-particular, fuel and other recurring deductions could be re-deducted indefinitely.
-That exposure is not capped by a settings constant.
+empty exclusion set, so already-settled items could be charged again. Loads are
+filtered by `deliveredInPeriod` BEFORE the exclusion check
+(`settlementRun.ts:141-142`), so a lost exclusion set can only re-touch loads
+delivered inside the period being run — load damage is contained. FUEL IS NOT.
+`settlementRun.ts:242-243` filters fuel on operator id and exclusion only, with
+no period bound. The exclusion set was the sole thing keeping previously-settled
+fuel out. A failed `settlement_line_items` read therefore re-deducted EVERY fuel
+transaction that driver had ever had, in a single settlement, unbounded by period
+— and on a driver with months of history that takes a settlement deeply negative,
+where negative settlements carry forward rather than being forgiven.
+
+The general shape is what makes this reusable: when a filter's only bound is an
+exclusion set, losing that set removes the bound entirely. A filter that ALSO
+carries an independent bound — a period, a date range — degrades instead of failing
+wide open. Loads had one; fuel did not.
 
 **The fix.** `gatherSettlementRun` now uses `SettlementReadError` helpers
 (`rowsOf`, `rowOf`, `readFailure`) and throws on every read that feeds a dollar
