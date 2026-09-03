@@ -20,6 +20,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 import type { LoadChargeRecord } from '@/lib/loadCharges';
+import type { SettlementLoadInput } from '@/lib/settlementEngine';
 
 vi.mock('@/lib/payTreatment', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/payTreatment')>();
@@ -34,7 +35,7 @@ vi.mock('@/lib/carrierTimezone', async (importOriginal) => {
 const { pctForClassification } = await import('@/lib/payTreatment');
 const { isoToNaive } = await import('@/lib/carrierTimezone');
 const { estimateDriverLoadPay } = await import('@/lib/driverLoadPay');
-const { computeSettlement, type SettlementLoadInput } = await import('@/lib/settlementEngine');
+const { computeSettlement } = await import('@/lib/settlementEngine');
 const { SETTLEMENT_SETTINGS_DEFAULTS } = await import('@/lib/settlementConfig');
 const { monthOf, inCalendarMonth } = await import('@/lib/settlementPeriod');
 
