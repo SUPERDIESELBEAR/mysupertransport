@@ -5259,7 +5259,8 @@ together with the absence of a persisted parse result on the Create Load path.**
 Pass 3. That procedure covers the dispatch settlement (2026-08-01 `draft`),
 `dispatch_settlement_rates`, the six ST260xx seed loads, the five ST-TEST-00x seed
 loads, the five previously unlisted loads, the Pratt settlement, storage objects,
-and the demo-environment blocker. Do not follow the older fragmented notes that
+and the cutover blocker with the chosen direction (fictitious company via
+`company_id` tenancy, not a demo flag). Do not follow the older fragmented notes that
 preceded this consolidation.
 
 
