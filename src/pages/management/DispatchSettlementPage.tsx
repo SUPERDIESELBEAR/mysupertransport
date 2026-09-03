@@ -122,13 +122,13 @@ export default function DispatchSettlementPage() {
       const mode = stored ? 'replace' : 'refuse';
       const out = await storeDispatchSettlement(supabase, result, mode);
       toast({ title: `Month ${out.outcome === 'refused_existing' ? 'already stored' : 'computed'}` });
-      await load();
+      await Promise.all([load(), loadMonths()]);
     } catch (e) {
       toast({ title: 'The month did not compute', description: (e as Error).message, variant: 'destructive' });
     } finally {
       setBusy(null);
     }
-  }, [month, stored, toast, load]);
+  }, [month, stored, toast, load, loadMonths]);
 
   const setStatus = useCallback(async (
     patch: Record<string, unknown>, label: string,
@@ -242,7 +242,7 @@ export default function DispatchSettlementPage() {
 
       {!loading && !s && (
         <Card className="p-6 text-sm text-muted-foreground">
-          No settlement has been stored for {month}.
+          No settlement has been stored for {monthLabel(month)}.
         </Card>
       )}
 
