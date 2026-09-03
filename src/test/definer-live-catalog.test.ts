@@ -335,6 +335,17 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // transaction-local writer flag it sets are executable by NO client role.
   "public.store_settlement_run(date,date,date,jsonb,text)",
 
+  // set_load_dispatcher (2026-09-01), the only path to changing load
+  // attribution after creation. The body gates on management or owner, and
+  // refuses a target profile that does not hold the `dispatcher` role, so a
+  // dispatcher cannot reassign his own or anyone else's load.
+  // loads.dispatcher_id carries no client write privilege — the column is not
+  // reachable through the table or the load writer RPC — so this function is
+  // the whole surface. authenticated only; PUBLIC and anon are revoked in the
+  // migration that creates it.
+  "public.set_load_dispatcher(uuid,uuid,text)",
+
+
   // Raises the WATCH claim behind a loadout damage note. claim_flags is
   // staff-write only, and it has to stay that way: the driver may record damage
   // on HIS OWN load and nothing else. The function verifies the caller either
