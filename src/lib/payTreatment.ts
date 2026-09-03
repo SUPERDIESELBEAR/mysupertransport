@@ -54,6 +54,10 @@ export interface PayPolicyRates {
   lumper_reimbursement_pct: number;
   tonu_pct: number;
   other_accessorial_pct: number;
+  /** Per-ton freight linehaul share. NOT NULL DEFAULT 72.00 in the database. */
+  per_ton_pct?: number | null;
+  /** Trailer relocation fee share. NOT NULL DEFAULT 72.00 in the database. */
+  loadout_pct?: number | null;
   /** Classification key → pay class, as configured on this policy. */
   charge_pay_classes?: Record<string, string> | null;
   /** Off means the fuel discount is company margin and the driver never sees it. */
@@ -62,11 +66,30 @@ export interface PayPolicyRates {
 
 const POLICY_COLUMNS =
   'id, name, linehaul_pct, fsc_pct, detention_pct, layover_pct, stopoff_pct, '
-  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, charge_pay_classes, '
-  + 'fuel_discount_passthrough';
+  + 'lumper_reimbursement_pct, tonu_pct, other_accessorial_pct, per_ton_pct, loadout_pct, '
+  + 'charge_pay_classes, fuel_discount_passthrough';
 
-/** Percentage column backing each classification. */
-const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
+/**
+ * Header-rate kinds that are NOT charge classifications but still take a
+ * percentage from the pay policy. A per-ton load's linehaul and a loadout's
+ * relocation fee are paid on their own columns, so a carrier can pay a
+ * different share by freight type; that is what makes the policy engine
+ * configurable rather than a single split with extra columns nobody reads.
+ */
+export type HeaderRateKey = 'per_ton' | 'loadout';
+
+/** Anything the policy can price: a charge classification or a header rate. */
+export type PayRateKey = ClassificationKey | HeaderRateKey;
+
+/**
+ * THE percentage column backing each priced thing. ONE map, project-wide.
+ *
+ * Until 2026-09-03 this map existed three times — here, in
+ * `settlementEngine.ts` and in `driverLoadPay.ts`. All three agreed, which is
+ * exactly the danger: the map behind the figure a driver is SHOWN and the map
+ * behind what he is PAID were separate objects that happened to match.
+ */
+const PCT_FIELD: Record<PayRateKey, keyof PayPolicyRates> = {
   linehaul: 'linehaul_pct',
   fsc: 'fsc_pct',
   detention: 'detention_pct',
@@ -78,7 +101,35 @@ const PCT_FIELD: Record<ClassificationKey, keyof PayPolicyRates> = {
   // exhaustive and a policy that reclassifies it as revenue still resolves.
   reimbursement: 'other_accessorial_pct',
   other: 'other_accessorial_pct',
+  per_ton: 'per_ton_pct',
+  loadout: 'loadout_pct',
 };
+
+/**
+ * The percentage in force for a priced thing, or null when it cannot be read
+ * honestly — no policy, or a column that is absent or non-numeric. Callers
+ * pay nothing on null rather than falling back to a guess.
+ */
+export function pctForClassification(
+  klass: PayRateKey,
+  policy: PayPolicyRates | null | undefined,
+): number | null {
+  if (!policy) return null;
+  const read = (col: keyof PayPolicyRates): number | null => {
+    const raw = policy[col];
+    const pct = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+    return Number.isFinite(pct) ? pct : null;
+  };
+  const direct = read(PCT_FIELD[klass]);
+  if (direct !== null) return direct;
+  // HEADER-RATE FALLBACK, deliberately narrow. `per_ton_pct` and `loadout_pct`
+  // are NOT NULL in the database, so the only way they arrive absent is a
+  // partial column selection. Paying such a load ZERO would be a far worse
+  // answer than paying it what it was paid before these columns were wired, so
+  // the linehaul share stands in. It never applies to a value that is present.
+  if (klass === 'per_ton' || klass === 'loadout') return read('linehaul_pct');
+  return null;
+}
 
 /** The pay class in force for a classification under this policy. */
 export function payClassOf(
@@ -102,8 +153,8 @@ export function payTreatment(
   if (payClassOf(klass, policy) === 'reimbursement') {
     return { kind: 'at_cost', label: 'reimbursed at cost' };
   }
-  const pct = Number(policy[PCT_FIELD[klass]]);
-  if (!Number.isFinite(pct)) return { kind: 'unknown', label: null };
+  const pct = pctForClassification(klass, policy);
+  if (pct === null) return { kind: 'unknown', label: null };
   return { kind: 'percentage', pct, label: `${trimPct(pct)}% to driver` };
 }
 

@@ -30,6 +30,28 @@ export function carrierDateOf(iso: string | Date | null | undefined): string {
   return isoToNaive(value).slice(0, 10);
 }
 
+/**
+ * The 'YYYY-MM' an instant falls in, read in the CARRIER timezone.
+ *
+ * The dispatch company settlement runs on a calendar month (section 4), and a
+ * load delivering 7pm on the 31st Pacific is the 1st in Central and belongs to
+ * the FOLLOWING month. This resolves through `carrierDateOf` for exactly the
+ * reason the weekly attribution does, and never through `new Date(v)` read in
+ * whatever zone the machine happens to be set to.
+ */
+export function monthOf(iso: string | Date | null | undefined): string {
+  return carrierDateOf(iso).slice(0, 7);
+}
+
+/** True when the instant falls inside the given 'YYYY-MM' calendar month, carrier zone. */
+export function inCalendarMonth(
+  iso: string | Date | null | undefined,
+  month: string,
+): boolean {
+  const m = monthOf(iso);
+  return m !== '' && m === month;
+}
+
 function utcOf(dateStr: string): number {
   const [y, m, d] = dateStr.split('-').map(Number);
   return Date.UTC(y, m - 1, d);

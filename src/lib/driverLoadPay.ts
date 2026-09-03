@@ -12,19 +12,11 @@
  * deductions and the R&M deposit. The contract percentage lives in the ICA.
  */
 import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
-import { payClassOf, type PayPolicyRates } from '@/lib/payTreatment';
+import { payClassOf, pctForClassification, type PayPolicyRates } from '@/lib/payTreatment';
 
-const PCT_FIELD = {
-  linehaul: 'linehaul_pct',
-  fsc: 'fsc_pct',
-  detention: 'detention_pct',
-  stopoff: 'stopoff_pct',
-  lumper: 'lumper_reimbursement_pct',
-  layover: 'layover_pct',
-  tonu: 'tonu_pct',
-  reimbursement: 'other_accessorial_pct',
-  other: 'other_accessorial_pct',
-} as const;
+// The classification-to-column map is NOT redefined here. It lived in this file
+// as its own copy until 2026-09-03, which meant the figure shown to a driver and
+// the figure he was paid were resolved by two objects that merely agreed.
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
@@ -71,8 +63,8 @@ export function estimateDriverLoadPay(
       total += num(charge.actual_cost);
       continue;
     }
-    const pct = Number(policy[PCT_FIELD[klass]]);
-    if (!Number.isFinite(pct)) { incomplete = true; continue; }
+    const pct = pctForClassification(klass, policy);
+    if (pct === null) { incomplete = true; continue; }
     total += num(charge.amount) * (pct / 100);
   }
 

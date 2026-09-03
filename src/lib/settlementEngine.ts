@@ -27,7 +27,8 @@
  */
 import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
 import { AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL } from '@/lib/perTonScale';
-import { payClassOf, type PayPolicyRates } from '@/lib/payTreatment';
+import { payClassOf, pctForClassification, type PayPolicyRates, type PayRateKey } from '@/lib/payTreatment';
+import type { ClassificationKey } from '@/lib/revisedRateCon';
 import {
   evaluateLoadPaperwork,
   type PaperworkDocumentInput,
@@ -268,17 +269,9 @@ export interface ComputedSettlement {
 /* Helpers                                                             */
 /* ------------------------------------------------------------------ */
 
-const PCT_FIELD = {
-  linehaul: 'linehaul_pct',
-  fsc: 'fsc_pct',
-  detention: 'detention_pct',
-  stopoff: 'stopoff_pct',
-  lumper: 'lumper_reimbursement_pct',
-  layover: 'layover_pct',
-  tonu: 'tonu_pct',
-  reimbursement: 'other_accessorial_pct',
-  other: 'other_accessorial_pct',
-} as const;
+// The classification-to-column map is NOT redefined here. It is the single map
+// in `payTreatment.ts`, reached through `pctForClassification`, so the driver's
+// displayed figure and his settlement resolve percentages through one object.
 
 const num = (v: unknown): number => {
   const n = typeof v === 'number' ? v : parseFloat(String(v ?? ''));
@@ -313,15 +306,16 @@ function headerRateLines(
 ): { lines: Array<{ lineType: SettlementLineType; amount: number; description: string }>; pendingScaleTicket: boolean } {
   const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
   let pendingScaleTicket = false;
-  const pctOf = (klass: keyof typeof PCT_FIELD): number | null => {
-    const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
-    return Number.isFinite(pct) ? pct : null;
-  };
+  const pctOf = (klass: PayRateKey): number | null => pctForClassification(klass, policy);
 
   if (load.loadType === 'loadout') {
     // A $0 relocation fee pays $0. The trailer use IS the value.
     const fee = num(load.loadoutRelocationFee);
-    const pct = pctOf('linehaul');
+    // A loadout is priced on its OWN column. Both `loadout_pct` and
+    // `linehaul_pct` are 72.00 today, so nothing moves; the point is that a
+    // carrier who pays a different share for a trailer relocation can express
+    // it, which is what "configurable pay policy" has to mean.
+    const pct = pctOf('loadout');
     const amount = pct === null ? 0 : round2(fee * (pct / 100));
     if (amount) {
       out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
@@ -331,6 +325,9 @@ function headerRateLines(
 
   let base = 0;
   let label = 'Linehaul';
+  // Which policy column prices the linehaul component. Per-ton freight reads
+  // `per_ton_pct`; everything else reads `linehaul_pct`.
+  let linehaulKey: PayRateKey = 'linehaul';
   switch (String(load.rateType ?? 'flat')) {
     case 'per_mile':
       base = num(load.ratePerMile) * num(load.loadedMiles);
@@ -349,13 +346,14 @@ function headerRateLines(
         base = num(load.ratePerTon) * num(confirmed);
       }
       label = 'Linehaul (per ton, from scale ticket)';
+      linehaulKey = 'per_ton';
       break;
     }
     default:
       base = num(load.linehaulRate);
       break;
   }
-  const linehaulPct = pctOf('linehaul');
+  const linehaulPct = pctOf(linehaulKey);
   const linehaul = linehaulPct === null ? 0 : round2(base * (linehaulPct / 100));
   if (linehaul) out.push({ lineType: 'load_pay', amount: linehaul, description: label });
 
@@ -370,7 +368,7 @@ function headerRateLines(
   return { lines: out, pendingScaleTicket };
 }
 
-function lineTypeForCharge(klass: keyof typeof PCT_FIELD, isReimbursement: boolean): SettlementLineType {
+function lineTypeForCharge(klass: ClassificationKey, isReimbursement: boolean): SettlementLineType {
   if (isReimbursement) return 'reimbursement';
   return klass === 'linehaul' ? 'load_pay' : 'accessorial';
 }
@@ -471,8 +469,8 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         continue;
       }
 
-      const pct = policy ? Number(policy[PCT_FIELD[klass]]) : NaN;
-      if (!Number.isFinite(pct)) continue;
+      const pct = pctForClassification(klass, policy);
+      if (pct === null) continue;
       const amount = round2(num(charge.amount) * (pct / 100));
       if (!amount) continue;
       lines.push({
