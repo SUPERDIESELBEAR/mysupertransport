@@ -63,8 +63,8 @@ export function estimateDriverLoadPay(
       total += num(charge.actual_cost);
       continue;
     }
-    const pct = Number(policy[PCT_FIELD[klass]]);
-    if (!Number.isFinite(pct)) { incomplete = true; continue; }
+    const pct = pctForClassification(klass, policy);
+    if (pct === null) { incomplete = true; continue; }
     total += num(charge.amount) * (pct / 100);
   }
 
