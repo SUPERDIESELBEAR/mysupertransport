@@ -20,18 +20,22 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Textarea } from '@/components/ui/textarea';
+import {
+  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import {
-  previewDispatchMonth, readStoredDispatchMonth, storeDispatchSettlement,
-  type StoredDispatchMonth,
+  defaultDispatchMonth, listDispatchMonths, monthLabel, previewDispatchMonth,
+  readStoredDispatchMonth, storeDispatchSettlement,
+  type DispatchMonthOption, type StoredDispatchMonth,
 } from '@/lib/dispatchSettlementRun';
+
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 const pct = (n: number) => `${Number(n).toFixed(2)}%`;
