@@ -4782,3 +4782,149 @@ and still apply.
   `SET LOCAL app.dispatch_settlement_write = 'on'`, which is the only unlock.
 
 **TRIGGER: before the first real dispatch settlement month is computed.**
+
+
+---
+
+## PASS RECORD — resume-link lockout (2026-09-03)
+
+Describes the REPOSITORY plus one applied migration. The frontend half requires
+an explicit publish before any applicant sees it.
+
+**The defect.** `ApplicationForm.tsx` invoked `consume-application-resume` in its
+MOUNT effect whenever `?resume=` was present, and
+`consume_application_resume_token` was strictly single-use. Any agent that merely
+RENDERED the page — a mail client preview, a link scanner — spent the token with
+no human present. Four real applicants were locked out, one at step 9, the
+signature step, whose only token was consumed 13 seconds after it was issued.
+
+**What changed.**
+
+1. **Consumption now requires a gesture.** The mount effect sets
+   `pendingResumeToken` and renders a gate screen; the exchange happens in
+   `consumeResume`, behind the "Continue your application" button. A scanner
+   cannot click. The post-exchange ordering is unchanged: strip `?resume`, write
+   `draft_token` to localStorage, then load the draft. Cost: one tap, accepted.
+   The gate screen does NOT greet the applicant by name — the name lives behind
+   the very exchange the gate is deferring, and reading it early would need a
+   second anon-readable lookup keyed by resume token. Not built.
+
+2. **A 30-minute idempotent reuse window**, migration
+   `20260903124355_aaf27a19-e2d4-4ee5-bc32-994f0bb451ab.sql`, as a named constant
+   `c_reuse_window CONSTANT interval := interval '30 minutes'` — the literal
+   appears exactly once in the function and a test asserts that. Reuse returns
+   the SAME `draft_token` and does not slide `used_at` forward, so the window is
+   measured from first use and cannot be walked forward indefinitely.
+
+3. **`used_at` is written after the application resolves**, not before it. A
+   request whose response never arrives no longer spends the token. Verified
+   live: an unresolvable application raises `application_not_found` and leaves
+   `used_at` NULL.
+
+4. **The dead end is recoverable.** `token_used` and `token_expired` now render
+   `ResumeApplicationDialog` inline with the address prefilled, instead of
+   telling the applicant to go find the home page. The dialog is the existing
+   self-service flow, still rate limited to 3 per email per hour — no new
+   capability. The edge function returns that address for those two codes only;
+   it is withheld for `invalid_token` so the endpoint cannot be used to probe
+   guessed tokens for an email.
+
+**The four protections, quoted from the migration, not paraphrased:**
+
+```
+SECURITY DEFINER
+SET search_path TO 'public', 'extensions'
+REVOKE ALL ON FUNCTION public.consume_application_resume_token(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.consume_application_resume_token(text) TO anon, authenticated, service_role;
+```
+
+Anonymous execution is intended and is explained in the migration comment: the
+function backs the public route `/apply?resume=<token>` through the
+`consume-application-resume` edge function. The caller must already hold a token
+that was mailed to the applicant.
+
+**Not modified**, confirmed by reading the newest migration and asserted by a
+test that fails if the newest migration mentions any of them:
+`get_application_by_draft_token`, `save_application_draft`,
+`submit_application_draft`.
+
+**Suites run, by name.** `resume-token-reuse.test.ts` (7),
+`resume-gate-ui.test.tsx` (4), `definer-search-path.test.ts` (7),
+`definer-live-catalog.test.ts` (12), `actor-stamp-fk.test.ts` (16) — 46 tests,
+all passing.
+
+`definer-search-path.test.ts` FAILED on first run, and the failure was correct
+and was ours: re-authoring the function retired its legacy exemption, so the
+allowlist entry
+`20260421161507_…sql::public.consume_application_resume_token(text)` no longer
+matched a live offender. The entry was deleted from
+`src/test/helpers/legacyPublicOnlyPins.ts` and `LEGACY_MAX` lowered 82 → 81,
+which is the only permitted direction. This is the intended behaviour of that
+guard, not a defect in it.
+
+Six behaviours were additionally verified against the LIVE function using scratch
+rows that were purged in the same statement: reuse within the window returns the
+same `draft_token`; `used_at` is not slid forward; a token used 31 minutes ago
+raises `token_used`; an EXPIRED token raises `token_expired` even though it was
+used one minute ago, so expiry governs absolutely inside the window; an
+unresolvable application raises `application_not_found`; and that failure leaves
+`used_at` NULL.
+
+**Unresolved, stated rather than dismissed.** The Supabase security linter
+reported 166 findings when the migration was applied — 4 RLS-without-policy, 3
+extensions in public, 48 public-executable SECURITY DEFINER, 110
+authenticated-executable SECURITY DEFINER, 1 leaked-password protection
+disabled. These are the standing inventory findings that
+`definer-live-catalog.test.ts` accounts for by name; this pass neither added to
+them nor cleared them. They are not clean and must not be reported as clean.
+
+
+## KNOWN DEBT — resume-link findings recorded, NOT fixed (2026-09-03)
+
+### 4.1 `draft_token` is a permanent bearer credential over 82 plaintext columns
+
+The resume token is not the real credential. It is only ever exchanged for
+`draft_token`, which is long-lived, never rotated, and stored in localStorage.
+`get_application_by_draft_token` is SECURITY DEFINER, `anon`-executable, and
+returns `SETOF applications` — every column of that row.
+
+SSN is encrypted and out of reach. Everything else is not: date of birth, CDL
+number, full address and address history, employment history, accident and
+violation history, signature image URL, document URLs.
+`save_application_draft` and `submit_application_draft` give WRITE access on the
+same credential.
+
+Anyone who obtains a `draft_token` once has permanent read and write on that
+application. **This was true before this pass and is unchanged by it** — the pass
+altered how the resume token is spent, not what it buys.
+
+The 30-minute reuse window in the pass above **must not be widened until this is
+addressed.** Thirty minutes is defensible only because the link is already a
+bearer credential valid for 24 hours to anyone holding it; a longer window is a
+different argument and needs this finding answered first.
+
+**TRIGGER: before the reuse window is extended, or before any further capability
+is attached to `draft_token`.**
+
+### 4.2 Token consumption records no forensics
+
+`application_resume_tokens` records only `used_at` — no IP, no user agent,
+nothing. A mail-client prefetch and a genuine second tap are therefore
+indistinguishable in the data.
+
+The stranded step-9 applicant's token was consumed 13 seconds after issue and it
+cannot be established whether a human was present. The gesture gate makes the
+prefetch explanation less likely going forward, but it does not make the record
+readable.
+
+**TRIGGER: if resume-link failures recur after this pass — without this there
+will again be nothing to diagnose from.**
+
+### 4.3 Every resume email appears twice in `email_send_log`
+
+Two rows, 0.3–1.2 seconds apart, carrying the same token in the URL. It has NOT
+been established whether that is a duplicate SEND or a duplicate LOG ROW; the
+distinction matters, because a duplicate send doubles the chance a scanner
+reaches the link before the applicant does.
+
+**TRIGGER: investigate alongside any further resume-link work.**
