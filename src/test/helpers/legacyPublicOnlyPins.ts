@@ -63,7 +63,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260730164628_7162aa28-324e-4b4e-bef7-f5be85e7e202.sql::public.get_inspection_doc_by_token(uuid)",
   "20260727195451_f65f922b-e025-4ed4-86e4-b609458f05a3.sql::public.get_pei_queue()",
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.get_pei_request_for_response(uuid)",
-  "20260513151918_1701f4a4-1d3f-4686-918d-2b6bbe53841c.sql::public.get_pei_requests_needing_action()",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
   "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.get_user_roles(uuid)",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
@@ -124,4 +123,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  */
 // 2026-09-03: 82 -> 81. `consume_application_resume_token` was re-authored by
 // the resume-link pass and is now pinned to `public, extensions`.
-export const LEGACY_MAX = 81;
+export const LEGACY_MAX = 80;
