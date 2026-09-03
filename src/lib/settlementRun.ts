@@ -286,11 +286,27 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     const carryIn = carryForward[operatorId] ?? 0;
     const operatorRow = operators.find(o => o.id === operatorId);
 
-    let equipmentOutstanding = false;
+    // A hold is a claim about the physical world. It must be traceable to a
+    // row, so "cannot be determined" is a FAILED RUN, never a default — in
+    // either direction. Defaulting false released the hold; defaulting true
+    // would invent one on evidence nobody read.
+    let equipmentOutstanding: boolean;
     try {
-      const { data } = await sb.rpc('equipment_outstanding', { _operator_id: operatorId });
-      equipmentOutstanding = data === true;
-    } catch { equipmentOutstanding = false; }
+      const { data, error } = await sb.rpc('equipment_outstanding', { _operator_id: operatorId });
+      if (error) throw readFailure('equipment_outstanding RPC', error, operatorId);
+      if (typeof data !== 'boolean') {
+        throw readFailure(
+          'equipment_outstanding RPC',
+          `returned ${data === null ? 'null' : typeof data} instead of a boolean`,
+          operatorId,
+        );
+      }
+      equipmentOutstanding = data;
+    } catch (e) {
+      if (e instanceof SettlementReadError) throw e;
+      throw readFailure('equipment_outstanding RPC', e, operatorId);
+    }
+
 
     const work: UnsettledWork = {
       operatorId,
