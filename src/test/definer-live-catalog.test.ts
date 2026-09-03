@@ -193,7 +193,8 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
   },
   {
     signature: "public.resolve_short_link(text)",
-    reason: "",
+    reason:
+      "ROUTE /s/:code (src/pages/ShortLinkRedirect.tsx). GUARD WHERE code = _code — returns only the share token the code stands for, nothing else.",
   },
   {
     signature: "public.resolve_share_token(uuid)",
