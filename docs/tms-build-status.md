@@ -4203,6 +4203,45 @@ report was accurate about what it ran and misleading about what that covered.
 > the pin named the single suite it ran and stated plainly that no others were
 > run. That is the behaviour this rule makes standard, not a new burden.
 
+**The rule worked, then half-failed (2026-09-03).** What worked: the rule caused
+`definer-live-catalog.test.ts` to be run by the dispatch-settlement schema pass,
+even though that pass had no reason to suspect it, and it surfaced a failure four
+passes old — `public.set_load_dispatcher(uuid,uuid,text)` was authenticated-
+executable in the live catalog and had never been added to
+`KNOWN_AUTHENTICATED_EXECUTABLE` when Module 2 Pass 1 created it on 2026-09-01.
+
+What did not work: the failure was then classified "a pre-existing failure
+unrelated to this pass" and "left unchanged as out of scope", and shipped in that
+state. It was neither. "Pre-existing" described the failure's AGE, not its
+OWNERSHIP — the pass that introduced it was ours, in this project. A failing
+structural guard does not become someone else's problem by being old.
+
+Fixed on 2026-09-03 by adding the inventory entry with its justification (the
+body gates on management or owner, the target profile must hold the `dispatcher`
+role, and `loads.dispatcher_id` carries no client write privilege, so the
+function is the only path to changing load attribution after creation) and
+raising `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` from 111 to 112. The function, its
+grants and its revokes were NOT changed — its exposure is intended.
+
+> **Standing rule, extended.** When a named structural guard FAILS, the report
+> states whether the failure was introduced by work in this project. If it was,
+> it is fixed in that pass or explicitly triaged with a TRIGGER. It is never
+> dismissed as out of scope on the grounds of age alone.
+
+**PROTECTIONS ARE QUOTED, NOT PARAPHRASED (2026-09-03).** The dispatch-settlement
+schema pass reported the four DEFINER protections as `REVOKE ALL ON FUNCTION ...
+FROM anon`. The migration reads `REVOKE EXECUTE ON FUNCTION ... FROM anon`, and
+also contains an additional `REVOKE EXECUTE ... FROM authenticated` that the
+report omitted entirely. The MIGRATION is correct — stricter than required, in
+fact. The defect is in the REPORT.
+
+> **Standing rule.** A report that claims a protection quotes the line from the
+> migration verbatim. A paraphrase reads as compliant whatever the source says,
+> and a paraphrase is exactly how the `set_load_dispatcher` `search_path` defect
+> passed review on 2026-09-01.
+
+
+
 **FRONTEND CHANGES REQUIRE AN EXPLICIT PUBLISH, AND A PASS ENTRY DESCRIBES THE
 REPO, NOT THE SITE (2026-09-02).** The existing standing rule about explicit
 deploys was written for edge functions (`parse-rate-confirmation`,
