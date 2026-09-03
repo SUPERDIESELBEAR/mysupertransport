@@ -19,6 +19,7 @@ const Step7Documents = lazyWithRetry(() => import('@/components/application/Step
 const Step8Disclosures = lazyWithRetry(() => import('@/components/application/Step8Disclosures'));
 const Step9Signature = lazyWithRetry(() => import('@/components/application/Step9Signature'));
 import { ApplicationFormData, defaultFormData } from '@/components/application/types';
+import ResumeApplicationDialog from '@/components/application/ResumeApplicationDialog';
 import { parseRetakeRequests, type RetakeRequestMap } from '@/lib/applicationDocumentRetake';
 
 const STEP_LABELS = [
