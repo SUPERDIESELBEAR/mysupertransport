@@ -16,3 +16,4 @@
   `used_at` written after the application resolves, recoverable dead end. Three findings
   recorded as known debt (bearer `draft_token`, no consumption forensics, duplicate
   resume-email log rows).
+- [docs] Update section 5 of SECURITY INCIDENT with 2026-09-03 access investigation result
