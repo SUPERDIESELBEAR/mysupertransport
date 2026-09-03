@@ -116,7 +116,10 @@ export interface RunPreview {
 /* ------------------------------------------------------------------ */
 
 export async function loadSettlementSettings(sb: Client): Promise<SettlementSettings> {
-  const { data } = await sb.from('settlement_settings').select('*').maybeSingle();
+  const res = await sb.from('settlement_settings').select('*').maybeSingle();
+  const data = rowOf(res, 'settlement_settings');
+  // No row is a genuine absence and the shipped defaults stand. A FAILED read
+  // has already thrown above: it never silently becomes the defaults.
   if (!data) return SETTLEMENT_SETTINGS_DEFAULTS;
   return {
     minimum_net_pay_threshold: num(data.minimum_net_pay_threshold),
@@ -183,7 +186,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
    */
   const settledSourcesEver = new Set<string>();
   const settledSourcesThisPeriod = new Set<string>();
-  for (const r of (alreadySettledRes?.data ?? []) as any[]) {
+  for (const r of rowsOf(alreadySettledRes, 'settlement_line_items')) {
     if (!r.source_id) continue;
     const key = `${r.source_table}:${r.source_id}`;
     settledSourcesEver.add(key);
@@ -193,17 +196,17 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
   const settledSources = settledSourcesEver;
 
 
-  const companyPolicy = (policyRes?.data ?? null) as PayPolicyRates | null;
+  const companyPolicy = rowOf(policyRes, 'pay_policies (company default)') as PayPolicyRates | null;
 
   const driverPolicies: Record<string, PayPolicyRates> = {};
-  for (const a of (assignRes?.data ?? []) as any[]) {
+  for (const a of rowsOf(assignRes, 'pay_policy_assignments')) {
     const startsOk = !a.effective_start_date || a.effective_start_date <= period.periodEnd;
     const endsOk = !a.effective_end_date || a.effective_end_date >= period.periodStart;
     if (startsOk && endsOk && a.pay_policies) driverPolicies[a.operator_id] = a.pay_policies as PayPolicyRates;
   }
 
   const loadsByOperator: Record<string, SettlementLoadInput[]> = {};
-  for (const l of (loadRes?.data ?? []) as any[]) {
+  for (const l of rowsOf(loadRes, 'loads')) {
     if (!deliveredInPeriod(l.delivered_at, period)) continue;
     if (settledSources.has(`loads:${l.id}`)) continue;
     (loadsByOperator[l.operator_id] ??= []).push({
@@ -251,7 +254,12 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     sb.from('operators').select('id, is_departing, applications(first_name, last_name)'),
   ]);
 
-  const operators = ((operatorRes?.data ?? []) as any[]);
+  // Each read is checked HERE, once, before anything derives a figure from it.
+  const fuelRows = rowsOf(fuelRes, 'fuel_transactions');
+  const dedRows = rowsOf(dedRes, 'deductions');
+  const advRows = rowsOf(advRes, 'cash_advances');
+
+  const operators = (rowsOf(operatorRes, 'operators'));
   const nameOf = (id: string) => {
     const a = operators.find(x => x.id === id)?.applications;
     const app = Array.isArray(a) ? a[0] : a;
@@ -259,23 +267,23 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
   };
 
   const carryForward: Record<string, number> = {};
-  for (const s of (priorRes?.data ?? []) as any[]) {
+  for (const s of rowsOf(priorRes, 'settlements (prior periods, carry-forward)')) {
     if (carryForward[s.operator_id] === undefined) carryForward[s.operator_id] = num(s.carry_forward_out);
   }
 
   const rmByOperator: Record<string, any> = {};
-  for (const r of (rmRes?.data ?? []) as any[]) rmByOperator[r.operator_id] = r;
+  for (const r of rowsOf(rmRes, 'rm_deposits')) rmByOperator[r.operator_id] = r;
 
   const existing: GatheredRun['existing'] = {};
-  for (const s of (existingRes?.data ?? []) as any[]) {
+  for (const s of rowsOf(existingRes, 'settlements (existing for this period)')) {
     existing[s.operator_id] = { id: s.id, status: s.status, net_amount: num(s.net_amount) };
   }
 
   const candidateIds = new Set<string>([
     ...Object.keys(loadsByOperator),
-    ...((fuelRes?.data ?? []) as any[]).map(f => f.operator_id),
-    ...((dedRes?.data ?? []) as any[]).map(d => d.operator_id),
-    ...((advRes?.data ?? []) as any[]).filter(a => num(a.remaining_balance) > 0).map(a => a.operator_id),
+    ...(fuelRows).map(f => f.operator_id),
+    ...(dedRows).map(d => d.operator_id),
+    ...(advRows).filter(a => num(a.remaining_balance) > 0).map(a => a.operator_id),
     ...Object.keys(carryForward).filter(id => carryForward[id] < 0),
     ...Object.keys(rmByOperator),
   ].filter(Boolean));
@@ -285,7 +293,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
   for (const operatorId of candidateIds) {
     const loads = loadsByOperator[operatorId] ?? [];
 
-    const fuel = ((fuelRes?.data ?? []) as any[])
+    const fuel = (fuelRows)
       .filter(f => f.operator_id === operatorId && !settledSources.has(`fuel_transactions:${f.id}`))
       .map(f => {
         const discount = Math.abs(num(f.fuel_discount_amount));
@@ -297,7 +305,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         };
       });
 
-    const deductions = ((dedRes?.data ?? []) as any[])
+    const deductions = (dedRows)
       .filter(d => d.operator_id === operatorId
         && (!d.start_payday || d.start_payday <= period.payday)
         && (!d.end_payday || d.end_payday >= period.payday)
@@ -310,7 +318,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .map(d => ({ id: d.id, label: d.label, amount: num(d.amount), sourceTable: 'deductions' as const }));
 
 
-    const advanceBalance = ((advRes?.data ?? []) as any[])
+    const advanceBalance = (advRows)
       .filter(a => a.operator_id === operatorId)
       .reduce((t, a) => t + num(a.remaining_balance), 0);
 
