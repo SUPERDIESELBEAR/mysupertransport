@@ -44,7 +44,7 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260515183610_31d9c6cc-8a17-4ba1-adf6-c0daab0222b6.sql::public.cancel_application_correction(uuid)",
   "20260605194257_419dd1c2-ae16-4b88-88dc-62083bd861fa.sql::public.check_application_email_taken(text)",
   "20260513151918_1701f4a4-1d3f-4686-918d-2b6bbe53841c.sql::public.complete_pei_request_on_response()",
-  "20260421161507_1a3e4dd0-f7c2-4200-9c38-986724be54eb.sql::public.consume_application_resume_token(text)",
+  
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.copy_stage2_docs_to_vault()",
   "20260715141217_a42671b1-708b-484a-af83-211c16d4923b.sql::public.enforce_contractor_pay_setup_self_update()",
   "20260728131454_288be1c0-a4c8-49d4-ba07-46630cb1816c.sql::public.enforce_demo_flag_management_only()",
