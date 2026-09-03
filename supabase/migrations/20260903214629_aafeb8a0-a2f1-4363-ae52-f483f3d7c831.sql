@@ -1,0 +1,1 @@
+DROP TRIGGER IF EXISTS trg_enforce_ica_contracts_operator_update ON public.ica_contracts;
