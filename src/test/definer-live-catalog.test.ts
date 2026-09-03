@@ -434,7 +434,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   through operators.user_id = auth.uid() and returning nothing else.
 // + store_settlement_run (2026-09-01), the only settlement writer, gated on
 //   management/owner in its own body.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 111;
+// + set_load_dispatcher (2026-09-01), the only writer of loads.dispatcher_id
+//   after creation. Management or owner in the body, target must hold the
+//   dispatcher role, and the column has no client write privilege.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
+
 
 
 
