@@ -4261,6 +4261,45 @@ report was accurate about what it ran and misleading about what that covered.
 > Note also, as evidence the rule is workable: the follow-up pass that corrected
 > the pin named the single suite it ran and stated plainly that no others were
 > run. That is the behaviour this rule makes standard, not a new burden.
+>
+> **Extension (2026-09-03) — run the guard that covers the file you CHANGED.**
+> When a pass modifies a file registered as a CONSUMER of any source guard, that
+> guard runs and is NAMED in the report, whatever else the pass was about. The
+> rule above lists structural guards by subject matter; this clause is about
+> authorship — if you edited the file, you run its guard.
+
+**How the gap was found (2026-09-03).** Pass 5a — the month selector on the
+Dispatch Settlement screen — modified `src/lib/dispatchSettlementRun.ts`, which
+is a registered CONSUMER in `shared-pay-percentage-source-guard.test.ts`. It ran
+four suites and named them honestly; none of the four was the guard covering the
+file it had just changed. The new code did UTC month arithmetic
+(`getUTCMonth()`, `slice(0, 7)`) in the consumer, which that guard exists to
+refuse. The failure did not surface until two passes later, when an unrelated
+actor-stamping pass ran a wider set.
+
+**Smaller note, and it is to the pass's credit.** The pass that found the red
+guard DID report it, with a trigger, exactly as the existing rule requires, and
+chose triage. That was permitted. It is being fixed rather than triaged for two
+reasons: a red structural guard degrades every future report — the next real
+failure reads as "that one is always red" — and this particular guard protects
+timezone-correct month attribution, where this project has a recorded defect
+(settlement month computed in UTC). UTC runs ahead of Central, so for roughly
+five hours at the start of each month `defaultDispatchMonth` would offer a month
+not yet begun in Pleasant Hill. No stored figure was wrong; the screen would
+simply open on an incomplete month.
+
+**The fix.** The three offenders — the rolling 13-month picker boundary, "today's
+month", and "the previous month" — moved onto new carrier-zone helpers added
+beside `monthOf` in `src/lib/settlementPeriod.ts`: `currentCarrierMonth`,
+`shiftMonth`, `carrierMonthsAgo` and `carrierMonthStartIso`. The guard also
+objected to a fourth line that slices a `period_month` DATE, which carries no
+instant and no zone and is therefore not a timezone question at all. Rather than
+exempt the consumer or dress the slice up as a conversion, the operation is named
+once in the shared file as `monthFromDateString`, with a comment stating plainly
+that it is not a timezone conversion. No exemption was added, the guard's
+allowance was not widened, and `dispatchSettlementRun.ts` remains in CONSUMERS.
+
+
 
 **The rule worked, then half-failed (2026-09-03).** What worked: the rule caused
 `definer-live-catalog.test.ts` to be run by the dispatch-settlement schema pass,
