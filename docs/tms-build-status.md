@@ -1275,11 +1275,171 @@ Part E of Pass 3 (seed loads) was correctly skipped: Johnathan Pratt's four
 existing loads carry real delivery appointments and proved the ordering without
 seeding. The heading below stays in place and empty.
 
-### Board seed loads — purge before cutover
+### Cutover purge procedure — authoritative, execute on cutover day
 
-No seed loads were created in this pass. The board was built and tested against
-the pure module's fixtures; when demo data is needed it must be created through
-the Create Load flow and every load number listed under this heading.
+Investigated 2026-09-03. This replaces every earlier purge-before-cutover list.
+The previous list named 11 loads; it was incomplete.
+
+#### 1. What must go — inventory
+
+| Object | Count | Note |
+|---|---|---|
+| `loads` | **16** | **All 16 are test data.** Previous list named 11 and missed `ST26003`, `ST26015`, `ST26033`, `ST26034`, `ST26035`. |
+| `load_stops` | 33 | cascades from loads |
+| `load_documents` | 23 | cascades; 23 objects in `load-documents` bucket do NOT |
+| `load_charges` | 4 | ST26056 detention, ST26063 lumper, ST26061 TONU, ST26063 TONU |
+| `load_references` / `load_reference_citations` | 13 / 7 | cascade |
+| `load_change_history` / `load_status_history` | 45 / 15 | cascade |
+| `claim_flags` / `claim_flag_history` | 1 / 1 | the HOLD on ST-TEST-005; cascades |
+| `settlements` | 1 | Pratt, 2026-08-12 → 08-18, payday 2026-09-01, `paid`, $327.94 |
+| `settlement_line_items` | 1 | `load_pay 327.94`, cascades from settlement |
+| `settlement_withheld_loads` | 2 | cascades from settlement |
+| `dispatch_settlements` | 1 | 2026-08-01, `draft` |
+| `dispatch_settlement_line_items` / `contributions` / `verdicts` | 9 / 7 / 3 | cascade |
+| `dispatch_settlement_rates` | 1 | placeholder `effective_from 2026-01-01` |
+| `brokers` | 11 | 2 clearly test (`TEST-100001`, `TEST-100002`); 9 are real companies (see §3) |
+| `facilities` | 2 | J M Exotic Foods, Braswell's — from seed rate cons |
+| `rate_con_ingest_queue` | 5 | 3 hold storage paths under `rate-con-ingest` |
+| `parser_diagnostics` | 74 | `ON DELETE SET NULL` to loads/documents — survives a load delete as orphans |
+| `audit_log` | 5 | load / settlements / dispatch_settlements entities |
+| storage `load-documents` | 23 objects | no FK; orphaned by any load delete |
+| storage `rate-con-ingest` | 4 objects | no FK |
+| `preview_sessions` | 112 | mobile-preview handoff rows |
+| `load_number_config` | `ST next=64` | reset to 1 |
+| Craig Pate application | 1 | `cepate60@gmail.com`; 1 resume token; 1 operator row references it |
+
+Empty and needing nothing: `fuel_transactions`, `deductions`, `rm_deposits`,
+`cash_advances`, `dispatch_deductions`, `pay_policy_assignments`.
+
+#### 2. The order, and why
+
+Run each step in its own transaction. Verify before moving on.
+
+**Step 0 — snapshot.** Full database backup plus manifest of the 27 storage objects.
+Steps 4, 5 and 6 are irreversible.
+
+**Step 1 — delete the dispatch settlement.**
+```sql
+DELETE FROM public.dispatch_settlements WHERE period_month = '2026-08-01';
+```
+*Constraint:* `dispatch_settlement_line_items.load_id` and
+`dispatch_settlement_load_contributions.load_id` are `ON DELETE RESTRICT` to
+`loads`. While those rows exist, seven loads cannot be deleted. The settlement is
+`draft`, so `enforce_dispatch_settlement_immutability` does not fire the paid
+branch; no unlock needed. Children cascade on `dispatch_settlement_id`.
+*Verify:* all four dispatch tables count 0.
+
+**Step 2 — decide `dispatch_settlement_rates`.** Confirm 2026-01-01 as the real
+effective date and keep the row, or delete it and insert the real one. Must be
+settled before the first real month is computed.
+
+**Step 3 — delete the Pratt settlement. NAMED DECISION STEP.**
+It is `paid`. `enforce_settlement_immutability` raises `42501` on DELETE unless
+`settlement_writer_active()` is true, which reads
+`current_setting('app.settlement_write')`. The only route is the schema's intended
+unlock, not a trigger disable:
+
+```sql
+BEGIN;
+SET LOCAL app.settlement_write = 'on';
+DELETE FROM public.settlements WHERE id = 'f77911b0-50cd-4ae3-bff2-ebb0bc4331af';
+COMMIT;
+```
+
+**Recommendation: delete by literal id, never by predicate.** This still needs a
+named human decision because it destroys a `paid` money row.
+*Verify:* `settlements`, `settlement_line_items`, `settlement_withheld_loads` all 0.
+
+**Step 4 — delete storage objects before the rows that name them.**
+27 objects: 23 in `load-documents`, 4 in `rate-con-ingest`. No FK from
+`storage.objects` to `load_documents`; deleting the load first destroys the only
+record of which object belonged to it.
+*Verify:* both buckets 0 for the recorded prefixes; other 19 buckets untouched.
+
+**Step 5 — null the SET NULL referrers, then delete the loads.**
+`parser_diagnostics` (74 rows) and `rate_con_ingest_queue` (5 rows) have
+`ON DELETE SET NULL` FKs to loads/documents. Delete them outright first so they do
+not survive as orphans that look real. Then:
+```sql
+DELETE FROM public.loads;
+```
+The whole table is test data. Cascades take stops, documents, charges, references,
+citations, both histories, claim flags and claim-flag history.
+*Verify:* `loads` 0 and each cascade table 0.
+
+**Step 6 — brokers and facilities.** Delete the two `TEST-1000xx` brokers
+unconditionally. Their children cascade. Delete the two facilities. The nine
+non-TEST brokers are real companies (§3) — keep and manually review factoring
+status, do not try to separate them by query.
+
+**Step 7 — Craig Pate's application.** One `operators` row carries
+`application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63'`. Resolve that operator
+first (delete if test, or null the link if real) before deleting the application.
+Resume tokens, document history, correction requests and revision attachments all
+cascade.
+*Verify:* the application and its 1 resume token are gone; `operators` count
+unchanged except for the deliberately removed row.
+
+**Step 8 — resets.** Set `load_number_config.next_sequence = 1`. Clear
+`preview_sessions`. Do this last so a mid-purge load creation cannot collide.
+
+#### 3. What must not be deleted, and scoping
+
+- **60 active non-demo operators** (154 total, 1 demo). No step deletes from
+  `operators` except the single Pate-linked row in Step 7, addressed by literal id.
+- **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
+  `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
+  Deleting "the operator that owns the test loads" deletes a live driver. Never
+  delete by joining through loads.
+- **326 real applications.** Step 7 touches one literal id.
+- **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
+- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 4 names
+  bucket ids explicitly.
+- **Nine non-TEST brokers are real trading partners.** They are not distinguishable
+  by any column (`factoring_status` is `unknown` on all nine). Keep them; review
+  factoring status manually before the first real load.
+
+#### 4. Verification and reversibility
+
+Per-step verification is named inline; each is a `count(*)` on the target plus a
+`count(*)` on the neighbouring real table that must not move.
+
+Irreversible without the Step 0 backup: **Step 3** (a `paid` settlement), **Step 4**
+(storage bytes are not in a Postgres backup; the manifest + download is the only
+recovery), **Step 5** (history rows cannot be reconstructed).
+
+Cannot be verified before running: **Step 3**. The trigger either accepts the
+`SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
+transaction and inspect the row count before `COMMIT`.
+
+#### 5. CUTOVER BLOCKER — the demo environment does not cover the revenue layer
+
+The cutover plan is: delete test data, open for real work, move all subsequent
+testing to the demo portion of the app. The third step does not currently work.
+
+- Demo mode is a client-side `sessionStorage` flag (`useDemoMode`) that blocks
+  writes in the UI, plus a `show_demo_accounts` visibility toggle.
+- Data-layer isolation is the `is_demo` column, present on `operators`,
+  `applications`, `profiles` and seven ELD tables.
+- **Verified: `is_demo` appears nowhere in** `loads`, `load_stops`,
+  `load_documents`, `brokers`, `facilities`, `settlements`,
+  `dispatch_settlements`, `fuel_transactions`, `deductions`, `cash_advances`,
+  `rm_deposits` or any settlement child.
+- There is one `pay_policies` row, one `settlement_settings` row and one
+  `dispatch_settlement_rates` row — all shared, not per-environment.
+
+**Consequence:** testing a load, settlement, fuel import or invoice after cutover
+writes to the same production tables the purge just cleaned — and for settlements,
+into the same immutability regime, where a test mistake becomes a `paid` row
+requiring the `SET LOCAL` unlock to remove.
+
+**Two routes, both requiring a decision before cutover:**
+1. Extend demo isolation to the revenue tables with `is_demo`, RLS and UI filtering.
+2. Use a separate Supabase project for post-cutover revenue testing (closer to how
+   multi-tenancy would work anyway).
+
+**No decision has been made.** Cutover is blocked until one of these is chosen and
+implemented.
 
 ## Module 3, Pass 4 — dispatcher scoping with a saved preference
 
