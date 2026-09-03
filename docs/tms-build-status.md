@@ -3471,6 +3471,43 @@ settles with nothing deducted for it.
 Nothing in this table may be implemented on a guess. Each needs a decision from
 the carrier before the calculation pass depends on it.
 
+#### REJECTED DIRECTIONS — DO NOT BUILD THESE (2026-09-03)
+
+Automated build suggestions repeatedly propose three things that contradict
+decisions in this record. Recorded so a future session does not adopt them as
+reasonable.
+
+1. A dispatcher-facing dispatch settlement portal or dashboard, showing a
+dispatcher their own loads, verdicts and percentage.
+
+REJECTED. The dispatch settlement pays ONE 1099 vendor, monthly. It is not
+per-dispatcher. Attribution by `loads.dispatcher_id` is VISIBILITY ONLY (4.6) and
+no amount depends on it. RLS on all seven dispatch settlement tables is management
+and owner only, deliberately — a dispatcher must not see the dispatch company's
+settlement. Building this would expose vendor payment figures to staff and would
+imply to a dispatcher that a percentage attaches to their loads. It does not.
+
+2. A compute trigger or RPC that recomputes settlement figures from dispatch data
+rather than validating supplied figures.
+
+REJECTED. Pass 4 chose client-computes / RPC-validates specifically so section 4
+exists in ONE language. `compute_dispatch_settlement` is a refusing check, never a
+producing one: it reads the rates itself, re-adds the payload's lines against the
+stored totals, and re-tests eligibility in both directions. An RPC that recomputes
+writes the rules a second time in SQL, which is the eighth recorded failure pattern
+in this document.
+
+3. A settlement screen that computes for display rather than reading stored rows.
+
+REJECTED. A screen that recomputes cannot show that the STORED figure is wrong,
+which is the one thing it exists to do. The Pass 5 screen reads stored rows and its
+only arithmetic is re-adding the stored line items to check they equal the stored
+totals.
+
+Note on the source: these suggestions come from tooling that sees the current code
+but not this record. They are not unreasonable on their face; they are wrong
+against decisions made here with reasons attached.
+
 ---
 
 ## Verification standard — the dispatch settlement can only produce SEEDED-DATA EVIDENCE (2026-09-01)
