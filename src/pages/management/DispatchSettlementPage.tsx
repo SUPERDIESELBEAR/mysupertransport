@@ -59,16 +59,10 @@ const EXCLUSION_LABEL: Record<string, string> = {
   reimbursement_class: 'excluded — reimbursement',
 };
 
-function defaultMonth(): string {
-  // The month someone is settling around the 10th is the one that just closed.
-  const now = new Date();
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1));
-  return d.toISOString().slice(0, 7);
-}
-
 export default function DispatchSettlementPage() {
   const { toast } = useToast();
-  const [month, setMonth] = useState(defaultMonth);
+  const [months, setMonths] = useState<DispatchMonthOption[]>([]);
+  const [month, setMonth] = useState<string>('');
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [stored, setStored] = useState<StoredDispatchMonth | null>(null);
@@ -76,7 +70,26 @@ export default function DispatchSettlementPage() {
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
+  const loadMonths = useCallback(async (): Promise<DispatchMonthOption[]> => {
+    try {
+      const list = await listDispatchMonths(supabase);
+      setMonths(list);
+      return list;
+    } catch (e) {
+      toast({ title: 'Could not list the months', description: (e as Error).message, variant: 'destructive' });
+      return [];
+    }
+  }, [toast]);
+
+  useEffect(() => {
+    void (async () => {
+      const list = await loadMonths();
+      setMonth(m => m || defaultDispatchMonth(list));
+    })();
+  }, [loadMonths]);
+
   const load = useCallback(async () => {
+    if (!month) return;
     setLoading(true);
     try {
       setStored(await readStoredDispatchMonth(supabase, month));
@@ -88,6 +101,7 @@ export default function DispatchSettlementPage() {
   }, [month, toast]);
 
   useEffect(() => { void load(); }, [load]);
+
 
   const s = stored?.settlement ?? null;
   const isPaid = s?.status === 'paid';
