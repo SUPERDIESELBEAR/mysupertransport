@@ -35,6 +35,52 @@ const num = (v: unknown): number => {
   return Number.isFinite(n) ? n : 0;
 };
 
+/**
+ * A READ THAT FAILED IS NOT AN EMPTY RESULT.
+ *
+ * Every gather read feeds a dollar figure, an exclusion set or a guard, and a
+ * swallowed error moves money in a direction nobody chose: an empty
+ * `settlement_line_items` re-deducts every fuel transaction the driver has ever
+ * had, an empty `loads` underpays, and a failed `equipment_outstanding` releases
+ * a departing driver's equipment hold. The run throws instead, naming the read.
+ */
+export class SettlementReadError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'SettlementReadError';
+  }
+}
+
+function reasonText(cause: unknown): string {
+  if (cause == null) return 'unknown cause';
+  if (typeof cause === 'string') return cause;
+  const c = cause as { message?: string; code?: string; details?: string };
+  return [c.code, c.message ?? String(cause), c.details].filter(Boolean).join(' — ');
+}
+
+function readFailure(label: string, cause: unknown, operatorId?: string): SettlementReadError {
+  const who = operatorId ? ` for operator ${operatorId}` : '';
+  return new SettlementReadError(
+    `Settlement run aborted: the read of ${label}${who} FAILED (${reasonText(cause)}). `
+    + 'This is a failure, not an empty result — no settlement was produced.',
+  );
+}
+
+/** Rows from a list read, or a throw. Never a silent empty array. */
+function rowsOf(res: { data?: unknown; error?: unknown } | null | undefined, label: string): any[] {
+  if (!res) throw readFailure(label, 'the query returned no response object');
+  if (res.error) throw readFailure(label, res.error);
+  return (res.data ?? []) as any[];
+}
+
+/** A single optional row, or a throw. `null` means genuinely absent. */
+function rowOf(res: { data?: unknown; error?: unknown } | null | undefined, label: string): any | null {
+  if (!res) throw readFailure(label, 'the query returned no response object');
+  if (res.error) throw readFailure(label, res.error);
+  return (res.data ?? null) as any | null;
+}
+
+
 export interface GatheredOperator {
   operatorId: string;
   operatorName: string;
