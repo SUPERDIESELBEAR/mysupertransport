@@ -5118,3 +5118,125 @@ ordinary delete removes it and its children.
 The Pass 1 assertion "no computation function exists yet" was NOT deleted when
 it failed. It was rewritten to name the one writer that may exist, because the
 point was never that nothing exists — it was that there is no SECOND writer.
+
+---
+
+## MODULE 4 (dispatch company), PASS 5 — the screen (2026-09-03)
+
+**Repository only.** Per the standing rule PASS ENTRIES DESCRIBE THE REPO, NOT
+THE SITE: none of this is on the published site until the project is published.
+
+### WHAT WAS BUILT
+
+`src/pages/management/DispatchSettlementPage.tsx` (new) — Management → Accounting
+→ **Dispatch Settlement**, after Settlement Run. Management/owner only, by the
+existing portal gate (`ManagementPortal` renders only for `activeRole` of
+`owner` or `management`); no new route and no new guard.
+
+`readStoredDispatchMonth` appended to `src/lib/dispatchSettlementRun.ts` — the
+reader that feeds it.
+
+**NO migration, NO new RPC, NO new writer, NO new grant.** The screen shows
+month selection, the stored status and its timestamps, the arithmetic chain,
+the frozen per-dispatcher breakdown, the per-load contributions with their
+charge verdicts, and the four actions (compute/recompute, approve, mark paid,
+void with a reason). Deliberately excluded: invoices, export, email,
+month-to-month comparison, charts, trends, editing a stored figure, bulk
+actions.
+
+### THE DESIGN DECISION: THE SCREEN READS, IT DOES NOT COMPUTE
+
+The screen exists so that a WRONG stored figure can be seen. A screen that
+recomputes for display can only ever agree with itself, and would hide exactly
+the defect it is there to surface. So every figure printed comes off the stored
+rows. The only arithmetic the page performs is re-adding the stored LINE ITEMS
+and comparing that sum to the stored totals — an integrity check that prints
+"This settlement does not add up. Do not pay it." when it disagrees. Same for
+attribution: the per-dispatcher buckets are built from the frozen
+`dispatcher_id` on the stored lines, never from `loads.dispatcher_id`, which
+may have been corrected since (`set_load_dispatcher` makes that possible).
+
+Rates are labelled AS STORED ON THIS SETTLEMENT. When today's configured rate
+differs from the stored one the page says so in red and states that the
+configured rate was NOT used.
+
+### CONTRADICTION WITH THE RECORD — ACTOR STAMPING ON APPROVE/PAID/VOID
+
+Stated plainly rather than reconciled silently. The brief asks the screen to
+show who approved, paid or voided. The schema cannot answer it:
+
+- `dispatch_settlements` has `approved_by`, but NO `paid_by` and NO `voided_by`.
+- No trigger or writer stamps approval, payment or void actors. The only
+  triggers are `enforce_dispatch_settlement_immutability` and
+  `apply_dispatch_settlement_void`.
+- The standing rule forbids the browser supplying an actor id.
+
+This pass adds no migration, so the page does what the schema allows: it
+displays the server-stamped `created_by` as "Computed by", displays the
+approver only when `approved_by` is populated, and prints "actor not recorded"
+when `approved_at` exists without it. Paid and void actor identity CANNOT be
+displayed today. Status changes are plain `UPDATE`s of status and timestamp
+with no actor column touched. **KNOWN DEBT 5.1: approve/paid/void have no
+actor attribution on the dispatch settlement.** The fix is a migration adding
+`paid_by`/`voided_by` and a stamping trigger — not client-supplied ids.
+
+Second, smaller: the page offers "Recompute month" on a `void` row. That is
+intentional (a voided month is zeroed and meant to be recomputed) but is worth
+knowing; the writer's `replace` mode is what permits it. A `paid` row offers no
+action at all.
+
+### VERIFICATION — SEEDED-DATA EVIDENCE, plus one real render
+
+Evidence strength: SEEDED-DATA. The stored August 2026 row is itself the
+product of the Pass 4 verification run, and its loads are seed loads.
+
+The reader's fixture was NOT hand-authored. `src/test/fixtures/augustDispatchSettlement.ts`
+was exported from the live tables with `psql`, so the reader is tested against
+what the writer actually persisted.
+
+Read back from the stored rows: eligible base 16,080.47; factoring at 2.00%
+−321.61; reduced base 15,758.86; dispatch fee at 5.00% 787.94; deductions 0.00;
+net payable 787.94; status DRAFT; computed by Marcus Mueller. Seven
+contributions. Dispatcher buckets Jack Barney 2 loads 9,050.00, Daniel Brown
+2 loads 4,550.00, Unattributed 3 loads 2,480.47, total 16,080.47 — equal to the
+eligible base, which is the attribution identity.
+
+The page was also mounted once in jsdom against those rows and printed, quoted
+verbatim from the rendered text:
+
+> Eligible base$16,080.47Less factoring at 2.00%-$321.61Reduced base$15,758.86
+> Dispatch fee at 5.00%$787.94Less deductions-$0.00Net payable$787.94By
+> dispatcher — who booked itJack Barney2$9,050.00Daniel Brown2$4,550.00
+> Unattributed3$2,480.47Total7$16,080.47Loads in the base (7)
+
+**Browser verification was NOT possible this pass**: the preview session was
+`signed_out`, so no authenticated end-to-end check of the live screen was run.
+That is a gap, not a pass.
+
+The retained mounted-render test was REMOVED from the committed suite. In this
+project's jsdom/act environment the page's async read does not settle
+reliably — `waitFor` resolved against a stale tree and an `act`-wrapped poll
+deadlocked. A flaky screen test is worse than none, so
+`src/test/dispatch-settlement-screen.test.tsx` exercises the reader that feeds
+every figure, plus source-level guards, and the one-off render above is
+recorded here as evidence instead. **KNOWN DEBT 5.2: this project has no
+working pattern for mounting an async-reading page under vitest + jsdom;
+`cleanup` is not automatic either, so renders stack between tests.**
+
+### TESTS RUN (named, per the standing rule)
+
+`src/test/dispatch-settlement-screen.test.tsx` (7, new),
+`src/test/dispatch-settlement-schema.test.ts` (26),
+`src/lib/__tests__/dispatchSettlementRun.test.ts` (12),
+`src/lib/__tests__/dispatchSettlement.test.ts` (18),
+`src/test/shared-pay-percentage-source-guard.test.ts` (16),
+`src/test/policy-grant-parity.test.ts` (4),
+`src/test/definer-search-path.test.ts` (7),
+`src/test/definer-live-catalog.test.ts` (12)
+— 8 files, 102 tests, all passing. `bunx tsgo --noEmit -p tsconfig.app.json`
+exits clean.
+
+The new suite's guards are negative on purpose: no `computeDispatchSettlement`
+in the page, no read of `loads`, `load_charges` or `pay_policies` on the
+display path, no `.rpc(` call in the page, and no actor column ever sent from
+the browser.

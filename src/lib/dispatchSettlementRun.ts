@@ -416,3 +416,263 @@ export async function previewDispatchMonth(
 
 /** The month an instant settles in, carrier zone. Re-exported, never re-derived. */
 export const dispatchMonthOf = monthOf;
+
+/* ------------------------------------------------------------------ */
+/* READ — a stored month, read back exactly as it was written          */
+/* ------------------------------------------------------------------ */
+
+/**
+ * MODULE 4 (dispatch), PASS 5 — the read side.
+ *
+ * Nothing here recomputes. Every figure returned comes off
+ * `dispatch_settlements` and its children, because the one job of the screen
+ * that displays this is to show whether the STORED figure is right. A screen
+ * that recomputes for display can only ever agree with itself.
+ *
+ * The only arithmetic performed is a RE-ADDITION of the stored lines
+ * (`checkTotalsEqualLines`) and of the stored per-dispatcher breakdown. Both
+ * are checks on stored rows, not derivations from `loads`.
+ */
+export interface StoredDispatchLine {
+  id: string;
+  line_type: string;
+  amount: number;
+  description: string;
+  load_id: string | null;
+  dispatcher_id: string | null;
+}
+
+export interface StoredDispatchVerdict {
+  id: string;
+  charge_type: string;
+  classification: string;
+  amount: number;
+  excluded: boolean;
+  exclusion_reason: string | null;
+  resolved_pct: number | null;
+  pct_column: string | null;
+}
+
+export interface StoredDispatchContribution {
+  id: string;
+  load_id: string;
+  load_number: string;
+  load_type: string;
+  rate_type: string;
+  delivered_at: string | null;
+  carrier_delivery_date: string | null;
+  header_component: number;
+  fsc_component: number;
+  charges_included_amount: number;
+  charges_excluded_amount: number;
+  charges_excluded_count: number;
+  base_total: number;
+  dispatcher_id: string | null;
+  verdicts: StoredDispatchVerdict[];
+}
+
+export interface StoredDispatchSettlement {
+  id: string;
+  period_month: string;
+  status: 'draft' | 'approved' | 'paid' | 'void';
+  /** The rates AS STORED on the row — what was applied, not what is configured. */
+  dispatch_pct: number;
+  factoring_pct: number;
+  eligible_base: number;
+  factoring_reduction: number;
+  reduced_base: number;
+  dispatch_fee: number;
+  deductions_amount: number;
+  net_amount: number;
+  computed_at: string | null;
+  approved_at: string | null;
+  paid_at: string | null;
+  void_reason: string | null;
+  updated_at: string | null;
+  computed_by_name: string | null;
+  approved_by_name: string | null;
+}
+
+export interface DispatcherBucket {
+  dispatcherId: string | null;
+  name: string;
+  base: number;
+  loads: number;
+}
+
+export interface StoredDispatchMonth {
+  settlement: StoredDispatchSettlement;
+  lines: StoredDispatchLine[];
+  contributions: StoredDispatchContribution[];
+  /** From the FROZEN `dispatcher_id` on the stored `load_base` lines. */
+  byDispatcher: DispatcherBucket[];
+  byDispatcherTotal: number;
+  /** Re-addition of the stored lines against the stored totals. */
+  totalsCheck: TotalsCheck;
+  /** The breakdown must sum to the stored eligible base (section 4.6). */
+  attributionCheck: TotalsCheck;
+  /** The rates configured TODAY, for the "these can differ" note. Never used in a figure. */
+  currentRates: { dispatch_pct: number; factoring_pct: number } | null;
+}
+
+const dispatcherLabel = (p: any): string =>
+  [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'Unnamed dispatcher';
+
+/** Read one stored month. Returns null when the month has never been computed. */
+export async function readStoredDispatchMonth(
+  sb: Client,
+  month: string,
+): Promise<StoredDispatchMonth | null> {
+  const monthStart = periodMonthDate(month);
+
+  const { data: row, error } = await sb
+    .from('dispatch_settlements')
+    .select('*')
+    .eq('period_month', monthStart)
+    .maybeSingle();
+  if (error) throw error;
+  if (!row) return null;
+
+  const [lineRes, contribRes, rateRes, profileRes] = await Promise.all([
+    sb.from('dispatch_settlement_line_items')
+      .select('id, line_type, amount, description, load_id, dispatcher_id')
+      .eq('dispatch_settlement_id', row.id)
+      .order('line_type', { ascending: true }),
+    sb.from('dispatch_settlement_load_contributions')
+      .select('id, load_id, load_number, load_type, rate_type, delivered_at, '
+        + 'carrier_delivery_date, header_component, fsc_component, charges_included_amount, '
+        + 'charges_excluded_amount, base_total, dispatcher_id, '
+        + 'dispatch_settlement_charge_verdicts(id, charge_type, classification, amount, '
+        + 'excluded, exclusion_reason, resolved_pct, pct_column)')
+      .eq('dispatch_settlement_id', row.id)
+      .order('load_number', { ascending: true }),
+    sb.from('dispatch_settlement_rates')
+      .select('dispatch_pct, factoring_pct, effective_from, effective_to')
+      .order('effective_from', { ascending: false })
+      .limit(1),
+    sb.from('profiles').select('id, first_name, last_name'),
+  ]);
+
+  const profiles = new Map<string, any>((profileRes.data ?? []).map((p: any) => [p.id, p]));
+
+  const lines: StoredDispatchLine[] = (lineRes.data ?? []).map((l: any) => ({
+    id: l.id,
+    line_type: l.line_type,
+    amount: num(l.amount),
+    description: l.description,
+    load_id: l.load_id,
+    dispatcher_id: l.dispatcher_id,
+  }));
+
+  const contributions: StoredDispatchContribution[] = (contribRes.data ?? []).map((c: any) => {
+    const verdicts: StoredDispatchVerdict[] = (c.dispatch_settlement_charge_verdicts ?? [])
+      .map((v: any) => ({
+        id: v.id,
+        charge_type: v.charge_type,
+        classification: v.classification,
+        amount: num(v.amount),
+        excluded: !!v.excluded,
+        exclusion_reason: v.exclusion_reason,
+        resolved_pct: v.resolved_pct === null || v.resolved_pct === undefined
+          ? null : num(v.resolved_pct),
+        pct_column: v.pct_column,
+      }));
+    return {
+      id: c.id,
+      load_id: c.load_id,
+      load_number: c.load_number,
+      load_type: c.load_type,
+      rate_type: c.rate_type,
+      delivered_at: c.delivered_at,
+      carrier_delivery_date: c.carrier_delivery_date,
+      header_component: num(c.header_component),
+      fsc_component: num(c.fsc_component),
+      charges_included_amount: num(c.charges_included_amount),
+      charges_excluded_amount: num(c.charges_excluded_amount),
+      charges_excluded_count: verdicts.filter(v => v.excluded).length,
+      base_total: num(c.base_total),
+      dispatcher_id: c.dispatcher_id,
+      verdicts,
+    };
+  });
+
+  // The breakdown is built from the FROZEN attribution on the stored lines, not
+  // from `loads.dispatcher_id`, which may have been corrected since.
+  const buckets = new Map<string, DispatcherBucket>();
+  for (const l of lines.filter(l => l.line_type === 'load_base')) {
+    const key = l.dispatcher_id ?? '';
+    const b = buckets.get(key) ?? {
+      dispatcherId: l.dispatcher_id,
+      name: l.dispatcher_id ? dispatcherLabel(profiles.get(l.dispatcher_id)) : 'Unattributed',
+      base: 0,
+      loads: 0,
+    };
+    b.base = round2(b.base + l.amount);
+    b.loads += 1;
+    buckets.set(key, b);
+  }
+  // Section 4.6: the unattributed bucket is always shown, even when empty.
+  if (!buckets.has('')) {
+    buckets.set('', { dispatcherId: null, name: 'Unattributed', base: 0, loads: 0 });
+  }
+  const byDispatcher = Array.from(buckets.values())
+    .sort((a, b) => (a.dispatcherId === null ? 1 : b.dispatcherId === null ? -1 : b.base - a.base));
+  const byDispatcherTotal = round2(byDispatcher.reduce((s, b) => s + b.base, 0));
+
+  const settlement: StoredDispatchSettlement = {
+    id: row.id,
+    period_month: row.period_month,
+    status: row.status,
+    dispatch_pct: num(row.dispatch_pct),
+    factoring_pct: num(row.factoring_pct),
+    eligible_base: num(row.eligible_base),
+    factoring_reduction: num(row.factoring_reduction),
+    reduced_base: num(row.reduced_base),
+    dispatch_fee: num(row.dispatch_fee),
+    deductions_amount: num(row.deductions_amount),
+    net_amount: num(row.net_amount),
+    computed_at: row.computed_at,
+    approved_at: row.approved_at,
+    paid_at: row.paid_at,
+    void_reason: row.void_reason,
+    updated_at: row.updated_at,
+    computed_by_name: row.created_by ? dispatcherLabel(profiles.get(row.created_by)) : null,
+    approved_by_name: row.approved_by ? dispatcherLabel(profiles.get(row.approved_by)) : null,
+  };
+
+  const totalsCheck = checkTotalsEqualLines(
+    {
+      eligible_base: settlement.eligible_base,
+      factoring_reduction: settlement.factoring_reduction,
+      reduced_base: settlement.reduced_base,
+      dispatch_fee: settlement.dispatch_fee,
+      deductions_amount: settlement.deductions_amount,
+      net_amount: settlement.net_amount,
+    },
+    lines,
+  );
+
+  const attributionProblems: string[] = [];
+  if (byDispatcherTotal !== round2(settlement.eligible_base)) {
+    attributionProblems.push(
+      `breakdown ${byDispatcherTotal} vs eligible base ${round2(settlement.eligible_base)}`);
+  }
+
+  const rateRow = (rateRes.data ?? [])[0];
+
+  return {
+    settlement,
+    lines,
+    contributions,
+    byDispatcher,
+    byDispatcherTotal,
+    totalsCheck: settlement.status === 'void' ? { ok: true, problems: [] } : totalsCheck,
+    attributionCheck: {
+      ok: attributionProblems.length === 0,
+      problems: attributionProblems,
+    },
+    currentRates: rateRow
+      ? { dispatch_pct: num(rateRow.dispatch_pct), factoring_pct: num(rateRow.factoring_pct) }
+      : null,
+  };
+}
