@@ -22,3 +22,5 @@
   recorded as known debt (bearer `draft_token`, no consumption forensics, duplicate
   resume-email log rows).
 - [docs] Update section 5 of SECURITY INCIDENT with 2026-09-03 access investigation result
+- [docs] Record authoritative cutover purge procedure in `docs/tms-build-status.md`,
+  replacing the incomplete list, and document the revenue-layer demo isolation blocker.
