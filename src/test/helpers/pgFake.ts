@@ -38,6 +38,7 @@ export const PROFILE_FK_COLUMNS: Record<string, string[]> = {
   operator_parking_events: ['changed_by'],
   operator_departing_events: ['changed_by'],
   equipment_return_confirmations: ['confirmed_by', 'reversed_by'],
+  equipment_serial_conflict_dismissals: ['dismissed_by'],
   lease_terminations: ['voided_by'],
   settlements: ['created_by', 'updated_by', 'hold_released_by', 'below_threshold_authorized_by'],
   settlement_line_items: ['created_by'],

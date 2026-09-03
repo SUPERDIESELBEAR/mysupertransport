@@ -14,6 +14,7 @@ import {
 import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
+import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import {
   canonicalSerial,
@@ -98,6 +99,7 @@ export default function SerialConflictsPanel({
 }) {
   const { toast } = useToast();
   const { guardDemo } = useDemoMode();
+  const { profile } = useAuth();
   const [expanded, setExpanded] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [loadingDismissals, setLoadingDismissals] = useState(true);
@@ -202,8 +204,7 @@ export default function SerialConflictsPanel({
           key => currentSerialsFor.has(key) && !valid.has(key),
         );
         if (toMigrate.length > 0) {
-          const { data: userData } = await supabase.auth.getUser();
-          const dismissedBy = userData.user?.id;
+          if (!profile?.id) throw new Error('Staff profile is unavailable. Please refresh and try again.');
           const inserts = toMigrate.map(key => {
             const c = allPairs.find(p => p.key === key)!;
             return {
@@ -211,7 +212,7 @@ export default function SerialConflictsPanel({
               device_type: c.deviceType,
               item_ids: c.items.map(i => i.id),
               serial_snapshot: c.items.map(i => normalizeSerial(i.serial_number)).filter(Boolean),
-              dismissed_by: dismissedBy,
+              dismissed_by: profile.id,
             };
           });
           const { error: upsertError } = await dismissalsTable().upsert(inserts, {
@@ -249,13 +250,13 @@ export default function SerialConflictsPanel({
       .map(i => normalizeSerial(i.serial_number))
       .filter((s): s is string => !!s);
     try {
-      const { data: userData } = await supabase.auth.getUser();
+      if (!profile?.id) throw new Error('Staff profile is unavailable. Please refresh and try again.');
       const { error } = await dismissalsTable().insert({
         conflict_key: key,
         device_type: conflict.deviceType,
         item_ids: conflict.items.map(i => i.id),
         serial_snapshot: snapshot,
-        dismissed_by: userData.user?.id,
+        dismissed_by: profile.id,
       });
       if (error) throw error;
 
