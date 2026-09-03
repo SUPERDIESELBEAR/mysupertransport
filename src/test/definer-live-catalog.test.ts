@@ -78,7 +78,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
-  "public.email_queue_dispatch()",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
   "public.get_application_pei_summary(uuid)",
@@ -86,7 +85,6 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
   "public.get_inspection_doc_by_token(uuid)",
   "public.get_or_create_short_link(text)",
   "public.get_pei_request_for_response(uuid)",
-  "public.get_pei_requests_needing_action()",
   "public.get_thread_participants(uuid)",
   "public.get_user_roles(uuid)",
   "public.has_role(uuid,app_role)",
@@ -137,7 +135,7 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] = [
 // 54 + the three token-gated public endpoints registered 2026-08-20
 // (get_ica_review_link, get_share_bundle_meta, resolve_share_bundle), minus the
 // seven entries no longer anon-executable, removed in the same 2026-08-20 pass.
-const KNOWN_ANON_EXECUTABLE_MAX = 50;
+const KNOWN_ANON_EXECUTABLE_MAX = 48;
 
 
 /**
@@ -181,7 +179,6 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // their own operator row through them.
   "public.create_eld_document_day(uuid,date,text,jsonb,uuid,text,boolean)",
   "public.discard_rods_amendment(uuid)",
-  "public.email_queue_dispatch()",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
   "public.get_application_pei_summary(uuid)",
@@ -456,7 +453,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   company settlement. Management or owner in the body, actor stamped, paid
 //   months refused, and the payload refused when its rates, arithmetic or load
 //   set do not follow from the record.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 113;
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
 
 
 
