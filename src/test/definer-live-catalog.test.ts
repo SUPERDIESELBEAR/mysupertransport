@@ -588,7 +588,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   company settlement. Management or owner in the body, actor stamped, paid
 //   months refused, and the payload refused when its rates, arithmetic or load
 //   set do not follow from the record.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
+// - email_queue_dispatch() (2026-09-03), revoked to service_role only: 113 -> 112.
+// - create_eld_document_day(...) and replace_rods_document(...) (2026-09-03),
+//   neither exists live any more: 112 -> 110.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 110;
+
 
 
 
