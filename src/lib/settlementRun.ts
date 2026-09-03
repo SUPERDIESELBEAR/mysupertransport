@@ -255,8 +255,14 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .filter(d => d.operator_id === operatorId
         && (!d.start_payday || d.start_payday <= period.payday)
         && (!d.end_payday || d.end_payday >= period.payday)
-        && !settledSources.has(`deductions:${d.id}`))
+        // Recurring: only a line item on THIS period disqualifies it, so it is
+        // charged again every period its window covers. One-time: any line item
+        // anywhere disqualifies it, so it is never charged twice.
+        && !(d.is_recurring
+          ? settledSourcesThisPeriod.has(`deductions:${d.id}`)
+          : settledSourcesEver.has(`deductions:${d.id}`)))
       .map(d => ({ id: d.id, label: d.label, amount: num(d.amount), sourceTable: 'deductions' as const }));
+
 
     const advanceBalance = ((advRes?.data ?? []) as any[])
       .filter(a => a.operator_id === operatorId)
