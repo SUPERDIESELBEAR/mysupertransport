@@ -465,9 +465,21 @@ export function DeactivationWizardContent({
       if (fnErr) throw new Error(fnErr.message || 'Failed to send email');
       if (!data?.success) throw new Error(data?.error || 'Failed to send email');
 
+      const actualTo = Array.isArray(data?.sent_to)
+        ? (data.sent_to as unknown[]).filter((v): v is string => typeof v === 'string')
+        : [...toEmails, ...ccEmails];
+      const included = data?.consultant_included !== false;
+      setSafetySentTo(actualTo);
+      setSafetyConsultantIncluded(included);
       setSafetySent(true);
       updateStepStatus('safety_advisor', 'completed');
-      toast({ title: 'Deactivation notice sent', description: `Sent to ${consultantLabel}` });
+      toast({
+        title: 'Deactivation notice sent',
+        description: actualTo.length === 1
+          ? `Sent to ${actualTo[0]}`
+          : `Sent to ${actualTo.length} recipient${actualTo.length === 1 ? '' : 's'}: ${actualTo.join(', ')}`,
+      });
+
     } catch (err: any) {
       toast({ title: 'Email failed', description: err.message, variant: 'destructive' });
     } finally {
