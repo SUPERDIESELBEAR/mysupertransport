@@ -38,6 +38,7 @@ interface StepState {
 
 type OffboardingStepKey =
   | 'reason'
+  | 'unit_disposition'
   | 'safety_advisor'
   | 'lease_termination'
   | 'equipment_return'
@@ -46,6 +47,26 @@ type OffboardingStepKey =
   | 'ica_void'
   | 'login_retention'
   | 'confirm';
+
+/** What happens to the truck when this driver leaves. */
+type UnitDisposition = 'truck_leaves' | 'truck_stays' | 'undecided';
+
+interface TruckSnapshot {
+  unit_number: string | null;
+  truck_year: string | null;
+  truck_make: string | null;
+  truck_model: string | null;
+  truck_vin: string | null;
+  truck_plate: string | null;
+  truck_plate_state: string | null;
+  trailer_number: string | null;
+}
+
+interface TruckOwnerLite {
+  id: string;
+  name: string;
+}
+
 
 interface EquipmentSheet {
   id: string;
@@ -161,9 +182,16 @@ export function DeactivationWizardContent({
   const [loginRetentionReason, setLoginRetentionReason] = useState('');
   const [receiptsUploaded, setReceiptsUploaded] = useState(false);
 
+  // Step 2: Unit disposition
+  const [unitDisposition, setUnitDisposition] = useState<UnitDisposition | null>(null);
+  const [unitDispositionNotes, setUnitDispositionNotes] = useState('');
+  const [truckSnapshot, setTruckSnapshot] = useState<TruckSnapshot | null>(null);
+  const [truckOwner, setTruckOwner] = useState<TruckOwnerLite | null>(null);
+
   // Step tracking
   const [steps, setSteps] = useState<Record<OffboardingStepKey, StepState>>({
     reason: { key: 'reason', label: 'Reason & Date', description: 'Confirm why and when the driver is leaving', status: 'in_progress' },
+    unit_disposition: { key: 'unit_disposition', label: 'Unit Disposition', description: 'Does the truck leave with the driver or stay leased?', status: 'pending' },
     safety_advisor: { key: 'safety_advisor', label: 'DOT Consultant', description: 'Notify the DOT Consultant of the deactivation', status: 'pending' },
     lease_termination: { key: 'lease_termination', label: 'Lease Termination', description: 'Create and sign the Appendix C', status: 'pending' },
     equipment_return: { key: 'equipment_return', label: 'Equipment Return', description: 'Send return instructions and confirm receipt', status: 'pending' },
@@ -176,6 +204,7 @@ export function DeactivationWizardContent({
 
   const orderedSteps: OffboardingStepKey[] = [
     'reason',
+    'unit_disposition',
     'safety_advisor',
     'lease_termination',
     'equipment_return',
@@ -185,6 +214,7 @@ export function DeactivationWizardContent({
     'login_retention',
     'confirm',
   ];
+
 
   const updateStepStatus = useCallback((key: OffboardingStepKey, status: StepStatus, skippedReason?: string) => {
     setSteps(prev => ({ ...prev, [key]: { ...prev[key], status, skippedReason } }));
@@ -205,6 +235,31 @@ export function DeactivationWizardContent({
         supabase.from('mo_plate_assignments').select('id, plate_id, assigned_at, mo_plates!inner(plate_number)').eq('operator_id', operatorId).is('returned_at', null).order('assigned_at', { ascending: false }),
         supabase.from('lease_terminations').select('id').eq('operator_id', operatorId).is('voided_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+      // Truck snapshot + owner, so a unit that stays leased keeps its identity
+      // after the driver's records are torn down.
+      const [snapRes, ownerRes] = await Promise.all([
+        supabase
+          .from('onboarding_status')
+          .select('unit_number, truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .eq('operator_id', operatorId)
+          .maybeSingle(),
+        supabase
+          .from('truck_owners')
+          .select('id, legal_first_name, legal_last_name, business_name')
+          .eq('operator_id', operatorId)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle(),
+      ]);
+      if (snapRes.data) setTruckSnapshot(snapRes.data as unknown as TruckSnapshot);
+      if (ownerRes.data) {
+        const o = ownerRes.data as any;
+        const name = [o.legal_first_name, o.legal_last_name].filter(Boolean).join(' ').trim() || o.business_name || '';
+        setTruckOwner({ id: o.id, name });
+      }
+
+
 
       if (icaRes.data) setIca(icaRes.data as IcaContract);
       if (carrierRes.data) {
@@ -590,6 +645,51 @@ export function DeactivationWizardContent({
       const { error: stepErr } = await supabase.from('operator_offboarding_steps').upsert(stepRecords, { onConflict: 'operator_id,step_key' });
       if (stepErr) console.error('Failed to persist offboarding steps', stepErr);
 
+      // The truck stays leased: hold the unit so it can be handed to a new
+      // driver instead of quietly vanishing from the roster.
+      if (unitDisposition === 'truck_stays' || unitDisposition === 'undecided') {
+        const snap = truckSnapshot;
+        const { error: vacErr } = await (supabase as any).from('vacant_units').insert({
+          operator_id: operatorId,
+          unit_number: snap?.unit_number ?? unitNumber ?? null,
+          truck_year: snap?.truck_year ?? null,
+          truck_make: snap?.truck_make ?? null,
+          truck_model: snap?.truck_model ?? null,
+          truck_vin: snap?.truck_vin ?? null,
+          truck_plate: snap?.truck_plate ?? null,
+          truck_plate_state: snap?.truck_plate_state ?? null,
+          trailer_number: snap?.trailer_number ?? null,
+          truck_owner_id: truckOwner?.id ?? null,
+          truck_owner_name: truckOwner?.name || null,
+          disposition: unitDisposition,
+          notes: unitDispositionNotes.trim() || null,
+          held_by: user?.id ?? null,
+        });
+        if (vacErr) console.error('Failed to hold vacant unit', vacErr);
+
+        // Tell the people who staff a vacant truck.
+        const { data: staff } = await supabase
+          .from('user_roles')
+          .select('user_id, role')
+          .in('role', ['management', 'owner', 'onboarding_staff'] as any);
+        const recipients = Array.from(new Set((staff || []).map((r: any) => r.user_id))).filter(Boolean);
+        if (recipients.length) {
+          await supabase.from('notifications').insert(
+            recipients.map(uid => ({
+              user_id: uid,
+              type: 'vacant_unit',
+              title: `Unit ${snap?.unit_number ?? unitNumber ?? '—'} is now vacant`,
+              body: `${operatorName} was deactivated and the truck ${unitDisposition === 'truck_stays' ? 'stays leased to SUPERTRANSPORT' : 'disposition is undecided'}. Assign a new driver or release the unit from Vehicle Hub.`,
+              link: '/management/fleet',
+              entity_type: 'operator',
+              entity_id: operatorId,
+              channel: 'in_app' as any,
+              priority: 'normal',
+            })) as any
+          );
+        }
+      }
+
       await supabase.from('audit_log').insert({
         actor_id: user?.id ?? null,
         actor_name: null,
@@ -603,6 +703,8 @@ export function DeactivationWizardContent({
           deactivation_date: deactivationDate,
           keep_login_active: keepLoginActive,
           login_retention_reason: loginRetentionReason || null,
+          unit_disposition: unitDisposition,
+          unit_disposition_notes: unitDispositionNotes.trim() || null,
         },
       });
 
@@ -618,6 +720,8 @@ export function DeactivationWizardContent({
   const stepIndex = orderedSteps.indexOf(currentStep);
   const canGoNext = (() => {
     if (currentStep === 'reason') return !!deactivationReason && !!deactivationDate;
+    if (currentStep === 'unit_disposition') return !!unitDisposition;
+
     if (currentStep === 'safety_advisor') return steps.safety_advisor.status === 'completed' || steps.safety_advisor.status === 'skipped';
     if (currentStep === 'lease_termination') return steps.lease_termination.status === 'completed' || steps.lease_termination.status === 'skipped';
     if (currentStep === 'equipment_return') return steps.equipment_return.status === 'completed' || steps.equipment_return.status === 'skipped';
@@ -743,7 +847,7 @@ export function DeactivationWizardContent({
         </Button>
       )}
       <div className="flex items-center gap-2">
-        {currentStep !== 'confirm' && currentStep !== 'reason' && (
+        {currentStep !== 'confirm' && currentStep !== 'reason' && currentStep !== 'unit_disposition' && (
           <Button variant="ghost" size="sm" onClick={() => {
             const reason = window.prompt('Reason for skipping this step?');
             if (reason) skipStep(reason);
@@ -805,6 +909,64 @@ export function DeactivationWizardContent({
             )}
           </div>
         );
+
+      case 'unit_disposition': {
+        const snap = truckSnapshot;
+        const truckLine = [snap?.truck_year, snap?.truck_make, snap?.truck_model].filter(Boolean).join(' ') || '—';
+        const options: { value: UnitDisposition; label: string; hint: string }[] = [
+          { value: 'truck_leaves', label: 'The truck leaves with the driver', hint: 'Owner-operator takes his truck off the authority. The unit number is retired with the driver.' },
+          { value: 'truck_stays', label: 'The truck stays leased — waiting on a new driver', hint: 'The truck owner keeps the truck on our authority. The unit is held open so it can be handed to a replacement driver.' },
+          { value: 'undecided', label: 'Not sure yet', hint: 'Hold the unit open and decide later. It appears under Vacant units in Vehicle Hub.' },
+        ];
+        return (
+          <div className="space-y-4">
+            <div className="bg-muted/40 rounded-lg p-3 text-sm space-y-1">
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Unit #</span><span className="font-medium">{snap?.unit_number || unitNumber || '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Truck</span><span className="font-medium text-right">{truckLine}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">VIN</span><span className="font-mono text-right break-all">{snap?.truck_vin || '—'}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground">Truck owner</span><span className="font-medium text-right">{truckOwner?.name || '—'}</span></div>
+            </div>
+
+            <div className="space-y-2">
+              {options.map(opt => {
+                const active = unitDisposition === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => setUnitDisposition(opt.value)}
+                    className={`w-full text-left border rounded-lg p-3 transition ${active ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-muted-foreground/40'}`}
+                  >
+                    <p className="text-sm font-medium">{opt.label}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{opt.hint}</p>
+                  </button>
+                );
+              })}
+            </div>
+
+            {(unitDisposition === 'truck_stays' || unitDisposition === 'undecided') && (
+              <>
+                <Alert className="border-muted-foreground/30 bg-muted/30">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription className="text-xs">
+                    Keep the MO plate on this unit unless the owner is taking it — the plate follows the truck, not the driver.
+                    Voiding the ICA ends this driver's agreement only; a replacement driver needs a new ICA on the same truck.
+                  </AlertDescription>
+                </Alert>
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Notes for whoever picks this unit up (optional)</Label>
+                  <Textarea
+                    value={unitDispositionNotes}
+                    onChange={e => setUnitDispositionNotes(e.target.value)}
+                    placeholder="e.g. Owner has a driver lined up for next week."
+                    rows={3}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      }
 
       case 'safety_advisor':
         return (
@@ -1052,6 +1214,14 @@ export function DeactivationWizardContent({
       case 'mo_plate':
         return (
           <div className="space-y-4">
+            {(unitDisposition === 'truck_stays' || unitDisposition === 'undecided') && (
+              <Alert className="border-muted-foreground/30 bg-muted/30">
+                <AlertDescription className="text-xs">
+                  This unit stays on the authority — normally the plate stays with the truck. Release it only if the owner is taking the plate too.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {plateAssignments.length === 0 ? (
               <Alert className="border-muted-foreground/30 bg-muted/30">
                 <AlertDescription className="text-xs">No MO plates are currently assigned to this driver.</AlertDescription>
@@ -1079,6 +1249,14 @@ export function DeactivationWizardContent({
       case 'ica_void':
         return (
           <div className="space-y-4">
+            {(unitDisposition === 'truck_stays' || unitDisposition === 'undecided') && (
+              <Alert className="border-muted-foreground/30 bg-muted/30">
+                <AlertDescription className="text-xs">
+                  Voiding ends this driver's agreement only. The truck stays leased — the replacement driver will need a new ICA issued on the same unit.
+                </AlertDescription>
+              </Alert>
+            )}
+
             {!ica && !icaVoided ? (
               <Alert className="border-muted-foreground/30 bg-muted/30">
                 <AlertDescription className="text-xs">No active ICA contract to void.</AlertDescription>
@@ -1154,6 +1332,7 @@ export function DeactivationWizardContent({
               <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Unit #</span><span className="font-medium min-w-0 text-right break-words">{unitNumber || '—'}</span></div>
               <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Deactivation Date</span><span className="font-medium min-w-0 text-right break-words">{new Date(deactivationDate + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span></div>
               <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Reason</span><span className="font-medium min-w-0 text-right break-words">{deactivationReason}</span></div>
+              <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Unit</span><span className="font-medium min-w-0 text-right break-words">{unitDisposition === 'truck_leaves' ? 'Leaves with the driver' : unitDisposition === 'truck_stays' ? 'Stays leased — held for a new driver' : unitDisposition === 'undecided' ? 'Undecided — held open' : 'Not set'}</span></div>
               <div className="flex justify-between gap-3"><span className="text-muted-foreground shrink-0">Login Access</span><span className="font-medium min-w-0 text-right break-words">{keepLoginActive ? 'Retained' : 'Revoked now'}</span></div>
             </div>
             <div className="space-y-1">
@@ -1175,7 +1354,10 @@ export function DeactivationWizardContent({
                 This will mark {operatorName} as inactive and remove them from the active roster and dispatch board.
               </AlertDescription>
             </Alert>
-            <Button className="w-full gap-1.5" variant="destructive" onClick={handleFinalize} disabled={finalizing}>
+            {!unitDisposition && (
+              <p className="text-xs text-destructive">Choose what happens to the unit on the Unit Disposition step before finalizing.</p>
+            )}
+            <Button className="w-full gap-1.5" variant="destructive" onClick={handleFinalize} disabled={finalizing || !unitDisposition}>
               {finalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-4 w-4" />}
               {finalizing ? 'Deactivating…' : 'Confirm Deactivation'}
             </Button>

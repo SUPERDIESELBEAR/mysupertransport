@@ -1,0 +1,39 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Dismiss write blocked by missing grants">
+<style>
+text{font-family:var(--font-sans);fill:hsl(var(--foreground));font-size:14px}
+.s{font-size:12px;fill:hsl(var(--muted-foreground))}
+.m{font-family:var(--font-mono);font-size:12px;fill:hsl(var(--muted-foreground))}
+.b{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+.w{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none}
+.a{stroke:hsl(var(--accent));stroke-width:1;fill:none}
+</style>
+<defs><marker id="c" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))"/></marker></defs>
+
+<rect class="b" x="10" y="40" width="140" height="54" rx="8"/>
+<text x="80" y="63" text-anchor="middle">"Different devices"</text>
+<text class="s" x="80" y="81" text-anchor="middle">staff clicks</text>
+
+<rect class="b" x="180" y="40" width="140" height="54" rx="8"/>
+<text x="250" y="63" text-anchor="middle">insert row</text>
+<text class="m" x="250" y="81" text-anchor="middle">dismissals table</text>
+
+<rect class="b" x="350" y="40" width="130" height="54" rx="8" fill="hsl(var(--muted))"/>
+<text x="415" y="63" text-anchor="middle">GRANT check</text>
+<text class="s" x="415" y="81" text-anchor="middle">no privileges</text>
+
+<rect class="b" x="510" y="40" width="120" height="54" rx="8"/>
+<text x="570" y="63" text-anchor="middle">RLS policy</text>
+<text class="s" x="570" y="81" text-anchor="middle">never reached</text>
+
+<line class="w" x1="152" y1="67" x2="176" y2="67" marker-end="url(#c)"/>
+<line class="w" x1="322" y1="67" x2="346" y2="67" marker-end="url(#c)"/>
+<line class="w" x1="482" y1="67" x2="506" y2="67" marker-end="url(#c)" stroke-dasharray="4 3"/>
+
+<path class="a" d="M415,96 L415,140 L200,140" marker-end="url(#c)" stroke="hsl(var(--accent))"/>
+<circle cx="180" cy="140" r="11" fill="hsl(var(--accent))"/>
+<text x="180" y="145" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))">1</text>
+
+<text class="s" x="10" y="185">1 — permission denied, returned as a plain object, so the toast prints "Unknown error"</text>
+<text class="s" x="10" y="207">Result: zero rows stored; every dismissed pair returns on the next load</text>
+<text class="s" x="10" y="229">The same missing grant also blocks the initial read of already-dismissed pairs</text>
+</svg>
