@@ -5487,3 +5487,166 @@ NOT pre-existing background noise and NOT introduced by this pass — Pass 5a
 unfixed here because this pass is scoped to actor attribution; the month
 helpers must be moved onto `@/lib/settlementPeriod` in their own pass.
 **TRIGGER: before the next change to the dispatch month selector.**
+
+## SECURITY INCIDENT — `get_pei_requests_needing_action` was anon-readable for four months (2026-09-03)
+
+*Recorded as an INCIDENT, in the form of `docs/eld-mail-queue-acl-2026-08-01.md`,
+not as an ordinary pass. It is the most important entry in this file.*
+
+### 1. What was exposed
+
+`public.get_pei_requests_needing_action()`, created 2026-05-13, `SECURITY
+DEFINER`, body opening `BEGIN` then `RETURN QUERY` with **no authorization check
+of any kind**. No `GRANT` and no `REVOKE` for it existed anywhere in the
+migration history, so it inherited the Supabase default under which `anon` holds
+EXECUTE on every function created in schema `public`.
+
+It returned:
+
+- applicant first name and last name
+- application id
+- prior employer name
+- prior employer contact email
+
+It was callable by any unauthenticated holder of the anon key — which ships in
+the client bundle — from **2026-05-13 to 2026-09-03**, approximately four
+months. Confirmed during the investigation by a live call over the published
+anon key, which **returned real applicant rows**.
+
+### 2. What else — `email_queue_dispatch()`
+
+`public.email_queue_dispatch()`, `SECURITY DEFINER`, no arguments, no guard,
+anon-executable. It can `cron.unschedule('process-email-queue')` and fires
+`net.http_post` at an edge function using a Vault-held key. An unauthenticated
+caller could force delivery attempts or, timed against an empty queue, **disarm
+the cron that delivers auth magic links and transactional mail**. The exposure
+here is CONTROL, not disclosure.
+
+This is the **same surface as the 2026-08-01 mail-queue ACL incident** and was
+**not covered by that remediation**.
+
+### 3. The fact that matters most — nobody reviews a function nobody calls
+
+`get_pei_requests_needing_action` had **NO CALLER**. Not in `src/`, not in
+`supabase/functions/`. The PEI Queue screen uses `get_pei_queue()`.
+
+A function nobody used leaked personal data for four months, because nobody
+reviews a function nobody calls. That is the lesson, and it is what justified
+revoking the surplus anon grants on the no-caller helpers rather than treating
+them as tidiness.
+
+### 4. The fix
+
+- `get_pei_requests_needing_action()`: in-body `auth.uid()` null check plus an
+  `is_staff` gate; `REVOKE` from `PUBLIC` and `anon`; `GRANT` to `authenticated`
+  and `service_role`; `search_path` repinned.
+  Verified by calling over the anon key AFTER the fix — `42501 permission
+  denied` — and by an authenticated staff call returning rows.
+- `email_queue_dispatch()`: revoked from `PUBLIC`, `anon` and `authenticated`;
+  granted to `service_role` only, after confirming it is invoked by
+  `cron.schedule` running as the function owner.
+
+### 5. OPEN — and not a code question
+
+Whether anyone accessed the exposed data during those four months is answerable
+only from Supabase API logs, **which age out**. The question was raised on
+2026-09-03 and is **OPEN**. Whether this triggers a notification obligation is a
+matter for counsel — pre-employment investigation data carries specific handling
+expectations. No outcome is recorded here because none has happened.
+
+## Anon surface reduction (2026-09-03)
+
+Class-(c) functions — anon-executable with **no anon caller** — were revoked from
+`PUBLIC` and `anon`, keeping the grants the authenticated paths need. Thirteen
+were revoked:
+
+`_audit_actor_name`, `get_user_roles`, `has_role`, `is_thread_participant`,
+`is_own_rods_operator`, `is_truck_owner_for_operator`,
+`can_driver_message_staff`, `list_driver_contacts`,
+`list_staff_auto_assigned_drivers`, `get_thread_participants`,
+`unacked_go_live_blockers`, `operator_awaiting_return`,
+`operator_return_requested`.
+
+**`is_staff(uuid)` was the fourteenth candidate and was STOPPED ON, deliberately
+NOT revoked.** It is evaluated for `anon` by two `TO public` policies — "Staff
+can insert applications" on `applications` and "Staff can view all FAQs" on
+`faq` — and by the **non-SECURITY-DEFINER** trigger
+`validate_public_application_insert()`, which runs as the INSERTING role on
+`/apply`. Revoking it returns `42501` on the public job application form.
+
+The verification that mattered: after the pass, an anonymous application insert
+returned `P0001 Invalid email address` — a validation error from inside the
+trigger, not a permission error — proving the trigger still ran.
+
+Live anon-executable SECURITY DEFINER functions: **48 → 33**.
+
+## Two guard gaps — one closed, one open (2026-09-03)
+
+### CLOSED — the anon inventory now demands a reason
+
+`definer-live-catalog.test.ts` verified only that the anon-executable set had not
+GROWN. It could not verify that any member was SAFE, and
+`get_pei_requests_needing_action` was a registered member in good standing for
+the entire exposure.
+
+`KNOWN_ANON_EXECUTABLE_ENTRIES` is now `{ signature, reason }`. Every reason must
+begin `ROUTE ` (naming the unauthenticated route and the file that calls it) or
+`GUARD ` (quoting the in-body guard that refuses anon) and must carry substance.
+The test fails without one — **demonstrated** by blanking a reason and observing
+the failure, not asserted.
+
+**STANDING RULE: adding a function to the anon inventory requires writing down
+why anon may call it, and the test enforces the writing-down.**
+
+`KNOWN_AUTHENTICATED_EXECUTABLE` was **deliberately NOT converted**. Its 110
+entries were classified "by exception, not exhaustively", and a half-populated
+set of reasons would be worse than none. That is a DECISION, not an omission.
+
+### OPEN — KNOWN DEBT: nothing watches non-definer triggers
+
+No guard inspects functions reachable through **NON-DEFINER TRIGGERS that run as
+the calling role**. `caller-evaluated-functions.test.ts` checks that no RLS
+policy calls a function the role cannot execute, and it stayed green — it would
+**not** have caught `is_staff`, because that path runs through
+`validate_public_application_insert()`, a non-definer trigger. This is the same
+shape as the incident itself: a surface nothing was watching.
+
+**TRIGGER: before the next anon EXECUTE revoke, and before any new public route
+is added.**
+
+## CORRECTION — the "166 linter findings" figure is stale twice over (2026-09-03)
+
+The record carries "166 findings (48 public + 110 authenticated + 8 others)".
+Current live: **33 anon-executable definers, 110 authenticated-executable, 8
+others — 151.**
+
+The 8 non-definer findings were examined on 2026-09-03 and **none is a real
+exposure**:
+
+- Three RLS-enabled-with-no-policy tables in `public` —
+  `application_resume_tokens`, `document_short_links`,
+  `message_notification_throttle` — plus `app_private.config`. All are
+  deliberately service-role-only; RLS on with zero policies **is** the intended
+  closed state.
+- Three extensions in `public` — `pg_trgm`, `vector`, `pg_net` — left in place
+  deliberately.
+- Leaked-password protection: the already-recorded platform limitation.
+
+The remaining count is **INVENTORY, not backlog**. Each anon entry was classified
+by hand on 2026-09-03.
+
+## Left OPEN by the 2026-09-03 security pass
+
+### `match_staff_help_knowledge(vector,int,float)` — no caller check
+
+Returns internal staff help-knowledge content to any signed-in user, including an
+operator. The content is internal documentation, not personal or financial data,
+which is why it was left rather than fixed.
+**TRIGGER: before any external or customer-facing account type exists.**
+
+### `equipment_outstanding(uuid)` — no caller check
+
+Carries no caller check: a boolean fact about an operator's returned kit,
+readable by any signed-in user holding an operator UUID. See the existing entry
+"`equipment_outstanding` AND CATCH-AS-FALSE ON AN AUTHORIZATION FAILURE" above —
+this is the authorization half of the same function, not a separate debt.
