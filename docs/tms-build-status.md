@@ -1280,7 +1280,7 @@ seeding. The heading below stays in place and empty.
 Investigated 2026-09-03. This replaces every earlier purge-before-cutover list.
 The previous list named 11 loads; it was incomplete.
 
-#### 1. What must go — inventory
+#### 1. Inventory — what must go
 
 | Object | Count | Note |
 |---|---|---|
@@ -1296,8 +1296,8 @@ The previous list named 11 loads; it was incomplete.
 | `settlement_withheld_loads` | 2 | cascades from settlement |
 | `dispatch_settlements` | 1 | 2026-08-01, `draft` |
 | `dispatch_settlement_line_items` / `contributions` / `verdicts` | 9 / 7 / 3 | cascade |
-| `dispatch_settlement_rates` | 1 | placeholder `effective_from 2026-01-01` |
-| `brokers` | 11 | 2 clearly test (`TEST-100001`, `TEST-100002`); 9 are real companies (see §3) |
+| `dispatch_settlement_rates` | 1 | **confirmed correct** — 5.00% / 2.00% effective 2026-01-01; survives cutover |
+| `brokers` | 11 | 2 clearly test (`TEST-100001`, `TEST-100002`); 9 are real companies (see §2) |
 | `facilities` | 2 | J M Exotic Foods, Braswell's — from seed rate cons |
 | `rate_con_ingest_queue` | 5 | 3 hold storage paths under `rate-con-ingest` |
 | `parser_diagnostics` | 74 | `ON DELETE SET NULL` to loads/documents — survives a load delete as orphans |
@@ -1311,14 +1311,32 @@ The previous list named 11 loads; it was incomplete.
 Empty and needing nothing: `fuel_transactions`, `deductions`, `rm_deposits`,
 `cash_advances`, `dispatch_deductions`, `pay_policy_assignments`.
 
-#### 2. The order, and why
+**What the recorded list was missing, in one line:** five loads, all storage
+objects, `parser_diagnostics` (74), `rate_con_ingest_queue` (5), `facilities` (2),
+`audit_log` (5), `settlement_withheld_loads` (2), `preview_sessions` (112), and the
+fact that the seed brokers are real companies.
+
+#### 2. Settled decisions (recorded 2026-09-03)
+
+- **`dispatch_settlement_rates`: 5.00% dispatch / 2.00% factoring effective
+  2026-01-01 is CONFIRMED CORRECT by the owner.** No longer a placeholder; the row
+  survives cutover.
+- **The Pratt settlement is approved for deletion at cutover.**
+- **The nine non-TEST brokers — Integrity Express, Cahaba, Blue Grace, GlobalTranz,
+  ITS National, Eclipse Transervices, Rolling River, Fide Freight, Nationwide — are
+  KEPT.** They are real companies whose real rate confirmations were used as test
+  input and are not distinguishable from real trading partners by any column. Each
+  carries `factoring_status = unknown` and must be MANUALLY REVIEWED before the first
+  real load. Do not attempt to separate them by query.
+
+#### 3. The eight ordered steps, and why each sits where it does
 
 Run each step in its own transaction. Verify before moving on.
 
-**Step 0 — snapshot.** Full database backup plus manifest of the 27 storage objects.
-Steps 4, 5 and 6 are irreversible.
+**Step 0 — snapshot.** Full database backup plus manifest of the 27 storage
+objects. Steps 3, 4 and 5 are irreversible.
 
-**Step 1 — delete the dispatch settlement.**
+**Step 1 — delete the dispatch settlement (2026-08-01, `draft`).**
 ```sql
 DELETE FROM public.dispatch_settlements WHERE period_month = '2026-08-01';
 ```
@@ -1326,12 +1344,27 @@ DELETE FROM public.dispatch_settlements WHERE period_month = '2026-08-01';
 `dispatch_settlement_load_contributions.load_id` are `ON DELETE RESTRICT` to
 `loads`. While those rows exist, seven loads cannot be deleted. The settlement is
 `draft`, so `enforce_dispatch_settlement_immutability` does not fire the paid
-branch; no unlock needed. Children cascade on `dispatch_settlement_id`.
-*Verify:* all four dispatch tables count 0.
+branch; no `SET LOCAL` unlock is needed. Children cascade on `dispatch_settlement_id`.
+*Verify:*
+```sql
+SELECT count(*) FROM public.dispatch_settlements;
+SELECT count(*) FROM public.dispatch_settlement_line_items;
+SELECT count(*) FROM public.dispatch_settlement_contributions;
+SELECT count(*) FROM public.dispatch_settlement_verdicts;
+```
+All four must be 0.
 
-**Step 2 — decide `dispatch_settlement_rates`.** Confirm 2026-01-01 as the real
-effective date and keep the row, or delete it and insert the real one. Must be
-settled before the first real month is computed.
+**Step 2 — keep `dispatch_settlement_rates`.**
+No deletion. The 5.00% / 2.00% row effective 2026-01-01 is confirmed correct (see §2)
+and survives cutover.
+*Constraint:* none; this is the last moment the row is unambiguously test-adjacent,
+so the keep decision must be recorded now.
+*Verify:*
+```sql
+SELECT dispatch_pct, factoring_pct, effective_from
+FROM public.dispatch_settlement_rates;
+```
+Expected: `5.00`, `2.00`, `2026-01-01`.
 
 **Step 3 — delete the Pratt settlement. NAMED DECISION STEP.**
 It is `paid`. `enforce_settlement_immutability` raises `42501` on DELETE unless
@@ -1346,15 +1379,26 @@ DELETE FROM public.settlements WHERE id = 'f77911b0-50cd-4ae3-bff2-ebb0bc4331af'
 COMMIT;
 ```
 
-**Recommendation: delete by literal id, never by predicate.** This still needs a
-named human decision because it destroys a `paid` money row.
-*Verify:* `settlements`, `settlement_line_items`, `settlement_withheld_loads` all 0.
+**Recommendation: delete by literal id, never by predicate.**
+**DECISION RECORDED 2026-09-03: the owner has approved deleting it at cutover.**
+*Why before the loads:* `settlement_withheld_loads.load_id` is SET NULL and
+`settlement_line_items` has no `load_id`, so this does not strictly block the load
+delete — but doing it after would leave a settlement whose withheld rows silently
+nulled their load reference, which is unauditable.
+*Verify:*
+```sql
+SELECT count(*) FROM public.settlements;
+SELECT count(*) FROM public.settlement_line_items;
+SELECT count(*) FROM public.settlement_withheld_loads;
+```
+All three must be 0.
 
 **Step 4 — delete storage objects before the rows that name them.**
 27 objects: 23 in `load-documents`, 4 in `rate-con-ingest`. No FK from
 `storage.objects` to `load_documents`; deleting the load first destroys the only
 record of which object belonged to it.
-*Verify:* both buckets 0 for the recorded prefixes; other 19 buckets untouched.
+*Verify:* list bucket contents; expect 0 objects under the recorded prefixes; the
+other 19 buckets untouched.
 
 **Step 5 — null the SET NULL referrers, then delete the loads.**
 `parser_diagnostics` (74 rows) and `rate_con_ingest_queue` (5 rows) have
@@ -1363,27 +1407,60 @@ not survive as orphans that look real. Then:
 ```sql
 DELETE FROM public.loads;
 ```
-The whole table is test data. Cascades take stops, documents, charges, references,
-citations, both histories, claim flags and claim-flag history.
-*Verify:* `loads` 0 and each cascade table 0.
+The whole table is test data (16 rows). Cascades take stops, documents, charges,
+references, citations, both histories, claim flags and claim-flag history.
+*Verify:*
+```sql
+SELECT count(*) FROM public.loads;
+SELECT count(*) FROM public.load_stops;
+SELECT count(*) FROM public.load_documents;
+SELECT count(*) FROM public.load_charges;
+SELECT count(*) FROM public.load_references;
+SELECT count(*) FROM public.load_reference_citations;
+SELECT count(*) FROM public.load_change_history;
+SELECT count(*) FROM public.load_status_history;
+SELECT count(*) FROM public.claim_flags;
+SELECT count(*) FROM public.claim_flag_history;
+```
+All must be 0.
 
-**Step 6 — brokers and facilities.** Delete the two `TEST-1000xx` brokers
-unconditionally. Their children cascade. Delete the two facilities. The nine
-non-TEST brokers are real companies (§3) — keep and manually review factoring
-status, do not try to separate them by query.
+**Step 6 — brokers and facilities.**
+Delete the two `TEST-1000xx` brokers unconditionally. Their children cascade. Delete
+the two facilities. The nine non-TEST brokers are real companies (§2) — keep and
+manually review factoring status, do not try to separate them by query.
+*Verify:*
+```sql
+SELECT count(*) FROM public.brokers WHERE broker_code LIKE 'TEST-%';
+SELECT count(*) FROM public.facilities;
+```
+Expected: `0`, `0`. Non-TEST brokers remain 9.
 
-**Step 7 — Craig Pate's application.** One `operators` row carries
+**Step 7 — Craig Pate's application.**
+One `operators` row carries
 `application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63'`. Resolve that operator
 first (delete if test, or null the link if real) before deleting the application.
 Resume tokens, document history, correction requests and revision attachments all
 cascade.
-*Verify:* the application and its 1 resume token are gone; `operators` count
-unchanged except for the deliberately removed row.
+*Verify:*
+```sql
+SELECT count(*) FROM public.applications
+WHERE id = '08066a41-c17e-4afb-a50a-cf7381af9f63';
+SELECT count(*) FROM public.application_resume_tokens
+WHERE application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63';
+```
+Both must be 0. `operators` count unchanged except for the deliberately removed row.
 
-**Step 8 — resets.** Set `load_number_config.next_sequence = 1`. Clear
-`preview_sessions`. Do this last so a mid-purge load creation cannot collide.
+**Step 8 — resets.**
+Set `load_number_config.next_sequence = 1`. Clear `preview_sessions`. Do this last so
+a mid-purge load creation cannot collide.
+*Verify:*
+```sql
+SELECT next_sequence FROM public.load_number_config WHERE prefix = 'ST';
+SELECT count(*) FROM public.preview_sessions;
+```
+Expected: `1`, `0`.
 
-#### 3. What must not be deleted, and scoping
+#### 4. What must not be deleted, and scoping
 
 - **60 active non-demo operators** (154 total, 1 demo). No step deletes from
   `operators` except the single Pate-linked row in Step 7, addressed by literal id.
@@ -1399,7 +1476,7 @@ unchanged except for the deliberately removed row.
   by any column (`factoring_status` is `unknown` on all nine). Keep them; review
   factoring status manually before the first real load.
 
-#### 4. Verification and reversibility
+#### 5. Verification and reversibility
 
 Per-step verification is named inline; each is a `count(*)` on the target plus a
 `count(*)` on the neighbouring real table that must not move.
@@ -1412,34 +1489,69 @@ Cannot be verified before running: **Step 3**. The trigger either accepts the
 `SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
 transaction and inspect the row count before `COMMIT`.
 
-#### 5. CUTOVER BLOCKER — the demo environment does not cover the revenue layer
+#### 6. Cutover blocker and direction chosen
 
-The cutover plan is: delete test data, open for real work, move all subsequent
-testing to the demo portion of the app. The third step does not currently work.
+THE BLOCKER. The cutover plan assumed post-cutover testing would move to "the demo
+portion of the app". It cannot. Demo mode is a client-side `sessionStorage` flag
+(`useDemoMode`) blocking writes in the UI, plus a `show_demo_accounts` visibility
+toggle. Data-layer isolation is the `is_demo` column, present on `operators`,
+`applications`, `profiles` and seven ELD tables, and on NO revenue table. Verified:
+`is_demo` appears nowhere in `loads`, `load_stops`, `load_documents`, `brokers`,
+`facilities`, `settlements`, `dispatch_settlements`, `fuel_transactions`,
+`deductions`, `cash_advances`, `rm_deposits` or any settlement child. One
+`pay_policies` row, one `settlement_settings` row and one
+`dispatch_settlement_rates` row, all shared.
 
-- Demo mode is a client-side `sessionStorage` flag (`useDemoMode`) that blocks
-  writes in the UI, plus a `show_demo_accounts` visibility toggle.
-- Data-layer isolation is the `is_demo` column, present on `operators`,
-  `applications`, `profiles` and seven ELD tables.
-- **Verified: `is_demo` appears nowhere in** `loads`, `load_stops`,
-  `load_documents`, `brokers`, `facilities`, `settlements`,
-  `dispatch_settlements`, `fuel_transactions`, `deductions`, `cash_advances`,
-  `rm_deposits` or any settlement child.
-- There is one `pay_policies` row, one `settlement_settings` row and one
-  `dispatch_settlement_rates` row — all shared, not per-environment.
+Consequence: testing a load, settlement, fuel import or invoice after cutover writes
+to the same production tables the purge just cleaned — and for settlements, into the
+same immutability regime, where a test mistake becomes a `paid` row requiring the
+`SET LOCAL` unlock to remove.
 
-**Consequence:** testing a load, settlement, fuel import or invoice after cutover
-writes to the same production tables the purge just cleaned — and for settlements,
-into the same immutability regime, where a test mistake becomes a `paid` row
-requiring the `SET LOCAL` unlock to remove.
+DIRECTION CHOSEN 2026-09-03 — A FICTITIOUS COMPANY. NOT A DEMO FLAG.
 
-**Two routes, both requiring a decision before cutover:**
-1. Extend demo isolation to the revenue tables with `is_demo`, RLS and UI filtering.
-2. Use a separate Supabase project for post-cutover revenue testing (closer to how
-   multi-tenancy would work anyway).
+Demo will be a FICTITIOUS COMPANY in this database, with its own drivers, staff,
+brokers, loads and settlements. To demo, you log into that company's portal.
 
-**No decision has been made.** Cutover is blocked until one of these is chosen and
-implemented.
+RECORD THIS PRECISELY, because an earlier framing got it wrong: there is NO "this is
+demo" marker on any row, and nothing in SUPERTRANSPORT is marked as anything. The
+column added to the revenue tables is `company_id`, and it is not a demo mechanism —
+it is the TENANCY BOUNDARY. Every query is already scoped to the company the user is
+logged into. Demo data is simply the data belonging to a company that happens to be
+fictitious.
+
+Consequences that make this the right shape:
+
+- There is no demo concept in the code at all. No demo filter on any screen. Less
+  code than a per-row flag, not more.
+- It is coherent. A demo settlement pays a demo driver because both belong to the
+  same company. There is no arrangement in which a demo load reaches a real driver;
+  under a per-row boolean flag there is.
+- It IS the multi-tenancy work this document already anticipates — "when
+  multi-tenancy activates, add `company_id` to major tables and filter all RLS by
+  it". A fictitious company is a second tenant. Selling to a carrier makes them a
+  third, using a mechanism already exercised daily rather than built speculatively.
+
+REJECTED: a second Supabase project. It must be kept in sync — every migration,
+reference row, edge function, secret, bucket, RLS policy and test login — with
+nothing enforcing that it stays matched, and the failure is silent. A test passing
+against a stale schema proves nothing. That sync obligation is ongoing and
+invisible; the tenancy cost is one-time and visible.
+
+The existing `is_demo` column on `operators`, `applications`, `profiles` and the
+ELD tables STAYS. It is built, it works for what it covers, and removing it is not
+worth the churn. The `company_id` boundary goes on the revenue tables, which have
+nothing today.
+
+REQUIREMENT THAT FOLLOWS: a user must be able to switch companies, or hold accounts
+in both. The fictitious company is useless if it cannot be reached. Record this as
+part of the work, not a detail.
+
+SCOPE: this reaches every table holding business data, every RLS policy and every
+list view. It is a MODULE, not a task.
+
+SEQUENCING: after Module 7 (Billing & Invoicing) and before cutover — by then
+invoices and payments exist, which is the last major shape the tenancy boundary
+must account for.
 
 ## Module 3, Pass 4 — dispatcher scoping with a saved preference
 
@@ -5147,7 +5259,8 @@ together with the absence of a persisted parse result on the Create Load path.**
 Pass 3. That procedure covers the dispatch settlement (2026-08-01 `draft`),
 `dispatch_settlement_rates`, the six ST260xx seed loads, the five ST-TEST-00x seed
 loads, the five previously unlisted loads, the Pratt settlement, storage objects,
-and the demo-environment blocker. Do not follow the older fragmented notes that
+and the cutover blocker with the chosen direction (fictitious company via
+`company_id` tenancy, not a demo flag). Do not follow the older fragmented notes that
 preceded this consolidation.
 
 
