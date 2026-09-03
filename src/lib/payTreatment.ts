@@ -106,6 +106,19 @@ const PCT_FIELD: Record<PayRateKey, keyof PayPolicyRates> = {
 };
 
 /**
+ * WHICH column was read for a priced thing. Diagnostics only — no caller may
+ * use it to read the value, which is what `pctForClassification` is for. It
+ * exists because `dispatch_settlement_charge_verdicts.pct_column` records the
+ * column actually consulted, so a wrong exclusion is traced to the mapping
+ * rather than guessed at.
+ */
+export function pctColumnForClassification(klass: PayRateKey): string {
+  return String(PCT_FIELD[klass]);
+}
+
+
+
+/**
  * The percentage in force for a priced thing, or null when it cannot be read
  * honestly — no policy, or a column that is absent or non-numeric. Callers
  * pay nothing on null rather than falling back to a guess.

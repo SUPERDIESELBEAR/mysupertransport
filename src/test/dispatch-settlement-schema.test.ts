@@ -347,10 +347,57 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
     expect(immut).toContain('cannot be voided');
   });
 
-  itLive('no computation function, no line-item writer and no UI exist yet', () => {
+  /**
+   * PASS 1 asserted that NO computation function existed. PASS 4 (2026-09-03)
+   * added exactly one — `compute_dispatch_settlement` — and the assertion is
+   * kept rather than deleted, now naming it. The point was never "nothing
+   * exists"; it was "there is no SECOND writer". A month written by two paths
+   * is how a stored statement stops matching the rules that produced it.
+   */
+  itLive('exactly one writer exists, and it is compute_dispatch_settlement', () => {
     const fns = psql(`SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace
       AND (proname LIKE '%dispatch_settlement%' OR proname LIKE 'store_dispatch%') ORDER BY 1`);
-    expect(fns.sort()).toEqual([...FUNCTIONS].sort());
+    expect(fns.sort()).toEqual([...FUNCTIONS, 'compute_dispatch_settlement'].sort());
+  });
+
+  /**
+   * The writer's grant is DELIBERATELY different from the four trigger/void
+   * functions above: those reach no client role at all, this one is called by
+   * management from the browser and so must be executable by `authenticated`.
+   * What keeps that safe is inside the body, not in the grant.
+   */
+  itLive('the writer is authenticated-executable, pinned, and never reaches anon', () => {
+    const row = psql(`SELECT p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig, ','), '')
+        || '|' || coalesce(array_to_string(p.proacl, ' '), '')
+      FROM pg_proc p WHERE p.pronamespace = 'public'::regnamespace
+        AND p.proname = 'compute_dispatch_settlement'`).join('');
+    const [secdef, config, acl] = row.split('|');
+    expect(secdef).toBe('true');
+    expect(config).toContain('search_path=public, extensions');
+    expect(acl).toContain('authenticated=X');
+    expect(acl).not.toContain('anon=X');
+    expect(acl).not.toMatch(/(^|\s)=X/); // no PUBLIC grant
+  });
+
+  itLive('the writer refuses rather than produces — it gates, re-adds and re-tests', () => {
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='compute_dispatch_settlement'`).join(' ');
+    // gate
+    expect(src).toContain("has_role(auth.uid(), 'management'::app_role)");
+    expect(src).toContain("has_role(auth.uid(), 'owner'::app_role)");
+    // actor stamped server-side, never taken from the caller
+    expect(src).toContain('public.current_profile_id()');
+    // rates read here, not trusted
+    expect(src).toContain('FROM public.dispatch_settlement_rates');
+    expect(src).toContain('do not match the rates in force');
+    // the arithmetic is re-added
+    expect(src).toContain('do not equal its lines');
+    // eligibility re-tested in BOTH directions
+    expect(src).toContain('omits eligible load');
+    expect(src).toContain('includes ineligible load');
+    // a paid month is never recomputed
+    expect(src).toContain('cannot be recomputed');
   });
 });
+
 
