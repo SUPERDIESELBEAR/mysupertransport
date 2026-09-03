@@ -5284,3 +5284,93 @@ to Recompute; Void keeps its reason dialog.
 — 4 files, 68 tests, all passing. `bunx tsgo --noEmit -p tsconfig.app.json`
 exits clean. The Pass 5 source guards still hold: the page imports no engine,
 calls no RPC by name and sends no actor column.
+
+## Module 4 (dispatch), Pass 5b — the actor gap on approve / paid / void (2026-09-03)
+
+Two applied migrations plus repository changes. The frontend half is
+REPOSITORY-ONLY until published.
+
+### WHAT `approved_by` DID BEFORE THIS PASS: NOTHING WROTE IT
+
+Read from the live catalog before anything changed. `dispatch_settlements`
+carried `approved_by uuid`, but no trigger and no function referenced it: the
+only triggers on the table were `enforce_dispatch_settlement_immutability` and
+`apply_dispatch_settlement_void`, and of the two functions whose bodies mention
+`dispatch_settlements` — `compute_dispatch_settlement` and
+`enforce_dispatch_settlement_child_immutability` — neither names the column.
+So the column was decorative. **All three actors were missing, not two**, and
+the page's "actor not recorded" placeholder was telling the truth about
+approval as well as payment and void.
+
+### WHAT CHANGED
+
+`paid_by` and `voided_by` added, both `uuid REFERENCES public.profiles(id) ON
+DELETE SET NULL`, matching `approved_by`. One new BEFORE UPDATE trigger,
+`stamp_dispatch_settlement_actors`, stamps all three from
+`public.current_profile_id()` — approval is NOT left on a different footing
+from the other two. It first copies `OLD` into `NEW` for all three columns, so
+a browser-supplied actor id is discarded whether or not a transition is
+happening, and only then stamps the column whose transition actually occurred.
+`auth.uid()` is not used anywhere in it; the record notes that substitution
+caused FK violations across several tables.
+
+The four protections, QUOTED from the created function:
+
+> `LANGUAGE plpgsql`
+> `SECURITY DEFINER`
+> `SET search_path TO 'public', 'extensions'`
+> `REVOKE ALL ON FUNCTION public.stamp_dispatch_settlement_actors() FROM PUBLIC, anon, authenticated;`
+
+The REVOKE needed a second migration: the first revoked from `anon,
+authenticated` only, and the live-catalog guard caught that `PUBLIC` still held
+EXECUTE, which `anon` inherits. The guard did its job.
+
+No other column, trigger or writer was touched. No driver-side settlement table
+was touched. No stored figure moved.
+
+### VERIFICATION — privileged, against the live database, all rolled back
+
+- Non-transition UPDATE supplying `approved_by`/`paid_by`/`voided_by` =
+  `…dead` (a profile id that does not exist): all three read back NULL. Had the
+  value reached the column the FK would have raised; it never reached it.
+- With `request.jwt.claims` set to a real user, draft → approved → void stamped
+  `approved_by` and `voided_by` = that user's profile id, equal to
+  `current_profile_id()`; a client-supplied id on the same statement was
+  discarded.
+- draft → paid stamped `paid_by`.
+- Immutability still holds: `UPDATE … SET status='void'` on a paid row raised
+  `42501 Dispatch settlement … is PAID and is immutable.`
+- Scratch months 2099-06 through 2099-10 were used and rolled back;
+  `SELECT count(*) … WHERE period_month >= '2099-01-01'` returned 0.
+
+### KNOWN DEBT 5.1 — RESOLVED (2026-09-03)
+
+Was: approve/paid/void had no actor attribution on the dispatch settlement —
+`paid_by` and `voided_by` did not exist, `approved_by` existed but nothing
+populated it, and the standing rule forbids the browser supplying an actor id,
+so the page could not say who moved money. Resolved by the columns and the
+server-side stamping trigger above. Rows written before this pass keep NULL
+actors and the page prints "actor not recorded (predates actor stamping)" for
+them rather than an empty cell — including the retained August 2026 row.
+
+### TESTS RUN (named, per the standing rule)
+
+`src/test/dispatch-settlement-schema.test.ts` (30, four new),
+`src/test/dispatch-settlement-screen.test.tsx` (9, two new),
+`src/lib/__tests__/dispatchSettlementRun.test.ts` (17),
+`src/lib/__tests__/dispatchSettlement.test.ts` (18),
+`src/test/definer-search-path.test.ts` (7),
+`src/test/definer-live-catalog.test.ts` (12),
+`src/test/policy-grant-parity.test.ts` (4),
+`src/test/shared-pay-percentage-source-guard.test.ts` (16).
+
+**ONE NAMED GUARD FAILS, AND IT WAS INTRODUCED BY THIS PROJECT.**
+`shared-pay-percentage-source-guard.test.ts` → "does no month arithmetic
+outside the shared helper" fails on `src/lib/dispatchSettlementRun.ts`: the
+guard forbids `slice(0, 7)` and `getUTCMonth()` in that layer, and Pass 5a's
+`monthLabel` / `defaultDispatchMonth` / `listDispatchMonths` use both. It is
+NOT pre-existing background noise and NOT introduced by this pass — Pass 5a
+(the month selector, same day) introduced it and did not report it. Left
+unfixed here because this pass is scoped to actor attribution; the month
+helpers must be moved onto `@/lib/settlementPeriod` in their own pass.
+**TRIGGER: before the next change to the dispatch month selector.**
