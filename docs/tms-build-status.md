@@ -4829,24 +4829,56 @@ and then discarded it.
 **TRIGGER: with the funding-source fix above, since they concern the same missing
 fact.**
 
-### `equipment_outstanding` AND CATCH-AS-FALSE ON AN AUTHORIZATION FAILURE
+### RESOLVED — `equipment_outstanding` catch-as-false and `gatherSettlementRun` silent failures (was known debt)
 
-During the in-memory Pratt verification, `equipment_outstanding` returned
-"permission denied for function" to the psql role, and the verification harness's
-`catch` treated that failure as `false` — i.e. no equipment hold. In the harness this
-was harmless and was reported rather than hidden.
+**The defect.** Production `src/lib/settlementRun.ts:289-293` had exactly the same
+dangerous shape as the deleted verification harness: `equipmentOutstanding` was
+read via `equipment_outstanding(operator_id)`, the result was destructured as
+`{ data }` with `error` discarded, and the `catch` block defaulted to `false`. A
+failure — network error, PostgREST error, JWT expiry mid-run, or any future grant
+change — therefore silently released an equipment hold rather than failing. The
+same function destructured every other money-bearing read the same way (`loads`,
+`pay_policies`, `settlement_line_items`, `fuel`, `deductions`, `advances`,
+`rm_deposits`, `carry_forward`), treating failures as empty/null and proceeding
+to compute a settlement.
 
-The concern is the SHAPE: a catch that converts an authorization failure into
-"no hold" would silently RELEASE a hold rather than fail loudly. That shape is
-dangerous wherever it appears.
+**Live values at fix.** `settlement_settings.equipment_value_per_driver` =
+**$1,200.00**; `hold_buffer` = **$500.00**;
+`minimum_net_pay_threshold` = **$100.00**. There were zero
+`equipment_return_confirmations` on file, so the correct answer for every
+operator was TRUE; any silent failure was guaranteed to be wrong, not just
+possibly wrong.
 
-It is **NOT established** whether the production settlement path has the same
-shape. The harness has been deleted and was not the production code path. This
-finding records the shape so it can be checked, not as a confirmed defect in
-production.
+**Bounded exposure.** For a departing driver, the hold shifted the coverage
+test: `equipment_exposure` dropped from $1,200 to $0, raising coverage by $1,200.
+A departing driver whose true coverage sat in [-$700, +$500) was flipped from
+`held` to `paid`. Maximum loss per driver: the un-returned equipment value,
+**$1,200**, plus any net pay released that would otherwise have been leverage to
+recover it. Non-departing drivers were unaffected.
 
-**TRIGGER: establish whether the production path treats an `equipment_outstanding`
-failure as "no hold" before the next settlement is paid.**
+**Larger unbounded exposure.** The more severe silent failure was the
+`settlement_line_items` read feeding `settledSources`. A failed read returned an
+empty exclusion set, so already-settled items could be charged again — in
+particular, fuel and other recurring deductions could be re-deducted indefinitely.
+That exposure is not capped by a settings constant.
+
+**The fix.** `gatherSettlementRun` now uses `SettlementReadError` helpers
+(`rowsOf`, `rowOf`, `readFailure`) and throws on every read that feeds a dollar
+figure, an exclusion set, or a guard. The equipment RPC rejects returned errors,
+thrown errors, and null/non-boolean data, naming the operator; there is no default
+in either direction. `computeSettlement` in `src/lib/settlementEngine.ts` now
+requires `equipmentOutstanding` as an explicit input and no longer defaults it to
+`false`. Calculations were not changed.
+
+**Why the Pratt in-memory control could not run.** The Pass 4b psql harness
+lacked `EXECUTE` on `equipment_outstanding`; before the fix this produced a
+silent `false`, and after the fix it throws `SettlementReadError`. That is not a
+testing shortfall — it is evidence that closing the defect converted a silent
+wrong payment into a visible run failure, which is the intended trade.
+
+**Tests.** `settlementRun` (32), `settlementEngine` (29),
+`settlement-foundation` (28), `operator-settlement-isolation` (4) passed; **93
+total**.
 
 ### RESOLVED — `confirmed_tons` had no input control (was known debt)
 
