@@ -497,6 +497,17 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // charges in both directions. It allocates the invoice number itself, after
   // every refusal, so a number is consumed only by a successful write.
   "public.create_invoice(uuid,jsonb)",
+  // Module 7 Pass 4 (2026-09-04), the three money-receiving entry points.
+  // Management or owner in the body, actor from current_profile_id(), tenancy
+  // stamped by trigger. The factor's fee is RECORDED from the statement and
+  // never recomputed from dispatch_settlement_rates.factoring_pct; a short pay
+  // closes only with a written reason. post_invoice_payment_internal,
+  // normalize_invoice_number and the two immutability triggers are NOT here —
+  // no client role can reach them.
+  "public.record_factoring_remittance(jsonb)",
+  "public.record_invoice_payment(uuid,jsonb)",
+  "public.close_short_paid_invoice(uuid,text)",
+
 
 
 
@@ -616,7 +627,14 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   load status, one invoice per load, charge set in both directions):
 //   111 -> 112. allocate_invoice_number() is NOT here — it is service_role
 //   only, because a number must be consumed by a WRITE and nothing else.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
+// + record_factoring_remittance(jsonb), record_invoice_payment(uuid, jsonb) and
+//   close_short_paid_invoice(uuid, text) (2026-09-04), Module 7 Pass 4's three
+//   money-receiving entry points: management or owner in the body, actor from
+//   current_profile_id(), company stamped by trigger, fees taken from the
+//   statement and never recomputed: 112 -> 115. post_invoice_payment_internal(...),
+//   normalize_invoice_number(text), enforce_payment_immutability() and
+//   enforce_remittance_immutability() are NOT here — none reaches a client role.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 115;
 
 
 
