@@ -193,30 +193,16 @@ function ineligibleReason(load: DispatchLoadInput, month: string): IneligibleRea
 }
 
 /* ------------------------------------------------------------------ */
-/* 4.2 The header base, built FROM PARTS                               */
+/* 4.2 The header base, built FROM PARTS — SHARED with the invoice     */
 /* ------------------------------------------------------------------ */
 
-function headerComponentOf(load: DispatchLoadInput): number {
-  if (load.loadType === 'loadout') return round2(num(load.loadoutRelocationFee));
-  switch (String(load.rateType ?? 'flat')) {
-    case 'per_mile':
-      return round2(num(load.ratePerMile) * num(load.loadedMiles));
-    case 'per_ton':
-      // CONFIRMED tonnage only. `estimated_tons` never reaches a settlement of
-      // either kind; an unscaled load contributes no linehaul rather than a
-      // plausible guess.
-      return round2(num(load.ratePerTon) * num(load.confirmedTons));
-    default:
-      // flat, and `percentage_of_load`, which behaves as flat.
-      return round2(num(load.linehaulRate));
-  }
-}
+/*
+ * The header/FSC assembly is no longer written here. It lives in
+ * `src/lib/loadRateParts.ts` and is called by BOTH this engine and
+ * `buildLoadInvoice`, so the two can never disagree about what a load is made
+ * of. What stays here, and stays dispatch-only, is the §4.3 predicate below.
+ */
 
-/** Unbundled fuel surcharge only. NULL means bundled. */
-function fscComponentOf(load: DispatchLoadInput): number {
-  if (load.loadType === 'loadout') return 0;
-  return load.fscBundledIntoLinehaul === false ? round2(num(load.fscAmount)) : 0;
-}
 
 /* ------------------------------------------------------------------ */
 /* 4.3 The exclusion predicate                                         */
