@@ -4650,7 +4650,7 @@ no deductions, and both withheld reasons in the engine's own words.
 - **The correction route is still missing.** Immutability is enforced now, but
   `accessorial_adjustments`, invoices and supplemental invoices do not exist, the
   `-A1` scheme is documented and unimplemented, and the engine's `adjustment`
-  line kind has no producer. A PAID settlement can be refused a rewrite but a
+  line kind has no producer (see Module 5, Pass 4). A PAID settlement can be refused a rewrite but a
   correction cannot yet be issued.
 - **Two withheld rows for one load render as two cards** in the driver view —
   one per reason. Correct, and readable, but grouping by load may read better.
