@@ -21,7 +21,12 @@
  * This module names no percentage column and does no month arithmetic of its
  * own; the three-layer caller test asserts both.
  */
-import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
+import type { LoadChargeRecord } from '@/lib/loadCharges';
+import {
+  assembleLoadRateParts,
+  type LoadChargePart,
+  type LoadRateBasis,
+} from '@/lib/loadRateParts';
 import { payClassOf, pctForClassification, type PayPolicyRates } from '@/lib/payTreatment';
 import type { ClassificationKey } from '@/lib/revisedRateCon';
 import { carrierDateOf, inCalendarMonth } from '@/lib/settlementPeriod';
@@ -30,31 +35,21 @@ import { carrierDateOf, inCalendarMonth } from '@/lib/settlementPeriod';
 /* Inputs                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface DispatchLoadInput {
+/** The rate columns come from `LoadRateBasis`, the shape the invoice also reads. */
+export interface DispatchLoadInput extends LoadRateBasis {
   id: string;
   loadNumber: string;
-  loadType: string | null;
-  rateType?: string | null;
   /** `loads.status`. TONU and cancelled are excluded BY STATUS (section 4.1). */
   status: string | null;
   /** Instant of delivery. Attributed in the CARRIER timezone, never locally. */
   deliveredAt: string | null;
-  linehaulRate?: number | string | null;
-  ratePerMile?: number | string | null;
-  loadedMiles?: number | string | null;
-  ratePerTon?: number | string | null;
-  /** Scale-ticket tonnage. The ONLY tonnage that reaches a settlement. */
-  confirmedTons?: number | string | null;
-  fscAmount?: number | string | null;
-  /** NULL and true both mean bundled; only an explicit false adds the FSC. */
-  fscBundledIntoLinehaul?: boolean | null;
-  loadoutRelocationFee?: number | string | null;
   /** Who BOOKED the load. Visibility only; nullable (section 4.6). */
   dispatcherId: string | null;
   charges: LoadChargeRecord[];
   /** Load-specific pay policy override, when one is in force. */
   policyOverride?: PayPolicyRates | null;
 }
+
 
 /** A flat monthly deduction — DAT, phone service (section 4.5). */
 export interface DispatchDeductionInput {
@@ -193,48 +188,33 @@ function ineligibleReason(load: DispatchLoadInput, month: string): IneligibleRea
 }
 
 /* ------------------------------------------------------------------ */
-/* 4.2 The header base, built FROM PARTS                               */
+/* 4.2 The header base, built FROM PARTS — SHARED with the invoice     */
 /* ------------------------------------------------------------------ */
 
-function headerComponentOf(load: DispatchLoadInput): number {
-  if (load.loadType === 'loadout') return round2(num(load.loadoutRelocationFee));
-  switch (String(load.rateType ?? 'flat')) {
-    case 'per_mile':
-      return round2(num(load.ratePerMile) * num(load.loadedMiles));
-    case 'per_ton':
-      // CONFIRMED tonnage only. `estimated_tons` never reaches a settlement of
-      // either kind; an unscaled load contributes no linehaul rather than a
-      // plausible guess.
-      return round2(num(load.ratePerTon) * num(load.confirmedTons));
-    default:
-      // flat, and `percentage_of_load`, which behaves as flat.
-      return round2(num(load.linehaulRate));
-  }
-}
+/*
+ * The header/FSC assembly is no longer written here. It lives in
+ * `src/lib/loadRateParts.ts` and is called by BOTH this engine and
+ * `buildLoadInvoice`, so the two can never disagree about what a load is made
+ * of. What stays here, and stays dispatch-only, is the §4.3 predicate below.
+ */
 
-/** Unbundled fuel surcharge only. NULL means bundled. */
-function fscComponentOf(load: DispatchLoadInput): number {
-  if (load.loadType === 'loadout') return 0;
-  return load.fscBundledIntoLinehaul === false ? round2(num(load.fscAmount)) : 0;
-}
 
 /* ------------------------------------------------------------------ */
 /* 4.3 The exclusion predicate                                         */
 /* ------------------------------------------------------------------ */
 
 function verdictFor(
-  charge: LoadChargeRecord,
+  part: LoadChargePart,
   policy: PayPolicyRates | null,
 ): DispatchChargeVerdict {
-  const classification = chargeClassification(String(charge.charge_type ?? ''));
+  const { classification, amount } = part;
   const resolvedPct = pctForClassification(classification, policy);
-  const amount = round2(num(charge.amount));
 
   // (b) first, so a reimbursement records the class rather than a percentage
   // that had nothing to do with the decision.
   if (payClassOf(classification, policy) === 'reimbursement') {
     return {
-      loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+      loadChargeId: part.chargeId, chargeType: part.chargeType,
       classification, amount, excluded: true,
       exclusionReason: 'reimbursement_class', resolvedPct,
     };
@@ -243,16 +223,17 @@ function verdictFor(
   // through the shared resolver. NOT read from the pay-class map.
   if (resolvedPct === 100) {
     return {
-      loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+      loadChargeId: part.chargeId, chargeType: part.chargeType,
       classification, amount, excluded: true,
       exclusionReason: 'pct_100', resolvedPct,
     };
   }
   return {
-    loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+    loadChargeId: part.chargeId, chargeType: part.chargeType,
     classification, amount, excluded: false, exclusionReason: null, resolvedPct,
   };
 }
+
 
 /* ------------------------------------------------------------------ */
 /* The computation                                                     */
@@ -280,13 +261,16 @@ export function computeDispatchSettlement(
     }
 
     const policy = load.policyOverride ?? input.companyPolicy;
-    const verdicts = (load.charges ?? []).map(c => verdictFor(c, policy));
+    // The SAME parts the invoice bills. Only the predicate below differs.
+    const parts = assembleLoadRateParts(load, load.charges);
+    const verdicts = parts.chargeParts.map(p => verdictFor(p, policy));
     const chargesIncludedAmount = round2(
       verdicts.filter(v => !v.excluded).reduce((s, v) => s + v.amount, 0));
     const chargesExcludedAmount = round2(
       verdicts.filter(v => v.excluded).reduce((s, v) => s + v.amount, 0));
-    const headerComponent = headerComponentOf(load);
-    const fscComponent = fscComponentOf(load);
+    const headerComponent = parts.headerComponent;
+    const fscComponent = parts.fscComponent;
+
 
     contributions.push({
       loadId: load.id,
