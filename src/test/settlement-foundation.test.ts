@@ -160,6 +160,7 @@ const emptyWork = (operatorId: string): UnsettledWork => ({
   negativeCarryForward: 0,
   rmDeductionDue: 0,
   otherDeductionsDue: 0,
+  approvedAdjustmentCount: 0,
 });
 
 describe('the population rule', () => {
@@ -175,6 +176,7 @@ describe('the population rule', () => {
     expect(hasUnsettledWork({ ...emptyWork('a'), outstandingAdvanceBalance: 1 })).toBe(true);
     expect(hasUnsettledWork({ ...emptyWork('a'), negativeCarryForward: 1 })).toBe(true);
     expect(hasUnsettledWork({ ...emptyWork('a'), rmDeductionDue: 200 })).toBe(true);
+    expect(hasUnsettledWork({ ...emptyWork('a'), approvedAdjustmentCount: 1 })).toBe(true);
     expect(hasUnsettledWork(emptyWork('a'))).toBe(false);
   });
 
