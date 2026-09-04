@@ -271,6 +271,43 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
   const dedRows = rowsOf(dedRes, 'deductions');
   const advRows = rowsOf(advRes, 'cash_advances');
 
+  /**
+   * TWO INDEPENDENT LOCKS on a late adjustment, and they catch different
+   * things.
+   *
+   * `settledSourcesEver` is the SETTLE-ONCE key (never the period-scoped set —
+   * an adjustment is not a recurring deduction). It catches an adjustment
+   * whose settlement line item exists even though its own row was never
+   * stamped: a write-back that failed after the line landed, or a row whose
+   * pointers were cleared. It is the money's own record.
+   *
+   * `settlement_id IS NULL` catches the opposite: a row the writer DID stamp
+   * whose line item has since been deleted with the settlement it belonged to.
+   * It also keeps the read narrow at the database rather than in memory.
+   *
+   * Either lock alone leaves a double-pay window open; the pair does not.
+   */
+  const adjustmentsByOperator: Record<string, SettlementAdjustmentInput[]> = {};
+  for (const a of rowsOf(adjRes, 'accessorial_adjustments')) {
+    if (a.status !== 'approved' || a.settlement_id) continue;
+    const approvedOn = carrierDateOf(a.approved_at);
+    if (!approvedOn || approvedOn < period.periodStart || approvedOn > period.periodEnd) continue;
+    if (settledSourcesEver.has(`accessorial_adjustments:${a.id}`)) continue;
+    const load = Array.isArray(a.loads) ? a.loads[0] : a.loads;
+    const operatorId = load?.operator_id;
+    if (!operatorId) continue;
+    (adjustmentsByOperator[operatorId] ??= []).push({
+      id: a.id,
+      reference: a.reference,
+      loadNumber: load?.load_number ?? null,
+      chargeType: a.charge_type,
+      amount: num(a.amount),
+      description: a.description,
+      fundingSource: a.funding_source,
+      actualCost: a.actual_cost,
+    });
+  }
+
   const operators = (rowsOf(operatorRes, 'operators'));
   const nameOf = (id: string) => {
     const a = operators.find(x => x.id === id)?.applications;
