@@ -2131,6 +2131,75 @@ fails the test loudly. It cannot mask a real authorization failure. The
 full-suite timeout is attributable to psql connection contention under parallel
 execution.
 
+## Standing rule — SECURITY DEFINER inventory ceilings are not all one thing (2026-09-04)
+
+The guard files keep two different lists and the rule for each is different.
+
+- `LEGACY_PUBLIC_ONLY_PINS` / `LEGACY_MAX` — an allowlist of functions whose
+  `search_path` is pinned to `public` only while awaiting a fix. This list may
+  **ONLY shrink**. Raising it means loosening a standard; adding an entry means
+  accepting a known defect rather than fixing it.
+
+- `KNOWN_ANON_EXECUTABLE_MAX` / `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` — an
+  inventory of how many SECURITY DEFINER functions actually reach a client role
+  today. The ceiling moves **DOWN** when a grant is revoked. It may move **UP**
+  only when a genuinely new function is added AND that function carries its
+  justification per the standing rule (purpose, in-body gate, caller page). It
+  must never move up to accommodate a grant that was not deliberately created.
+
+A pass that raises an inventory ceiling must state in its report which new
+function caused the move and why it legitimately reaches the role.
+
+Module 7 Pass 1 raised `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` from 110 to 111 for
+`current_company_id()`, a new definer function that the RLS policies on the
+billing tables call. The reason was written at the ceiling; the other five new
+definer functions from the same pass do not reach a client role, so they did not
+move the ceiling.
+
+## Standing rule — TENANCY IS STAMPED SERVER-SIDE, NEVER ACCEPTED FROM THE CLIENT, AND NEVER SET BY A COLUMN DEFAULT (2026-09-04)
+
+Module 7 Pass 1 first added `company_id` with `DEFAULT current_company_id()`. It
+failed live with `permission denied for function current_company_id`, because a
+column DEFAULT is evaluated as the **CALLER**.
+
+The permission error was the symptom. The real defect is that a DEFAULT is
+applied **ONLY WHEN THE COLUMN IS OMITTED** — so a caller who supplied
+`company_id` explicitly would have asserted any company they chose, straight
+through the tenancy boundary.
+
+The fix is a SECURITY DEFINER `BEFORE INSERT` trigger that stamps `company_id`
+unconditionally (`NEW.company_id := public.current_company_id();`, no COALESCE).
+It runs as the function owner, needs no caller grant, and overrides whatever the
+caller supplied.
+
+This is the same reasoning as actor stamping via `current_profile_id()`: the
+server, not the browser, decides who this row belongs to.
+
+The defect was caught on an empty table before the real tenancy module exists.
+That made it cheap. The same mistake on a table that already holds cross-tenant
+data would not be.
+
+## Standing rule — assert the boundary that actually holds: table grants versus function grants (2026-09-04)
+
+Module 7 Pass 1 granted `SELECT, INSERT` only on `ar_aging_snapshots`. Read back
+live, `authenticated` held the full privilege set on all five billing tables,
+just as it already did on `dispatch_settlements` and `settlement_line_items`. The
+platform re-grants the full privilege set on public tables; re-revoking would not
+survive the next migration either.
+
+The pass did not re-assert the narrow grant. It rewrote the test to assert the
+boundary that actually holds — RLS plus the append-only trigger — rather than
+the table-level privilege that was intended.
+
+**Rule:** a guard asserting a table-level privilege the platform silently restores
+passes today and lies tomorrow. Assert the boundary that actually holds.
+
+Function-level revokes **do** survive — verified via
+`aclexplode(pg_proc.proacl)`, not via `information_schema.role_table_grants` —
+so this rule applies to TABLE grants, not to FUNCTION grants. When checking
+function privileges, read `pg_proc.proacl`.
+
+
 ## Standing rule — a SECURITY DEFINER function needs all three (2026-08-27)
 
 The staged detention-claims draft declared `stamp_detention_claim_actor` as
