@@ -1,7 +1,10 @@
 # Roadmap
 
 ## In progress
-- Module 7 (Billing & Invoicing) — Pass 1: billing schema only. Enums, five tables
+- Module 7 (Billing & Invoicing) — Pass 1 DONE 2026-09-04 (see build status).
+  Next pass: invoice numbering + the builder that composes lines from
+  `load_charges`, then the payment poster. Pass 1 delivered the schema only:
+  enums, five tables
   (`invoices`, `invoice_line_items`, `invoice_batches`, `payments`,
   `ar_aging_snapshots`), `company_id` on every one, constraints, grants, RLS
   (management/owner only), submitted-invoice immutability with its own writer gate,
