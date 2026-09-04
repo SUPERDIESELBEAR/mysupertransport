@@ -413,8 +413,6 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     }
 
 
-    const work: UnsettledWork = {
-      operatorId,
     const adjustments = adjustmentsByOperator[operatorId] ?? [];
 
     const work: UnsettledWork = {
