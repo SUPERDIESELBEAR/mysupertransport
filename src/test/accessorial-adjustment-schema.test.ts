@@ -54,9 +54,14 @@ function psqlExpectError(sql: string): string {
 const T = 'accessorial_adjustments';
 
 /** prosrc as written, with alignment padding collapsed. */
+const bodyCache = new Map<string, string>();
 function bodyOf(name: string): string {
-  return psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+  const hit = bodyCache.get(name);
+  if (hit !== undefined) return hit;
+  const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
     AND proname='${name}'`).join(' ').replace(/\s+/g, ' ');
+  bodyCache.set(name, src);
+  return src;
 }
 
 function constraintDef(name: string): string {
@@ -73,9 +78,12 @@ const SERVICE_ONLY_FUNCTIONS = [
 ];
 
 /** A live load to hang scratch rows off. Inserts always roll back. */
+let cachedLoadId: string | null = null;
 function someLoadId(): string {
-  const [id] = psql('SELECT id FROM public.loads ORDER BY created_at LIMIT 1');
-  return id;
+  if (!cachedLoadId) {
+    [cachedLoadId] = psql('SELECT id FROM public.loads ORDER BY created_at LIMIT 1');
+  }
+  return cachedLoadId;
 }
 
 /** A minimal valid insert, with the named columns overridden. */
