@@ -539,6 +539,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.add_load_charge(uuid,text,numeric,text,text,text,numeric,uuid)",
   "public.update_load_charge(uuid,text,numeric,text,text,text,numeric,uuid)",
   "public.delete_load_charge(uuid,text)",
+  // The tenant a row belongs to. Definer because it reads carrier_profile,
+  // which the caller may not be able to read. It is the DEFAULT on every
+  // Module 7 company_id and appears inside every Module 7 RLS policy, and a
+  // caller-evaluated default and a policy expression both run as the CALLER,
+  // so authenticated MUST hold EXECUTE. It takes no argument, returns one uuid
+  // that is the same for everyone today, and exposes nothing.
+  "public.current_company_id()",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -591,7 +598,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // - email_queue_dispatch() (2026-09-03), revoked to service_role only: 113 -> 112.
 // - create_eld_document_day(...) and replace_rods_document(...) (2026-09-03),
 //   neither exists live any more: 112 -> 110.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 110;
+// + current_company_id() (2026-09-04), Module 7's tenant resolver, evaluated as
+//   the caller in a column DEFAULT and in every Module 7 policy: 110 -> 111.
+//   The four Module 7 trigger functions and invoice_writer_active() are NOT
+//   here: they are service_role only, which is why this went up by one and not
+//   by six.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 111;
 
 
 
