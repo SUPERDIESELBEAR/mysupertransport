@@ -140,8 +140,9 @@ describe('the §4.3 exclusion predicate exists exactly once', () => {
     const src = code('src/lib/dispatchSettlement.ts');
     // One place that can return 'pct_100', one that can return
     // 'reimbursement_class'. Two of either is a second copy of §4.3.
-    expect((src.match(/'pct_100'/g) ?? []).length).toBe(1);
-    expect((src.match(/'reimbursement_class'/g) ?? []).length).toBe(1);
+    // (the union type declares both names once; count the RETURN sites.)
+    expect((src.match(/exclusionReason: 'pct_100'/g) ?? []).length).toBe(1);
+    expect((src.match(/exclusionReason: 'reimbursement_class'/g) ?? []).length).toBe(1);
     // ...and both verdict builders route through it.
     expect(src).toMatch(/function verdictFor[\s\S]*?exclusionDecision\(/);
     expect(src).toMatch(/function adjustmentVerdictFor[\s\S]*?exclusionDecision\(/);
