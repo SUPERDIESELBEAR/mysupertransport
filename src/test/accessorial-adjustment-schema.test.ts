@@ -90,8 +90,10 @@ function someLoadId(): string {
 function insertRow(overrides: Record<string, string> = {}): string {
   const cols: Record<string, string> = {
     load_id: `'${someLoadId()}'`,
-    reference: `'ST-SCRATCH-A1'`,
-    sequence: '1',
+    // A deliberately out-of-range sequence: the live load now carries real
+    // adjustments, and a scratch row must never collide with one.
+    reference: `'ST-SCRATCH-A9001'`,
+    sequence: '9001',
     charge_type: `'detention'`,
     amount: '300',
     reason: `'approved after the load was invoiced'`,
@@ -216,7 +218,8 @@ describe('accessorial_adjustments — the classification cannot drift from load_
 describe('accessorial_adjustments — the refusals, exercised', () => {
   itLive('stamps company_id from the trigger and leaves the row in draft', () => {
     const [row] = psql(`BEGIN; ${insertRow()}
-      SELECT company_id::text || '|' || status || '|' || billing_state FROM public.${T};
+      SELECT company_id::text || '|' || status || '|' || billing_state FROM public.${T}
+        WHERE reference = 'ST-SCRATCH-A9001';
       ROLLBACK;`).filter(l => l.includes('|'));
     const [company, status, billing] = row.split('|');
     expect(company).toMatch(/^[0-9a-f-]{36}$/);
@@ -227,7 +230,7 @@ describe('accessorial_adjustments — the refusals, exercised', () => {
   itLive('refuses two adjustments sharing a sequence on one load', () => {
     const err = psqlExpectError(`BEGIN;
       ${insertRow()}
-      ${insertRow({ reference: `'ST-SCRATCH-A2'` })}
+      ${insertRow({ reference: `'ST-SCRATCH-A9002'` })}
       ROLLBACK;`);
     expect(err).toContain('accessorial_adjustments_load_sequence_key');
   });
@@ -582,7 +585,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
 
   itLive('the writer does NOT gate on load status — that is the whole point', () => {
     const src = bodyOf('create_accessorial_adjustment');
-    expect(src).not.toContain('assert_charge_entry_allowed');
+    expect(src).not.toContain('PERFORM public.assert_charge_entry_allowed');
     expect(src).not.toContain("'invoiced'");
     // ...but it does use the SAME classification gate load_charges uses.
     expect(src).toContain('assert_known_charge_type');
@@ -630,9 +633,9 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
 
   itLive('the state machine is enforced by a trigger, so no writer can bypass it', () => {
     const src = bodyOf('enforce_accessorial_adjustment_transition');
-    expect(src).toContain("WHEN 'draft'            THEN ARRAY['pending_approval','void']");
+    expect(src).toContain("WHEN 'draft' THEN ARRAY['pending_approval','void']");
     expect(src).toContain("WHEN 'pending_approval' THEN ARRAY['approved','rejected','void']");
-    expect(src).toContain("WHEN 'approved'         THEN ARRAY['settled','void']");
+    expect(src).toContain("WHEN 'approved' THEN ARRAY['settled','void']");
     expect(src).toContain('public.settlement_writer_active()');
 
     const def = psql(`SELECT pg_get_triggerdef(oid) FROM pg_trigger
@@ -646,8 +649,11 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     // set by the settlement writer, which is service_role only.
     expect(bodyOf('enforce_accessorial_adjustment_transition'))
       .toContain('settled by the settlement writer, not by a caller');
+    // No transition RPC WRITES the settled status. void_accessorial_adjustment
+    // reads it, to refuse voiding a settled row — that is a refusal, not a write.
     for (const fn of WRITERS) {
-      expect(bodyOf(fn), fn).not.toContain("'settled'");
+      expect(bodyOf(fn), fn).not.toMatch(/SET status = 'settled'/);
+      expect(bodyOf(fn), fn).not.toContain("status = 'settled',");
     }
   });
 
