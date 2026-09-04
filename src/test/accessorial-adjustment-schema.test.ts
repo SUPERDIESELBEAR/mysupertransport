@@ -503,39 +503,189 @@ describe('settlement_line_items — the deliberate source_table extension', () =
 
 // ---------------------------------------------------------------------------
 
-describe('accessorial_adjustments — NO WRITER EXISTS YET', () => {
+describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () => {
   /**
-   * This assertion is to be REWRITTEN to name the one writer when Pass 2
-   * arrives, never deleted. The point is not that nothing exists — it is that
-   * there is never a SECOND writer.
+   * Rewritten from Pass 1's "NO WRITER EXISTS YET", per its own instruction.
+   * The point was never that nothing exists — it is that there is never a
+   * SECOND writer for a given state change.
    */
-  const ALLOWED = new Set([
+  const TRIGGERS = new Set([
     'enforce_accessorial_adjustment_immutability',
+    'enforce_accessorial_adjustment_transition',
     'stamp_accessorial_adjustment_actor',
     'accessorial_adjustment_writer_active',
   ]);
 
-  itLive('nothing in the database writes to the table', () => {
+  /** One RPC per transition. Anything else touching the table is a defect. */
+  const WRITERS = new Set([
+    'create_accessorial_adjustment',
+    'submit_accessorial_adjustment',
+    'approve_accessorial_adjustment',
+    'reject_accessorial_adjustment',
+    'void_accessorial_adjustment',
+  ]);
+
+  itLive('the only functions that write the table are the five transitions', () => {
     const writers = psql(`SELECT proname FROM pg_proc
       WHERE pronamespace='public'::regnamespace
         AND prosrc ~* '(insert\\s+into|update|delete\\s+from)[[:space:]]+(public\\.)?accessorial_adjustments'
-      ORDER BY proname`).filter(n => !ALLOWED.has(n));
-    expect(writers).toEqual([]);
+      ORDER BY proname`).filter(n => !TRIGGERS.has(n));
+    expect(new Set(writers)).toEqual(WRITERS);
   });
 
-  itLive('nothing allocates the -A sequence yet', () => {
+  itLive('only the CREATE writer allocates a sequence, and only it inserts', () => {
     const allocators = psql(`SELECT proname FROM pg_proc
       WHERE pronamespace='public'::regnamespace
         AND prosrc ILIKE '%accessorial_adjustments%'
-        AND prosrc ILIKE '%max(sequence)%'`);
-    expect(allocators).toEqual([]);
+        AND prosrc ILIKE '%max(sequence)%' ORDER BY proname`);
+    expect(allocators).toEqual(['create_accessorial_adjustment']);
+
+    const inserters = psql(`SELECT proname FROM pg_proc
+      WHERE pronamespace='public'::regnamespace
+        AND prosrc ~* 'insert\\s+into\\s+public\\.accessorial_adjustments'
+      ORDER BY proname`);
+    expect(inserters).toEqual(['create_accessorial_adjustment']);
   });
 
-  itLive('no settlement line names an adjustment source yet', () => {
+  itLive('the sequence cannot be consumed without a row: no client INSERT path exists', () => {
+    // The grant is NOT the boundary — the platform restores full privileges on
+    // public tables. RLS is. If no policy admits INSERT, no client can insert,
+    // so max(sequence)+1 can only be reached through the definer writer.
+    const cmds = psql(`SELECT DISTINCT polcmd::text FROM pg_policy
+      WHERE polrelid='public.accessorial_adjustments'::regclass ORDER BY 1`);
+    expect(cmds).toEqual(['r']);
+
+    // ...and the allocation sits AFTER every refusal in the body, so a refused
+    // attempt cannot reach it. Asserted by position, not by reading the code.
+    const src = bodyOf('create_accessorial_adjustment');
+    const alloc = src.indexOf('max(sequence)');
+    expect(alloc).toBeGreaterThan(0);
+    for (const refusal of [
+      'Only a dispatcher, management or owner may record',
+      'Load not found',
+      'amount greater than zero',
+      'assert_known_charge_type',
+      'cannot price a',
+    ]) {
+      expect(src.indexOf(refusal), refusal).toBeGreaterThan(0);
+      expect(src.indexOf(refusal), refusal).toBeLessThan(alloc);
+    }
+    // The INSERT follows the allocation immediately: nothing between them can
+    // fail in a way that burns a number, because nothing is between them.
+    expect(src.indexOf('INSERT INTO public.accessorial_adjustments')).toBeGreaterThan(alloc);
+  });
+
+  itLive('the reference is composed from the load number and the sequence', () => {
+    const src = bodyOf('create_accessorial_adjustment');
+    expect(src).toContain("v_load_number || '-A' || v_seq");
+  });
+
+  itLive('the writer does NOT gate on load status — that is the whole point', () => {
+    const src = bodyOf('create_accessorial_adjustment');
+    expect(src).not.toContain('assert_charge_entry_allowed');
+    expect(src).not.toContain("'invoiced'");
+    // ...but it does use the SAME classification gate load_charges uses.
+    expect(src).toContain('assert_known_charge_type');
+  });
+
+  itLive('billing_state is READ from the invoice, never taken from the caller', () => {
+    const src = bodyOf('create_accessorial_adjustment');
+    expect(src).toContain('submitted_at IS NOT NULL');
+    expect(src).toContain("'pending_supplemental'");
+    expect(src).toContain('FROM public.invoices');
+    // No parameter carries it.
+    const args = psql(`SELECT pg_get_function_identity_arguments(oid) FROM pg_proc
+      WHERE pronamespace='public'::regnamespace AND proname='create_accessorial_adjustment'`)
+      .join(' ');
+    expect(args).not.toContain('billing');
+  });
+
+  itLive('only management or owner may approve, reject or void', () => {
+    for (const fn of ['approve_accessorial_adjustment', 'reject_accessorial_adjustment',
+                      'void_accessorial_adjustment']) {
+      const src = bodyOf(fn);
+      expect(src, fn).toContain("public.has_role(v_uid, 'management'::app_role)");
+      expect(src, fn).toContain("public.has_role(v_uid, 'owner'::app_role)");
+      expect(src, fn).not.toContain("'dispatcher'::app_role");
+    }
+  });
+
+  itLive('dispatcher, management and owner may create and submit — the entry three', () => {
+    for (const fn of ['create_accessorial_adjustment', 'submit_accessorial_adjustment']) {
+      const src = bodyOf(fn);
+      for (const role of ['management', 'owner', 'dispatcher']) {
+        expect(src, `${fn}/${role}`).toContain(`public.has_role(v_uid, '${role}'::app_role)`);
+      }
+    }
+  });
+
+  itLive('every transition stamps the actor from current_profile_id and demands a reason', () => {
+    for (const fn of WRITERS) {
+      const src = bodyOf(fn);
+      expect(src, fn).toContain('public.current_profile_id()');
+      expect(src, fn).toContain("nullif(btrim(coalesce(p_reason, '')), '')");
+      expect(src, fn).toContain('public.audit_log');
+    }
+  });
+
+  itLive('the state machine is enforced by a trigger, so no writer can bypass it', () => {
+    const src = bodyOf('enforce_accessorial_adjustment_transition');
+    expect(src).toContain("WHEN 'draft'            THEN ARRAY['pending_approval','void']");
+    expect(src).toContain("WHEN 'pending_approval' THEN ARRAY['approved','rejected','void']");
+    expect(src).toContain("WHEN 'approved'         THEN ARRAY['settled','void']");
+    expect(src).toContain('public.settlement_writer_active()');
+
+    const def = psql(`SELECT pg_get_triggerdef(oid) FROM pg_trigger
+      WHERE tgrelid='public.accessorial_adjustments'::regclass
+        AND tgname='enforce_accessorial_adjustment_transition'`).join(' ');
+    expect(def).toContain('BEFORE UPDATE');
+  });
+
+  itLive('no client role can move an adjustment to settled', () => {
+    // settled is reachable only while app.settlement_write is on, and that is
+    // set by the settlement writer, which is service_role only.
+    expect(bodyOf('enforce_accessorial_adjustment_transition'))
+      .toContain('settled by the settlement writer, not by a caller');
+    for (const fn of WRITERS) {
+      expect(bodyOf(fn), fn).not.toContain("'settled'");
+    }
+  });
+
+  itLive('the five writers are reachable by authenticated and never by anon', () => {
+    const rows = psql(`SELECT p.proname || '=' || coalesce(string_agg(DISTINCT a.grantee::regrole::text, ','), '')
+      FROM pg_proc p LEFT JOIN LATERAL aclexplode(p.proacl) a ON true
+      WHERE p.pronamespace='public'::regnamespace
+        AND p.proname IN (${[...WRITERS].map(w => `'${w}'`).join(',')})
+      GROUP BY p.proname ORDER BY p.proname`);
+    expect(rows).toHaveLength(WRITERS.size);
+    for (const row of rows) {
+      expect(row).toContain('authenticated');
+      expect(row).not.toContain('anon');
+    }
+  });
+
+  itLive('the transition trigger function reaches no client role', () => {
+    const [row] = psql(`SELECT coalesce(string_agg(DISTINCT a.grantee::regrole::text, ','), '')
+      FROM pg_proc p LEFT JOIN LATERAL aclexplode(p.proacl) a ON true
+      WHERE p.pronamespace='public'::regnamespace
+        AND p.proname='enforce_accessorial_adjustment_transition'`);
+    expect(row).not.toContain('anon');
+    expect(row).not.toContain('authenticated');
+    expect(row).toContain('service_role');
+  });
+
+  itLive('every writer pins search_path and is SECURITY DEFINER', () => {
+    for (const fn of [...WRITERS, 'enforce_accessorial_adjustment_transition']) {
+      const [def] = psql(`SELECT prosecdef::text || '|' || coalesce(array_to_string(proconfig, ' '), '')
+        FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='${fn}'`);
+      expect(def, fn).toContain('true|');
+      expect(def, fn).toContain('search_path=public, extensions');
+    }
+  });
+
+  itLive('no settlement line names an adjustment source yet — Pass 3 opens that seam', () => {
     const [count] = psql(`SELECT count(*) FROM public.settlement_line_items
       WHERE source_table = 'accessorial_adjustments'`);
-    // Not a census of the table: the invariant is that the seam Pass 3 builds
-    // has not been opened by anything in Pass 1.
     expect(count).toBe('0');
   });
 });
