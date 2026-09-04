@@ -335,6 +335,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     ...(advRows).filter(a => num(a.remaining_balance) > 0).map(a => a.operator_id),
     ...Object.keys(carryForward).filter(id => carryForward[id] < 0),
     ...Object.keys(rmByOperator),
+    // An approved adjustment ALONE brings a driver into the run.
+    ...Object.keys(adjustmentsByOperator),
   ].filter(Boolean));
 
   const gathered: GatheredOperator[] = [];
