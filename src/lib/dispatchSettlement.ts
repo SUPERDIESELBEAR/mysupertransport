@@ -24,6 +24,8 @@
 import type { LoadChargeRecord } from '@/lib/loadCharges';
 import {
   assembleLoadRateParts,
+  type LoadAdjustmentPart,
+  type LoadAdjustmentRecord,
   type LoadChargePart,
   type LoadRateBasis,
 } from '@/lib/loadRateParts';
@@ -46,6 +48,8 @@ export interface DispatchLoadInput extends LoadRateBasis {
   /** Who BOOKED the load. Visibility only; nullable (section 4.6). */
   dispatcherId: string | null;
   charges: LoadChargeRecord[];
+  /** Late accessorials. Filtered to money-bearing by the shared assembler. */
+  adjustments?: LoadAdjustmentRecord[] | null;
   /** Load-specific pay policy override, when one is in force. */
   policyOverride?: PayPolicyRates | null;
 }
@@ -95,6 +99,24 @@ export interface DispatchChargeVerdict {
   resolvedPct: number | null;
 }
 
+/**
+ * The verdict on ONE late accessorial adjustment. A separate type from
+ * `DispatchChargeVerdict` for the same reason the parts are separate: the
+ * supplemental invoice depends on telling a late accessorial from an original
+ * charge, and one shape carrying both loses that the first time someone
+ * filters it.
+ */
+export interface DispatchAdjustmentVerdict {
+  adjustmentId: string;
+  reference: string | null;
+  chargeType: string;
+  classification: ClassificationKey;
+  amount: number;
+  excluded: boolean;
+  exclusionReason: ChargeExclusionReason | null;
+  resolvedPct: number | null;
+}
+
 /** One row of `dispatch_settlement_load_contributions`. */
 export interface DispatchLoadContribution {
   loadId: string;
@@ -110,8 +132,11 @@ export interface DispatchLoadContribution {
   fscComponent: number;
   chargesIncludedAmount: number;
   chargesExcludedAmount: number;
+  adjustmentsIncludedAmount: number;
+  adjustmentsExcludedAmount: number;
   baseTotal: number;
   verdicts: DispatchChargeVerdict[];
+  adjustmentVerdicts: DispatchAdjustmentVerdict[];
 }
 
 /** A load that never entered the base, and why (section 4.1). */
@@ -203,34 +228,62 @@ function ineligibleReason(load: DispatchLoadInput, month: string): IneligibleRea
 /* 4.3 The exclusion predicate                                         */
 /* ------------------------------------------------------------------ */
 
-function verdictFor(
-  part: LoadChargePart,
+interface ExclusionDecision {
+  excluded: boolean;
+  exclusionReason: ChargeExclusionReason | null;
+  resolvedPct: number | null;
+}
+
+/**
+ * §4.3 ITSELF, and the ONLY copy of it. A charge part and an adjustment part
+ * are judged by this same function — not by a generalised predicate and not by
+ * a second copy. It takes the two things the rule actually reads, so there is
+ * nowhere for a caller-specific branch to appear inside it.
+ */
+function exclusionDecision(
+  classification: ClassificationKey,
   policy: PayPolicyRates | null,
-): DispatchChargeVerdict {
-  const { classification, amount } = part;
+): ExclusionDecision {
   const resolvedPct = pctForClassification(classification, policy);
 
   // (b) first, so a reimbursement records the class rather than a percentage
   // that had nothing to do with the decision.
   if (payClassOf(classification, policy) === 'reimbursement') {
-    return {
-      loadChargeId: part.chargeId, chargeType: part.chargeType,
-      classification, amount, excluded: true,
-      exclusionReason: 'reimbursement_class', resolvedPct,
-    };
+    return { excluded: true, exclusionReason: 'reimbursement_class', resolvedPct };
   }
   // (a) the percentage the policy in force assigns to the classification, read
   // through the shared resolver. NOT read from the pay-class map.
   if (resolvedPct === 100) {
-    return {
-      loadChargeId: part.chargeId, chargeType: part.chargeType,
-      classification, amount, excluded: true,
-      exclusionReason: 'pct_100', resolvedPct,
-    };
+    return { excluded: true, exclusionReason: 'pct_100', resolvedPct };
   }
+  return { excluded: false, exclusionReason: null, resolvedPct };
+}
+
+function verdictFor(
+  part: LoadChargePart,
+  policy: PayPolicyRates | null,
+): DispatchChargeVerdict {
   return {
-    loadChargeId: part.chargeId, chargeType: part.chargeType,
-    classification, amount, excluded: false, exclusionReason: null, resolvedPct,
+    loadChargeId: part.chargeId,
+    chargeType: part.chargeType,
+    classification: part.classification,
+    amount: part.amount,
+    ...exclusionDecision(part.classification, policy),
+  };
+}
+
+/** The SAME predicate, unchanged, applied to a late accessorial. */
+function adjustmentVerdictFor(
+  part: LoadAdjustmentPart,
+  policy: PayPolicyRates | null,
+): DispatchAdjustmentVerdict {
+  return {
+    adjustmentId: part.adjustmentId,
+    reference: part.reference,
+    chargeType: part.chargeType,
+    classification: part.classification,
+    amount: part.amount,
+    ...exclusionDecision(part.classification, policy),
   };
 }
 
@@ -262,12 +315,18 @@ export function computeDispatchSettlement(
 
     const policy = load.policyOverride ?? input.companyPolicy;
     // The SAME parts the invoice bills. Only the predicate below differs.
-    const parts = assembleLoadRateParts(load, load.charges);
+    const parts = assembleLoadRateParts(load, load.charges, load.adjustments);
     const verdicts = parts.chargeParts.map(p => verdictFor(p, policy));
+    const adjustmentVerdicts = parts.adjustmentParts
+      .map(p => adjustmentVerdictFor(p, policy));
     const chargesIncludedAmount = round2(
       verdicts.filter(v => !v.excluded).reduce((s, v) => s + v.amount, 0));
     const chargesExcludedAmount = round2(
       verdicts.filter(v => v.excluded).reduce((s, v) => s + v.amount, 0));
+    const adjustmentsIncludedAmount = round2(
+      adjustmentVerdicts.filter(v => !v.excluded).reduce((s, v) => s + v.amount, 0));
+    const adjustmentsExcludedAmount = round2(
+      adjustmentVerdicts.filter(v => v.excluded).reduce((s, v) => s + v.amount, 0));
     const headerComponent = parts.headerComponent;
     const fscComponent = parts.fscComponent;
 
@@ -285,8 +344,12 @@ export function computeDispatchSettlement(
       fscComponent,
       chargesIncludedAmount,
       chargesExcludedAmount,
-      baseTotal: round2(headerComponent + fscComponent + chargesIncludedAmount),
+      adjustmentsIncludedAmount,
+      adjustmentsExcludedAmount,
+      baseTotal: round2(
+        headerComponent + fscComponent + chargesIncludedAmount + adjustmentsIncludedAmount),
       verdicts,
+      adjustmentVerdicts,
     });
   }
 

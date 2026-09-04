@@ -6911,3 +6911,76 @@ demand a `p_reason` and forbid writing `settled` now run over the five CLIENT
 writers, which is what they always meant.
 
 ### CONTRADICTIONS: none found.
+
+---
+
+## MODULE 5 PASS 4 / PASS 4 — THE FOURTH PART, AND THE GUARD THAT COVERS IT (2026-09-04)
+
+Adjustments enter the shared parts assembler and the reconciliation guard
+extends to cover them. No invoice seam, no supplemental invoice, no UI.
+
+### The status set, and why
+
+`ADJUSTMENT_MONEY_STATUSES = ['approved', 'settled']`, in `loadRateParts.ts`
+and nowhere else. `settled` is money that has ALREADY been paid to the driver —
+it is not spent, it is *evidenced*. Dropping it at settlement would make the
+load's billable total shrink the moment the driver was paid, which is the one
+thing an invoiced load must never do. `draft` and `pending_approval` are not
+money yet; `rejected` and `void` never were.
+
+### Adjustments are NOT merged into `chargeParts`
+
+`adjustmentParts` / `adjustmentsTotal` are a fourth part of their own. Merged,
+nothing downstream could tell an original charge from a late one — the exact
+distinction the supplemental invoice is built on.
+
+### One predicate, two callers
+
+§4.3 now lives in `exclusionDecision(classification, policy)` in
+`dispatchSettlement.ts` — the ONLY function that can return `pct_100` or
+`reimbursement_class`. `verdictFor` (charges) and `adjustmentVerdictFor`
+(adjustments) both route through it. It takes only what the rule reads, so
+there is nowhere inside it for a caller-specific branch to appear. The source
+guard now asserts exactly one return site for each reason, and that both
+verdict builders call it.
+
+### Real-data figures (live rows, not fixtures)
+
+| load | invoice before | invoice after | dispatch base | difference | excluded adj |
+|---|---|---|---|---|---|
+| ST-TEST-005 | 1875.00 | **2150.00** | 1875.00 | 275.00 | **275.00** |
+| ST26056 | 3300.00 | 3300.00 | 2800.00 | 500.00 | 0.00 |
+| ST26058 | 2300.00 | 2300.00 | 2300.00 | 0.00 | 0.00 |
+| ST26059 | 6750.00 | 6750.00 | 6750.00 | 0.00 | 0.00 |
+| ST26060 | 150.00 | 150.00 | 150.00 | 0.00 | 0.00 |
+| ST26061 | 150.00 | 150.00 | (no contribution — `status_tonu`) | — | 0.00 |
+| ST26063 | 1950.00 | 1950.00 | 1750.00 | 200.00 | 0.00 |
+
+Seed-only invoice total $14,600.00 — unchanged from Module 7 Pass 2. The six
+seed loads carry no adjustments, asserted rather than assumed.
+
+### Anti-vacuity
+
+Two assertions, because the guard's new term is zero on six of seven loads:
+at least one EXCLUDED adjustment must exist anywhere, and each one must appear
+on its invoice at the identical amount, as `lineType: 'adjustment'` with
+`loadChargeId` null. Plus a status-set assertion read from the live table:
+every adjustment billed is `approved`/`settled`, every one withheld is not.
+
+### `loads.total_load_value` DOES NOT MOVE
+
+Nothing in this pass writes it. Neither the assembler nor either caller reads
+it. `ST-TEST-005` still stores 1875.00 while its invoice now builds 2150.00 —
+and the existing "no invoice is read from the broker gross column" test still
+reports an empty divergence list, which is the point: the stored column is not
+the invoice and never was.
+
+### TESTS RUN (named, per the standing rule)
+
+`invoice-dispatch-reconciliation` (4 → 6), `shared-pay-percentage-source-guard`
+(28 → 30), `invoiceBuilder`, `dispatchSettlement`, `dispatchSettlementRun`,
+`dispatch-settlement-screen`, `loadRateMath`, `billing-schema`,
+`settlement-adjustment-seam`, `sharedPayPct` — 156 combined; `npm run
+test:guards` — 87. No migration, no new function, ceiling unchanged at 120.
+
+### CONTRADICTIONS: none found.

@@ -8,7 +8,8 @@
  *
  * WHAT AN INVOICE IS (Module 7 Pass 1 record):
  *
- *   header rate + unbundled FSC + ALL load charges, at full amount
+ *   header rate + unbundled FSC + ALL load charges + ALL money-bearing
+ *   late accessorial adjustments, at full amount
  *
  * THERE IS NO EXCLUSION PREDICATE HERE, and its absence is the rule, not an
  * omission. §4.3 asks "is there carrier margin in this line for a 5% dispatch
@@ -26,6 +27,7 @@ import type { LoadChargeRecord } from '@/lib/loadCharges';
 import {
   assembleLoadRateParts,
   type HeaderBasis,
+  type LoadAdjustmentRecord,
   type LoadRateBasis,
 } from '@/lib/loadRateParts';
 
@@ -33,9 +35,11 @@ export interface InvoiceLoadInput extends LoadRateBasis {
   id: string;
   loadNumber: string;
   charges?: LoadChargeRecord[] | null;
+  /** Late accessorial adjustments. Filtered to money-bearing by the assembler. */
+  adjustments?: LoadAdjustmentRecord[] | null;
 }
 
-export type InvoiceLineType = 'linehaul' | 'fsc' | 'charge';
+export type InvoiceLineType = 'linehaul' | 'fsc' | 'charge' | 'adjustment';
 
 export interface InvoiceLine {
   lineType: InvoiceLineType;
@@ -43,6 +47,8 @@ export interface InvoiceLine {
   amount: number;
   /** Set on a `charge` line only; the `load_charges` row it bills. */
   loadChargeId: string | null;
+  /** Set on an `adjustment` line only; the `accessorial_adjustments` row. */
+  adjustmentId: string | null;
   chargeType: string | null;
 }
 
@@ -53,6 +59,8 @@ export interface BuiltInvoice {
   headerComponent: number;
   fscComponent: number;
   chargesTotal: number;
+  /** Late accessorials, at full amount. Billed exactly as a charge is. */
+  adjustmentsTotal: number;
   /** The broker-facing figure. Equals the sum of `lines` to the cent. */
   amount: number;
   lines: InvoiceLine[];
@@ -69,7 +77,7 @@ const HEADER_DESCRIPTION: Record<HeaderBasis, string> = {
 
 /** The invoice for ONE load. One invoice per load is the Pass 1 shape. */
 export function buildLoadInvoice(load: InvoiceLoadInput): BuiltInvoice {
-  const parts = assembleLoadRateParts(load, load.charges);
+  const parts = assembleLoadRateParts(load, load.charges, load.adjustments);
   const lines: InvoiceLine[] = [];
 
   // A zero header still prints: a $0 loadout is a real thing, and a line
@@ -79,6 +87,7 @@ export function buildLoadInvoice(load: InvoiceLoadInput): BuiltInvoice {
     description: HEADER_DESCRIPTION[parts.headerBasis],
     amount: parts.headerComponent,
     loadChargeId: null,
+    adjustmentId: null,
     chargeType: null,
   });
 
@@ -88,6 +97,7 @@ export function buildLoadInvoice(load: InvoiceLoadInput): BuiltInvoice {
       description: 'Fuel surcharge',
       amount: parts.fscComponent,
       loadChargeId: null,
+      adjustmentId: null,
       chargeType: null,
     });
   }
@@ -98,6 +108,24 @@ export function buildLoadInvoice(load: InvoiceLoadInput): BuiltInvoice {
       description: chargeDescription(part.chargeType),
       amount: part.amount,
       loadChargeId: part.chargeId,
+      adjustmentId: null,
+      chargeType: part.chargeType,
+    });
+  }
+
+  // The fourth part. AT FULL AMOUNT, no predicate — the broker owes a late
+  // detention exactly as he owes an on-time one. The line names the reference
+  // (`ST26056-A1`) so a supplemental invoice can be reconciled against it by a
+  // human reading the paperwork, not only by a join.
+  for (const part of parts.adjustmentParts) {
+    lines.push({
+      lineType: 'adjustment',
+      description: part.reference
+        ? `${chargeDescription(part.chargeType)} — ${part.reference}`
+        : `${chargeDescription(part.chargeType)} — late accessorial`,
+      amount: part.amount,
+      loadChargeId: null,
+      adjustmentId: part.adjustmentId,
       chargeType: part.chargeType,
     });
   }
@@ -109,6 +137,7 @@ export function buildLoadInvoice(load: InvoiceLoadInput): BuiltInvoice {
     headerComponent: parts.headerComponent,
     fscComponent: parts.fscComponent,
     chargesTotal: parts.chargesTotal,
+    adjustmentsTotal: parts.adjustmentsTotal,
     amount: round2(lines.reduce((s, l) => s + l.amount, 0)),
     lines,
   };
