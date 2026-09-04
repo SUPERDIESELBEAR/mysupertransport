@@ -1,91 +1,179 @@
-# "permission denied on `profiles`" — read-only triage
+# Three "pre-existing, unrelated" failures — re-established from live evidence
 
-No code, migrations, or fixes. Every claim below names its source.
+The 2026-09-04 `useAuth` pass called all three "pre-existing and unrelated". Two of
+the three descriptions were wrong. Every claim below is labelled **[re-run]**
+(vitest, this turn) or **[live]** (psql against the project database, this turn) or
+**[file]** (read this turn).
 
-## 1. Is it real and current?
+---
 
-**Live analytics query.** The Postgres log store currently retains **19 rows spanning 2026-09-03 23:48:00Z to 23:56:00Z — about eight minutes.** `function_edge_logs` retains 9 rows over the same window; `edge_logs` holds a single row at 23:56:37Z.
+## (c) The guard-suite finding — misdescribed, and it is ours
 
-A `match(event_message, 'permission denied')` filter over `postgres_logs` returns **zero rows**. There is therefore **no permission-denied error on `profiles`, on any table, at any role, inside the retained window** — and the window is far too short to say anything about when the reported errors supposedly occurred. No role, no timestamp, and no error text can be produced, because no matching record exists to produce them.
+### 1. Verbatim failure output **[re-run]**
 
-This item cannot be confirmed or refuted from logs. Items 2 and 3 carry the verdict.
-
-## 2. Grants and policies as they are now
-
-**First, a correction that matters.** `information_schema.role_table_grants` returned **zero rows** for `public.profiles`. That is the same misleading source recorded in `src/test/grant-parity-live.test.ts` — the view only exposes grants the calling role is party to. Reading it as "no grants exist" is exactly the false alarm that view has produced before. The real catalog says otherwise.
-
-**`pg_class.relacl`, verbatim:**
-
-```text
-{postgres=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres,
- sandbox_exec_qgxpkcudwjmacrdcyvhj=ar/postgres,sandbox_exec=ar/postgres}
+```
+FAIL  src/test/definer-live-catalog.test.ts >
+      live SECURITY DEFINER catalog (pg_proc) >
+      every SECURITY DEFINER trigger function is attached to a live trigger
+AssertionError: SECURITY DEFINER trigger function(s) not attached to any trigger.
+Drop them or attach them:
+  public.enforce_ica_contracts_operator_update(): expected [ Array(1) ] to deeply equal []
+- Expected: []
++ Received: [ "public.enforce_ica_contracts_operator_update()" ]
+  src/test/definer-live-catalog.test.ts:1012
 ```
 
-**`has_table_privilege`:**
+### 2. Currently failing? **[re-run]** Yes — reproduces standalone. Not ordering, not
+shared state, not a timeout.
+
+### 3. Correcting the record
+
+The report named it "an orphaned … from the earlier ICA trigger drop" and implied a
+stale allowlist. **It is neither a stale allowlist nor a search_path finding.** The
+guard that fails is the *trigger-attachment* assertion in
+`definer-live-catalog.test.ts`, which reads `pg_proc` and `pg_trigger` live. Nothing
+in `LEGACY_PUBLIC_ONLY_PINS` is involved, and `definer-search-path.test.ts` passes
+clean **[re-run]**.
+
+The build-status entry is also accurate and not in conflict: the 2026-08-31 re-pin
+did happen and still holds **[live]**.
+
+### 4. Every migration defining the function **[file]**
+
+| Migration | What it does |
+|---|---|
+| `20260606131634_ee70f732…` | first `CREATE OR REPLACE`, plus `CREATE TRIGGER trg_enforce_ica_contracts_operator_update` |
+| `20260610105245_d4d7a7da…` | re-authors the function |
+| `20260801005113_d70ed44d…` | `REVOKE EXECUTE … FROM PUBLIC, anon, authenticated` |
+| `20260830000607_3ebc9697…` | re-authors |
+| `20260831133407_c620f689…` | **newest definition** — the 2026-08-31 re-pin, plus three explicit `REVOKE ALL` (PUBLIC, anon, authenticated) |
+| `20260903214629_aafeb8a0…` | one statement only: `DROP TRIGGER IF EXISTS trg_enforce_ica_contracts_operator_update ON public.ica_contracts;` |
+
+Live catalog **[live]**:
 
 ```text
-anon           SELECT=false INSERT=false UPDATE=false DELETE=false
-authenticated  SELECT=true  INSERT=true  UPDATE=true  DELETE=true
-service_role   SELECT=true  INSERT=true  UPDATE=true  DELETE=true
+enforce_ica_contracts_operator_update | secdef=t | search_path=public, extensions | anon=f | authenticated=f
 ```
 
-RLS is **enabled** (`relrowsecurity = true`), not forced.
+The pin is correct, the grants are correct, and the function **still exists**. What
+no longer exists is its trigger: `pg_trigger` on `ica_contracts` lists
+`update_ica_contracts_updated_at`, `trg_ica_contracts_operator_column_whitelist`,
+`trg_sync_ica_completion_to_onboarding` — and no
+`trg_enforce_ica_contracts_operator_update` **[live]**.
 
-**Policies (`pg_policy`), all with `roles = NULL`, i.e. PUBLIC, so gated purely by the grant above:**
+**What the guard asserts:** a SECURITY DEFINER trigger function must be attached to
+a live trigger. A definer function with no trigger is owner-privileged code sitting
+in the schema with no caller — dead privileged surface.
 
-| Policy | Cmd | USING | WITH CHECK |
+**Why it fails:** migration `20260903214629` (the redundant-ICA-trigger-drop pass,
+2026-09-03, this project) dropped the trigger and left the function behind. The
+guard is doing exactly its job and caught our own leftover the same day.
+
+**Verdict: OURS AND MUST BE FIXED.** The fix is one migration:
+`DROP FUNCTION IF EXISTS public.enforce_ica_contracts_operator_update();` — provided
+`trg_ica_contracts_operator_column_whitelist` genuinely covers the dropped trigger's
+duty. That coverage claim was the premise of the 2026-09-03 drop and should be
+re-read against both function bodies before dropping.
+
+---
+
+## (a) `operator-settlement-isolation` — genuinely external, and provably not a denial
+
+### 1. Verbatim output **[re-run]** — none. Zero failures.
+
+### 2. Currently failing? **No.** Run standalone twice:
+
+```
+✓ every settlement SELECT policy for authenticated is self-scoped   1341ms / 1125ms
+✓ anon holds no privilege on any settlement table                   1086ms / 1125ms
+✓ the deposit function is definer, pinned, and not PUBLIC           1103ms / 1088ms
+✓ the deposit function returns the caller's balance only            1083ms / 1103ms
+Test Files 1 passed | Tests 4 passed   (both runs)
+```
+
+### 5. Flake or real authorization failure?
+
+**Infrastructure flake, and this one can be argued rather than assumed.** Three
+independent reasons:
+
+- Every assertion passes on repeat, twice, unmodified **[re-run]**.
+- The suite cannot swallow a denial. `psql()` uses `execFileSync` with no
+  `try`/`catch`; a permission error is a non-zero exit that throws and fails the
+  test loudly. This is the opposite shape from the swallowed-default defect in the
+  record — there is no default to fall back to.
+- Each of the four `psql` calls takes ~1.1s of process startup. The full-suite run
+  fires many psql-heavy suites concurrently; connection contention at that moment is
+  the plausible cause of a timeout, and it did not recur when run alone.
+
+**Verdict: GENUINELY EXTERNAL.** Sandbox/connection contention under parallel
+full-suite execution. Worth noting the suite is slow enough to be flake-prone under
+load, but nothing in the project caused it.
+
+---
+
+## (b) `parked-and-termination-guardrail` — ours, and "drift" is the wrong word
+
+### 1. Verbatim output **[re-run]** — two failures, both reproduce standalone:
+
+```
+FAIL  parked — live schema and standing rows >
+      parking writes no lease_terminations row — the standing set is untouched
+AssertionError: expected 33 to be 31        (src/test/parked-and-termination-guardrail.test.ts:139)
+
+FAIL  parked — live schema and standing rows >
+      every voided row belongs to a driver who is still working
+AssertionError: expected '1' to be '0'      (…:196)
+```
+
+### 2. Currently failing? **[re-run]** Yes, both, standalone.
+
+### 6. What "standing-row count drift" actually is
+
+The guard hard-codes a **data snapshot** taken on 2026-08-31:
+`expect(Number(total[0])).toBe(31)` and `expect(Number(voided[0])).toBe(6)`
+**[file]**. Live today **[live]**: `total = 33`, `voided = 6`.
+
+The two extra rows, both written **2026-09-03** through the app **[live]**:
+
+| Driver | Row created | is_active | excluded_from_dispatch |
 |---|---|---|---|
-| Users can view their own profile | SELECT | `auth.uid() = user_id` | — |
-| Staff can view all profiles | SELECT | `is_staff(auth.uid())` | — |
-| Users can update their own profile | UPDATE | `auth.uid() = user_id` | — |
-| Staff can update profiles | UPDATE | `is_staff(auth.uid())` | — |
-| Allow insert on signup | INSERT | — | `auth.uid() = user_id` |
+| Edward Williams | 2026-09-03 14:37:02Z | false | false |
+| Vino Huddleston | 2026-09-03 20:09:03Z | true | true |
 
-**Plainly:**
+The second failure has the same single cause. Of the six voided rows, five belong to
+operators with `is_active = true, excluded_from_dispatch = false`. The sixth is
+**Vino Huddleston**, whose old row was voided 2026-08-31 and who was then *actually*
+terminated on 2026-09-03, flipping `excluded_from_dispatch` to true **[live]**. One
+row, one driver, both assertions.
 
-- A signed-in user **can** read their own profile row. Grant present, policy matches.
-- **Staff screens work.** Driver roster, staff directory, dispatch load detail, inspection binder admin all run as staff, and `is_staff(auth.uid())` admits them to every row.
-- **Operator-side reads of other people's profiles return nothing** — and this is by design, already recorded in `src/lib/staffContacts.ts`: the SELECT policy is self-or-staff, so a driver reading `profiles` for a dispatcher's name gets an empty set, not an error. That is an RLS filter, **not** `permission denied`. The two are different failure shapes and must not be conflated.
+**Was it caused by project work?** No — not the seed loads, not the dispatch
+settlement, not the `useAuth` pass. These are genuine staff terminations recorded in
+production data after the snapshot was frozen.
 
-There is no GRANT-level defect on `profiles`.
+**But the guard is ours, and it is written wrongly.** It asserts a census, not an
+invariant. Any legitimate termination breaks it; the count will break again next
+week. And the useAuth pass then used that breakage as evidence the run was clean —
+a guard that cries wolf on normal operation teaches people to ignore it, which is
+the same disease as an over-counting allowlist.
 
-## 3. The sign-in path
+**Verdict: OURS AND MUST BE FIXED.** Rewrite both assertions as invariants:
 
-`src/hooks/useAuth.tsx`, `fetchProfile` (lines 110–130), runs as `authenticated` after `getSession`:
+- Replace the `31`/`6` literals with the invariant they were standing in for — that
+  *parking* writes no termination row (the third assertion in the same test already
+  checks exactly this, correctly, and passes).
+- Re-scope "every voided row belongs to a driver who is still working" to the six
+  named 2026-08-31 voids, or to voided rows with no *later* termination for the same
+  operator — so a driver who is voided and then genuinely departs stops being a
+  violation.
 
-```ts
-const { data } = await supabase.from('profiles').select(...).eq('user_id', userId).single();
-if (data) { setProfile(data as ProfileData);
-  if (data.account_status === 'pending') {
-    supabase.from('profiles').update({ account_status: 'active' }).eq('user_id', userId).then(...)
-```
+---
 
-Both halves match the project's recorded discarded-error pattern:
+## Verdicts
 
-- **The read destructures `data` and never inspects `error`.** On any failure — permission, network, RLS returning zero rows through `.single()` — `data` is null, the `if` is skipped, and `profile` silently stays `null`. Nothing is thrown, logged, or shown.
-- **The write is worse.** The `pending → active` update is fire-and-forget: no `error` is destructured at all, and the `.then()` optimistically sets local state to `active` **whether or not the row was actually updated**. A refused or zero-row update leaves the database at `pending` while the UI shows `active` — the exact symptom the report describes, reachable without any permission error at all.
+| Failure | Verdict |
+|---|---|
+| (c) orphaned `enforce_ica_contracts_operator_update` | **OURS AND MUST BE FIXED** — our 2026-09-03 trigger drop left a definer function with no trigger. Not a stale allowlist; not the search_path pin, which is correct and intact. |
+| (a) `operator-settlement-isolation` | **GENUINELY EXTERNAL** — passes twice standalone; the suite throws on denial and cannot mask one. |
+| (b) `parked-and-termination-guardrail` | **OURS AND MUST BE FIXED** — the guard hard-codes a 2026-08-31 row census; two real terminations on 2026-09-03 broke it. The data is right; the assertions are wrong. |
 
-Neither refusal is surfaced to the user. Both are swallowed.
-
-The grants and policies in §2 mean neither call should be refused today for a signed-in user updating their own row. But the reported symptom does not require a refusal — a silent read miss reproduces it.
-
-## 4. Is anything anonymous touching `profiles`?
-
-- **Direct table access: no.** `anon` holds no privilege at all on `profiles`, so every anonymous PostgREST read is refused at the grant layer before RLS. No public route reads it: `/apply`, `/apply/ssn`, `/welcome`, `/inspect/:token`, `/pei/*`, `/ica/review/:token`, `/s/:code`, `/qpassport/view`, `/install`, `/splash` contain no `from('profiles')`.
-- **Through functions: worth a separate look.** Eight anon-executable functions reference `profiles` in their bodies — `is_staff`, `add_pei_staff_note`, `archive_applicant_pei` (both overloads), `log_pei_manual_send`, `log_pei_phone_attempt`, `move_revisions_to_pending`, `submit_application_correction`. `is_staff` is the deliberately retained one recorded on 2026-09-03. The other seven are **staff-action** functions reachable anonymously; whether each carries its own internal authorization check was not established here. This is not the reported finding and is not a permission-denied path, but it is the more serious question in the vicinity.
-
-## 5. Verdict
-
-**The permission-denied claim is not establishable, and is not supported by the catalog.** The eight-minute log window cannot refute it — absence of evidence is not evidence of absence — but §2 shows no GRANT or policy on `profiles` that would produce `permission denied` for a signed-in user reading or updating their own row, and `anon` cannot reach the table at all. The most likely reading is a **stale re-emission consistent with the rest of the batch**.
-
-**The pending→active concern is separate, real, and latent.** It is a genuine defect in `useAuth.tsx` regardless of any permission error: a silently discarded read and an unverified optimistic write. Classify it **live but latent** — it will not raise an error, it will quietly leave a driver at `pending` while the UI claims `active`.
-
-## Contradicting the record
-
-1. **`information_schema.role_table_grants` produced a false "no grants" reading again** on `profiles`, precisely as `grant-parity-live.test.ts` warns. If the monitoring finding was derived from that view, that alone explains the report.
-2. **Seven anon-executable PEI/correction functions touching `profiles`** are not accounted for in the 2026-09-03 anon inventory narrative as staff-action functions; the record covers `is_staff` explicitly but these deserve a caller-authorization check of their own.
-3. `permission denied` and "RLS returned zero rows" are being conflated in the incoming report. On `profiles` the operator-side empty result is designed behaviour, already documented in `staffContacts.ts`.
-
-## Recommended next step (not executed)
-
-Have `fetchProfile` inspect `error` and have the `pending → active` update verify it actually wrote before the UI claims `active`. Nothing on the grant or policy side needs to change.
+Two of the three were reported as "pre-existing and unrelated". Only one was.
