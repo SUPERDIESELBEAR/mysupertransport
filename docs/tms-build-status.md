@@ -6330,7 +6330,7 @@ self-or-staff.
 Schema only. No invoice builder, no writer RPC, no payment posting logic, no
 screen, and no `supplemental_invoices` — the Module 5 adjustment that would
 produce one does not exist yet, and a table with no producer is a table whose
-shape is guessed.
+shape is guessed (see Module 5, Pass 4).
 
 ### What an invoice IS here
 
