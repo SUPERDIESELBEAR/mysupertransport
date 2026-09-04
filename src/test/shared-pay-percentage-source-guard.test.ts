@@ -126,6 +126,28 @@ describe('the percentage columns are named in exactly one module', () => {
   }
 });
 
+describe('the §4.3 exclusion predicate exists exactly once', () => {
+  it('only dispatchSettlement.ts knows the exclusion reasons at all', () => {
+    // The predicate is dispatch-only. If a second module names an exclusion
+    // reason, a copy has appeared — and adjustments are the likeliest place
+    // for it, since they are judged by the same rule.
+    for (const path of ['src/lib/loadRateParts.ts', 'src/lib/invoiceBuilder.ts']) {
+      expect(code(path)).not.toMatch(/pct_100|reimbursement_class/);
+    }
+  });
+
+  it('charges and adjustments are judged by ONE decision function', () => {
+    const src = code('src/lib/dispatchSettlement.ts');
+    // One place that can return 'pct_100', one that can return
+    // 'reimbursement_class'. Two of either is a second copy of §4.3.
+    expect((src.match(/'pct_100'/g) ?? []).length).toBe(1);
+    expect((src.match(/'reimbursement_class'/g) ?? []).length).toBe(1);
+    // ...and both verdict builders route through it.
+    expect(src).toMatch(/function verdictFor[\s\S]*?exclusionDecision\(/);
+    expect(src).toMatch(/function adjustmentVerdictFor[\s\S]*?exclusionDecision\(/);
+  });
+});
+
 describe('the parts are assembled in exactly one module', () => {
   const ASSEMBLER = 'src/lib/loadRateParts.ts';
 
