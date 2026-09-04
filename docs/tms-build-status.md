@@ -1318,53 +1318,36 @@ after the fact missed five loads and every storage object.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `invoices` | 0 | Purge BEFORE `loads`: `load_id` is `ON DELETE RESTRICT`, so a leftover invoice BLOCKS the load delete. This is deliberate. |
-| `invoice_line_items` | 0 | cascades from `invoices` |
-| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately |
-| `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices` |
+| `invoices` | **1 as of Module 7 Pass 3** | `ST26-0001`, `open`, never submitted, load `ST-TEST-005`, path `direct`. Purge at **Step 4**, BEFORE `loads` (Step 7) and BEFORE `brokers` (Step 8): `load_id` and `broker_id` are `ON DELETE RESTRICT`, so a leftover invoice BLOCKS both. This is deliberate. |
+| `invoice_line_items` | 1 | cascades from `invoices` |
+| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately, Step 4 |
+| `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices`, same step |
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
+| `invoice_number_config` | 1 | `2026 / ST / next_sequence 2`, created by the Pass 3 allocation. Reset at **Step 11**. Left behind, real invoicing starts at `ST26-0002`. |
 
 **Module 5 Pass 4 addendum (2026-09-04).** Registered on the day the table was
 created, EMPTY, for the same reason.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `accessorial_adjustments` | **2 as of Pass 2** | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the unlock below. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions) go with them. |
+| `accessorial_adjustments` | **2 as of Pass 2** | Purge at **Step 3**, BEFORE `loads` (Step 7 — `load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (Step 5 — `settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the `app.accessorial_adjustment_write` unlock. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions across THREE entity ids) go at Step 10, by `entity_type`. |
 
 **A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
 `settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
 reason, never deleted. Its unlock is its OWN setting, because
-`app.invoice_write` and `app.settlement_write` cannot open it:
-
-```sql
-BEGIN;
-SET LOCAL app.accessorial_adjustment_write = 'on';
-DELETE FROM public.accessorial_adjustments;
-COMMIT;
-```
-
-That step runs BEFORE the invoice unlock block below, and before Step 3's load
-deletes.
-
+`app.invoice_write` and `app.settlement_write` cannot open it. **The executable
+block is Step 3**, which runs before the invoice deletes at Step 4 and long
+before the load deletes at **Step 7** (this line read "before Step 3's load
+deletes" until 2026-09-04; loads were never Step 3).
 
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
 deleted and its lines cannot be removed — the trigger refuses, exactly as it is
 meant to. If any test invoice reaches `submitted_at` before cutover, the purge
 will FAIL at that row with a `42501` and no amount of retrying will help. The
-unlock is the same shape as the settlement one:
-
-```sql
-BEGIN;
-SET LOCAL app.invoice_write = 'on';
-UPDATE public.payments SET remittance_id = NULL;      -- release the RESTRICT
-DELETE FROM public.payments WHERE invoice_id IN (SELECT id FROM public.invoices);
-DELETE FROM public.factoring_remittances;
-DELETE FROM public.invoices;
-DELETE FROM public.invoice_batches;
-COMMIT;
-```
-
+unlock is the same shape as the settlement one, and **the executable block is
+Step 4**. `enforce_payment_immutability` and `enforce_remittance_immutability`
+refuse EVERY delete, submitted or not, so that unlock is run unconditionally.
 
 `ar_aging_snapshots` has NO unlock and needs none: it holds no client-role
 UPDATE or DELETE path that the trigger permits, and the purge runs privileged.
@@ -1373,6 +1356,24 @@ so a snapshot row, if one ever exists, must be removed by dropping and
 recreating the table, or by temporarily disabling that one trigger. THIS IS
 DELIBERATE and was chosen with the purge in mind: an append-only ledger with a
 convenient delete path is not append-only. Nothing writes snapshots today.
+
+#### 1b. The three unlocks (recorded 2026-09-04)
+
+The procedure now requires THREE, and they are not interchangeable:
+
+| Setting | Read by | Opens | Step |
+|---|---|---|---|
+| `app.accessorial_adjustment_write` | `accessorial_adjustment_writer_active()` | DELETE of an `approved` or `settled` adjustment | 3 |
+| `app.invoice_write` | `invoice_writer_active()` | DELETE of a submitted invoice and its lines; DELETE of ANY payment or remittance | 4 |
+| `app.settlement_write` | `settlement_writer_active()` | DELETE of a `paid` settlement AND, through the cascade, its `settlement_line_items` | 5 |
+
+**Each is `SET LOCAL` and is therefore valid only inside its own transaction.**
+Running an unlock in one transaction and the delete it authorises in another
+does NOTHING: the setting is gone by the time the trigger reads it, and the
+delete fails `42501` exactly as if the unlock had never been typed. Every block
+above is written `BEGIN; SET LOCAL …; DELETE …; COMMIT;` for that reason, and
+must not be split.
+
 
 **What the recorded list was missing, in one line:** five loads, all storage
 objects, `parser_diagnostics` (74), `rate_con_ingest_queue` (5), `facilities` (2),
