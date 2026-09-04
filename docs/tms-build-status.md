@@ -1330,7 +1330,7 @@ created, EMPTY, for the same reason.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `accessorial_adjustments` | 0 | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. |
+| `accessorial_adjustments` | **2 as of Pass 2** | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the unlock below. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions) go with them. |
 
 **A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
 `settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
