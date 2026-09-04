@@ -2395,6 +2395,88 @@ explicitly alongside `receive-rate-con-email`, which shares the core.
 **Snapshot occupancy unchanged.** This pass adds no columns, so
 `update_load_with_stops` still holds 34 keys in call 1 and 18 in call 2.
 
+## Module 5, Pass 4 — the late accessorial adjustment path (`-A1`)
+
+**DESIGN DECISION, recorded 2026-09-04.** The `-A1` adjustment path was previously
+filed under Module 7 in `docs/tms-wish-list.md`. It belongs in Module 5 because the
+record exists whether or not an invoice was ever sent and it feeds a settlement.
+`assert_charge_entry_allowed`'s live error text deflects a late accessorial to
+"the adjustment path... and land in a later settlement" — it names settlement,
+not invoicing. An adjustment on a load billed direct and never factored still has
+to reach a settlement. Filing it under Module 7 would make settlement depend on
+billing, which inverts the recorded module order. Module 7 Pass 5 — the
+supplemental invoice that consumes an approved adjustment — stays in Module 7.
+That is the seam.
+
+**The adjustment is a separate table, not a flag on `load_charges`.**
+`assert_charge_entry_allowed` gates that whole table by load status, so a flagged
+row would either bypass the guard protecting fixed money or force the guard to
+branch. Worse, `load_charges` is read by the shared parts assembler
+(`src/lib/loadRateParts.ts`) and therefore by the invoice builder, the driver
+engine and the dispatch base, so a flagged row would silently change all four
+before anyone approved it. A separate table makes an unapproved adjustment
+invisible to money by construction, not by filter.
+
+**The `-A1` sequence is per load, `UNIQUE (load_id, sequence)`, allocated inside
+the writer as a consequence of a successful insert.** Explicitly NOT the
+`generate_load_number` pattern, which increments on form open and has burned 52 of
+63 load numbers. Explicitly NOT a global config table like
+`invoice_number_config`, because the scope here is the load.
+
+**An adjustment is a settle-once item.** It uses `settledSourcesEver`, not the
+period-scoped set. The two recorded settlement defects pull in opposite
+directions: an unbounded exclusion set re-deducted every fuel transaction a driver
+ever had, and a period-blind exclusion set excluded a recurring deduction forever
+after one settlement. `settledSourcesEver` is wrong for a recurring deduction and
+right for an adjustment. Naming which class an item belongs to is the decision;
+getting it backwards reproduces one defect or the other.
+
+**Period attribution:** the adjustment lands in the settlement for the period in
+which it was APPROVED, not the load's delivery period, per the recorded rule at
+"Late accessorials do NOT reopen a closed period."
+
+**Approval state machine:** `draft → pending_approval → approved → settled`,
+with `rejected` and `void` terminal. Dispatcher, management and owner may create
+and submit — the same three roles `assert_charge_entry_allowed` admits. Only
+management or owner may approve or reject. An approved adjustment is immutable
+for amount, classification and load; a wrong one is voided with a reason and
+re-entered, never edited.
+
+**What an approved adjustment does to the four readers of money on a load:**
+
+| reader | affected? | how |
+|---|---|---|
+| Broker invoice (`invoiceBuilder.ts`) | YES | at full amount, no predicate |
+| Driver settlement (`settlementEngine.ts`) | YES | at the policy percentage for its classification |
+| Dispatch base (`dispatchSettlement.ts`) | YES | subject to §4.3 exclusion predicate |
+| `loads.total_load_value` | NO | recomputing it would silently restate a load already invoiced |
+
+**Adjustments enter the shared parts assembler as a fourth part
+(`adjustmentParts` / `adjustmentsTotal`), not merged into `chargeParts`.** Merging
+would make an original charge indistinguishable from a late one, which is the
+exact distinction the supplemental invoice depends on. The reconciliation guard
+extends by one term and keeps its shape:
+
+```text
+invoice_amount − Σ(excluded charges) − Σ(excluded adjustments)
+    = dispatch header + dispatch FSC + included charges + included adjustments
+```
+
+**OPEN DECISION, unresolved, Module 7 Pass 5.** `invoices_load_key UNIQUE (load_id)`
+forbids a second invoice row per load, so the supplemental container is a genuine
+Module 7 Pass 5 decision: a `supplemental_invoices` table, or relaxing that
+constraint. This proposal deliberately did not choose, and deliberately did not
+create a table with no producer. Recorded here as open with trigger: before
+Module 7 Pass 5.
+
+**CHECK-CONSTRAINT CONSEQUENCE, Module 5 Pass 1.**
+`settlement_line_items_source_table_check` currently permits only
+`loads, fuel_transactions, deductions, deduction_installments, cash_advances,
+rm_deposits, settlements`. Extending it to admit `accessorial_adjustments` is not
+additive-only: that column is what the double-pay guard keys on, so every future
+reader gains a case. It is a deliberate schema change to be made in Module 5 Pass
+1, not incidentally.
+
 ## Module 11, Pass 1 — the driver home screen becomes today's work (2026-08-28)
 
 The operator home screen was a greeting and four tiles. It never said what the
@@ -4568,7 +4650,7 @@ no deductions, and both withheld reasons in the engine's own words.
 - **The correction route is still missing.** Immutability is enforced now, but
   `accessorial_adjustments`, invoices and supplemental invoices do not exist, the
   `-A1` scheme is documented and unimplemented, and the engine's `adjustment`
-  line kind has no producer. A PAID settlement can be refused a rewrite but a
+  line kind has no producer (see Module 5, Pass 4). A PAID settlement can be refused a rewrite but a
   correction cannot yet be issued.
 - **Two withheld rows for one load render as two cards** in the driver view —
   one per reason. Correct, and readable, but grouping by load may read better.
@@ -6248,7 +6330,7 @@ self-or-staff.
 Schema only. No invoice builder, no writer RPC, no payment posting logic, no
 screen, and no `supplemental_invoices` — the Module 5 adjustment that would
 produce one does not exist yet, and a table with no producer is a table whose
-shape is guessed.
+shape is guessed (see Module 5, Pass 4).
 
 ### What an invoice IS here
 
