@@ -2218,7 +2218,46 @@ The +18 tests and +2 files in each shape are `detentionClaims.test.ts` (12),
 `actor-stamp-fk.test.ts`. The skip counts are unchanged, which is the point:
 no new test was gated.
 
+## Standing rule — REGISTRATION IS NOT VERIFICATION: A DESTRUCTIVE PROCEDURE IS RE-READ END TO END WHENEVER IT GROWS (2026-09-04)
+
+The cutover purge procedure was written 2026-09-03. Every pass after it did the
+right thing individually: Module 7 Pass 1 registered its billing tables the day
+they were created, empty; Module 5 Pass 4 registered `accessorial_adjustments`
+the day it was created, empty; each addendum stated its own FK delete rule and
+its own trigger unlock correctly.
+
+**The procedure still would not have executed.** A full re-read on 2026-09-04
+found two failures that would have stopped cutover mid-run:
+
+1. Step 1's verify block named `dispatch_settlement_contributions` and
+   `dispatch_settlement_verdicts`. Neither exists — the live names are
+   `dispatch_settlement_load_contributions` and
+   `dispatch_settlement_charge_verdicts`. Both raise `42P01`.
+2. The adjustment and invoice deletes were correct, but lived in unnumbered
+   ADDENDA above a numbered list. An operator working the numbered steps in
+   order reached `DELETE FROM public.loads` and failed `23503`, because both
+   `load_id` FKs are `ON DELETE RESTRICT`.
+
+Neither is a mistake in any individual pass. Both are properties of the
+SEQUENCE, and a sequence has no owner unless someone reads it as one.
+
+The rule, three parts:
+
+- **An addendum may record a fact. It may never carry an executable step.**
+  Anything that must run goes in the numbered list, at its position, or it does
+  not exist.
+- **A multi-step destructive procedure is re-read END TO END, against the live
+  catalog, whenever it has grown — and always immediately before it is run.**
+  Not the new part. The whole thing, in order.
+- **Order that holds only because of today's data is recorded as luck, and
+  named.** Steps 3 and 5 are interchangeable today solely because
+  `accessorial_adjustments.settlement_id` is NULL on both live rows. It is
+  `ON DELETE RESTRICT`, and the write-back that fills it already ships. The
+  first `settled` adjustment makes the order load-bearing with no code change
+  and no failing test to announce it.
+
 ## Standing rule — A GUARD MUST ASSERT AN INVARIANT, NOT A CENSUS (2026-09-04)
+
 
 `parked-and-termination-guardrail` hard-coded live row counts taken on
 2026-08-31: `toBe(31)` total `lease_terminations` rows and `toBe(6)` voided. Two
