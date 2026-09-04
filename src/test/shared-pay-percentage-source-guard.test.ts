@@ -21,12 +21,32 @@
 import { describe, it, expect } from 'vitest';
 import { readFileSync, existsSync } from 'node:fs';
 
-/** Modules that CONSUME pay percentages and period logic, and must not restate them. */
-const CONSUMERS = [
+/**
+ * Modules that CONSUME pay percentages and period logic, and must not restate
+ * them.
+ *
+ * PASS 2 of Module 7 splits this into two lists, and the split is a rule, not
+ * a convenience. `src/lib/invoiceBuilder.ts` reads the same loads and the same
+ * parts, so it is bound by every source rule below — no literal `_pct` column,
+ * no `new Date(` on a delivery value, no local month arithmetic. But it
+ * resolves NO percentage at all: the broker owes 100% of every line, and §4.3
+ * is dispatch-only. Requiring it to import `pctForClassification` would force
+ * a percentage into the one path that must not have one.
+ */
+const SOURCE_RULE_ONLY = [
+  'src/lib/invoiceBuilder.ts',
+  'src/lib/loadRateParts.ts',
+];
+
+/** These additionally MUST call the shared resolver rather than re-derive it. */
+const PCT_CONSUMERS = [
   'src/lib/settlementEngine.ts',
   'src/lib/driverLoadPay.ts',
   'src/lib/dispatchSettlement.ts',
 ];
+
+const CONSUMERS = [...PCT_CONSUMERS, ...SOURCE_RULE_ONLY];
+
 
 /**
  * PASS 4: the gathering/persistence layer is NOT in CONSUMERS, and the reason
