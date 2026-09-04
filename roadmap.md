@@ -5,6 +5,9 @@
   wrapper trigger that illegally calls another trigger function by name.
 - Deactivation notice confirmation must name the actual recipients, not the saved
   DOT Consultant.
+- Fix `useAuth.tsx` `fetchProfile` silent failures: inspect `error` on profile read,
+  distinguish no-row/error/success, verify `pending → active` update wrote before
+  updating local state, and surface failures instead of swallowing them.
 
 - Module 4 (dispatch company settlement) — Pass 1: schema only. Enum, five tables,
   constraints, grants, RLS, immutability trigger pair, live-catalog tests, purge-list
