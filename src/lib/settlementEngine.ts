@@ -520,6 +520,49 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     }
   }
 
+  /* --- Late accessorial adjustments (-A1) --------------------------- */
+  // Approved in THIS period, whatever period the load delivered in. The
+  // amount is the policy percentage for the adjustment's classification,
+  // resolved through the one map in `payTreatment.ts` — never a literal here.
+  // A reimbursement-classed adjustment follows the identical funding-source
+  // rule a reimbursement-classed CHARGE follows: actual cost, and only to the
+  // driver who spent it.
+  {
+    const policy = resolveEffectivePolicy(companyPolicy, driverPolicy);
+    for (const adj of adjustments) {
+      const klass = chargeClassification(adj.chargeType);
+      const where = adj.loadNumber ? `Load ${adj.loadNumber} — ` : '';
+      const what = adj.description || adj.chargeType;
+
+      if (policy && payClassOf(klass, policy) === 'reimbursement') {
+        if (adj.fundingSource !== 'driver') continue;
+        const cost = num(adj.actualCost);
+        if (!cost) continue;
+        lines.push({
+          lineType: 'adjustment',
+          amount: round2(cost),
+          description: `${where}${what} reimbursed at cost (late adjustment ${adj.reference})`,
+          sourceTable: 'accessorial_adjustments',
+          sourceId: adj.id,
+        });
+        continue;
+      }
+
+      const pct = pctForClassification(klass, policy);
+      if (pct === null) continue;
+      const amount = round2(num(adj.amount) * (pct / 100));
+      if (!amount) continue;
+      lines.push({
+        lineType: 'adjustment',
+        amount,
+        description: `${where}${what} (late adjustment ${adj.reference})`,
+        sourceTable: 'accessorial_adjustments',
+        sourceId: adj.id,
+      });
+    }
+  }
+
+
   /* --- Fuel -------------------------------------------------------- */
   // The discount is its OWN line when pass-through is on for this driver, never
   // netted into the fuel deduction: a driver who earned it must be able to see
