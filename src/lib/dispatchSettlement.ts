@@ -21,7 +21,12 @@
  * This module names no percentage column and does no month arithmetic of its
  * own; the three-layer caller test asserts both.
  */
-import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
+import type { LoadChargeRecord } from '@/lib/loadCharges';
+import {
+  assembleLoadRateParts,
+  type LoadChargePart,
+  type LoadRateBasis,
+} from '@/lib/loadRateParts';
 import { payClassOf, pctForClassification, type PayPolicyRates } from '@/lib/payTreatment';
 import type { ClassificationKey } from '@/lib/revisedRateCon';
 import { carrierDateOf, inCalendarMonth } from '@/lib/settlementPeriod';
@@ -209,18 +214,17 @@ function ineligibleReason(load: DispatchLoadInput, month: string): IneligibleRea
 /* ------------------------------------------------------------------ */
 
 function verdictFor(
-  charge: LoadChargeRecord,
+  part: LoadChargePart,
   policy: PayPolicyRates | null,
 ): DispatchChargeVerdict {
-  const classification = chargeClassification(String(charge.charge_type ?? ''));
+  const { classification, amount } = part;
   const resolvedPct = pctForClassification(classification, policy);
-  const amount = round2(num(charge.amount));
 
   // (b) first, so a reimbursement records the class rather than a percentage
   // that had nothing to do with the decision.
   if (payClassOf(classification, policy) === 'reimbursement') {
     return {
-      loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+      loadChargeId: part.chargeId, chargeType: part.chargeType,
       classification, amount, excluded: true,
       exclusionReason: 'reimbursement_class', resolvedPct,
     };
@@ -229,16 +233,17 @@ function verdictFor(
   // through the shared resolver. NOT read from the pay-class map.
   if (resolvedPct === 100) {
     return {
-      loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+      loadChargeId: part.chargeId, chargeType: part.chargeType,
       classification, amount, excluded: true,
       exclusionReason: 'pct_100', resolvedPct,
     };
   }
   return {
-    loadChargeId: charge.id, chargeType: String(charge.charge_type ?? ''),
+    loadChargeId: part.chargeId, chargeType: part.chargeType,
     classification, amount, excluded: false, exclusionReason: null, resolvedPct,
   };
 }
+
 
 /* ------------------------------------------------------------------ */
 /* The computation                                                     */
