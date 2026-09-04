@@ -154,22 +154,30 @@ describe("parked — live schema and standing rows", () => {
   });
 
 
-  itLive("exactly the six mistaken rows are voided, and no genuine departure is", () => {
-    const voidedNames = psql(`
+  itLive("the six mistaken rows stay voided, and no genuine departure is", () => {
+    // The six named rows are historical fact — they were written in error and
+    // withdrawn on 2026-08-31 — so naming them is a record, not a census. But
+    // the assertion is a SUBSET check, not equality: a seventh legitimate void
+    // is normal business and must not break this guard. What must hold is that
+    // none of these six is ever quietly un-voided.
+    const stillVoided = psql(`
       select trim(coalesce(p.first_name,'') || ' ' || coalesce(p.last_name,''))
       from public.lease_terminations lt
       join public.operators o on o.id = lt.operator_id
       join public.profiles p on p.user_id = o.user_id
       where lt.voided_at is not null
       order by 1`);
-    expect(voidedNames).toEqual([
+    for (const name of [
       "Calvin Herrera",
       "Dale Erickson",
       "Ian Dunfee",
       "Steve Figueroa",
       "Steven Fifer",
       "Vino Huddleston",
-    ]);
+    ]) {
+      expect(stillVoided).toContain(name);
+    }
+
 
     // The genuine departures keep their terminations.
     const genuine = psql(`
