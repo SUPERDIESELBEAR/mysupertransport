@@ -266,13 +266,16 @@ export function computeDispatchSettlement(
     }
 
     const policy = load.policyOverride ?? input.companyPolicy;
-    const verdicts = (load.charges ?? []).map(c => verdictFor(c, policy));
+    // The SAME parts the invoice bills. Only the predicate below differs.
+    const parts = assembleLoadRateParts(load, load.charges);
+    const verdicts = parts.chargeParts.map(p => verdictFor(p, policy));
     const chargesIncludedAmount = round2(
       verdicts.filter(v => !v.excluded).reduce((s, v) => s + v.amount, 0));
     const chargesExcludedAmount = round2(
       verdicts.filter(v => v.excluded).reduce((s, v) => s + v.amount, 0));
-    const headerComponent = headerComponentOf(load);
-    const fscComponent = fscComponentOf(load);
+    const headerComponent = parts.headerComponent;
+    const fscComponent = parts.fscComponent;
+
 
     contributions.push({
       loadId: load.id,
