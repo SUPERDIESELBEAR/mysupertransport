@@ -44,6 +44,7 @@ function psqlExpectError(sql: string): string {
 
 const TABLES = [
   'ar_aging_snapshots',
+  'factoring_remittances',
   'invoice_batches',
   'invoice_line_items',
   'invoice_number_config',
@@ -130,13 +131,16 @@ describe('billing — tables and columns', () => {
     ]);
   });
 
-  itLive('payments records what ARRIVED, split into gross, fee, reserve and deposit', () => {
+  itLive('payments records what ARRIVED, split into gross, fee and deposit', () => {
     const cols = psql(`SELECT column_name FROM information_schema.columns
       WHERE table_schema='public' AND table_name='payments' ORDER BY 1`);
-    for (const c of ['gross_amount', 'fee_amount', 'reserve_amount', 'net_deposited',
+    for (const c of ['gross_amount', 'fee_amount', 'net_deposited',
       'source', 'received_at', 'invoice_id', 'reference']) {
       expect(cols, c).toContain(c);
     }
+    // No reserve column: Smart Freight holds no reserve, and an always-zero
+    // column reads as "not yet tracked". Pass 4 dropped what Pass 1 created.
+    expect(cols).not.toContain('reserve_amount');
   });
 
   itLive('ar_aging_snapshots carries a date, a bucket, a balance and a count', () => {
@@ -243,17 +247,18 @@ describe('billing — behaviour the schema must refuse', () => {
   });
 
   /**
-   * The deposit is not an independent number to be typed in. If gross, fee and
-   * reserve do not add back up to it, one of the four was mis-keyed and the
-   * remittance no longer reconciles.
+   * The deposit is not an independent number to be typed in. If gross and fee
+   * do not add back up to it, one of the three was mis-keyed and the
+   * remittance no longer reconciles. There is no reserve term: Smart Freight
+   * holds no reserve, so Pass 4 dropped the column and restated the identity.
    */
-  itLive('a deposit that is not gross less fee less reserve is refused', () => {
+  itLive('a deposit that is not gross less fee is refused', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-7', 'factored', 1000
         FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
-      INSERT INTO public.payments (invoice_id, source, gross_amount, fee_amount, reserve_amount, net_deposited)
-        VALUES ('${SCRATCH}', 'factor', 1000, 20, 0, 999);
+      INSERT INTO public.payments (invoice_id, source, gross_amount, fee_amount, net_deposited)
+        VALUES ('${SCRATCH}', 'factor', 1000, 20, 999);
       ROLLBACK;`);
     expect(err).toContain('payments_net_identity_check');
   });
@@ -520,14 +525,19 @@ describe('billing — exactly one writer', () => {
            OR proname LIKE 'post_payment%' OR proname LIKE 'record_payment%') ORDER BY 1`);
     expect(fns.sort()).toEqual([
       'allocate_invoice_number',
+      'close_short_paid_invoice',
       'create_invoice',
       'enforce_ar_aging_snapshot_append_only',
       'enforce_invoice_immutability',
       'enforce_invoice_line_immutability',
       'invoice_writer_active',
+      'normalize_invoice_number',
+      'post_invoice_payment_internal',
+      'record_invoice_payment',
       'stamp_invoice_actors',
     ]);
   });
+
 
   /** The four protections, asserted rather than described. */
   itLive('create_invoice is definer, pinned, gated, and closed to anon and PUBLIC', () => {

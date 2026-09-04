@@ -4345,6 +4345,70 @@ export type Database = {
           },
         ]
       }
+      factoring_remittances: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          net_amount: number
+          notes: string | null
+          reference: string
+          remittance_date: string
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          net_amount: number
+          notes?: string | null
+          reference: string
+          remittance_date: string
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          net_amount?: number
+          notes?: string | null
+          reference?: string
+          remittance_date?: string
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factoring_remittances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factoring_remittances_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "factoring_remittances_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       faq: {
         Row: {
           answer: string
@@ -8602,11 +8666,13 @@ export type Database = {
           gross_amount: number
           id: string
           invoice_id: string
+          method: string
           net_deposited: number
           notes: string | null
           received_at: string
           reference: string | null
-          reserve_amount: number
+          remittance_id: string | null
+          reported_invoice_number: string | null
           source: string
           updated_at: string
           updated_by: string | null
@@ -8619,11 +8685,13 @@ export type Database = {
           gross_amount: number
           id?: string
           invoice_id: string
+          method?: string
           net_deposited: number
           notes?: string | null
           received_at?: string
           reference?: string | null
-          reserve_amount?: number
+          remittance_id?: string | null
+          reported_invoice_number?: string | null
           source: string
           updated_at?: string
           updated_by?: string | null
@@ -8636,11 +8704,13 @@ export type Database = {
           gross_amount?: number
           id?: string
           invoice_id?: string
+          method?: string
           net_deposited?: number
           notes?: string | null
           received_at?: string
           reference?: string | null
-          reserve_amount?: number
+          remittance_id?: string | null
+          reported_invoice_number?: string | null
           source?: string
           updated_at?: string
           updated_by?: string | null
@@ -8665,6 +8735,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_remittance_id_fkey"
+            columns: ["remittance_id"]
+            isOneToOne: false
+            referencedRelation: "factoring_remittances"
             referencedColumns: ["id"]
           },
           {
@@ -11609,6 +11686,10 @@ export type Database = {
         Args: { _note?: string; _operator_id: string }
         Returns: string
       }
+      close_short_paid_invoice: {
+        Args: { p_invoice_id: string; p_reason: string }
+        Returns: Json
+      }
       commit_fuel_import: {
         Args: { _file_name: string; _provider: string; _rows: Json }
         Returns: Json
@@ -12184,6 +12265,7 @@ export type Database = {
           target_amount: number
         }[]
       }
+      normalize_invoice_number: { Args: { p_number: string }; Returns: string }
       operator_awaiting_return: {
         Args: { _operator_id: string }
         Returns: boolean
@@ -12195,6 +12277,22 @@ export type Database = {
       operator_return_requested: {
         Args: { _operator_id: string }
         Returns: boolean
+      }
+      post_invoice_payment_internal: {
+        Args: {
+          p_actor: string
+          p_fee: number
+          p_gross: number
+          p_invoice_id: string
+          p_method: string
+          p_net: number
+          p_received_at: string
+          p_reference: string
+          p_remittance: string
+          p_reported: string
+          p_source: string
+        }
+        Returns: Json
       }
       preview_fuel_import: { Args: { _rows: Json }; Returns: Json }
       purge_rods_day:
@@ -12244,6 +12342,11 @@ export type Database = {
           p_reason: string
         }
         Returns: undefined
+      }
+      record_factoring_remittance: { Args: { p_payload: Json }; Returns: Json }
+      record_invoice_payment: {
+        Args: { p_invoice_id: string; p_payload: Json }
+        Returns: Json
       }
       record_loadout_damage_flag: {
         Args: { _load_id: string; _note: string }
