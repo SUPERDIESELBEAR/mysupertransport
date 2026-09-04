@@ -1311,6 +1311,42 @@ The previous list named 11 loads; it was incomplete.
 Empty and needing nothing: `fuel_transactions`, `deductions`, `rm_deposits`,
 `cash_advances`, `dispatch_deductions`, `pay_policy_assignments`.
 
+**Module 7 addendum (2026-09-04).** The billing tables created by Module 7 Pass 1
+are registered here on the day they were created, EMPTY, rather than discovered
+later — the recorded lesson of this very procedure was that a purge list written
+after the fact missed five loads and every storage object.
+
+| Object | At cutover | Note |
+|---|---|---|
+| `invoices` | 0 | Purge BEFORE `loads`: `load_id` is `ON DELETE RESTRICT`, so a leftover invoice BLOCKS the load delete. This is deliberate. |
+| `invoice_line_items` | 0 | cascades from `invoices` |
+| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately |
+| `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices` |
+| `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
+
+**A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
+deleted and its lines cannot be removed — the trigger refuses, exactly as it is
+meant to. If any test invoice reaches `submitted_at` before cutover, the purge
+will FAIL at that row with a `42501` and no amount of retrying will help. The
+unlock is the same shape as the settlement one:
+
+```sql
+BEGIN;
+SET LOCAL app.invoice_write = 'on';
+DELETE FROM public.payments WHERE invoice_id IN (SELECT id FROM public.invoices);
+DELETE FROM public.invoices;
+DELETE FROM public.invoice_batches;
+COMMIT;
+```
+
+`ar_aging_snapshots` has NO unlock and needs none: it holds no client-role
+UPDATE or DELETE path that the trigger permits, and the purge runs privileged.
+The trigger refuses a DELETE unconditionally, including from the writer gate —
+so a snapshot row, if one ever exists, must be removed by dropping and
+recreating the table, or by temporarily disabling that one trigger. THIS IS
+DELIBERATE and was chosen with the purge in mind: an append-only ledger with a
+convenient delete path is not append-only. Nothing writes snapshots today.
+
 **What the recorded list was missing, in one line:** five loads, all storage
 objects, `parser_diagnostics` (74), `rate_con_ingest_queue` (5), `facilities` (2),
 `audit_log` (5), `settlement_withheld_loads` (2), `preview_sessions` (112), and the
@@ -6131,3 +6167,172 @@ Fix applied (no GRANT, policy, RLS, or migration change):
 No database-side change was needed; the 2026-09-04 investigation confirmed
 `authenticated` already holds full DML on `profiles` and the policies are
 self-or-staff.
+
+---
+
+## MODULE 7 (Billing & Invoicing), PASS 1 — the schema (2026-09-04)
+
+Schema only. No invoice builder, no writer RPC, no payment posting logic, no
+screen, and no `supplemental_invoices` — the Module 5 adjustment that would
+produce one does not exist yet, and a table with no producer is a table whose
+shape is guessed.
+
+### What an invoice IS here
+
+**One invoice per load, enforced by a UNIQUE constraint, not by a builder.**
+
+The rejected alternative is recorded so it is not revisited: an invoice per
+broker per period. The schema is already load-centric in every direction —
+`load_charges.load_id` is NOT NULL, `assert_charge_entry_allowed` gates money by
+LOAD status, and the whole billing chain lives on `loads.status`
+(`ready_to_invoice` → `invoiced` → `factored` → `paid` → `settled`). The factor
+also buys loads individually. A period invoice would have had to be decomposed
+back into loads at every one of those points.
+
+`invoices.amount` is the BROKER-FACING figure: header rate + unbundled FSC + ALL
+load charges. It is deliberately NOT the dispatch settlement base. The §4.3
+exclusion predicate asks whether there is carrier margin for a 5% to come out
+of; that question does not exist on the broker side, where the broker owes the
+lumper reimbursement in full. **These two numbers are SUPPOSED to differ, and
+anyone who "fixes" the difference has broken one of them.** The factor's fee is
+not deducted here either — the broker owes 100% of the invoice.
+
+### The two 2% figures
+
+There is ONE real-world fact — the factor charges 2% — computed in TWO places
+for two different purposes:
+
+1. `dispatch_settlement_rates.factoring_pct`, which reduces the dispatch
+   company's eligible base before the 5% dispatch fee (§4.5);
+2. `payments.fee_amount`, the factor's ACTUAL deduction from what landed in the
+   bank.
+
+`payments.fee_amount` is **read off the remittance and never recomputed from the
+rate table.** If it were derived, a later rate change would silently restate
+what was already deposited months ago.
+
+The coupling is recorded as a live column comment on
+`dispatch_settlement_rates.factoring_pct`, and a test asserts the comment still
+says so. **Nothing in the schema connects the two and nothing will notice if
+only one is updated when the factor renegotiates.** That is stated rather than
+solved, because the alternative — deriving one from the other — is the bug.
+
+### Tenancy: `company_id` from the FIRST migration
+
+Every one of the five tables carries a NOT NULL `company_id`. The reason is
+specific and not general tidiness: **a submitted invoice is immutable, so a
+company column added later could never be backfilled onto the rows that most
+need it** — the database itself refuses the UPDATE. On an empty table the column
+costs nothing.
+
+**A finding worth the record.** It was first implemented as a column DEFAULT of
+`current_company_id()`. That failed immediately on live verification with
+`permission denied for function current_company_id`, because **a column DEFAULT
+is evaluated as the CALLER**, making tenancy a per-role EXECUTE grant problem
+for every role that ever inserts. Worse, a default is only applied when the
+column is OMITTED — a caller could assert any company simply by supplying it.
+
+It is now stamped by `aa_stamp_billing_company_id`, a definer BEFORE INSERT
+trigger that assigns unconditionally, with no `coalesce`. Same reasoning as
+`stamp_invoice_actors`: **tenancy is not a field a client asserts.**
+`current_company_id()` remains `authenticated`-executable because the RLS
+policies call it, and a policy expression IS evaluated as the caller. It is the
+ONLY one of the six new definer functions that reaches a client role.
+
+### What is frozen and — deliberately — what is not
+
+An invoice freezes at `submitted_at`, because at that moment it is a document
+someone else holds. Frozen: company, load, broker (and both broker snapshots),
+number, billing path, amount, batch, and the submission itself. Deletion is
+refused outright. The line items of a submitted invoice cannot be added to,
+edited or removed.
+
+**NOT frozen: `status`, the payment-lifecycle timestamps and their actors,
+`short_pay_reason`, and `notes`.** A receivable that cannot record its own
+payment is not a receivable. This is the one place where the Module 4 pattern is
+copied in approach but not in strictness, and the difference is intentional.
+
+The gate is `app.invoice_write`, its own setting. `app.settlement_write` and
+`app.dispatch_settlement_write` cannot unlock an invoice and `app.invoice_write`
+cannot unlock a settlement — **one privileged correction path should never open
+two sets of books.** A test asserts the three names do not appear in each
+other's functions.
+
+`ar_aging_snapshots` is append-only with no escape hatch at all, not even the
+writer gate: aging is a point-in-time fact that cannot be reconstructed once the
+invoices are paid.
+
+### Access
+
+Management and owner only, on all five tables, scoped to the company in both
+`USING` and `WITH CHECK`. A dispatcher books the load; what the broker is
+charged, what the factor took and what is outstanding are not his. **Operator
+isolation here is absolute in the strongest available sense: there is no
+operator predicate to get wrong, because there is no operator access at all.**
+
+### FINDING — the platform re-grants table privileges, and the pass adjusted to it
+
+The migration granted `SELECT, INSERT` only on `ar_aging_snapshots`. Read back
+live, `authenticated` holds the FULL set — `DELETE, INSERT, MAINTAIN,
+REFERENCES, SELECT, TRIGGER, TRUNCATE, UPDATE` — on all five tables. This is not
+a mistake in the migration: `dispatch_settlements`, `settlement_line_items` and
+`load_change_history` all carry the identical full set for the identical reason,
+and re-revoking would not survive the next migration either.
+
+**So the narrow grant was not re-asserted, and the test was rewritten to assert
+the boundary that actually holds** rather than the one that was intended: RLS
+plus the append-only trigger, which no table grant can bypass. Asserting a
+privilege the platform will silently restore would have produced a guard that
+passes today and lies tomorrow.
+
+The FUNCTION revokes, by contrast, DID survive this time — verified by
+`aclexplode(pg_proc.proacl)`, not by `information_schema`. Five of the six new
+definer functions reach `postgres`, `service_role` and the sandbox role only.
+
+### Registered in the cutover purge procedure
+
+Added the same day, empty, with the deletion ORDER (payments → invoices →
+batches, all before `loads` and `brokers`, because of `ON DELETE RESTRICT`) and
+the submitted-invoice trap and its `SET LOCAL app.invoice_write = 'on'` unlock.
+The recorded lesson of that procedure is that a purge list written after the
+fact missed five loads and every storage object.
+
+### TESTS RUN (named, per the standing rule)
+
+New: `src/test/billing-schema.test.ts` — 34 tests, all reading the live catalog.
+Constraint refusals are exercised, not merely asserted: a second invoice for the
+same load, `purchased_at` on a direct invoice, a payment dated before
+submission, an actor with no moment, `short_paid` with no reason, a deposit that
+is not gross less fee less reserve, an out-of-range aging bucket, a duplicate
+daily snapshot, and a charge reference on a linehaul line.
+
+The immutability rule is exercised in the one direction this harness can reach:
+**a line CANNOT be added to an already-submitted invoice** (the guard fires
+BEFORE INSERT too), and the same insert **CAN** be made while the invoice is a
+draft. The UPDATE and DELETE halves cannot be exercised here — the test role
+holds SELECT and INSERT only on every public table — so the file proves the
+triggers are attached and the rules are inside them, which is the part a later
+migration is most likely to drop.
+
+Also run: `definer-live-catalog` (13), `definer-search-path` (7),
+`definer-fail-open` (3), `policy-grant-parity` (4), `postgrestEmbeds` (6),
+`parityFixtures` (25), `sync-payload-operator-id` (9), `notification-priority`
+(2), `notification-isolation` (18) — the full `npm run test:guards` set, 87
+passing. Plus `dispatch-settlement-schema`, `caller-evaluated-functions`,
+`grant-parity-live`, `operator-settlement-isolation` — 40 passing.
+
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` raised 110 → 111 for
+`current_company_id()`, with the reason written at the ceiling. It went up by
+ONE and not by SIX because the four trigger functions and the writer gate reach
+no client role.
+
+### What Pass 1 does NOT do
+
+No invoice number generator (`load_number_config` is the pattern to follow, and
+it is not yet decided whether invoice numbers should track load numbers). No
+builder, so nothing composes the lines from `load_charges` yet. No payment
+poster, so `status` does not move on its own. No AR aging job. No supplemental
+invoice. No screen. A test asserts NO writer exists, and — as with Module 4 —
+that assertion is to be REWRITTEN to name the one writer when it arrives, never
+deleted: the point is not that nothing exists, it is that there is no SECOND
+writer.

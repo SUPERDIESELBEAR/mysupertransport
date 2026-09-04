@@ -1,6 +1,16 @@
 # Roadmap
 
 ## In progress
+- Module 7 (Billing & Invoicing) — Pass 1 DONE 2026-09-04 (see build status).
+  Next pass: invoice numbering + the builder that composes lines from
+  `load_charges`, then the payment poster. Pass 1 delivered the schema only:
+  enums, five tables
+  (`invoices`, `invoice_line_items`, `invoice_batches`, `payments`,
+  `ar_aging_snapshots`), `company_id` on every one, constraints, grants, RLS
+  (management/owner only), submitted-invoice immutability with its own writer gate,
+  live-catalog tests, purge-procedure registration, and the two-2%-figures coupling
+  recorded as a column comment. No builder, no writer, no payments posting logic,
+  no UI, no `supplemental_invoices`.
 - ICA re-send blocked: drop the redundant `trg_enforce_ica_contracts_operator_update`
   wrapper trigger that illegally calls another trigger function by name.
 - Deactivation notice confirmation must name the actual recipients, not the saved
