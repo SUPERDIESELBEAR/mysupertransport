@@ -33,6 +33,13 @@ export interface UnsettledWork {
   rmDeductionDue: number;
   /** Other recurring or one-time deductions due this period. */
   otherDeductionsDue: number;
+  /**
+   * APPROVED late accessorial adjustments (`-A1`) approved in this period and
+   * not yet settled. A trigger IN ITS OWN RIGHT: a driver whose only unsettled
+   * item is an approved adjustment is in the run, exactly as a driver whose
+   * only item is a deduction is.
+   */
+  approvedAdjustmentCount: number;
 }
 
 export const POPULATION_TRIGGERS = [
@@ -42,6 +49,7 @@ export const POPULATION_TRIGGERS = [
   'negativeCarryForward',
   'rmDeductionDue',
   'otherDeductionsDue',
+  'approvedAdjustmentCount',
 ] as const;
 
 /**
@@ -66,6 +74,7 @@ export function hasUnsettledWork(work: UnsettledWork): boolean {
     || work.negativeCarryForward > 0
     || work.rmDeductionDue > 0
     || work.otherDeductionsDue > 0
+    || work.approvedAdjustmentCount > 0
   );
 }
 
@@ -78,6 +87,7 @@ export function populationReasons(work: UnsettledWork): string[] {
   if (work.negativeCarryForward > 0) out.push('negative carry-forward from a prior period');
   if (work.rmDeductionDue > 0) out.push('Repair & Maintenance Deposit deduction due');
   if (work.otherDeductionsDue > 0) out.push('deductions due');
+  if (work.approvedAdjustmentCount > 0) out.push(`${work.approvedAdjustmentCount} approved late accessorial adjustment(s)`);
   return out;
 }
 
