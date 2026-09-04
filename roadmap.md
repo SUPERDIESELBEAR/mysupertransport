@@ -24,3 +24,12 @@
 - [docs] Update section 5 of SECURITY INCIDENT with 2026-09-03 access investigation result
 - [docs] Record authoritative cutover purge procedure in `docs/tms-build-status.md`,
   replacing the incomplete list, and document the revenue-layer demo isolation blocker.
+
+## Done (2026-09-04)
+- Fix `useAuth.tsx` `fetchProfile` silent failures: inspect `error` on profile read,
+  distinguish no-row/error/success with `ProfileLoadResult`, verify `pending → active`
+  update wrote before updating local state, and surface failures via `profileError` /
+  `profileMissing`. Added `src/hooks/__tests__/useAuth.test.tsx` (5 tests passing).
+- [docs] Record standing note in `docs/tms-build-status.md`: `information_schema.role_table_grants`
+  produces false negatives; use `pg_class.relacl` or `has_table_privilege()` for grant
+  verification, and distinguish `permission denied` from RLS zero-row filtering.
