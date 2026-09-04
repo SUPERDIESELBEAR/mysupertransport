@@ -47,7 +47,7 @@ export type SettlementLineType =
 
 export type SettlementSourceTable =
   | 'loads' | 'fuel_transactions' | 'deductions' | 'deduction_installments'
-  | 'cash_advances' | 'rm_deposits' | 'settlements';
+  | 'cash_advances' | 'rm_deposits' | 'settlements' | 'accessorial_adjustments';
 
 export interface SettlementLine {
   lineType: SettlementLineType;
