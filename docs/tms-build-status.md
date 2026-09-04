@@ -1295,13 +1295,14 @@ The previous list named 11 loads; it was incomplete.
 | `settlement_line_items` | 1 | `load_pay 327.94`, cascades from settlement |
 | `settlement_withheld_loads` | 2 | cascades from settlement |
 | `dispatch_settlements` | 1 | 2026-08-01, `draft` |
-| `dispatch_settlement_line_items` / `contributions` / `verdicts` | 9 / 7 / 3 | cascade |
+| `dispatch_settlement_line_items` / `load_contributions` / `charge_verdicts` | 9 / 7 / 3 | cascade; the live table names are `dispatch_settlement_load_contributions` and `dispatch_settlement_charge_verdicts` |
 | `dispatch_settlement_rates` | 1 | **confirmed correct** — 5.00% / 2.00% effective 2026-01-01; survives cutover |
 | `brokers` | 11 | 2 clearly test (`TEST-100001`, `TEST-100002`); 9 are real companies (see §2) |
 | `facilities` | 2 | J M Exotic Foods, Braswell's — from seed rate cons |
 | `rate_con_ingest_queue` | 5 | 3 hold storage paths under `rate-con-ingest` |
 | `parser_diagnostics` | 74 | `ON DELETE SET NULL` to loads/documents — survives a load delete as orphans |
-| `audit_log` | 5 | load / settlements / dispatch_settlements entities |
+| `audit_log` | **11 as of 2026-09-04** | `load` 1, `settlements` 1, `dispatch_settlements` 3, `invoices` 1, `accessorial_adjustment` 5. Was recorded as 5 before the billing and adjustment passes. **Purge by `entity_type` at Step 10, NEVER by joining to the entity table** — one `accessorial_adjustment` row (`4f5f3bc7-c453-4f04-89af-478aa786e583`) has no surviving adjustment, and a join would miss it permanently. |
+
 | storage `load-documents` | 23 objects | no FK; orphaned by any load delete |
 | storage `rate-con-ingest` | 4 objects | no FK |
 | `preview_sessions` | 112 | mobile-preview handoff rows |
