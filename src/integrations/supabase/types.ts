@@ -11724,6 +11724,10 @@ export type Database = {
         Returns: Json
       }
       allocate_invoice_number: { Args: never; Returns: string }
+      approve_accessorial_adjustment: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       approve_application_correction: {
         Args: {
           p_meta: Json
@@ -11862,6 +11866,19 @@ export type Database = {
       count_unused_resume_tokens: {
         Args: { _application_id: string }
         Returns: number
+      }
+      create_accessorial_adjustment: {
+        Args: {
+          p_actual_cost?: number
+          p_amount: number
+          p_charge_type: string
+          p_description?: string
+          p_funding_source?: string
+          p_load_id: string
+          p_proof_document_id?: string
+          p_reason: string
+        }
+        Returns: string
       }
       create_invoice: {
         Args: { p_load_id: string; p_payload: Json }
@@ -12562,6 +12579,10 @@ export type Database = {
         }
         Returns: string
       }
+      reject_accessorial_adjustment: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       reject_application_correction: {
         Args: { p_meta: Json; p_reason: string; p_token: string }
         Returns: {
@@ -12766,6 +12787,10 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_accessorial_adjustment: {
+        Args: { p_id: string; p_reason: string }
+        Returns: undefined
+      }
       submit_application_correction: {
         Args: {
           p_application_id: string
@@ -12873,6 +12898,10 @@ export type Database = {
           _archive_category: string
           _note?: string
         }
+        Returns: undefined
+      }
+      void_accessorial_adjustment: {
+        Args: { p_id: string; p_reason: string }
         Returns: undefined
       }
     }
