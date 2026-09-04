@@ -103,16 +103,61 @@ describe('the percentage columns are named in exactly one module', () => {
 
   for (const path of CONSUMERS) {
     it(`${path} contains no literal _pct column name`, () => {
-      if (!existsSync(path)) return; // Pass 3 module not built yet.
+      if (!existsSync(path)) return; // module not built yet.
       const hits = code(path).match(/[a-z_]*_pct\b/g) ?? [];
       expect(hits).toEqual([]);
     });
+  }
 
+  for (const path of PCT_CONSUMERS) {
     it(`${path} imports the shared resolver`, () => {
       if (!existsSync(path)) return;
       expect(code(path)).toMatch(/pctForClassification/);
     });
   }
+
+  for (const path of SOURCE_RULE_ONLY) {
+    it(`${path} resolves no pay percentage of its own`, () => {
+      if (!existsSync(path)) return;
+      // Not merely "does not import the resolver": it must not reach a
+      // percentage by ANY route. The broker owes every line in full.
+      expect(code(path)).not.toMatch(/pctForClassification|payClassOf|charge_pay_classes/);
+    });
+  }
+});
+
+describe('the parts are assembled in exactly one module', () => {
+  const ASSEMBLER = 'src/lib/loadRateParts.ts';
+
+  it('both consumers call the shared assembler', () => {
+    for (const path of ['src/lib/dispatchSettlement.ts', 'src/lib/invoiceBuilder.ts']) {
+      expect(code(path), `${path} does not call the shared assembler`)
+        .toMatch(/assembleLoadRateParts/);
+    }
+  });
+
+  it('neither consumer reassembles a header rate for itself', () => {
+    for (const path of ['src/lib/dispatchSettlement.ts', 'src/lib/invoiceBuilder.ts']) {
+      const src = code(path);
+      // The columns the assembler owns. Naming one here means a second copy.
+      for (const col of ['loadoutRelocationFee', 'ratePerMile', 'ratePerTon', 'fscAmount']) {
+        expect(src.includes(col), `${path} names ${col} outside the assembler`).toBe(false);
+      }
+    }
+  });
+
+  it('nobody reads the broker gross column instead of the parts', () => {
+    for (const path of [ASSEMBLER, 'src/lib/dispatchSettlement.ts', 'src/lib/invoiceBuilder.ts']) {
+      expect(code(path)).not.toMatch(/total_load_value|totalLoadValue/);
+    }
+  });
+
+  it('the assembler reads CONFIRMED tonnage and never the estimate', () => {
+    expect(code(ASSEMBLER)).toMatch(/confirmedTons/);
+    expect(code(ASSEMBLER)).not.toMatch(/estimatedTons|estimated_tons/);
+  });
+});
+
 });
 
 describe('delivery instants are never read in the machine timezone', () => {
