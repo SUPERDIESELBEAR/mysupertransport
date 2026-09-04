@@ -199,6 +199,13 @@ export interface SettlementComputeInput {
   fuel?: SettlementFuelInput[];
   deductions?: SettlementDeductionInput[];
   advances?: SettlementAdvanceInput[];
+  /**
+   * APPROVED late accessorial adjustments (`-A1`) due this period. A
+   * SETTLE-ONCE item: the gatherer keys it on `settledSourcesEver`, never on
+   * the period-scoped set, and it lands in the period of APPROVAL rather than
+   * the load's delivery period.
+   */
+  adjustments?: SettlementAdjustmentInput[];
   rmDeposit?: RmDepositState | null;
   /**
    * Signed carry-forward from a prior period. Negative is a debt the driver
