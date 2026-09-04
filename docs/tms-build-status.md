@@ -1663,31 +1663,46 @@ Expected: `1`; no row (or `2026, 1`); `0`.
 #### 4. What must not be deleted, and scoping
 
 - **60 active non-demo operators** (154 total, 1 demo). No step deletes from
-  `operators` except the single Pate-linked row in Step 7, addressed by literal id.
+  `operators` except the single Pate-linked row in Step 9, addressed by literal id.
 - **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
   `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
   Deleting "the operator that owns the test loads" deletes a live driver. Never
   delete by joining through loads.
-- **326 real applications.** Step 7 touches one literal id.
+- **326 real applications.** Step 9 touches one literal id.
 - **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
-- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 4 names
+- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 6 names
   bucket ids explicitly.
 - **Nine non-TEST brokers are real trading partners.** They are not distinguishable
   by any column (`factoring_status` is `unknown` on all nine). Keep them; review
   factoring status manually before the first real load.
+- **3,891 audit rows that are not test residue.** Step 10 names five
+  `entity_type` values and nothing else.
 
 #### 5. Verification and reversibility
 
 Per-step verification is named inline; each is a `count(*)` on the target plus a
 `count(*)` on the neighbouring real table that must not move.
 
-Irreversible without the Step 0 backup: **Step 3** (a `paid` settlement), **Step 4**
-(storage bytes are not in a Postgres backup; the manifest + download is the only
-recovery), **Step 5** (history rows cannot be reconstructed).
+Irreversible without the Step 0 backup: **Step 5** (a `paid` settlement),
+**Step 6** (storage bytes are not in a Postgres backup; the manifest + download
+is the only recovery), **Step 7** (history rows cannot be reconstructed), and
+**Step 10** (an audit row is the only surviving record of a row already deleted —
+see the orphan at Step 10).
 
-Cannot be verified before running: **Step 3**. The trigger either accepts the
-`SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
-transaction and inspect the row count before `COMMIT`.
+Cannot be verified before running, re-confirmed 2026-09-04 — the psql harness
+role holds SELECT and INSERT only, so no unlock path can be exercised from it:
+
+- **Step 3** — the `approved`-adjustment delete under
+  `app.accessorial_adjustment_write`.
+- **Step 4** — the invoice-line cascade under `app.invoice_write`. The UPDATE and
+  DELETE halves of `enforce_invoice_line_immutability` have never been exercised
+  from this harness; that limitation is recorded in the Module 7 Pass 1 test note.
+- **Step 5** — the original entry, still true. The trigger either accepts the
+  `SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
+  transaction and inspect the row count before `COMMIT`.
+- **Step 6** — storage deletion is outside Postgres entirely; no catalog query can
+  confirm the objects are gone.
+
 
 #### 6. Cutover blocker and direction chosen
 
