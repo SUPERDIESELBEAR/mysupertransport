@@ -238,7 +238,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     });
   }
 
-  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes] = await Promise.all([
+  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes] = await Promise.all([
     sb.from('fuel_transactions')
       .select('id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date')
       .not('operator_id', 'is', null)
