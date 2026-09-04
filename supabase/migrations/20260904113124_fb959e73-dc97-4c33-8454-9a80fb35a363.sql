@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.enforce_ica_contracts_operator_update();

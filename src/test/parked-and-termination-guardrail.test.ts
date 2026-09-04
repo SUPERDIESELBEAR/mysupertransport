@@ -131,20 +131,28 @@ describe("parked — live schema and standing rows", () => {
     expect(orphaned[0]).toBe("0");
   });
 
-  itLive("parking writes no lease_terminations row — the standing set is untouched", () => {
-    // 31 rows stand today, and 31 rows still stand: six were VOIDED, none
-    // deleted. Six of the nine written in the three-week window record ICAs
-    // that were never ended, so they are withdrawn in place.
-    const total = psql(`select count(*) from public.lease_terminations`);
-    expect(Number(total[0])).toBe(31);
-    const voided = psql(`select count(*) from public.lease_terminations where voided_at is not null`);
-    expect(Number(voided[0])).toBe(6);
+  itLive("parking writes no lease_terminations row", () => {
+    // INVARIANT, NOT A CENSUS. This assertion used to hard-code the row count
+    // as it stood on 2026-08-31 (31 total, 6 voided). Two legitimate staff
+    // terminations on 2026-09-03 broke it through no fault of any code, and
+    // that noise was then cited as "pre-existing" cover for a real failure.
+    // A guard states a property that must always hold; it never counts rows.
+    //
+    // The property: parking is not termination. No operator may acquire a
+    // termination row at or after the moment they were parked, and no void
+    // may be deleted — voided rows stay on the table, withdrawn in place.
     const parkedWithTermination = psql(`
       select count(*) from public.operators o
       join public.lease_terminations lt on lt.operator_id = o.id
       where o.parked_at is not null and lt.created_at > o.parked_at`);
     expect(parkedWithTermination[0]).toBe("0");
+
+    // A void is a withdrawal, never a delete: every voided row is still here.
+    const voidedStillPresent = psql(`
+      select count(*) from public.lease_terminations where voided_at is not null`);
+    expect(Number(voidedStillPresent[0])).toBeGreaterThanOrEqual(6);
   });
+
 
   itLive("exactly the six mistaken rows are voided, and no genuine departure is", () => {
     const voidedNames = psql(`
@@ -187,14 +195,28 @@ describe("parked — live schema and standing rows", () => {
     expect(Number(audited[0])).toBe(6);
   });
 
-  itLive("every voided row belongs to a driver who is still working", () => {
+  itLive("no void was issued against a driver who was already gone", () => {
+    // A void withdraws a termination recorded in error for someone who was
+    // still working. It is NOT a comment on what happens to that driver
+    // afterwards: Vino Huddleston's 2026-08-31 void was correct, and his
+    // genuine termination on 2026-09-03 does not retroactively invalidate it.
+    //
+    // So the check is scoped to voided rows with NO subsequent termination
+    // for the same operator. Those, and only those, must still describe a
+    // working driver. A void against someone already gone is the defect.
     const notWorking = psql(`
       select count(*) from public.lease_terminations lt
       join public.operators o on o.id = lt.operator_id
       where lt.voided_at is not null
+        and not exists (
+          select 1 from public.lease_terminations later
+          where later.operator_id = lt.operator_id
+            and later.voided_at is null
+            and later.created_at > lt.created_at)
         and (o.is_active is not true or o.excluded_from_dispatch is true)`);
     expect(notWorking[0]).toBe("0");
   });
+
 
 
   itLive("the parked RPCs are hardened", () => {

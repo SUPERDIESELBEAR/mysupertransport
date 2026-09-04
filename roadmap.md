@@ -33,3 +33,7 @@
 - [docs] Record standing note in `docs/tms-build-status.md`: `information_schema.role_table_grants`
   produces false negatives; use `pg_class.relacl` or `has_table_privilege()` for grant
   verification, and distinguish `permission denied` from RLS zero-row filtering.
+- Drop the orphaned `enforce_ica_contracts_operator_update()` definer function left
+  by migration `20260903214629`, after verifying the whitelist trigger covers it.
+- Rewrite `parked-and-termination-guardrail` census assertions as invariants, and
+  record the "a guard asserts an invariant, not a census" standing rule.
