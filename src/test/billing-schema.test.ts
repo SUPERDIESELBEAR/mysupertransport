@@ -46,6 +46,7 @@ const TABLES = [
   'ar_aging_snapshots',
   'invoice_batches',
   'invoice_line_items',
+  'invoice_number_config',
   'invoices',
   'payments',
 ];
@@ -194,9 +195,9 @@ describe('billing — behaviour the schema must refuse', () => {
   itLive('a SECOND invoice for the same load is refused by the database, not by a builder', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount)
-        SELECT id, 'SCRATCH-1', 'direct', 100 FROM public.loads ORDER BY created_at LIMIT 1;
+        SELECT id, 'SCRATCH-1', 'direct', 100 FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount)
-        SELECT id, 'SCRATCH-2', 'direct', 100 FROM public.loads ORDER BY created_at LIMIT 1;
+        SELECT load_id, 'SCRATCH-2', 'direct', 100 FROM public.invoices WHERE invoice_number = 'SCRATCH-1';
       ROLLBACK;`);
     expect(err).toContain('invoices_load_key');
   });
@@ -204,7 +205,7 @@ describe('billing — behaviour the schema must refuse', () => {
   itLive('purchased_at on a DIRECT invoice is refused — only a factor purchases', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, submitted_at, purchased_at)
-        SELECT id, 'SCRATCH-3', 'direct', 100, now(), now() FROM public.loads ORDER BY created_at LIMIT 1;
+        SELECT id, 'SCRATCH-3', 'direct', 100, now(), now() FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       ROLLBACK;`);
     expect(err).toContain('invoices_purchased_requires_factored_check');
   });
@@ -213,7 +214,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, submitted_at, paid_at)
         SELECT id, 'SCRATCH-4', 'factored', 100, now(), now() - interval '5 days'
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       ROLLBACK;`);
     expect(err).toContain('invoices_lifecycle_order_check');
   });
@@ -222,7 +223,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, paid_by)
         SELECT id, 'SCRATCH-5', 'factored', 100, (SELECT id FROM public.profiles LIMIT 1)
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       ROLLBACK;`);
     expect(err).toContain('invoices_actor_requires_timestamp_check');
   });
@@ -236,7 +237,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, status)
         SELECT id, 'SCRATCH-6', 'factored', 100, 'short_paid'
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       ROLLBACK;`);
     expect(err).toContain('invoices_short_pay_reason_check');
   });
@@ -250,7 +251,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-7', 'factored', 1000
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       INSERT INTO public.payments (invoice_id, source, gross_amount, fee_amount, reserve_amount, net_deposited)
         VALUES ('${SCRATCH}', 'factor', 1000, 20, 0, 999);
       ROLLBACK;`);
@@ -279,7 +280,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-8', 'factored', 1000
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount, charge_type)
         VALUES ('${SCRATCH}', 'linehaul', 1000, 'lumper');
       ROLLBACK;`);
@@ -297,7 +298,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount, submitted_at)
         SELECT '${SCRATCH}', id, 'SCRATCH-9', 'factored', 1000, now()
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount)
         VALUES ('${SCRATCH}', 'linehaul', 1000);
       ROLLBACK;`);
@@ -309,7 +310,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const rows = psql(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-10', 'factored', 1000
-        FROM public.loads ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount)
         VALUES ('${SCRATCH}', 'linehaul', 1000);
       SELECT count(*)::text FROM public.invoice_line_items WHERE invoice_id = '${SCRATCH}';
@@ -410,16 +411,22 @@ describe('billing — access', () => {
   itLive('every policy names management and owner, scopes to the company, and names no other role', () => {
     const policies = psql(`SELECT c.relname || '|' || p.polname || '|' ||
         pg_get_expr(p.polqual, p.polrelid) || '|' ||
-        coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') || '|' ||
+        coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') || '|' || p.polcmd::text || '|' ||
         (SELECT string_agg(r.rolname, ',' ORDER BY r.rolname)
            FROM unnest(p.polroles) x JOIN pg_roles r ON r.oid = x)
       FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
       WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
     expect(policies).toHaveLength(TABLES.length);
     for (const row of policies) {
-      const [table, , using, check, roles] = row.split('|');
+      const [table, , using, check, cmd, roles] = row.split('|');
       expect(roles, `${table} roles`).toBe('authenticated');
-      for (const expr of [using, check]) {
+      // A read-only policy has no WITH CHECK because it grants no write. That
+      // is stricter than a checked write policy, not looser — but it is only
+      // acceptable when the policy really is SELECT-only ('r').
+      if (check === '') {
+        expect(cmd, `${table} has no WITH CHECK, so it must be SELECT-only`).toBe('r');
+      }
+      for (const expr of [using, check].filter(e => e !== '')) {
         expect(expr, `${table} predicate`).toContain("'management'");
         expect(expr, `${table} predicate`).toContain("'owner'");
         expect(expr, `${table} tenancy`).toContain('current_company_id()');
@@ -501,23 +508,62 @@ describe('billing — access', () => {
   });
 });
 
-describe('billing — no writer exists yet', () => {
+describe('billing — exactly one writer', () => {
   /**
-   * Pass 1 is schema only. The assertion is kept and named when a writer
-   * arrives, exactly as the dispatch settlement file did: the point is never
-   * "nothing exists", it is "there is no SECOND writer".
+   * Pass 3 named the writer. The point was never "nothing exists", it is
+   * "there is no SECOND writer": one function creates an invoice, one function
+   * allocates its number, and that allocator is reachable from nowhere else.
    */
-  itLive('no invoice builder or payment poster has been added', () => {
+  itLive('create_invoice is the only invoice writer, and the allocator serves only it', () => {
     const fns = psql(`SELECT proname FROM pg_proc WHERE pronamespace='public'::regnamespace
       AND (proname LIKE '%invoice%' OR proname LIKE '%ar_aging%'
            OR proname LIKE 'post_payment%' OR proname LIKE 'record_payment%') ORDER BY 1`);
     expect(fns.sort()).toEqual([
+      'allocate_invoice_number',
+      'create_invoice',
       'enforce_ar_aging_snapshot_append_only',
       'enforce_invoice_immutability',
       'enforce_invoice_line_immutability',
       'invoice_writer_active',
       'stamp_invoice_actors',
     ]);
+  });
+
+  /** The four protections, asserted rather than described. */
+  itLive('create_invoice is definer, pinned, gated, and closed to anon and PUBLIC', () => {
+    const row = psql(`SELECT p.prosecdef::text || '|' || coalesce(array_to_string(p.proconfig, ','), '')
+        || '|' || coalesce(array_to_string(p.proacl, ' '), '') || '|' || p.prosrc
+      FROM pg_proc p WHERE p.pronamespace='public'::regnamespace AND p.proname='create_invoice'`).join('\n');
+    const [secdef, config, acl] = row.split('|');
+    expect(secdef).toBe('true');
+    expect(config).toContain('search_path=public, extensions');
+    expect(acl).toContain('authenticated=X');
+    expect(acl).not.toContain('anon=X');
+    expect(acl).not.toMatch(/(^|\s)=X/);
+    expect(row).toContain("has_role(auth.uid(), 'management'");
+    expect(row).toContain('current_profile_id()');
+  });
+
+  /**
+   * A number consumed by anything other than a successful write is a number
+   * burned. The allocator must therefore be unreachable from the browser, and
+   * it must be called from create_invoice AFTER every refusal.
+   */
+  itLive('the number allocator is executable by no client role', () => {
+    const acl = psql(`SELECT coalesce(array_to_string(proacl, ' '), '') FROM pg_proc
+      WHERE pronamespace='public'::regnamespace AND proname='allocate_invoice_number'`).join('');
+    expect(acl).not.toContain('authenticated=X');
+    expect(acl).not.toContain('anon=X');
+    expect(acl).not.toMatch(/(^|\s)=X/);
+
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='create_invoice'`).join('\n');
+    const alloc = src.indexOf('allocate_invoice_number');
+    const insert = src.indexOf('INSERT INTO public.invoices');
+    const lastRaise = src.lastIndexOf('RAISE EXCEPTION', alloc);
+    expect(alloc, 'create_invoice must allocate the number').toBeGreaterThan(0);
+    expect(alloc, 'the number must be allocated before the row is written').toBeLessThan(insert);
+    expect(lastRaise, 'every refusal must precede allocation').toBeLessThan(alloc);
   });
 
   /**

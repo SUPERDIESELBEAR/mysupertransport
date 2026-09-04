@@ -603,7 +603,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   The four Module 7 trigger functions and invoice_writer_active() are NOT
 //   here: they are service_role only, which is why this went up by one and not
 //   by six.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 111;
+// + create_invoice(uuid, jsonb) (2026-09-04), Module 7 Pass 3's ONLY invoice
+//   writer: management or owner in the body, actor from current_profile_id(),
+//   company stamped by trigger, and a refuse-only contract (lines vs total,
+//   load status, one invoice per load, charge set in both directions):
+//   111 -> 112. allocate_invoice_number() is NOT here — it is service_role
+//   only, because a number must be consumed by a WRITE and nothing else.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 112;
 
 
 

@@ -5470,6 +5470,50 @@ export type Database = {
           },
         ]
       }
+      invoice_number_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          id: string
+          next_sequence: number
+          prefix: string
+          separator: string
+          sequence_padding: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          id?: string
+          next_sequence?: number
+          prefix?: string
+          separator?: string
+          sequence_padding?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          id?: string
+          next_sequence?: number
+          prefix?: string
+          separator?: string
+          sequence_padding?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_number_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -11456,6 +11500,7 @@ export type Database = {
         Args: { _note: string; _request_id: string }
         Returns: Json
       }
+      allocate_invoice_number: { Args: never; Returns: string }
       approve_application_correction: {
         Args: {
           p_meta: Json
@@ -11590,6 +11635,10 @@ export type Database = {
       count_unused_resume_tokens: {
         Args: { _application_id: string }
         Returns: number
+      }
+      create_invoice: {
+        Args: { p_load_id: string; p_payload: Json }
+        Returns: Json
       }
       create_load_with_stops: {
         Args: { p_charges?: Json; p_load: Json; p_stops: Json }
