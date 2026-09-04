@@ -415,12 +415,17 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
 
     const work: UnsettledWork = {
       operatorId,
+    const adjustments = adjustmentsByOperator[operatorId] ?? [];
+
+    const work: UnsettledWork = {
+      operatorId,
       deliveredLoadCount: loads.length,
       undeductedFuelCount: fuel.length,
       outstandingAdvanceBalance: advanceBalance,
       negativeCarryForward: carryIn < 0 ? Math.abs(carryIn) : 0,
       rmDeductionDue: Math.min(rmShortfall, rmDeposit?.weeklyDeduction ?? settings.rm_weekly_deduction),
       otherDeductionsDue: deductions.reduce((t, d) => t + d.amount, 0),
+      approvedAdjustmentCount: adjustments.length,
     };
 
     gathered.push({
@@ -437,6 +442,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         loads,
         fuel,
         deductions,
+        adjustments,
         // Cash advances are a POPULATION trigger only: no repayment schedule is
         // recorded anywhere, and inventing one here would be the gathering layer
         // making a pay rule. Recorded as an open item.
