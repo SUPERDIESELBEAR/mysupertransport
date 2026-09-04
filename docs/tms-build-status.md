@@ -2035,6 +2035,42 @@ Both assertions were rewritten as invariants on 2026-09-04:
   later followed by a genuine departure is not a violation; a void issued
   against someone already gone still is.
 
+### Addendum — the third instance the rule's own pass missed (2026-09-04)
+
+The pass that wrote this rule fixed two occurrences in
+`parked-and-termination-guardrail.test.ts` and left a third standing eight lines
+below one of them: in "a void carries a reason, an actor and an audit entry",
+
+    expect(Number(audited[0])).toBe(6);
+
+— a count of `audit_log` rows with `action = 'lease_termination_voided'`, which
+passed only because six voids had happened to date. The seventh legitimate void
+would have broken it for exactly the reason the `31` broke.
+
+It is now expressed as the invariant the test is named for: the audit count is
+matched against the void count rather than against a literal. Zero voided
+`lease_terminations` rows may lack an audit entry (correlated on
+`metadata->>'termination_id'`), and zero void audit entries may lack an actor or
+point at a row that is not voided. Both directions, no absolute number.
+
+The neighbouring "exactly the six mistaken rows are voided" assertion used
+`toEqual([...six names])` — equality against the live voided set, the same
+defect in list form. It is now a SUBSET check: those six historical rows must
+never be quietly un-voided, and a seventh void is normal business.
+
+**The lesson on top of the rule.** Fixing two of three occurrences and recording
+a rule about the class is how the third one gets found by a failure later
+instead of by the sweep now. When a rule of this kind is recorded, the pass that
+records it sweeps for every instance in at least the file it was found in.
+
+Remaining literals in that file, all deliberate: `>= 6` on voided rows (a
+monotonic floor asserting a void is withdrawn in place, never deleted — it
+cannot go down, so it cannot break on new voids); `rows.length === 2` and
+`=== 3` on named RPC sets (fixed by schema, not by data); and the six names,
+now a subset. A wider sweep of `src/test/` for live-row censuses found no other
+instance: every other numeric assertion in the DB-backed suites counts catalog
+objects, self-created fixture rows, or empty offender lists.
+
 ### Correction to the 2026-09-04 three-failure report
 
 Of the three failures, **two were ours**, not "pre-existing and unrelated":
