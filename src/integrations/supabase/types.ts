@@ -614,6 +614,64 @@ export type Database = {
         }
         Relationships: []
       }
+      ar_aging_snapshots: {
+        Row: {
+          broker_id: string | null
+          bucket: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_count: number
+          open_balance: number
+          snapshot_date: string
+        }
+        Insert: {
+          broker_id?: string | null
+          bucket: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_count?: number
+          open_balance?: number
+          snapshot_date: string
+        }
+        Update: {
+          broker_id?: string | null
+          bucket?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_count?: number
+          open_balance?: number
+          snapshot_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ar_aging_snapshots_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_aging_snapshots_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ar_aging_snapshots_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -5267,6 +5325,306 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_batches: {
+        Row: {
+          batch_number: string
+          billing_path: Database["public"]["Enums"]["invoice_billing_path"]
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_count: number
+          notes: string | null
+          submitted_at: string | null
+          submitted_by: string | null
+          total_amount: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          batch_number: string
+          billing_path: Database["public"]["Enums"]["invoice_billing_path"]
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_count?: number
+          notes?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_amount?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          batch_number?: string
+          billing_path?: Database["public"]["Enums"]["invoice_billing_path"]
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_count?: number
+          notes?: string | null
+          submitted_at?: string | null
+          submitted_by?: string | null
+          total_amount?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_batches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_batches_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_batches_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_batches_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_line_items: {
+        Row: {
+          amount: number
+          charge_type: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          invoice_id: string
+          line_type: string
+          load_charge_id: string | null
+        }
+        Insert: {
+          amount: number
+          charge_type?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_id: string
+          line_type: string
+          load_charge_id?: string | null
+        }
+        Update: {
+          amount?: number
+          charge_type?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          invoice_id?: string
+          line_type?: string
+          load_charge_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_line_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_line_items_load_charge_id_fkey"
+            columns: ["load_charge_id"]
+            isOneToOne: false
+            referencedRelation: "load_charges"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          amount: number
+          batch_id: string | null
+          billing_path: Database["public"]["Enums"]["invoice_billing_path"]
+          broker_billing_email_snapshot: string | null
+          broker_id: string | null
+          broker_name_snapshot: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_number: string
+          load_id: string
+          notes: string | null
+          paid_at: string | null
+          paid_by: string | null
+          purchased_at: string | null
+          purchased_by: string | null
+          reconciled_at: string | null
+          reconciled_by: string | null
+          short_pay_reason: string | null
+          status: Database["public"]["Enums"]["invoice_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount?: number
+          batch_id?: string | null
+          billing_path: Database["public"]["Enums"]["invoice_billing_path"]
+          broker_billing_email_snapshot?: string | null
+          broker_id?: string | null
+          broker_name_snapshot?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_number: string
+          load_id: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          purchased_at?: string | null
+          purchased_by?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          short_pay_reason?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          batch_id?: string | null
+          billing_path?: Database["public"]["Enums"]["invoice_billing_path"]
+          broker_billing_email_snapshot?: string | null
+          broker_id?: string | null
+          broker_name_snapshot?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_number?: string
+          load_id?: string
+          notes?: string | null
+          paid_at?: string | null
+          paid_by?: string | null
+          purchased_at?: string | null
+          purchased_by?: string | null
+          reconciled_at?: string | null
+          reconciled_by?: string | null
+          short_pay_reason?: string | null
+          status?: Database["public"]["Enums"]["invoice_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_batch_id_fkey"
+            columns: ["batch_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_broker_id_fkey"
+            columns: ["broker_id"]
+            isOneToOne: false
+            referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: true
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_paid_by_fkey"
+            columns: ["paid_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_purchased_by_fkey"
+            columns: ["purchased_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_reconciled_by_fkey"
+            columns: ["reconciled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_submitted_by_fkey"
+            columns: ["submitted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoices_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lease_terminations: {
         Row: {
           carrier_signature_url: string | null
@@ -8187,6 +8545,89 @@ export type Database = {
             columns: ["pay_policy_id"]
             isOneToOne: false
             referencedRelation: "pay_policies"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payments: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          fee_amount: number
+          gross_amount: number
+          id: string
+          invoice_id: string
+          net_deposited: number
+          notes: string | null
+          received_at: string
+          reference: string | null
+          reserve_amount: number
+          source: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          fee_amount?: number
+          gross_amount: number
+          id?: string
+          invoice_id: string
+          net_deposited: number
+          notes?: string | null
+          received_at?: string
+          reference?: string | null
+          reserve_amount?: number
+          source: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          fee_amount?: number
+          gross_amount?: number
+          id?: string
+          invoice_id?: string
+          net_deposited?: number
+          notes?: string | null
+          received_at?: string
+          reference?: string | null
+          reserve_amount?: number
+          source?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -11154,6 +11595,7 @@ export type Database = {
         Args: { p_charges?: Json; p_load: Json; p_stops: Json }
         Returns: string
       }
+      current_company_id: { Args: never; Returns: string }
       current_profile_id: { Args: never; Returns: string }
       delete_email: {
         Args: { message_id: number; queue_name: string }
@@ -11541,6 +11983,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      invoice_writer_active: { Args: never; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
@@ -12257,6 +12700,8 @@ export type Database = {
         | "ups_self_install"
         | "owner_operator_install"
         | "supertransport_shop"
+      invoice_billing_path: "factored" | "direct"
+      invoice_status: "open" | "partial" | "paid" | "short_paid" | "written_off"
       load_document_type:
         | "rate_confirmation"
         | "revised_rate_confirmation"
@@ -12631,6 +13076,8 @@ export const Constants = {
         "owner_operator_install",
         "supertransport_shop",
       ],
+      invoice_billing_path: ["factored", "direct"],
+      invoice_status: ["open", "partial", "paid", "short_paid", "written_off"],
       load_document_type: [
         "rate_confirmation",
         "revised_rate_confirmation",
