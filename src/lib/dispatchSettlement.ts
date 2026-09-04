@@ -35,31 +35,21 @@ import { carrierDateOf, inCalendarMonth } from '@/lib/settlementPeriod';
 /* Inputs                                                              */
 /* ------------------------------------------------------------------ */
 
-export interface DispatchLoadInput {
+/** The rate columns come from `LoadRateBasis`, the shape the invoice also reads. */
+export interface DispatchLoadInput extends LoadRateBasis {
   id: string;
   loadNumber: string;
-  loadType: string | null;
-  rateType?: string | null;
   /** `loads.status`. TONU and cancelled are excluded BY STATUS (section 4.1). */
   status: string | null;
   /** Instant of delivery. Attributed in the CARRIER timezone, never locally. */
   deliveredAt: string | null;
-  linehaulRate?: number | string | null;
-  ratePerMile?: number | string | null;
-  loadedMiles?: number | string | null;
-  ratePerTon?: number | string | null;
-  /** Scale-ticket tonnage. The ONLY tonnage that reaches a settlement. */
-  confirmedTons?: number | string | null;
-  fscAmount?: number | string | null;
-  /** NULL and true both mean bundled; only an explicit false adds the FSC. */
-  fscBundledIntoLinehaul?: boolean | null;
-  loadoutRelocationFee?: number | string | null;
   /** Who BOOKED the load. Visibility only; nullable (section 4.6). */
   dispatcherId: string | null;
   charges: LoadChargeRecord[];
   /** Load-specific pay policy override, when one is in force. */
   policyOverride?: PayPolicyRates | null;
 }
+
 
 /** A flat monthly deduction — DAT, phone service (section 4.5). */
 export interface DispatchDeductionInput {
