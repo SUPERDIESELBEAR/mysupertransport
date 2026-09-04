@@ -5986,3 +5986,56 @@ readable by any signed-in user holding an operator UUID. The catch-as-false half
 of this function is now RESOLVED above; this caller-check half remains open.
 
 **TRIGGER: before any external or customer-facing account type exists.**
+
+## STANDING NOTE — how to verify grants, and the two different empty-result shapes (2026-09-04)
+
+`information_schema.role_table_grants` returned **zero rows** for `public.profiles`
+during the 2026-09-04 investigation. That is the same false "no grants" reading
+that `src/test/grant-parity-live.test.ts` already warns about: the view only
+exposes grants the **calling role is party to**, so it reads empty for nearly every
+table in this database. A query that returns empty for almost everything is not
+evidence of anything.
+
+The authoritative checks are:
+
+- `pg_class.relacl` — shows the actual ACL. For `public.profiles` it contains
+  `authenticated=arwdDxtm/postgres` and `service_role=arwdDxtm/postgres`.
+- `has_table_privilege(role, 'public.profiles', privilege)` — returns `true` for
+  `authenticated` on SELECT/INSERT/UPDATE/DELETE, and `false` for `anon` on all.
+
+**Any future finding that claims missing grants must be checked against one of
+those two sources, never against `information_schema.role_table_grants`.** This
+view has now produced a false alarm twice.
+
+Also: **`permission denied` and "RLS returned zero rows" are different failure
+shapes** and were conflated in the incoming report. On `public.profiles`, an
+operator reading another user's row correctly gets an empty set (the SELECT
+policy is `auth.uid() = user_id` for non-staff), not an error. That is the
+intended RLS filter, already documented in `src/lib/staffContacts.ts`.
+
+## RESOLVED — `useAuth.tsx` `fetchProfile` silent failures (2026-09-04)
+
+The sign-in path in `src/hooks/useAuth.tsx` destructured `data` and discarded
+`error` on the profile read, then fire-and-forgot the `pending → active` update
+without verifying it wrote. A failed read left `profile` silently `null`; a
+zero-row update left the database at `pending` while the UI showed `active`.
+
+Fix applied (no GRANT, policy, RLS, or migration change):
+
+- Replaced `.single()` with `.maybeSingle()` so a missing row is not dressed up as
+  an error.
+- Extracted `loadProfile()` and `activatePendingProfile()` helpers that return
+  explicit outcomes: `ok | missing | error` and `{ activated: boolean }`.
+- `fetchProfile` now logs and traces read failures, sets `profileError`, and keeps
+  `profile` null.
+- A genuinely missing profile is tracked separately via `profileMissing`.
+- The `pending → active` update only flips local state when the returned row count
+  is non-zero. A zero-row update is logged and traced as a failure; the UI keeps
+  showing `pending`.
+- `AuthContext` now exposes `profileError` and `profileMissing` so consumers can
+  render a degraded-session banner instead of silently behaving as if the user
+  had no profile.
+
+No database-side change was needed; the 2026-09-04 investigation confirmed
+`authenticated` already holds full DML on `profiles` and the policies are
+self-or-staff.

@@ -16,6 +16,14 @@ interface AuthContextType {
   loading: boolean;
   /** True once fetchRoles has completed at least once for the current user. */
   rolesLoaded: boolean;
+  /**
+   * Non-null when the profile read failed outright (permission, network, or any
+   * PostgREST error). A degraded session must be visible — consumers render a
+   * banner rather than silently behaving as if the user had no profile.
+   */
+  profileError: string | null;
+  /** True when the read succeeded but the user genuinely has no profile row. */
+  profileMissing: boolean;
   refreshProfile: () => Promise<void>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -29,7 +37,7 @@ interface AuthContextType {
   isTruckOwner: boolean;
 }
 
-interface ProfileData {
+export interface ProfileData {
   id: string;
   first_name: string | null;
   last_name: string | null;
@@ -40,6 +48,62 @@ interface ProfileData {
   birth_day: number | null;
   account_status: string;
   avatar_url: string | null;
+}
+
+const PROFILE_COLUMNS =
+  'id, first_name, last_name, phone, home_state, home_country, birth_month, birth_day, account_status, avatar_url';
+
+/**
+ * Outcome of the sign-in profile read. The three cases are deliberately distinct:
+ * a new user with no row yet is a real state, an error is a defect, and neither
+ * may be collapsed into `if (data)` — that collapse is what produced silent
+ * degraded sessions.
+ */
+export type ProfileLoadResult =
+  | { status: 'ok'; profile: ProfileData }
+  | { status: 'missing' }
+  | { status: 'error'; message: string; code?: string };
+
+type MinimalClient = Pick<typeof supabase, 'from'>;
+
+export async function loadProfile(
+  client: MinimalClient,
+  userId: string,
+): Promise<ProfileLoadResult> {
+  const { data, error } = await client
+    .from('profiles')
+    .select(PROFILE_COLUMNS)
+    .eq('user_id', userId)
+    // maybeSingle, not single: "no row" must not arrive dressed up as an error.
+    .maybeSingle();
+
+  if (error) {
+    return { status: 'error', message: error.message, code: (error as { code?: string }).code };
+  }
+  if (!data) return { status: 'missing' };
+  return { status: 'ok', profile: data as unknown as ProfileData };
+}
+
+/**
+ * Activate a pending account. Returns true ONLY when a row was actually written.
+ * A zero-row update is not success — it means RLS filtered the row out or the
+ * user id did not match, and the UI must keep showing `pending`.
+ */
+export async function activatePendingProfile(
+  client: MinimalClient,
+  userId: string,
+): Promise<{ activated: boolean; message?: string }> {
+  const { data, error } = await client
+    .from('profiles')
+    .update({ account_status: 'active' as never })
+    .eq('user_id', userId)
+    .select('id');
+
+  if (error) return { activated: false, message: error.message };
+  if (!data || data.length === 0) {
+    return { activated: false, message: 'pending → active update affected zero rows' };
+  }
+  return { activated: true };
 }
 
 const LOGIN_PATH = '/login';
@@ -69,6 +133,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [roles, setRoles] = useState<AppRole[]>([]);
   const [activeRole, setActiveRoleState] = useState<AppRole | null>(null);
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profileError, setProfileError] = useState<string | null>(null);
+  const [profileMissing, setProfileMissing] = useState(false);
   const [loading, setLoading] = useState(true);
   // Tracks the user.id for whom fetchRoles has completed at least once. Guards
   // downstream route protection from redirecting during a transient re-fetch
@@ -108,24 +174,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const fetchProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, phone, home_state, home_country, birth_month, birth_day, account_status, avatar_url')
-      .eq('user_id', userId)
-      .single();
-    
-    if (data) {
-      setProfile(data as ProfileData);
-      // Auto-upgrade pending → active on login
-      if (data.account_status === 'pending') {
-        supabase
-          .from('profiles')
-          .update({ account_status: 'active' as any })
-          .eq('user_id', userId)
-          .then(() => {
-            setProfile(prev => prev ? { ...prev, account_status: 'active' } : prev);
+    setProfileError(null);
+    setProfileMissing(false);
+
+    const read = await loadProfile(supabase, userId);
+
+    if (read.status === 'error') {
+      console.error('[useAuth] profile read failed:', read.message, read.code);
+      appendAuthTrace({
+        event: 'profile-read-failed',
+        userId: userId.slice(0, 8),
+        message: read.message,
+        code: read.code,
+      });
+      setProfileError(read.message);
+      setProfile(null);
+      return;
+    }
+
+    if (read.status === 'missing') {
+      appendAuthTrace({
+        event: 'profile-missing',
+        userId: userId.slice(0, 8),
+      });
+      setProfileMissing(true);
+      setProfile(null);
+      return;
+    }
+
+    const data = read.profile;
+    setProfile(data);
+
+    // Auto-upgrade pending → active on login, but only after confirming it wrote.
+    if (data.account_status === 'pending') {
+      activatePendingProfile(supabase, userId).then((result) => {
+        if (result.activated) {
+          setProfile(prev => (prev ? { ...prev, account_status: 'active' } : prev));
+        } else {
+          console.error('[useAuth] pending → active update failed:', result.message);
+          appendAuthTrace({
+            event: 'profile-activate-failed',
+            userId: userId.slice(0, 8),
+            message: result.message,
           });
-      }
+        }
+      });
     }
   };
 
@@ -143,6 +236,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
         setActiveRoleState(null);
         setProfile(null);
+        setProfileError(null);
+        setProfileMissing(false);
       }
       setLoading(false);
     });
@@ -167,6 +262,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setRoles([]);
         setActiveRoleState(null);
         setProfile(null);
+        setProfileError(null);
+        setProfileMissing(false);
         setRolesLoadedFor(null);
         setLoading(false);
       }
@@ -200,6 +297,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setRoles([]);
     setActiveRoleState(null);
     setProfile(null);
+    setProfileError(null);
+    setProfileMissing(false);
 
     clearLocalAuthSession();
 
@@ -208,7 +307,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await supabase.auth.signOut({ scope: 'local' });
     } catch (e) {
-      // Ignore — local state/storage has already been cleared.
+      // Ignore — local storage/session has already been cleared.
     } finally {
       window.clearTimeout(redirectFallback);
       clearLocalAuthSession();
@@ -229,7 +328,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   return (
     <AuthContext.Provider value={{
       user, session, roles, activeRole, setActiveRole,
-      profile, loading, rolesLoaded, refreshProfile,
+      profile, loading, rolesLoaded, profileError, profileMissing,
+      refreshProfile,
       signIn, signOut,
       isOwner, isManagement, isOnboardingStaff, isDispatcher,
       isOperator, isApplicant, isStaff, isTruckOwner,
