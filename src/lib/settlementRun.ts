@@ -252,6 +252,18 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .lt('period_start', period.periodStart)
       .order('period_start', { ascending: false }),
     sb.from('operators').select('id, is_departing, applications(first_name, last_name)'),
+    // APPROVED late accessorial adjustments, bounded by the APPROVAL instant.
+    // The period bound is INDEPENDENT of the exclusion set on purpose: the
+    // recorded fuel defect showed that when an exclusion set is a filter's
+    // only bound, losing it removes the bound entirely. Losing this one can
+    // only re-touch adjustments approved inside the week being run.
+    sb.from('accessorial_adjustments')
+      .select('id, reference, load_id, charge_type, description, amount, funding_source, '
+        + 'actual_cost, approved_at, status, settlement_id, loads(operator_id, load_number)')
+      .eq('status', 'approved')
+      .is('settlement_id', null)
+      .gte('approved_at', fromIso)
+      .lt('approved_at', toIso),
   ]);
 
   // Each read is checked HERE, once, before anything derives a figure from it.
