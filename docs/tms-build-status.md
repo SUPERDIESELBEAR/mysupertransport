@@ -1323,6 +1323,7 @@ after the fact missed five loads and every storage object.
 | `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately |
 | `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices` |
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
+| `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
 
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
 deleted and its lines cannot be removed — the trigger refuses, exactly as it is
@@ -1333,11 +1334,14 @@ unlock is the same shape as the settlement one:
 ```sql
 BEGIN;
 SET LOCAL app.invoice_write = 'on';
+UPDATE public.payments SET remittance_id = NULL;      -- release the RESTRICT
 DELETE FROM public.payments WHERE invoice_id IN (SELECT id FROM public.invoices);
+DELETE FROM public.factoring_remittances;
 DELETE FROM public.invoices;
 DELETE FROM public.invoice_batches;
 COMMIT;
 ```
+
 
 `ar_aging_snapshots` has NO unlock and needs none: it holds no client-role
 UPDATE or DELETE path that the trigger permits, and the purge runs privileged.
