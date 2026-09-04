@@ -177,6 +177,31 @@ export interface SettlementAdvanceInput {
   repaymentAmount: number;
 }
 
+/**
+ * An APPROVED `accessorial_adjustments` row reaching the driver's check.
+ *
+ * It carries the same money-shaped fields a `load_charges` row carries —
+ * classification, amount, funding source, actual cost — because it resolves
+ * through the SAME classification path and the SAME policy percentage. There
+ * is deliberately no percentage on this input: a literal here would be the
+ * fourth copy of a map that exists once, in `payTreatment.ts`.
+ */
+export interface SettlementAdjustmentInput {
+  id: string;
+  /** `ST-1042-A1`. Shown to the driver so a late line can be traced. */
+  reference: string;
+  /** Load the adjustment corrects, for the driver-facing description. */
+  loadNumber?: string | null;
+  /** Same nine values `load_charges.charge_type` admits. */
+  chargeType: string;
+  amount: number;
+  description?: string | null;
+  /** `driver` or `company`; decides who a reimbursement-class line pays. */
+  fundingSource?: string | null;
+  actualCost?: number | string | null;
+}
+
+
 export interface RmDepositState {
   id: string | null;
   currentBalance: number;
