@@ -507,6 +507,21 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.record_factoring_remittance(jsonb)",
   "public.record_invoice_payment(uuid,jsonb)",
   "public.close_short_paid_invoice(uuid,text)",
+  // Module 5 Pass 4 / Pass 2 (2026-09-04), the five late-accessorial
+  // transitions — ONE writer per state change, so the role gate is never
+  // behind a branch on client input. create/submit admit dispatcher,
+  // management and owner (the three assert_charge_entry_allowed admits);
+  // approve/reject/void are management or owner only. Actor from
+  // current_profile_id(), company stamped by trigger, a written reason on
+  // every step, and the sequence derived inside the create writer so a
+  // refused attempt consumes nothing. enforce_accessorial_adjustment_transition()
+  // is NOT here — the state machine trigger reaches no client role, which is
+  // how 'settled' stays unreachable from a browser.
+  "public.create_accessorial_adjustment(uuid,text,numeric,text,text,text,numeric,uuid)",
+  "public.submit_accessorial_adjustment(uuid,text)",
+  "public.approve_accessorial_adjustment(uuid,text)",
+  "public.reject_accessorial_adjustment(uuid,text)",
+  "public.void_accessorial_adjustment(uuid,text)",
 
 
 
@@ -634,7 +649,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   statement and never recomputed: 112 -> 115. post_invoice_payment_internal(...),
 //   normalize_invoice_number(text), enforce_payment_immutability() and
 //   enforce_remittance_immutability() are NOT here — none reaches a client role.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 115;
+// + create/submit/approve/reject/void_accessorial_adjustment (2026-09-04),
+//   Module 5 Pass 4 / Pass 2's five transitions, one per state change:
+//   115 -> 120. enforce_accessorial_adjustment_transition() is NOT here — it
+//   is service_role only, which is what keeps 'settled' out of a client's
+//   reach, so this went up by five and not by six.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 120;
 
 
 

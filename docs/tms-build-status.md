@@ -1330,7 +1330,7 @@ created, EMPTY, for the same reason.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `accessorial_adjustments` | 0 | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. |
+| `accessorial_adjustments` | **2 as of Pass 2** | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the unlock below. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions) go with them. |
 
 **A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
 `settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
@@ -2552,9 +2552,83 @@ reuses the existing `stamp_billing_company_id()` on a trigger named
 
 **Tests:** `src/test/accessorial-adjustment-schema.test.ts` — 37, live catalog.
 Includes a NO WRITER EXISTS YET assertion which is to be REWRITTEN to name the one
-writer when Pass 2 arrives, never deleted.
+writer when Pass 2 arrives, never deleted. *(Done in Pass 2: the block is now
+"EXACTLY ONE WRITER PER STATE CHANGE" and the file holds 49.)*
+
+### Module 5, Pass 4 / PASS 2 — the writer and the state machine (2026-09-04)
+
+**FIVE RPCs, one per transition, not one RPC taking a transition.** Each
+transition has a DIFFERENT role gate — create and submit admit the entry three,
+approve, reject and void admit management or owner. A single
+`transition_accessorial_adjustment(id, to_status, reason)` would put that gate
+behind a `CASE` on client input, which is the shape where a missed branch is a
+privilege escalation rather than a bug. Five functions cost five sets of
+boilerplate and make the gate unmissable at the top of each body. Typed
+parameters, not `create_invoice`'s `(uuid, jsonb)`: that one carries a
+variable-length line array, an adjustment is one fixed-shape row, so Postgres can
+refuse a wrong type before the body runs.
+
+**HOW A SEQUENCE CANNOT BE CONSUMED WITHOUT A ROW — and it is not the grant.**
+Module 7 Pass 3 made `allocate_invoice_number()` unreachable by revoking EXECUTE
+from `authenticated`. That answer does not transfer: the number here is not
+produced by a separate function to hide, it is `max(sequence) + 1` over the table
+itself. The guarantee is the RLS boundary instead, per the recorded
+grant-restoration rule. The platform HAS restored `INSERT, UPDATE, DELETE` to
+`authenticated` on `accessorial_adjustments` — read live — and it does not
+matter, because the only policy on the table is `SELECT`. With no INSERT policy,
+no client can insert, and `max(sequence)` can only be read to a purpose inside
+the definer writer. Inside it, the read sits after EVERY refusal and immediately
+before the `INSERT`, asserted by POSITION in `prosrc` rather than by reading the
+code, and the whole function is one transaction — so a refusal rolls the read
+back with everything else. `UNIQUE (load_id, sequence)` under a per-load
+`pg_advisory_xact_lock` is the backstop, not the mechanism.
+
+**Demonstrated, not asserted:** five refused creates against `ST-TEST-005` after
+`-A1` and `-A2` existed left `max(sequence)` at 2.
+
+**One honest weakness in that story.** The sequence is `max + 1`, so a DELETED
+row's number is reusable. A draft can be deleted; an approved or settled one
+cannot. No client can delete either, for the same reason no client can insert.
+Recorded rather than closed: a monotonic per-load counter would need a second
+table, which the design record ruled out for exactly the scope reason that still
+applies.
+
+**`settled` is reachable by nothing a browser can call.** None of the five RPCs
+writes it. `enforce_accessorial_adjustment_transition()` — a new BEFORE UPDATE
+trigger holding the whole legal-transition matrix, so `service_role` cannot
+bypass it either — refuses the move unless `settlement_writer_active()` is true,
+and `app.settlement_write` is set by the settlement writer alone. Pass 3 will
+turn it on.
+
+**Rejection reasons live in `audit_log`, not on the row.** The schema has
+`void_reason` and no `rejection_reason`, and Pass 1 froze the schema. Every
+transition writes an `audit_log` row (`entity_type = 'accessorial_adjustment'`)
+carrying the actor and the written reason, so nothing is lost — but the reason
+for a rejection is one join away, and the asymmetry with `void_reason` is a wart,
+recorded rather than papered over.
+
+**No new ceiling for the trigger, five for the writers.**
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 115 → 120, caused by the five transition
+RPCs. `enforce_accessorial_adjustment_transition()` is service_role only, which
+is precisely what keeps `settled` out of a client's reach, so the ceiling moved
+by five and not six. `KNOWN_ANON_EXECUTABLE_MAX` unchanged at 33; the ACL was
+read back after apply and no new function reaches `anon`.
+
+**CONTRADICTION FOUND, and not reconciled.** The pass instruction expected
+`ST-TEST-005`'s invoice `ST26-0001` to yield `pending_supplemental` "because that
+invoice is submitted". It is NOT submitted: `submitted_at IS NULL` live, and the
+invoice is `direct` path, so nothing ever submitted it to a factor. The rule in
+the design record is what shipped, and the live row is therefore
+`not_required` — correct behaviour, visible rather than forced. The other branch
+was proved separately: `submitted_at` was set on `ST26-0001`, a probe adjustment
+came back `pending_supplemental`, and BOTH were undone in the same statement,
+confirmed by reading `submitted_at` back as NULL. That probe consumed `-A3`,
+which is the reuse behaviour named above.
+
+**Tests:** the file above grew 37 → 49.
 
 ## Module 11, Pass 1 — the driver home screen becomes today's work (2026-08-28)
+
 
 
 The operator home screen was a greeting and four tiles. It never said what the
