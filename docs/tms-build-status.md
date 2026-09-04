@@ -1295,13 +1295,14 @@ The previous list named 11 loads; it was incomplete.
 | `settlement_line_items` | 1 | `load_pay 327.94`, cascades from settlement |
 | `settlement_withheld_loads` | 2 | cascades from settlement |
 | `dispatch_settlements` | 1 | 2026-08-01, `draft` |
-| `dispatch_settlement_line_items` / `contributions` / `verdicts` | 9 / 7 / 3 | cascade |
+| `dispatch_settlement_line_items` / `load_contributions` / `charge_verdicts` | 9 / 7 / 3 | cascade; the live table names are `dispatch_settlement_load_contributions` and `dispatch_settlement_charge_verdicts` |
 | `dispatch_settlement_rates` | 1 | **confirmed correct** — 5.00% / 2.00% effective 2026-01-01; survives cutover |
 | `brokers` | 11 | 2 clearly test (`TEST-100001`, `TEST-100002`); 9 are real companies (see §2) |
 | `facilities` | 2 | J M Exotic Foods, Braswell's — from seed rate cons |
 | `rate_con_ingest_queue` | 5 | 3 hold storage paths under `rate-con-ingest` |
 | `parser_diagnostics` | 74 | `ON DELETE SET NULL` to loads/documents — survives a load delete as orphans |
-| `audit_log` | 5 | load / settlements / dispatch_settlements entities |
+| `audit_log` | **11 as of 2026-09-04** | `load` 1, `settlements` 1, `dispatch_settlements` 3, `invoices` 1, `accessorial_adjustment` 5. Was recorded as 5 before the billing and adjustment passes. **Purge by `entity_type` at Step 10, NEVER by joining to the entity table** — one `accessorial_adjustment` row (`4f5f3bc7-c453-4f04-89af-478aa786e583`) has no surviving adjustment, and a join would miss it permanently. |
+
 | storage `load-documents` | 23 objects | no FK; orphaned by any load delete |
 | storage `rate-con-ingest` | 4 objects | no FK |
 | `preview_sessions` | 112 | mobile-preview handoff rows |
@@ -1318,53 +1319,36 @@ after the fact missed five loads and every storage object.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `invoices` | 0 | Purge BEFORE `loads`: `load_id` is `ON DELETE RESTRICT`, so a leftover invoice BLOCKS the load delete. This is deliberate. |
-| `invoice_line_items` | 0 | cascades from `invoices` |
-| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately |
-| `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices` |
+| `invoices` | **1 as of Module 7 Pass 3** | `ST26-0001`, `open`, never submitted, load `ST-TEST-005`, path `direct`. Purge at **Step 4**, BEFORE `loads` (Step 7) and BEFORE `brokers` (Step 8): `load_id` and `broker_id` are `ON DELETE RESTRICT`, so a leftover invoice BLOCKS both. This is deliberate. |
+| `invoice_line_items` | 1 | cascades from `invoices` |
+| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately, Step 4 |
+| `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices`, same step |
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
+| `invoice_number_config` | 1 | `2026 / ST / next_sequence 2`, created by the Pass 3 allocation. Reset at **Step 11**. Left behind, real invoicing starts at `ST26-0002`. |
 
 **Module 5 Pass 4 addendum (2026-09-04).** Registered on the day the table was
 created, EMPTY, for the same reason.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `accessorial_adjustments` | **2 as of Pass 2** | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the unlock below. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions) go with them. |
+| `accessorial_adjustments` | **2 as of Pass 2** | Purge at **Step 3**, BEFORE `loads` (Step 7 — `load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (Step 5 — `settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. **The two rows are `ST-TEST-005-A1` (detention, $275.00, approved) and `ST-TEST-005-A2` (lumper, $120.00, draft)** — Pass 2's live verification against `ST-TEST-005`. A1 is APPROVED, so its delete needs the `app.accessorial_adjustment_write` unlock. Their `audit_log` rows (`entity_type = 'accessorial_adjustment'`, five actions across THREE entity ids) go at Step 10, by `entity_type`. |
 
 **A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
 `settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
 reason, never deleted. Its unlock is its OWN setting, because
-`app.invoice_write` and `app.settlement_write` cannot open it:
-
-```sql
-BEGIN;
-SET LOCAL app.accessorial_adjustment_write = 'on';
-DELETE FROM public.accessorial_adjustments;
-COMMIT;
-```
-
-That step runs BEFORE the invoice unlock block below, and before Step 3's load
-deletes.
-
+`app.invoice_write` and `app.settlement_write` cannot open it. **The executable
+block is Step 3**, which runs before the invoice deletes at Step 4 and long
+before the load deletes at **Step 7** (this line read "before Step 3's load
+deletes" until 2026-09-04; loads were never Step 3).
 
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
 deleted and its lines cannot be removed — the trigger refuses, exactly as it is
 meant to. If any test invoice reaches `submitted_at` before cutover, the purge
 will FAIL at that row with a `42501` and no amount of retrying will help. The
-unlock is the same shape as the settlement one:
-
-```sql
-BEGIN;
-SET LOCAL app.invoice_write = 'on';
-UPDATE public.payments SET remittance_id = NULL;      -- release the RESTRICT
-DELETE FROM public.payments WHERE invoice_id IN (SELECT id FROM public.invoices);
-DELETE FROM public.factoring_remittances;
-DELETE FROM public.invoices;
-DELETE FROM public.invoice_batches;
-COMMIT;
-```
-
+unlock is the same shape as the settlement one, and **the executable block is
+Step 4**. `enforce_payment_immutability` and `enforce_remittance_immutability`
+refuse EVERY delete, submitted or not, so that unlock is run unconditionally.
 
 `ar_aging_snapshots` has NO unlock and needs none: it holds no client-role
 UPDATE or DELETE path that the trigger permits, and the purge runs privileged.
@@ -1373,6 +1357,24 @@ so a snapshot row, if one ever exists, must be removed by dropping and
 recreating the table, or by temporarily disabling that one trigger. THIS IS
 DELIBERATE and was chosen with the purge in mind: an append-only ledger with a
 convenient delete path is not append-only. Nothing writes snapshots today.
+
+#### 1b. The three unlocks (recorded 2026-09-04)
+
+The procedure now requires THREE, and they are not interchangeable:
+
+| Setting | Read by | Opens | Step |
+|---|---|---|---|
+| `app.accessorial_adjustment_write` | `accessorial_adjustment_writer_active()` | DELETE of an `approved` or `settled` adjustment | 3 |
+| `app.invoice_write` | `invoice_writer_active()` | DELETE of a submitted invoice and its lines; DELETE of ANY payment or remittance | 4 |
+| `app.settlement_write` | `settlement_writer_active()` | DELETE of a `paid` settlement AND, through the cascade, its `settlement_line_items` | 5 |
+
+**Each is `SET LOCAL` and is therefore valid only inside its own transaction.**
+Running an unlock in one transaction and the delete it authorises in another
+does NOTHING: the setting is gone by the time the trigger reads it, and the
+delete fails `42501` exactly as if the unlock had never been typed. Every block
+above is written `BEGIN; SET LOCAL …; DELETE …; COMMIT;` for that reason, and
+must not be split.
+
 
 **What the recorded list was missing, in one line:** five loads, all storage
 objects, `parser_diagnostics` (74), `rate_con_ingest_queue` (5), `facilities` (2),
@@ -1392,12 +1394,25 @@ fact that the seed brokers are real companies.
   carries `factoring_status = unknown` and must be MANUALLY REVIEWED before the first
   real load. Do not attempt to separate them by query.
 
-#### 3. The eight ordered steps, and why each sits where it does
+#### 3. The twelve ordered steps, and why each sits where it does
 
 Run each step in its own transaction. Verify before moving on.
 
+**RENUMBERED 2026-09-04.** The previous list had eight steps and kept two
+EXECUTABLE deletes — the adjustments and the invoices — in unnumbered addenda
+above it. An operator working the numbered steps in order reached
+`DELETE FROM public.loads` and failed `23503`, because `invoices.load_id` and
+`accessorial_adjustments.load_id` are both `ON DELETE RESTRICT` and both now
+have rows. **No addendum carries an executable step any more.** The order below
+is established from live FK delete rules:
+
+```text
+adjustments (unlocked) -> invoices (unlocked) -> settlement (unlocked)
+  -> storage -> loads -> brokers/facilities -> application -> audit -> resets
+```
+
 **Step 0 — snapshot.** Full database backup plus manifest of the 27 storage
-objects. Steps 3, 4 and 5 are irreversible.
+objects. Steps 6, 7 and 8 are irreversible.
 
 **Step 1 — delete the dispatch settlement (2026-08-01, `draft`).**
 ```sql
@@ -1412,10 +1427,14 @@ branch; no `SET LOCAL` unlock is needed. Children cascade on `dispatch_settlemen
 ```sql
 SELECT count(*) FROM public.dispatch_settlements;
 SELECT count(*) FROM public.dispatch_settlement_line_items;
-SELECT count(*) FROM public.dispatch_settlement_contributions;
-SELECT count(*) FROM public.dispatch_settlement_verdicts;
+SELECT count(*) FROM public.dispatch_settlement_load_contributions;
+SELECT count(*) FROM public.dispatch_settlement_charge_verdicts;
 ```
-All four must be 0.
+All four must be 0. **The table names were wrong until 2026-09-04** — the block
+read `dispatch_settlement_contributions` and `dispatch_settlement_verdicts`,
+neither of which exists, and both raised `42P01`. The live names are
+`dispatch_settlement_load_contributions` and
+`dispatch_settlement_charge_verdicts`.
 
 **Step 2 — keep `dispatch_settlement_rates`.**
 No deletion. The 5.00% / 2.00% row effective 2026-01-01 is confirmed correct (see §2)
@@ -1429,7 +1448,69 @@ FROM public.dispatch_settlement_rates;
 ```
 Expected: `5.00`, `2.00`, `2026-01-01`.
 
-**Step 3 — delete the Pratt settlement. NAMED DECISION STEP.**
+**Step 3 — delete the accessorial adjustments. FIRST UNLOCK.**
+Two rows: `ST-TEST-005-A1` (detention, $275.00, **approved**) and
+`ST-TEST-005-A2` (lumper, $120.00, `draft`).
+`enforce_accessorial_adjustment_immutability` refuses DELETE of an `approved` or
+`settled` row with `42501` unless `accessorial_adjustment_writer_active()` is
+true. That reads `app.accessorial_adjustment_write`, which is its OWN setting —
+`app.invoice_write` and `app.settlement_write` cannot open it.
+
+```sql
+BEGIN;
+SET LOCAL app.accessorial_adjustment_write = 'on';
+DELETE FROM public.accessorial_adjustments;
+COMMIT;
+```
+
+*Why first:* `accessorial_adjustments.load_id` is `ON DELETE RESTRICT` to
+`loads` (Step 7) and `settlement_id` is `ON DELETE RESTRICT` to `settlements`
+(Step 5). A leftover adjustment blocks both.
+*Verify:*
+```sql
+SELECT count(*) FROM public.accessorial_adjustments;
+```
+Must be 0.
+
+**Step 4 — delete the invoices, payments and remittances. SECOND UNLOCK.**
+One row today: `ST26-0001` (`76e0848a-6cd6-413b-9233-811ea82c2b0e`), `open`,
+never submitted, with one `invoice_line_items` row. `payments`,
+`factoring_remittances`, `invoice_batches` and `ar_aging_snapshots` are empty.
+
+**THE SUBMITTED-INVOICE TRAP.** A SUBMITTED invoice cannot be deleted and its
+lines cannot be removed — `enforce_invoice_immutability` and
+`enforce_invoice_line_immutability` refuse with `42501`, exactly as they are
+meant to. `enforce_payment_immutability` and `enforce_remittance_immutability`
+are stronger still: they refuse EVERY delete, submitted or not. So the unlock is
+run unconditionally, even though today's single invoice is `open` and would not
+need it.
+
+```sql
+BEGIN;
+SET LOCAL app.invoice_write = 'on';
+UPDATE public.payments SET remittance_id = NULL;      -- release the RESTRICT
+DELETE FROM public.payments WHERE invoice_id IN (SELECT id FROM public.invoices);
+DELETE FROM public.factoring_remittances;
+DELETE FROM public.invoices;                           -- lines cascade
+DELETE FROM public.invoice_batches;
+COMMIT;
+```
+
+*Why here:* `invoices.load_id` is `ON DELETE RESTRICT` to `loads` (Step 7) and
+`invoices.broker_id` is `ON DELETE RESTRICT` to `brokers` (Step 8);
+`payments.invoice_id` and `payments.remittance_id` are `ON DELETE RESTRICT`, so
+payments precede invoices and remittances follow payments.
+*Verify:*
+```sql
+SELECT count(*) FROM public.invoices;
+SELECT count(*) FROM public.invoice_line_items;
+SELECT count(*) FROM public.payments;
+SELECT count(*) FROM public.factoring_remittances;
+SELECT count(*) FROM public.invoice_batches;
+```
+All must be 0.
+
+**Step 5 — delete the Pratt settlement. NAMED DECISION STEP. THIRD UNLOCK.**
 It is `paid`. `enforce_settlement_immutability` raises `42501` on DELETE unless
 `settlement_writer_active()` is true, which reads
 `current_setting('app.settlement_write')`. The only route is the schema's intended
@@ -1444,6 +1525,17 @@ COMMIT;
 
 **Recommendation: delete by literal id, never by predicate.**
 **DECISION RECORDED 2026-09-03: the owner has approved deleting it at cutover.**
+
+**THE CHILD TRIGGER, recorded 2026-09-04 — it was never written down.**
+`settlement_line_items` carries `enforce_settlement_line_immutability`
+(BEFORE INSERT OR DELETE OR UPDATE, running `enforce_settlement_child_immutability`),
+which looks up the parent's status and refuses with `42501` when it is `paid`
+and `settlement_writer_active()` is false. It fires on the CASCADE from the
+settlement delete — not only on a direct delete. It works because the cascade
+runs inside the same transaction as the `SET LOCAL`, which is precisely why the
+unlock and the delete must share a transaction. Split them and the cascade
+fails, not just the parent.
+
 *Why before the loads:* `settlement_withheld_loads.load_id` is SET NULL and
 `settlement_line_items` has no `load_id`, so this does not strictly block the load
 delete — but doing it after would leave a settlement whose withheld rows silently
@@ -1456,14 +1548,22 @@ SELECT count(*) FROM public.settlement_withheld_loads;
 ```
 All three must be 0.
 
-**Step 4 — delete storage objects before the rows that name them.**
+**ORDER-INDEPENDENCE HERE IS LUCK, NOT DESIGN (recorded 2026-09-04).** Steps 3
+and 5 could be swapped today only because `accessorial_adjustments.settlement_id`
+is NULL on both live rows. That column is `ON DELETE RESTRICT`. Module 5 Pass 3
+built the settlement write-back, so the first adjustment that reaches `settled`
+carries a real `settlement_id` — and from that moment Step 3 BEFORE Step 5 is
+load-bearing: run them the other way and Step 5 fails `23503`. Do not reorder
+them on the evidence of today's data.
+
+**Step 6 — delete storage objects before the rows that name them.**
 27 objects: 23 in `load-documents`, 4 in `rate-con-ingest`. No FK from
 `storage.objects` to `load_documents`; deleting the load first destroys the only
 record of which object belonged to it.
 *Verify:* list bucket contents; expect 0 objects under the recorded prefixes; the
 other 19 buckets untouched.
 
-**Step 5 — null the SET NULL referrers, then delete the loads.**
+**Step 7 — null the SET NULL referrers, then delete the loads.**
 `parser_diagnostics` (74 rows) and `rate_con_ingest_queue` (5 rows) have
 `ON DELETE SET NULL` FKs to loads/documents. Delete them outright first so they do
 not survive as orphans that look real. Then:
@@ -1487,7 +1587,7 @@ SELECT count(*) FROM public.claim_flag_history;
 ```
 All must be 0.
 
-**Step 6 — brokers and facilities.**
+**Step 8 — brokers and facilities.**
 Delete the two `TEST-1000xx` brokers unconditionally. Their children cascade. Delete
 the two facilities. The nine non-TEST brokers are real companies (§2) — keep and
 manually review factoring status, do not try to separate them by query.
@@ -1498,7 +1598,7 @@ SELECT count(*) FROM public.facilities;
 ```
 Expected: `0`, `0`. Non-TEST brokers remain 9.
 
-**Step 7 — Craig Pate's application.**
+**Step 9 — Craig Pate's application.**
 One `operators` row carries
 `application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63'`. Resolve that operator
 first (delete if test, or null the link if real) before deleting the application.
@@ -1513,44 +1613,96 @@ WHERE application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63';
 ```
 Both must be 0. `operators` count unchanged except for the deliberately removed row.
 
-**Step 8 — resets.**
-Set `load_number_config.next_sequence = 1`. Clear `preview_sessions`. Do this last so
-a mid-purge load creation cannot collide.
+**Step 10 — the audit trail. PURGE BY `entity_type`, NEVER BY JOIN.**
+11 rows across the test entities (live count 2026-09-04): `load` 1, `settlements`
+1, `dispatch_settlements` 3, `invoices` 1, `accessorial_adjustment` 5.
+
+```sql
+DELETE FROM public.audit_log
+WHERE entity_type IN ('load', 'settlements', 'dispatch_settlements',
+                      'invoices', 'accessorial_adjustment');
+```
+
+**WHY A JOIN IS WRONG, with the evidence.** The five
+`accessorial_adjustment` rows carry THREE distinct `entity_id` values, and only
+two adjustments exist. `4f5f3bc7-c453-4f04-89af-478aa786e583` has NO SURVIVING
+ADJUSTMENT — the audit row outlived the row it describes, which is what an audit
+log is for. A purge written as
+`DELETE ... USING accessorial_adjustments` would miss it permanently, and this
+step runs AFTER Step 3 has already removed the rows a join would need. Run it
+last among the deletes, and key it on `entity_type`.
+*Verify:*
+```sql
+SELECT entity_type, count(*) FROM public.audit_log
+WHERE entity_type IN ('load', 'settlements', 'dispatch_settlements',
+                      'invoices', 'accessorial_adjustment')
+GROUP BY 1;
+```
+Zero rows returned.
+
+**Step 11 — resets.**
+Set `load_number_config.next_sequence = 1`. **Reset `invoice_number_config` too**
+— the live row is `2026 / ST / next_sequence 2`, created by the Module 7 Pass 3
+verification. Leave it and the first real invoice is numbered `ST26-0002`. Clear
+`preview_sessions`. Do this last so a mid-purge load or invoice creation cannot
+collide.
+```sql
+UPDATE public.load_number_config    SET next_sequence = 1 WHERE prefix = 'ST';
+DELETE FROM public.invoice_number_config WHERE year = 2026;  -- or SET next_sequence = 1
+DELETE FROM public.preview_sessions;
+```
 *Verify:*
 ```sql
 SELECT next_sequence FROM public.load_number_config WHERE prefix = 'ST';
+SELECT year, next_sequence FROM public.invoice_number_config;
 SELECT count(*) FROM public.preview_sessions;
 ```
-Expected: `1`, `0`.
+Expected: `1`; no row (or `2026, 1`); `0`.
+
 
 #### 4. What must not be deleted, and scoping
 
 - **60 active non-demo operators** (154 total, 1 demo). No step deletes from
-  `operators` except the single Pate-linked row in Step 7, addressed by literal id.
+  `operators` except the single Pate-linked row in Step 9, addressed by literal id.
 - **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
   `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
   Deleting "the operator that owns the test loads" deletes a live driver. Never
   delete by joining through loads.
-- **326 real applications.** Step 7 touches one literal id.
+- **326 real applications.** Step 9 touches one literal id.
 - **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
-- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 4 names
+- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 6 names
   bucket ids explicitly.
 - **Nine non-TEST brokers are real trading partners.** They are not distinguishable
   by any column (`factoring_status` is `unknown` on all nine). Keep them; review
   factoring status manually before the first real load.
+- **3,891 audit rows that are not test residue.** Step 10 names five
+  `entity_type` values and nothing else.
 
 #### 5. Verification and reversibility
 
 Per-step verification is named inline; each is a `count(*)` on the target plus a
 `count(*)` on the neighbouring real table that must not move.
 
-Irreversible without the Step 0 backup: **Step 3** (a `paid` settlement), **Step 4**
-(storage bytes are not in a Postgres backup; the manifest + download is the only
-recovery), **Step 5** (history rows cannot be reconstructed).
+Irreversible without the Step 0 backup: **Step 5** (a `paid` settlement),
+**Step 6** (storage bytes are not in a Postgres backup; the manifest + download
+is the only recovery), **Step 7** (history rows cannot be reconstructed), and
+**Step 10** (an audit row is the only surviving record of a row already deleted —
+see the orphan at Step 10).
 
-Cannot be verified before running: **Step 3**. The trigger either accepts the
-`SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
-transaction and inspect the row count before `COMMIT`.
+Cannot be verified before running, re-confirmed 2026-09-04 — the psql harness
+role holds SELECT and INSERT only, so no unlock path can be exercised from it:
+
+- **Step 3** — the `approved`-adjustment delete under
+  `app.accessorial_adjustment_write`.
+- **Step 4** — the invoice-line cascade under `app.invoice_write`. The UPDATE and
+  DELETE halves of `enforce_invoice_line_immutability` have never been exercised
+  from this harness; that limitation is recorded in the Module 7 Pass 1 test note.
+- **Step 5** — the original entry, still true. The trigger either accepts the
+  `SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
+  transaction and inspect the row count before `COMMIT`.
+- **Step 6** — storage deletion is outside Postgres entirely; no catalog query can
+  confirm the objects are gone.
+
 
 #### 6. Cutover blocker and direction chosen
 
@@ -2066,7 +2218,46 @@ The +18 tests and +2 files in each shape are `detentionClaims.test.ts` (12),
 `actor-stamp-fk.test.ts`. The skip counts are unchanged, which is the point:
 no new test was gated.
 
+## Standing rule — REGISTRATION IS NOT VERIFICATION: A DESTRUCTIVE PROCEDURE IS RE-READ END TO END WHENEVER IT GROWS (2026-09-04)
+
+The cutover purge procedure was written 2026-09-03. Every pass after it did the
+right thing individually: Module 7 Pass 1 registered its billing tables the day
+they were created, empty; Module 5 Pass 4 registered `accessorial_adjustments`
+the day it was created, empty; each addendum stated its own FK delete rule and
+its own trigger unlock correctly.
+
+**The procedure still would not have executed.** A full re-read on 2026-09-04
+found two failures that would have stopped cutover mid-run:
+
+1. Step 1's verify block named `dispatch_settlement_contributions` and
+   `dispatch_settlement_verdicts`. Neither exists — the live names are
+   `dispatch_settlement_load_contributions` and
+   `dispatch_settlement_charge_verdicts`. Both raise `42P01`.
+2. The adjustment and invoice deletes were correct, but lived in unnumbered
+   ADDENDA above a numbered list. An operator working the numbered steps in
+   order reached `DELETE FROM public.loads` and failed `23503`, because both
+   `load_id` FKs are `ON DELETE RESTRICT`.
+
+Neither is a mistake in any individual pass. Both are properties of the
+SEQUENCE, and a sequence has no owner unless someone reads it as one.
+
+The rule, three parts:
+
+- **An addendum may record a fact. It may never carry an executable step.**
+  Anything that must run goes in the numbered list, at its position, or it does
+  not exist.
+- **A multi-step destructive procedure is re-read END TO END, against the live
+  catalog, whenever it has grown — and always immediately before it is run.**
+  Not the new part. The whole thing, in order.
+- **Order that holds only because of today's data is recorded as luck, and
+  named.** Steps 3 and 5 are interchangeable today solely because
+  `accessorial_adjustments.settlement_id` is NULL on both live rows. It is
+  `ON DELETE RESTRICT`, and the write-back that fills it already ships. The
+  first `settled` adjustment makes the order load-bearing with no code change
+  and no failing test to announce it.
+
 ## Standing rule — A GUARD MUST ASSERT AN INVARIANT, NOT A CENSUS (2026-09-04)
+
 
 `parked-and-termination-guardrail` hard-coded live row counts taken on
 2026-08-31: `toBe(31)` total `lease_terminations` rows and `toBe(6)` voided. Two
