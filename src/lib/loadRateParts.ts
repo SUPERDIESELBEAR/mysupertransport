@@ -5,8 +5,9 @@
  * LOADS. They must never disagree about the PARTS a load is made of; they are
  * only allowed to disagree about the PREDICATE applied to the charges.
  *
- *   invoice        = header + unbundled FSC + ALL charges
- *   dispatch base  = header + unbundled FSC + charges MINUS §4.3 exclusions
+ *   invoice        = header + unbundled FSC + ALL charges + ALL adjustments
+ *   dispatch base  = header + unbundled FSC + (charges + adjustments)
+ *                    MINUS §4.3 exclusions
  *
  * So the header/FSC assembly and the charge itemisation live here, once, and
  * both callers call it. The §4.3 exclusion predicate deliberately does NOT
@@ -43,9 +44,53 @@ export interface LoadRateBasis {
   loadoutRelocationFee?: number | string | null;
 }
 
+/**
+ * One late accessorial adjustment, as the caller supplies it. Only the fields
+ * the parts assembly needs; the row carries far more.
+ */
+export interface LoadAdjustmentRecord {
+  id: string;
+  reference: string | null;
+  charge_type: string | null;
+  amount: number | string | null;
+  status: string | null;
+}
+
+/**
+ * THE STATUS SET, and it is a decision rather than a copy.
+ *
+ * `approved` and `settled` are money on the load. `settled` is here
+ * deliberately: it means the driver has been paid his share and the dispatch
+ * base has already counted it — it does NOT mean the money left the load. Drop
+ * it and a load's invoice figure would shrink the moment a settlement run
+ * touched it, which is the "silently restate an invoiced load" failure the
+ * design record forbids in the very next row of its own table.
+ *
+ * `draft`, `pending_approval`, `rejected` and `void` are not money. An
+ * unapproved adjustment is invisible to money by construction — the whole
+ * reason the design record made this a separate table rather than a flag on
+ * `load_charges`.
+ */
+export const ADJUSTMENT_MONEY_STATUSES = ['approved', 'settled'] as const;
+
 /** One charge, itemised. No verdict: a verdict is the caller's business. */
 export interface LoadChargePart {
   chargeId: string;
+  chargeType: string;
+  classification: ClassificationKey;
+  amount: number;
+}
+
+/**
+ * One adjustment, itemised. Deliberately a DIFFERENT type from
+ * `LoadChargePart`: the design record rejects merging the two, because the
+ * supplemental invoice depends on telling an original charge from a late one,
+ * and two shapes that are structurally identical get merged by the next person
+ * who reads them.
+ */
+export interface LoadAdjustmentPart {
+  adjustmentId: string;
+  reference: string | null;
   chargeType: string;
   classification: ClassificationKey;
   amount: number;
@@ -58,6 +103,10 @@ export interface LoadRateParts {
   chargeParts: LoadChargePart[];
   /** Every charge at full amount. The invoice bills this; dispatch filters it. */
   chargesTotal: number;
+  /** The FOURTH part. Never merged into `chargeParts`. */
+  adjustmentParts: LoadAdjustmentPart[];
+  /** Every money-bearing adjustment at full amount. */
+  adjustmentsTotal: number;
 }
 
 const num = (v: number | string | null | undefined): number => {
@@ -109,17 +158,45 @@ export function chargePartsOf(charges: LoadChargeRecord[] | null | undefined): L
   }));
 }
 
+/**
+ * Every money-bearing adjustment, itemised at FULL amount. The caller supplies
+ * the rows exactly as it supplies charges — NOTHING is fetched in here, and the
+ * status filter is applied here rather than trusted from the caller, so a
+ * caller that hands over the whole table still cannot bill a draft.
+ */
+export function adjustmentPartsOf(
+  adjustments: LoadAdjustmentRecord[] | null | undefined,
+): LoadAdjustmentPart[] {
+  const money = new Set<string>(ADJUSTMENT_MONEY_STATUSES);
+  return (adjustments ?? [])
+    .filter((a) => money.has(String(a.status ?? '')))
+    .map((a) => ({
+      adjustmentId: a.id,
+      reference: a.reference ?? null,
+      chargeType: String(a.charge_type ?? ''),
+      // The SAME classification path a load_charges.charge_type takes. An
+      // adjustment that classified differently from the charge it corrects
+      // would price differently, which is the one thing it must never do.
+      classification: chargeClassification(String(a.charge_type ?? '')),
+      amount: round2(num(a.amount)),
+    }));
+}
+
 /** The whole load, in parts. The single assembly both callers use. */
 export function assembleLoadRateParts(
   load: LoadRateBasis,
   charges?: LoadChargeRecord[] | null,
+  adjustments?: LoadAdjustmentRecord[] | null,
 ): LoadRateParts {
   const chargeParts = chargePartsOf(charges);
+  const adjustmentParts = adjustmentPartsOf(adjustments);
   return {
     headerBasis: headerBasisOf(load),
     headerComponent: headerComponentOf(load),
     fscComponent: fscComponentOf(load),
     chargeParts,
     chargesTotal: round2(chargeParts.reduce((s, p) => s + p.amount, 0)),
+    adjustmentParts,
+    adjustmentsTotal: round2(adjustmentParts.reduce((s, p) => s + p.amount, 0)),
   };
 }
