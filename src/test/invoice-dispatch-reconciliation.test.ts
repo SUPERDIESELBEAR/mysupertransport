@@ -11,8 +11,8 @@
  *
  * For every load that produced a dispatch contribution:
  *
- *   invoice amount − Σ(charges the §4.3 predicate excluded)
- *     = dispatch header + dispatch FSC + dispatch included charges
+ *   invoice amount − Σ(excluded charges) − Σ(excluded adjustments)
+ *     = dispatch header + dispatch FSC + included charges + included adjustments
  *
  * The rows are READ LIVE. No fixture restates what the loads are expected to
  * contain: the record documents that in both defects that mattered, the
@@ -28,6 +28,7 @@ import {
 } from '@/lib/dispatchSettlement';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 import type { LoadChargeRecord } from '@/lib/loadCharges';
+import type { LoadAdjustmentRecord } from '@/lib/loadRateParts';
 
 const HAS_DB = Boolean(process.env.PGHOST);
 
@@ -55,6 +56,19 @@ function psqlJson<T>(sql: string): T {
 /** The six seed loads. Named, because ST-TEST-* are harness loads, not seed. */
 const SEED = ['ST26056', 'ST26058', 'ST26059', 'ST26060', 'ST26061', 'ST26063'];
 
+/**
+ * The harness load that carries the live late accessorial. It is named
+ * SEPARATELY and reported separately: the six seed loads must be UNCHANGED by
+ * this pass, and folding this one into `SEED` would hide that.
+ *
+ * ST-TEST-005 carries `ST-TEST-005-A1` — approved, $275.00, detention.
+ * `detention_pct` is 100, so it is EXCLUDED from the dispatch base and BILLED
+ * on the invoice at full amount: the exact shape the new term needs, and real
+ * data rather than a fixture.
+ */
+const ADJUSTMENT_LOADS = ['ST-TEST-005'];
+const ALL_LOADS = [...SEED, ...ADJUSTMENT_LOADS];
+
 interface LoadRow {
   id: string;
   load_number: string;
@@ -73,10 +87,11 @@ interface LoadRow {
   total_load_value: string | null;
   dispatcher_id: string | null;
   charges: LoadChargeRecord[] | null;
+  adjustments: LoadAdjustmentRecord[] | null;
 }
 
-function readSeedLoads(): LoadRow[] {
-  const list = SEED.map((n) => `'${n}'`).join(',');
+function readSeedLoads(names: string[] = SEED): LoadRow[] {
+  const list = names.map((n) => `'${n}'`).join(',');
   return psqlJson<LoadRow[]>(`
     select coalesce(json_agg(row_to_json(x) order by x.load_number), '[]'::json) from (
       select l.id, l.load_number, l.load_type, l.rate_type, l.status, l.delivered_at,
@@ -88,7 +103,11 @@ function readSeedLoads(): LoadRow[] {
                              ch.description, ch.amount, ch.source, ch.funding_source,
                              ch.actual_cost, ch.proof_document_id
                         from public.load_charges ch
-                       where ch.load_id = l.id order by ch.created_at) c) as charges
+                       where ch.load_id = l.id order by ch.created_at) c) as charges,
+             (select coalesce(json_agg(row_to_json(a)), '[]'::json)
+                from (select adj.id, adj.reference, adj.charge_type, adj.amount, adj.status
+                        from public.accessorial_adjustments adj
+                       where adj.load_id = l.id order by adj.sequence) a) as adjustments
         from public.loads l where l.load_number in (${list})
     ) x`);
 }
@@ -126,6 +145,7 @@ const toInvoiceInput = (l: LoadRow): InvoiceLoadInput => ({
   fscBundledIntoLinehaul: l.fsc_bundled_into_linehaul,
   loadoutRelocationFee: l.loadout_relocation_fee,
   charges: l.charges ?? [],
+  adjustments: l.adjustments ?? [],
 });
 
 const toDispatchInput = (l: LoadRow): DispatchLoadInput => ({
@@ -134,6 +154,7 @@ const toDispatchInput = (l: LoadRow): DispatchLoadInput => ({
   deliveredAt: l.delivered_at,
   dispatcherId: l.dispatcher_id,
   charges: l.charges ?? [],
+  adjustments: l.adjustments ?? [],
 });
 
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
