@@ -190,9 +190,32 @@ describe("parked — live schema and standing rows", () => {
         and (void_reason is null or btrim(void_reason) = '' or voided_by is null)`);
     expect(incomplete[0]).toBe("0");
 
-    const audited = psql(`
-      select count(*) from public.audit_log where action = 'lease_termination_voided'`);
-    expect(Number(audited[0])).toBe(6);
+    // INVARIANT, NOT A CENSUS. This used to read `toBe(6)` — the number of
+    // voids that had happened by 2026-08-31. The seventh legitimate void would
+    // have broken it for exactly the reason the `31` did. The property is the
+    // one the test is named for: every void carries an audit entry, and every
+    // void audit entry describes a real void. Counted against each other, not
+    // against a literal.
+    const unaudited = psql(`
+      select count(*) from public.lease_terminations lt
+      where lt.voided_at is not null
+        and not exists (
+          select 1 from public.audit_log a
+          where a.action = 'lease_termination_voided'
+            and a.metadata->>'termination_id' = lt.id::text)`);
+    expect(unaudited[0]).toBe("0");
+
+    // And no orphan in the other direction: an audit entry claiming a void
+    // must name an actor and point at a row that is genuinely voided.
+    const orphanAudit = psql(`
+      select count(*) from public.audit_log a
+      where a.action = 'lease_termination_voided'
+        and (a.actor_id is null
+             or not exists (
+               select 1 from public.lease_terminations lt
+               where lt.id::text = a.metadata->>'termination_id'
+                 and lt.voided_at is not null))`);
+    expect(orphanAudit[0]).toBe("0");
   });
 
   itLive("no void was issued against a driver who was already gone", () => {
