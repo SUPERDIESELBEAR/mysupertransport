@@ -21,9 +21,9 @@
  * Once stored, a settlement is READ, never recomputed. Nothing in the driver's
  * path imports this module.
  */
-import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput } from '@/lib/settlementEngine';
+import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput, type SettlementAdjustmentInput } from '@/lib/settlementEngine';
 import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
-import { workPeriodForDate, deliveredInPeriod, type WorkPeriod } from '@/lib/settlementPeriod';
+import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } from '@/lib/settlementPeriod';
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 
