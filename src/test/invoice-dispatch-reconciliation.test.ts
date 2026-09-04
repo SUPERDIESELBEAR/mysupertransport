@@ -160,9 +160,9 @@ const toDispatchInput = (l: LoadRow): DispatchLoadInput => ({
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 
 describe('the invoice and the dispatch base agree about the PARTS', () => {
-  itLive('every seed load reconciles to the cent, and the report is printed', () => {
-    const loads = readSeedLoads();
-    expect(loads.map((l) => l.load_number).sort()).toEqual([...SEED].sort());
+  itLive('every load reconciles to the cent, and the report is printed', () => {
+    const loads = readSeedLoads(ALL_LOADS);
+    expect(loads.map((l) => l.load_number).sort()).toEqual([...ALL_LOADS].sort());
 
     const policy = readCompanyPolicy();
     const rates = readRates();
@@ -200,30 +200,54 @@ describe('the invoice and the dispatch base agree about the PARTS', () => {
         continue;
       }
 
-      const excluded = round2(contribution.verdicts
+      const excludedCharges = round2(contribution.verdicts
         .filter((v) => v.excluded)
         .reduce((s, v) => s + v.amount, 0));
+      const excludedAdjustments = round2(contribution.adjustmentVerdicts
+        .filter((v) => v.excluded)
+        .reduce((s, v) => s + v.amount, 0));
+      const excluded = round2(excludedCharges + excludedAdjustments);
       const dispatchSide = round2(contribution.headerComponent
-        + contribution.fscComponent + contribution.chargesIncludedAmount);
+        + contribution.fscComponent + contribution.chargesIncludedAmount
+        + contribution.adjustmentsIncludedAmount);
       const difference = round2(invoice.amount - dispatchSide);
 
+      // BEFORE and AFTER, on the same live row: the invoice this load would
+      // have produced had the fourth part not existed, beside the one it
+      // produces now. The `before` figure is not a stored number — it is this
+      // build with the adjustments withheld, which is the only honest way to
+      // show what the pass changed.
+      const before = buildLoadInvoice({ ...toInvoiceInput(row), adjustments: [] });
+      report.push(`    invoice before adjustments $${before.amount.toFixed(2)}`
+        + `   after $${invoice.amount.toFixed(2)}`
+        + `   adjustments billed $${invoice.adjustmentsTotal.toFixed(2)}`);
       report.push(`    dispatch base $${contribution.baseTotal.toFixed(2)}`
         + `   difference $${difference.toFixed(2)}`
-        + `   excluded charges $${excluded.toFixed(2)}`);
+        + `   excluded charges $${excludedCharges.toFixed(2)}`
+        + `   excluded adjustments $${excludedAdjustments.toFixed(2)}`);
+      expect(round2(before.amount + invoice.adjustmentsTotal),
+        `${row.load_number}: the invoice moved by something other than the adjustments`)
+        .toBe(invoice.amount);
 
-      // THE GUARD. Two independent statements, deliberately not one: the first
-      // says the difference is exactly the excluded charges, the second says
-      // the dispatch side is nothing other than its own stored parts.
-      expect(round2(invoice.amount - excluded),
-        `${row.load_number}: invoice less excluded charges does not equal the dispatch base`)
+      // THE GUARD. Three independent statements, deliberately not one: the
+      // first says the difference is exactly what the predicate excluded, the
+      // second names the two exclusion terms separately so a regression in one
+      // cannot be absorbed by the other, and the third says the dispatch side
+      // is nothing other than its own stored parts.
+      expect(round2(invoice.amount - excludedCharges - excludedAdjustments),
+        `${row.load_number}: invoice less exclusions does not equal the dispatch base`)
         .toBe(dispatchSide);
       expect(difference,
-        `${row.load_number}: the difference is not the excluded charges`)
+        `${row.load_number}: the difference is not the excluded charges and adjustments`)
         .toBe(excluded);
       expect(contribution.baseTotal).toBe(dispatchSide);
     }
 
-    report.push(`SEED INVOICE TOTAL $${invoiceTotal.toFixed(2)}`);
+    report.push(`INVOICE TOTAL (all ${loads.length} loads) $${invoiceTotal.toFixed(2)}`);
+    report.push(`SEED-ONLY INVOICE TOTAL $${loads
+      .filter((l) => SEED.includes(l.load_number))
+      .reduce((s, l) => round2(s + buildLoadInvoice(toInvoiceInput(l)).amount), 0)
+      .toFixed(2)}`);
     report.push(`SEED DISPATCH BASE $${result.contributions
       .reduce((s, c) => round2(s + c.baseTotal), 0).toFixed(2)}`);
     // eslint-disable-next-line no-console
@@ -233,7 +257,7 @@ describe('the invoice and the dispatch base agree about the PARTS', () => {
   itLive('the invoice bills a charge the dispatch predicate excludes', () => {
     // Without this, the guard above could pass on a set of loads that happen
     // to have no excluded charge at all, and prove nothing.
-    const loads = readSeedLoads();
+    const loads = readSeedLoads(ALL_LOADS);
     const policy = readCompanyPolicy();
     const rates = readRates();
     const result = computeDispatchSettlement({
@@ -252,6 +276,69 @@ describe('the invoice and the dispatch base agree about the PARTS', () => {
       const billed = invoice.lines.find((l) => l.loadChargeId === verdict.loadChargeId);
       expect(billed, `${verdict.chargeType} is not on the invoice at all`).toBeTruthy();
       expect(billed!.amount).toBe(verdict.amount);
+    }
+  });
+
+  itLive('the invoice bills an ADJUSTMENT the dispatch predicate excludes', () => {
+    // THE ANTI-VACUITY ASSERTION FOR THE NEW TERM. A reconciliation whose new
+    // term is always zero passes trivially and proves nothing about
+    // adjustments; the term would be decorative. So: at least one excluded
+    // adjustment must EXIST, and it must be billed on the invoice at the
+    // identical amount. ST-TEST-005-A1 is that case, from the live table.
+    const loads = readSeedLoads(ALL_LOADS);
+    const policy = readCompanyPolicy();
+    const rates = readRates();
+    const result = computeDispatchSettlement({
+      month: '2026-08', dispatchRate: rates.dispatch_pct,
+      factoringRate: rates.factoring_pct, companyPolicy: policy,
+      loads: loads.map(toDispatchInput),
+    });
+
+    const excludedAdjustments = result.contributions
+      .flatMap((c) => c.adjustmentVerdicts).filter((v) => v.excluded);
+    expect(excludedAdjustments.length,
+      'no adjustment is excluded anywhere, so the new term proves nothing')
+      .toBeGreaterThan(0);
+
+    for (const verdict of excludedAdjustments) {
+      const row = loads.find((l) => (l.adjustments ?? [])
+        .some((a) => a.id === verdict.adjustmentId))!;
+      const invoice = buildLoadInvoice(toInvoiceInput(row));
+      const billed = invoice.lines.find((l) => l.adjustmentId === verdict.adjustmentId);
+      expect(billed, `${verdict.reference} is not on the invoice at all`).toBeTruthy();
+      expect(billed!.amount, `${verdict.reference} is billed at a different amount`)
+        .toBe(verdict.amount);
+      expect(billed!.lineType).toBe('adjustment');
+      // ...and it is NOT merged into the charge lines.
+      expect(billed!.loadChargeId).toBeNull();
+    }
+  });
+
+  itLive('only approved and settled adjustments are money', () => {
+    // The status set, asserted against the live table rather than a fixture:
+    // every adjustment the assembler billed is approved or settled, and every
+    // one it withheld is not.
+    const loads = readSeedLoads(ALL_LOADS);
+    const seen = loads.flatMap((l) => (l.adjustments ?? []).map((a) => ({
+      row: l, a,
+      billed: buildLoadInvoice(toInvoiceInput(l)).lines
+        .some((line) => line.adjustmentId === a.id),
+    })));
+    expect(seen.length, 'no adjustments exist at all to check the status set against')
+      .toBeGreaterThan(0);
+    for (const { a, billed } of seen) {
+      expect(billed, `${a.reference} (${a.status}) billed=${billed}`)
+        .toBe(a.status === 'approved' || a.status === 'settled');
+    }
+  });
+
+  itLive('the six seed loads carry no adjustments, so their figures cannot have moved', () => {
+    const seedOnly = readSeedLoads(SEED);
+    for (const l of seedOnly) {
+      expect(l.adjustments ?? [], `${l.load_number} unexpectedly carries an adjustment`)
+        .toEqual([]);
+      const withAdjustmentSupport = buildLoadInvoice(toInvoiceInput(l));
+      expect(withAdjustmentSupport.adjustmentsTotal).toBe(0);
     }
   });
 
