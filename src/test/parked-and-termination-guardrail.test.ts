@@ -195,14 +195,28 @@ describe("parked — live schema and standing rows", () => {
     expect(Number(audited[0])).toBe(6);
   });
 
-  itLive("every voided row belongs to a driver who is still working", () => {
+  itLive("no void was issued against a driver who was already gone", () => {
+    // A void withdraws a termination recorded in error for someone who was
+    // still working. It is NOT a comment on what happens to that driver
+    // afterwards: Vino Huddleston's 2026-08-31 void was correct, and his
+    // genuine termination on 2026-09-03 does not retroactively invalidate it.
+    //
+    // So the check is scoped to voided rows with NO subsequent termination
+    // for the same operator. Those, and only those, must still describe a
+    // working driver. A void against someone already gone is the defect.
     const notWorking = psql(`
       select count(*) from public.lease_terminations lt
       join public.operators o on o.id = lt.operator_id
       where lt.voided_at is not null
+        and not exists (
+          select 1 from public.lease_terminations later
+          where later.operator_id = lt.operator_id
+            and later.voided_at is null
+            and later.created_at > lt.created_at)
         and (o.is_active is not true or o.excluded_from_dispatch is true)`);
     expect(notWorking[0]).toBe("0");
   });
+
 
 
   itLive("the parked RPCs are hardened", () => {
