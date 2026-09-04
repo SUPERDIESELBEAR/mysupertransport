@@ -158,8 +158,6 @@ describe('the parts are assembled in exactly one module', () => {
   });
 });
 
-});
-
 describe('delivery instants are never read in the machine timezone', () => {
   for (const path of CONSUMERS) {
     it(`${path} applies no new Date( to a delivery value`, () => {
