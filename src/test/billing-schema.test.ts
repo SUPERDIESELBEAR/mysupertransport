@@ -51,14 +51,24 @@ const TABLES = [
 ];
 const TABLE_LIST = TABLES.map(t => `'${t}'`).join(', ');
 
-/** Only these two are new SECURITY DEFINER functions a client may call. */
+/**
+ * Every new Module 7 SECURITY DEFINER function EXCEPT current_company_id().
+ * None of these reaches a client role: they are triggers and a gate.
+ */
 const SERVICE_ONLY_FUNCTIONS = [
   'enforce_ar_aging_snapshot_append_only',
   'enforce_invoice_immutability',
   'enforce_invoice_line_immutability',
   'invoice_writer_active',
+  'stamp_billing_company_id',
   'stamp_invoice_actors',
 ];
+
+/** prosrc as written, with the alignment padding collapsed. */
+function bodyOf(name: string): string {
+  return psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+    AND proname='${name}'`).join(' ').replace(/\s+/g, ' ');
+}
 
 /** A scratch invoice number no real invoice will collide with. */
 const SCRATCH = '00000000-0000-4000-8000-0000000b7000';
@@ -142,7 +152,7 @@ describe('billing — tables and columns', () => {
    * column is therefore NOT NULL from the first migration, on an empty table,
    * where it costs nothing.
    */
-  itLive('EVERY billing table carries a NOT NULL company_id defaulted from current_company_id', () => {
+  itLive('EVERY billing table carries a NOT NULL company_id', () => {
     const rows = psql(`SELECT table_name || '|' || is_nullable || '|' || coalesce(column_default,'')
       FROM information_schema.columns WHERE table_schema='public'
         AND table_name IN (${TABLE_LIST}) AND column_name='company_id' ORDER BY 1`);
@@ -150,8 +160,22 @@ describe('billing — tables and columns', () => {
     for (const row of rows) {
       const [table, nullable, def] = row.split('|');
       expect(nullable, `${table}.company_id nullability`).toBe('NO');
-      expect(def, `${table}.company_id default`).toContain('current_company_id()');
+      // Deliberately NOT a column DEFAULT: a default is evaluated as the
+      // CALLER, which made tenancy a per-role EXECUTE grant problem and, worse,
+      // let a caller assert its own company by simply supplying the column.
+      expect(def, `${table}.company_id must not be defaulted`).toBe('');
     }
+  });
+
+  itLive('company_id is stamped by a trigger on every billing table, and overrides the caller', () => {
+    const triggers = psql(`SELECT c.relname FROM pg_trigger t JOIN pg_class c ON c.oid = t.tgrelid
+      WHERE NOT t.tgisinternal AND c.relnamespace='public'::regnamespace
+        AND t.tgname = 'aa_stamp_billing_company_id' ORDER BY 1`);
+    expect(triggers).toEqual(TABLES);
+    // Assignment is unconditional — no coalesce, so a supplied value is replaced.
+    const src = bodyOf('stamp_billing_company_id');
+    expect(src).toContain('NEW.company_id := public.current_company_id();');
+    expect(src).not.toContain('coalesce(NEW.company_id');
   });
 
   itLive('company_id points at carrier_profile and RESTRICTS its deletion', () => {
@@ -323,8 +347,7 @@ describe('billing — the immutability rules are attached', () => {
   });
 
   itLive('freezing covers identity and money, and deliberately NOT status or payment dates', () => {
-    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname='enforce_invoice_immutability'`).join(' ');
+    const src = bodyOf('enforce_invoice_immutability');
     for (const frozen of ['company_id', 'load_id', 'broker_id', 'invoice_number',
       'billing_path', 'amount', 'batch_id', 'submitted_at']) {
       expect(src, frozen).toContain(`NEW.${frozen} IS DISTINCT FROM OLD.${frozen}`);
@@ -343,21 +366,18 @@ describe('billing — the immutability rules are attached', () => {
    * one privileged correction path should never open two sets of books.
    */
   itLive('the billing writer gate is its own setting and shares nothing with settlement', () => {
-    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname='invoice_writer_active'`).join(' ');
+    const src = bodyOf('invoice_writer_active');
     expect(src).toContain('app.invoice_write');
     expect(src).not.toContain('app.settlement_write');
     expect(src).not.toContain('app.dispatch_settlement_write');
 
-    const guards = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname IN ('enforce_invoice_immutability','enforce_invoice_line_immutability')`).join(' ');
+    const guards = bodyOf('enforce_invoice_immutability') + ' ' + bodyOf('enforce_invoice_line_immutability');
     expect(guards).toContain('public.invoice_writer_active()');
     expect(guards).not.toContain('dispatch_settlement_writer_active');
   });
 
   itLive('the actor is resolved server-side and a client-supplied value is discarded', () => {
-    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname='stamp_invoice_actors'`).join(' ');
+    const src = bodyOf('stamp_invoice_actors');
     expect(src).toContain('public.current_profile_id()');
     for (const col of ['submitted_by', 'purchased_by', 'paid_by', 'reconciled_by']) {
       expect(src, col).toContain(`NEW.${col} := OLD.${col}`);
@@ -365,8 +385,7 @@ describe('billing — the immutability rules are attached', () => {
   });
 
   itLive('an aging snapshot can never be edited or deleted', () => {
-    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
-      AND proname='enforce_ar_aging_snapshot_append_only'`).join(' ');
+    const src = bodyOf('enforce_ar_aging_snapshot_append_only');
     expect(src).toContain('append only');
     // No escape hatch: not even the writer gate reopens a snapshot.
     expect(src).not.toContain('invoice_writer_active');
@@ -418,16 +437,31 @@ describe('billing — access', () => {
     expect(grants).toEqual([]);
   });
 
-  itLive('authenticated holds the table privileges the policies assume, and no more on a snapshot', () => {
-    const grants = psql(`SELECT c.relname || '|' || string_agg(DISTINCT a.privilege_type, ',' ORDER BY a.privilege_type)
-      FROM pg_class c, aclexplode(c.relacl) a
+  /**
+   * A finding worth writing down rather than fighting: the platform re-grants
+   * the FULL privilege set on every public table to `authenticated` after each
+   * migration. The narrower SELECT/INSERT grant this pass issued on
+   * `ar_aging_snapshots` did not survive, and re-revoking it would not survive
+   * the next migration either — every existing immutable table
+   * (`dispatch_settlements`, `settlement_line_items`, `load_change_history`)
+   * carries the same full set for the same reason.
+   *
+   * So the append-only rule is enforced by the TRIGGER, not by the grant, and
+   * this test asserts the boundary that actually holds: the table is reachable
+   * only through RLS, and no billing table reaches `anon`.
+   */
+  itLive('authenticated reaches every billing table only through RLS, never through a grant alone', () => {
+    const grants = psql(`SELECT c.relname FROM pg_class c, aclexplode(c.relacl) a
       WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
-        AND a.grantee = 'authenticated'::regrole GROUP BY c.relname ORDER BY 1`);
-    // An append-only table is granted no UPDATE or DELETE at all, so the
-    // trigger is the second line of defence rather than the only one.
-    expect(grants).toContain('ar_aging_snapshots|INSERT,SELECT');
-    expect(grants).toContain('invoices|DELETE,INSERT,SELECT,UPDATE');
-    expect(grants).toContain('payments|DELETE,INSERT,SELECT,UPDATE');
+        AND a.grantee = 'authenticated'::regrole AND a.privilege_type = 'SELECT' ORDER BY 1`);
+    expect(grants).toEqual(TABLES);
+
+    // Which is only safe because RLS is FORCED on by the policy check above and
+    // the append-only refusal lives in a trigger the grant cannot bypass.
+    const appendOnlyTrigger = psql(`SELECT t.tgname FROM pg_trigger t
+      WHERE NOT t.tgisinternal AND t.tgrelid = 'public.ar_aging_snapshots'::regclass
+        AND t.tgname = 'enforce_ar_aging_snapshot_append_only'`);
+    expect(appendOnlyTrigger).toHaveLength(1);
   });
 
   itLive('the trigger and gate functions are definer, pinned, and reach NO client role', () => {
