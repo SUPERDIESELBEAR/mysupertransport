@@ -2003,6 +2003,62 @@ The +18 tests and +2 files in each shape are `detentionClaims.test.ts` (12),
 `actor-stamp-fk.test.ts`. The skip counts are unchanged, which is the point:
 no new test was gated.
 
+## Standing rule — A GUARD MUST ASSERT AN INVARIANT, NOT A CENSUS (2026-09-04)
+
+`parked-and-termination-guardrail` hard-coded live row counts taken on
+2026-08-31: `toBe(31)` total `lease_terminations` rows and `toBe(6)` voided. Two
+legitimate staff terminations on 2026-09-03 — Edward Williams and Vino
+Huddleston, both recorded correctly through the app — broke it through no fault
+of any code.
+
+The 2026-09-04 `useAuth` pass then cited that breakage as part of "145 passed, 3
+failed — failures are pre-existing and unrelated", and in the same sentence
+dismissed a real orphaned SECURITY DEFINER function that our own 2026-09-03
+migration had created.
+
+That is the cost, stated plainly: a guard that fires on normal business
+operation trains people to ignore failures, and the noise gave cover to a real
+one.
+
+**The rule.** A guard asserts a property that must always hold, never a snapshot
+of how many rows existed on the day it was written. If a test would break
+because someone did their job correctly, it is measuring the wrong thing.
+
+Both assertions were rewritten as invariants on 2026-09-04:
+
+- "parking writes no lease_terminations row" now asserts only that no operator
+  acquires a termination row at or after the moment they were parked, plus that
+  voided rows are never deleted (`>= 6`, withdrawn in place). No absolute count.
+- "every voided row belongs to a driver who is still working" became "no void
+  was issued against a driver who was already gone", scoped to voided rows with
+  no subsequent non-voided termination for the same operator. A void that is
+  later followed by a genuine departure is not a violation; a void issued
+  against someone already gone still is.
+
+### Correction to the 2026-09-04 three-failure report
+
+Of the three failures, **two were ours**, not "pre-existing and unrelated":
+
+1. **The orphaned definer function.** Migration `20260903214629` (ours,
+   2026-09-03) dropped `trg_enforce_ica_contracts_operator_update` and left
+   `public.enforce_ica_contracts_operator_update()` in the schema with no
+   trigger. The trigger-attachment assertion in `definer-live-catalog.test.ts`
+   exists to catch exactly that and did. Verified before dropping: the orphaned
+   function's entire body was `RETURN
+   public.enforce_ica_contracts_operator_column_whitelist();` — a pure
+   delegation to the whitelist trigger, which is still attached to
+   `ica_contracts`. The premise of the 2026-09-03 drop held, so the function was
+   dropped on 2026-09-04. Nothing was re-attached and no enforcement was lost.
+2. **The census guard**, above.
+
+Only `operator-settlement-isolation` was **genuinely external**. It was
+established as an infrastructure flake, not assumed to be one: re-run standalone
+twice, 4/4 passing both times, and its `psql()` helper uses `execFileSync` with
+no `try`/`catch` and no default value, so a permission denial exits non-zero and
+fails the test loudly. It cannot mask a real authorization failure. The
+full-suite timeout is attributable to psql connection contention under parallel
+execution.
+
 ## Standing rule — a SECURITY DEFINER function needs all three (2026-08-27)
 
 The staged detention-claims draft declared `stamp_detention_claim_actor` as
