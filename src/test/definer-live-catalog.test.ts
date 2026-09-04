@@ -490,6 +490,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // omit an eligible one. authenticated only; PUBLIC and anon are revoked in
   // the migration that creates it.
   "public.compute_dispatch_settlement(date,jsonb,text)",
+  // create_invoice (2026-09-04), the ONLY invoice writer. Management or owner
+  // in the body, actor from current_profile_id(), tenancy stamped by trigger,
+  // and refuse-only: lines must sum to the stated amount, the load must be
+  // ready_to_invoice and uninvoiced, and the charge set must match the load's
+  // charges in both directions. It allocates the invoice number itself, after
+  // every refusal, so a number is consumed only by a successful write.
+  "public.create_invoice(uuid,jsonb)",
 
 
 
