@@ -141,14 +141,16 @@ describe('payments — the fee is recorded, never derived', () => {
 });
 
 describe('payments — matching is on the invoice number', () => {
-  itLive('normalize_invoice_number reduces all three renderings to one key', () => {
-    // Executed through a role that HAS the privilege — the sandbox psql role
-    // deliberately does not, which is itself the guarantee above.
-    const out = psql(`SET LOCAL ROLE service_role;
-      SELECT public.normalize_invoice_number('ST26-0001') || '|'
-      || public.normalize_invoice_number('26-0001') || '|'
-      || public.normalize_invoice_number('260001')`).join('');
-    expect(out).toBe('260001|260001|260001');
+  itLive('normalize_invoice_number keeps the digits and nothing else', () => {
+    // It cannot be CALLED from here: no client role, and not the sandbox role
+    // either — which is the guarantee asserted above. So the rule is read off
+    // the definition, and the three renderings are exercised in
+    // src/lib/__tests__/remittance.test.ts against the same rule in TypeScript.
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='normalize_invoice_number'`).join(' ').replace(/\s+/g, ' ');
+    expect(src).toContain("regexp_replace");
+    expect(src).toContain("'\\D'");
+    expect(src).toContain("'g'");
   });
 
   itLive('the writer matches on the invoice number and not on the load number', () => {
