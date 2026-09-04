@@ -417,7 +417,7 @@ function lineTypeForCharge(klass: ClassificationKey, isReimbursement: boolean): 
 export function computeSettlement(input: SettlementComputeInput): ComputedSettlement {
   const {
     operatorId, periodAnchorDate, settings, companyPolicy, driverPolicy,
-    loads = [], fuel = [], deductions = [], advances = [],
+    loads = [], fuel = [], deductions = [], advances = [], adjustments = [],
     rmDeposit = null, carryForwardIn = 0,
     isDeparting = false, equipmentOutstanding,
   } = input;
