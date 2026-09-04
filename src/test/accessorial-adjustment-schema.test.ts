@@ -176,7 +176,7 @@ describe('accessorial_adjustments — the shape', () => {
   });
 
   itLive('holds the load with RESTRICT, so a purge cannot orphan an adjustment', () => {
-    const fks = psql(`SELECT conname || '|' || confrelid::regclass::text || '|' || confdeltype
+    const fks = psql(`SELECT conname || '|' || confrelid::regclass::text || '|' || confdeltype::text
       FROM pg_constraint WHERE conrelid='public.${T}'::regclass AND contype='f' ORDER BY conname`);
 
     expect(fks).toContain('accessorial_adjustments_load_id_fkey|loads|r');
