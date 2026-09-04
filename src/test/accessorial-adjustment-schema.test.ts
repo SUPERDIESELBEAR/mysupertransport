@@ -537,6 +537,10 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     'store_settlement_run',
   ]);
 
+  /** The five a client can call. `store_settlement_run` takes no reason and
+   *  belongs to no role — it is the server's own transition. */
+  const CLIENT_WRITERS = [...WRITERS].filter(w => w !== 'store_settlement_run');
+
   itLive('the only functions that write the table are the five transitions', () => {
     const writers = psql(`SELECT proname FROM pg_proc
       WHERE pronamespace='public'::regnamespace
@@ -632,7 +636,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
   });
 
   itLive('every transition stamps the actor from current_profile_id and demands a reason', () => {
-    for (const fn of WRITERS) {
+    for (const fn of CLIENT_WRITERS) {
       const src = bodyOf(fn);
       expect(src, fn).toContain('public.current_profile_id()');
       expect(src, fn).toContain("nullif(btrim(coalesce(p_reason, '')), '')");
@@ -660,7 +664,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
       .toContain('settled by the settlement writer, not by a caller');
     // No transition RPC WRITES the settled status. void_accessorial_adjustment
     // reads it, to refuse voiding a settled row — that is a refusal, not a write.
-    for (const fn of WRITERS) {
+    for (const fn of CLIENT_WRITERS) {
       expect(bodyOf(fn), fn).not.toMatch(/SET status = 'settled'/);
       expect(bodyOf(fn), fn).not.toContain("status = 'settled',");
     }
@@ -753,7 +757,8 @@ describe('accessorial_adjustments — the settlement seam', () => {
   });
 
   itLive('settlement_line_items admits the adjustment source table', () => {
-    expect(constraintDef('settlement_line_items_source_table_check'))
-      .toContain('accessorial_adjustments');
+    const def = psql(`SELECT pg_get_constraintdef(oid) FROM pg_constraint
+      WHERE conname='settlement_line_items_source_table_check'`).join(' ');
+    expect(def).toContain('accessorial_adjustments');
   });
 });
