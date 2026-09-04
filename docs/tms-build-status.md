@@ -6768,3 +6768,146 @@ them. They now pick the oldest load with NO invoice, which is what they always
 meant.
 
 ### CONTRADICTIONS: none found.
+
+---
+
+## MODULE 5 PASS 4 / PASS 3 — THE SETTLEMENT SEAM (2026-09-04)
+
+An approved late accessorial adjustment reaches a driver settlement and is paid
+ONCE. No parts-assembler change, no invoice seam, no UI.
+
+### 1. The classification decision, read before writing
+
+`settlementRun.ts` carries two sets:
+
+- `settledSourcesThisPeriod` — every `source_table:source_id` on a settlement
+  whose `period_start` equals THIS period.
+- `settledSourcesEver` — the same key over ALL settlements.
+
+An adjustment uses **`settledSourcesEver`**. The two recorded defects pull in
+opposite directions and the correct answer is different for each item type:
+
+- A RECURRING deduction keyed on `settledSourcesEver` would be silenced forever
+  after its first period — that is the Pass 4b defect, and it is why the
+  period-scoped set exists at all.
+- A SETTLE-ONCE item keyed on `settledSourcesThisPeriod` would be paid again in
+  the next period, because the key it was matched on is not in that period's
+  set — that is the `equipment_outstanding` family of defect: a lock that
+  silently answers "no" outside the narrow window it was written for.
+
+An adjustment is settle-once. It has no recurrence, no schedule and no
+instalment. `settledSourcesEver` is the only set that can hold it. This agrees
+with the design record.
+
+### 2. Two independent locks, and what each one catches
+
+| Lock | Catches |
+| --- | --- |
+| `settledSourcesEver` membership | The row's own pointers were lost or never stamped — a hand-repaired row, a restored backup, an older settlement whose `settlement_id` write did not survive. The MONEY's record is the authority, not the row's bookkeeping. |
+| `settlement_id IS NULL` on the row | The line item was deleted — a recompute that removed the settlement, or a line edited out. The ROW's record is the authority when the money's record is gone. |
+
+Neither is redundant: each is the other's answer for the case where the other's
+evidence has been destroyed. The gatherer applies both.
+
+Every read this pass adds inspects `error` and throws `SettlementReadError`.
+Verified by test: a failed read of `accessorial_adjustments` aborts the run
+rather than producing a settlement that quietly omits the adjustment.
+
+### 3. Population
+
+`UnsettledWork.approvedAdjustmentCount` joins the six existing triggers in
+`settlementPopulation.ts`. An approved adjustment ALONE brings a driver into the
+run — the reason line reads `1 approved late accessorial adjustment`. It keys on
+none of the seven "active operator" predicates, unchanged.
+
+### 4. Payment
+
+`computeSettlement` pays it as `lineType: 'adjustment'`, `sourceTable:
+'accessorial_adjustments'`, `sourceId` the adjustment id. The percentage comes
+from `pctForClassification` — the SAME path a `load_charges.charge_type` takes,
+so a policy change moves both together and the Pass 1 drift test still passes.
+Proven not to be a literal: the same $275 detention adjustment pays $275 under
+`detention_pct` 100 and $137.50 under 50, with no code change.
+
+A `reimbursement`-class adjustment follows the charge rule exactly: driver-funded
+pays `actual_cost`, company-funded pays nothing.
+
+**Period attribution is the period of APPROVAL**, read from `approved_at`, never
+the load's delivery period. That is the whole point of the -A1 mechanism: the
+load's week is already closed.
+
+### 5. The write-back — one writer, no second path
+
+Pass 2 built `approved → settled` as reachable only while
+`settlement_writer_active()`. This pass uses it rather than adding a sixth RPC:
+that transition has NO client role, so a client-callable RPC for it would be a
+door where none should exist. `store_settlement_run` stamps `status`,
+`settlement_id` and `settlement_line_item_id` in the same statement, and
+VALIDATES rather than trusts the browser-composed payload — it refuses an
+adjustment that does not exist, one that is not `approved`, one already carrying
+a `settlement_id`, and one whose load belongs to a different driver. The row is
+taken `FOR UPDATE` before it is judged.
+
+A recompute RELEASES what it paid (`settled → approved`, both pointers cleared)
+BEFORE deleting the settlement, because `settlement_id` is `ON DELETE RESTRICT`:
+an unreleased adjustment would block the recompute rather than be paid twice.
+
+`store_settlement_run` never touches `app.accessorial_adjustment_write` —
+asserted. Two privileged flags, two sets of books.
+
+### 6. Real-data evidence vs fixture evidence
+
+**REAL DATA — the state machine, against the live `ST-TEST-005-A1` (detention,
+$275.00, approved) and `ST-TEST-005-A2` (draft, $120.00).** Run inside a
+transaction that was deliberately rolled back by a terminal `RAISE`; the live
+rows were re-read afterwards and are unchanged, and `settlements.updated_at` on
+the retained Pratt row still reads `2026-09-01 11:37:52`.
+
+    1 SETTLE WITHOUT WRITER:   REFUSED — is settled by the settlement writer, not by a caller.
+    2 SETTLE INSIDE WRITER:    status=settled settlement_id=f77911b0-…
+    3 EDIT AMOUNT WHILE SETTLED: REFUSED — its load, reference, classification and amount are immutable.
+    4 SETTLED -> DRAFT:        REFUSED — has been settled; its status is final.
+    5 RELEASE ON RECOMPUTE:    status=approved  settlement_id IS NULL=true
+    6 SETTLE A DRAFT:          REFUSED — cannot move from draft to settled.
+    7 SETTLE AFTER WRITER OFF: REFUSED — is settled by the settlement writer, not by a caller.
+
+What a settlement run would do with each, as of today: `ST-TEST-005-A1` is
+`approved` with `settlement_id` NULL and `approved_at` in the week 2026-09-02 →
+2026-09-08, so a run for THAT week pays it $275.00 (detention resolves at 100%)
+and brings Johnathan Pratt into the run on its own. A run for any other week
+does not see it. `ST-TEST-005-A2` is `draft`; no run pays it in any week.
+
+**FIXTURE EVIDENCE — the gatherer.** `gatherSettlementRun` reaches
+`equipment_outstanding`, on which the psql harness holds no EXECUTE, so a live
+gather cannot be run from here. That is the recorded limitation, not a
+workaround. The gatherer is exercised through `src/test/settlement-adjustment-
+seam.test.ts` (15) against a client that serves rows and can be told to fail a
+named table. `equipmentOutstanding` is supplied explicitly there, per the
+standing rule — never defaulted in either direction.
+
+**CONTROL.** The retained Pratt settlement recomputes to $327.94 unchanged
+(`sharedPayPct`, `perTonScale`). Nothing was written to it.
+
+### Registered in the cutover purge procedure
+
+- Nothing new. This pass created no rows: the state-machine rehearsal was rolled
+  back, and the two `accessorial_adjustments` rows were already registered by
+  Pass 2. `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` stays at 120 — no new
+  client-reachable function exists.
+
+### TESTS RUN (named, per the standing rule)
+
+`settlement-adjustment-seam` (15, new), `accessorial-adjustment-schema` (49 →
+55), `settlementRun` (33), `settlement-foundation` (28), `npm run test:guards`
+(9 files, 87), `operator-settlement-isolation`, `operator-pay-exposure`,
+`billing-schema`, `payments-schema`, `remittance`, `dispatchSettlement`,
+`invoice-dispatch-reconciliation`, `sharedPayPct`, `perTonScale`,
+`shared-pay-percentage-source-guard`.
+
+`accessorial-adjustment-schema`'s "exactly one writer per state change" list
+gained `store_settlement_run`, with the reason at the list: it owns the sixth
+state change and is the reason there is no sixth RPC. The two assertions that
+demand a `p_reason` and forbid writing `settled` now run over the five CLIENT
+writers, which is what they always meant.
+
+### CONTRADICTIONS: none found.

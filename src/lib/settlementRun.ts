@@ -21,9 +21,9 @@
  * Once stored, a settlement is READ, never recomputed. Nothing in the driver's
  * path imports this module.
  */
-import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput } from '@/lib/settlementEngine';
+import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput, type SettlementAdjustmentInput } from '@/lib/settlementEngine';
 import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
-import { workPeriodForDate, deliveredInPeriod, type WorkPeriod } from '@/lib/settlementPeriod';
+import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } from '@/lib/settlementPeriod';
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 
@@ -238,7 +238,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     });
   }
 
-  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes] = await Promise.all([
+  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes] = await Promise.all([
     sb.from('fuel_transactions')
       .select('id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date')
       .not('operator_id', 'is', null)
@@ -252,12 +252,61 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .lt('period_start', period.periodStart)
       .order('period_start', { ascending: false }),
     sb.from('operators').select('id, is_departing, applications(first_name, last_name)'),
+    // APPROVED late accessorial adjustments, bounded by the APPROVAL instant.
+    // The period bound is INDEPENDENT of the exclusion set on purpose: the
+    // recorded fuel defect showed that when an exclusion set is a filter's
+    // only bound, losing it removes the bound entirely. Losing this one can
+    // only re-touch adjustments approved inside the week being run.
+    sb.from('accessorial_adjustments')
+      .select('id, reference, load_id, charge_type, description, amount, funding_source, '
+        + 'actual_cost, approved_at, status, settlement_id, loads(operator_id, load_number)')
+      .eq('status', 'approved')
+      .is('settlement_id', null)
+      .gte('approved_at', fromIso)
+      .lt('approved_at', toIso),
   ]);
 
   // Each read is checked HERE, once, before anything derives a figure from it.
   const fuelRows = rowsOf(fuelRes, 'fuel_transactions');
   const dedRows = rowsOf(dedRes, 'deductions');
   const advRows = rowsOf(advRes, 'cash_advances');
+
+  /**
+   * TWO INDEPENDENT LOCKS on a late adjustment, and they catch different
+   * things.
+   *
+   * `settledSourcesEver` is the SETTLE-ONCE key (never the period-scoped set —
+   * an adjustment is not a recurring deduction). It catches an adjustment
+   * whose settlement line item exists even though its own row was never
+   * stamped: a write-back that failed after the line landed, or a row whose
+   * pointers were cleared. It is the money's own record.
+   *
+   * `settlement_id IS NULL` catches the opposite: a row the writer DID stamp
+   * whose line item has since been deleted with the settlement it belonged to.
+   * It also keeps the read narrow at the database rather than in memory.
+   *
+   * Either lock alone leaves a double-pay window open; the pair does not.
+   */
+  const adjustmentsByOperator: Record<string, SettlementAdjustmentInput[]> = {};
+  for (const a of rowsOf(adjRes, 'accessorial_adjustments')) {
+    if (a.status !== 'approved' || a.settlement_id) continue;
+    const approvedOn = carrierDateOf(a.approved_at);
+    if (!approvedOn || approvedOn < period.periodStart || approvedOn > period.periodEnd) continue;
+    if (settledSourcesEver.has(`accessorial_adjustments:${a.id}`)) continue;
+    const load = Array.isArray(a.loads) ? a.loads[0] : a.loads;
+    const operatorId = load?.operator_id;
+    if (!operatorId) continue;
+    (adjustmentsByOperator[operatorId] ??= []).push({
+      id: a.id,
+      reference: a.reference,
+      loadNumber: load?.load_number ?? null,
+      chargeType: a.charge_type,
+      amount: num(a.amount),
+      description: a.description,
+      fundingSource: a.funding_source,
+      actualCost: a.actual_cost,
+    });
+  }
 
   const operators = (rowsOf(operatorRes, 'operators'));
   const nameOf = (id: string) => {
@@ -286,6 +335,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     ...(advRows).filter(a => num(a.remaining_balance) > 0).map(a => a.operator_id),
     ...Object.keys(carryForward).filter(id => carryForward[id] < 0),
     ...Object.keys(rmByOperator),
+    // An approved adjustment ALONE brings a driver into the run.
+    ...Object.keys(adjustmentsByOperator),
   ].filter(Boolean));
 
   const gathered: GatheredOperator[] = [];
@@ -362,6 +413,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     }
 
 
+    const adjustments = adjustmentsByOperator[operatorId] ?? [];
+
     const work: UnsettledWork = {
       operatorId,
       deliveredLoadCount: loads.length,
@@ -370,6 +423,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       negativeCarryForward: carryIn < 0 ? Math.abs(carryIn) : 0,
       rmDeductionDue: Math.min(rmShortfall, rmDeposit?.weeklyDeduction ?? settings.rm_weekly_deduction),
       otherDeductionsDue: deductions.reduce((t, d) => t + d.amount, 0),
+      approvedAdjustmentCount: adjustments.length,
     };
 
     gathered.push({
@@ -386,6 +440,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         loads,
         fuel,
         deductions,
+        adjustments,
         // Cash advances are a POPULATION trigger only: no repayment schedule is
         // recorded anywhere, and inventing one here would be the gathering layer
         // making a pay rule. Recorded as an open item.

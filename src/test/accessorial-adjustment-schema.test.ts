@@ -519,14 +519,27 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     'accessorial_adjustment_writer_active',
   ]);
 
-  /** One RPC per transition. Anything else touching the table is a defect. */
+  /**
+   * One RPC per transition. Anything else touching the table is a defect.
+   *
+   * `store_settlement_run` owns the SIXTH state change — `approved → settled`
+   * — and it is here deliberately: that transition has no client role at all,
+   * so giving it a seventh RPC would create a door where none should exist.
+   * The trigger refuses `settled` unless `settlement_writer_active()`, which
+   * only that function turns on.
+   */
   const WRITERS = new Set([
     'create_accessorial_adjustment',
     'submit_accessorial_adjustment',
     'approve_accessorial_adjustment',
     'reject_accessorial_adjustment',
     'void_accessorial_adjustment',
+    'store_settlement_run',
   ]);
+
+  /** The five a client can call. `store_settlement_run` takes no reason and
+   *  belongs to no role — it is the server's own transition. */
+  const CLIENT_WRITERS = [...WRITERS].filter(w => w !== 'store_settlement_run');
 
   itLive('the only functions that write the table are the five transitions', () => {
     const writers = psql(`SELECT proname FROM pg_proc
@@ -623,7 +636,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
   });
 
   itLive('every transition stamps the actor from current_profile_id and demands a reason', () => {
-    for (const fn of WRITERS) {
+    for (const fn of CLIENT_WRITERS) {
       const src = bodyOf(fn);
       expect(src, fn).toContain('public.current_profile_id()');
       expect(src, fn).toContain("nullif(btrim(coalesce(p_reason, '')), '')");
@@ -651,7 +664,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
       .toContain('settled by the settlement writer, not by a caller');
     // No transition RPC WRITES the settled status. void_accessorial_adjustment
     // reads it, to refuse voiding a settled row — that is a refusal, not a write.
-    for (const fn of WRITERS) {
+    for (const fn of CLIENT_WRITERS) {
       expect(bodyOf(fn), fn).not.toMatch(/SET status = 'settled'/);
       expect(bodyOf(fn), fn).not.toContain("status = 'settled',");
     }
@@ -693,5 +706,59 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     const [count] = psql(`SELECT count(*) FROM public.settlement_line_items
       WHERE source_table = 'accessorial_adjustments'`);
     expect(count).toBe('0');
+  });
+});
+
+/**
+ * PASS 3 — the settlement seam, asserted against the live catalog.
+ */
+describe('accessorial_adjustments — the settlement seam', () => {
+  itLive('`settled` is reachable only inside the settlement writer', () => {
+    const src = bodyOf('enforce_accessorial_adjustment_transition');
+    expect(src).toContain("NEW.status = 'settled' AND NOT public.settlement_writer_active()");
+  });
+
+  itLive('the settlement writer stamps BOTH pointers when it pays an adjustment', () => {
+    const src = bodyOf('store_settlement_run');
+    expect(src).toContain("nullif(v_line->>'source_table', '') = 'accessorial_adjustments'");
+    expect(src).toContain("SET status = 'settled'");
+    expect(src).toContain('settlement_id = v_id');
+    expect(src).toContain('settlement_line_item_id = v_line_id');
+  });
+
+  itLive('the settlement writer VALIDATES the adjustment rather than trusting the payload', () => {
+    const src = bodyOf('store_settlement_run');
+    for (const refusal of [
+      'which does not exist',
+      'not approved; it cannot be settled',
+      'is already settled on settlement',
+      'belongs to another driver',
+    ]) expect(src, refusal).toContain(refusal);
+    // The row is locked before it is judged.
+    expect(src).toContain('FOR UPDATE');
+  });
+
+  itLive('a recompute RELEASES what it paid instead of stranding it', () => {
+    const src = bodyOf('store_settlement_run');
+    const release = src.indexOf('UPDATE public.accessorial_adjustments\n         SET status = \'approved\'');
+    expect(src).toContain("SET status = 'approved'");
+    expect(src).toContain('WHERE settlement_id = v_existing.id');
+    // ...and it happens BEFORE the delete, because settlement_id is RESTRICT.
+    expect(src.indexOf('WHERE settlement_id = v_existing.id'))
+      .toBeLessThan(src.indexOf('DELETE FROM public.settlements'));
+    expect(release === -1 || release > 0).toBe(true);
+  });
+
+  itLive('the settlement writer never opens the adjustment correction path', () => {
+    // Two privileged flags, two sets of books. The settlement writer unwinds
+    // its OWN work through settlement_writer_active(); it must not reach for
+    // app.accessorial_adjustment_write.
+    expect(bodyOf('store_settlement_run')).not.toContain('app.accessorial_adjustment_write');
+  });
+
+  itLive('settlement_line_items admits the adjustment source table', () => {
+    const def = psql(`SELECT pg_get_constraintdef(oid) FROM pg_constraint
+      WHERE conname='settlement_line_items_source_table_check'`).join(' ');
+    expect(def).toContain('accessorial_adjustments');
   });
 });

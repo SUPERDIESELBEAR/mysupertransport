@@ -21,7 +21,7 @@ function fakeClient(tables: Record<string, any[]>) {
   const builder = (rows: any[]) => {
     const chain: any = {
       select: () => chain,
-      eq: () => chain, not: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
+      eq: () => chain, not: () => chain, is: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
       order: () => chain,
       maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
       then: (res: any, rej: any) => Promise.resolve({ data: rows, error: null }).then(res, rej),
@@ -250,7 +250,7 @@ describe('a failed read aborts the run', () => {
       const failed = t === failTable;
       const chain: any = {
         select: () => chain,
-        eq: () => chain, not: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
+        eq: () => chain, not: () => chain, is: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
         order: () => chain,
         maybeSingle: async () => (failed ? { data: null, error: err } : { data: rows[0] ?? null, error: null }),
         then: (res: any, rej: any) =>
@@ -284,6 +284,7 @@ describe('a failed read aborts the run', () => {
     ['cash_advances', 'cash_advances'],
     ['rm_deposits', 'rm_deposits'],
     ['operators', 'operators'],
+    ['accessorial_adjustments', 'accessorial_adjustments'],
     ['settlement_settings', 'settlement_settings'],
   ];
 
