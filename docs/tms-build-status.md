@@ -1325,6 +1325,29 @@ after the fact missed five loads and every storage object.
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
 
+**Module 5 Pass 4 addendum (2026-09-04).** Registered on the day the table was
+created, EMPTY, for the same reason.
+
+| Object | At cutover | Note |
+|---|---|---|
+| `accessorial_adjustments` | 0 | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. |
+
+**A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
+`settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
+reason, never deleted. Its unlock is its OWN setting, because
+`app.invoice_write` and `app.settlement_write` cannot open it:
+
+```sql
+BEGIN;
+SET LOCAL app.accessorial_adjustment_write = 'on';
+DELETE FROM public.accessorial_adjustments;
+COMMIT;
+```
+
+That step runs BEFORE the invoice unlock block below, and before Step 3's load
+deletes.
+
+
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
 deleted and its lines cannot be removed — the trigger refuses, exactly as it is
 meant to. If any test invoice reaches `submitted_at` before cutover, the purge
