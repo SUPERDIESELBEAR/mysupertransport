@@ -629,7 +629,7 @@ export type Database = {
         Insert: {
           broker_id?: string | null
           bucket: string
-          company_id?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -5344,7 +5344,7 @@ export type Database = {
         Insert: {
           batch_number: string
           billing_path: Database["public"]["Enums"]["invoice_billing_path"]
-          company_id?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -5418,7 +5418,7 @@ export type Database = {
         Insert: {
           amount: number
           charge_type?: string | null
-          company_id?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -5505,7 +5505,7 @@ export type Database = {
           broker_billing_email_snapshot?: string | null
           broker_id?: string | null
           broker_name_snapshot?: string | null
-          company_id?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -8568,7 +8568,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
-          company_id?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           fee_amount?: number
