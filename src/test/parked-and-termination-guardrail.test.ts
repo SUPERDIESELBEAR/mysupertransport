@@ -131,20 +131,28 @@ describe("parked — live schema and standing rows", () => {
     expect(orphaned[0]).toBe("0");
   });
 
-  itLive("parking writes no lease_terminations row — the standing set is untouched", () => {
-    // 31 rows stand today, and 31 rows still stand: six were VOIDED, none
-    // deleted. Six of the nine written in the three-week window record ICAs
-    // that were never ended, so they are withdrawn in place.
-    const total = psql(`select count(*) from public.lease_terminations`);
-    expect(Number(total[0])).toBe(31);
-    const voided = psql(`select count(*) from public.lease_terminations where voided_at is not null`);
-    expect(Number(voided[0])).toBe(6);
+  itLive("parking writes no lease_terminations row", () => {
+    // INVARIANT, NOT A CENSUS. This assertion used to hard-code the row count
+    // as it stood on 2026-08-31 (31 total, 6 voided). Two legitimate staff
+    // terminations on 2026-09-03 broke it through no fault of any code, and
+    // that noise was then cited as "pre-existing" cover for a real failure.
+    // A guard states a property that must always hold; it never counts rows.
+    //
+    // The property: parking is not termination. No operator may acquire a
+    // termination row at or after the moment they were parked, and no void
+    // may be deleted — voided rows stay on the table, withdrawn in place.
     const parkedWithTermination = psql(`
       select count(*) from public.operators o
       join public.lease_terminations lt on lt.operator_id = o.id
       where o.parked_at is not null and lt.created_at > o.parked_at`);
     expect(parkedWithTermination[0]).toBe("0");
+
+    // A void is a withdrawal, never a delete: every voided row is still here.
+    const voidedStillPresent = psql(`
+      select count(*) from public.lease_terminations where voided_at is not null`);
+    expect(Number(voidedStillPresent[0])).toBeGreaterThanOrEqual(6);
   });
+
 
   itLive("exactly the six mistaken rows are voided, and no genuine departure is", () => {
     const voidedNames = psql(`
