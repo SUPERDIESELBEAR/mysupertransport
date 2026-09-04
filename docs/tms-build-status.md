@@ -6405,3 +6405,128 @@ invoice. No screen. A test asserts NO writer exists, and — as with Module 4 �
 that assertion is to be REWRITTEN to name the one writer when it arrives, never
 deleted: the point is not that nothing exists, it is that there is no SECOND
 writer.
+
+---
+
+## Module 7 (Billing & Invoicing), Pass 3 — persistence, numbering, the queue (2026-09-04)
+
+Scope: persist invoices, allocate invoice numbers, build the billing queue.
+NOT built: payments, factoring timestamps beyond `submitted_at`, remittance
+ingest, supplemental invoices, AR aging.
+
+### Numbering — `public.invoice_number_config` + `allocate_invoice_number()`
+
+Shaped after `load_number_config`, with ONE deliberate difference: **the year is
+part of the KEY** (`UNIQUE (company_id, year)`). `load_number_config` carries a
+`current_year` column and branches in code on rollover; here the 2027 restart is
+a new ROW, so it cannot be produced by a code path that forgot to reset.
+
+Format `ST` + `YY` + separator + zero-padded sequence → **`ST26-0001`**, the same
+`prefix + YY + lpad(seq, n)` shape `generate_load_number` produces.
+
+**Four digits caps a year at 9,999 invoices.** Stated as a known limit; the
+allocator raises `22003` telling the reader to widen `sequence_padding` rather
+than wrapping or colliding.
+
+**Allocation happens ON THE WRITE, never on form open.** `generate_load_number`
+is called from a mount effect and increments unconditionally, which is why 52 of
+63 load numbers are burned. Not reproduced: `allocate_invoice_number()` is
+executable by `service_role` and the owner only — revoked from PUBLIC, `anon`
+AND `authenticated` — so no browser can reach it, and `create_invoice` calls it
+AFTER the last refusal and immediately before the `INSERT`. The structural guard
+asserts that ordering by position in `prosrc`, not by reading the code.
+
+### The writer — `public.create_invoice(uuid, jsonb)`
+
+The four protections, quoted from the live definition:
+
+    SECURITY DEFINER
+    SET search_path TO 'public', 'extensions'
+    IF NOT (public.has_role(auth.uid(), 'management'::app_role)
+            OR public.has_role(auth.uid(), 'owner'::app_role)) THEN
+      RAISE EXCEPTION 'Only management or owner may create an invoice.'
+        USING ERRCODE = '42501';
+    v_actor uuid := public.current_profile_id();
+
+plus `REVOKE ALL ... FROM PUBLIC` and `FROM anon`; `company_id` is stamped by the
+existing `aa_stamp_billing_company_id` trigger and never accepted from the
+client.
+
+The client computes with the Pass 2 pure builder; the RPC VALIDATES — the same
+decision, and the same reasoning, as Module 4 Pass 4, so section 4 exists in one
+language. It refuses:
+
+- lines that do not sum to the stated `amount` (to the cent);
+- a load that is not `ready_to_invoice`;
+- a second invoice for a load that already has one;
+- a payload that OMITS a charge the load carries, or bills one it does not
+  (both directions — one direction alone would let a caller quietly drop an
+  expensive accessorial and still look self-consistent).
+
+`billing_path` is the one figure read server-side rather than accepted: it is a
+FACT about the broker, frozen at build time from `factoring_status`, and
+`not_approved`/`unknown`/no-broker all force `direct`. A payload claiming
+otherwise is refused rather than silently corrected. **Nine of eleven live
+brokers are `unknown`, so almost everything routes DIRECT today** — the queue
+shows the reason on every row.
+
+`ready_to_invoice → invoiced` goes through `public.update_load_status`, the
+existing transition, not a bare UPDATE and not a new status.
+
+### The queue — `src/pages/management/BillingQueuePage.tsx`
+
+Management and owner only, under Accounting. Loads at `ready_to_invoice`, oldest
+delivery first, each expandable to the itemised parts the figure is made of, with
+the broker's factoring status spelled out. `src/lib/billingRun.ts` gathers and
+stores; it decides nothing.
+
+### VERIFIED AGAINST REAL DATA
+
+The one live `ready_to_invoice` load, `ST-TEST-005`, invoiced through the real
+path (Pass 2 builder → `create_invoice`, called with a management identity).
+Read back from the database, not from the builder:
+
+    ST26-0001 | direct | 1875.00 | open | Test Broker Beta
+    created_by = Marcus Mueller | company stamped | load ST-TEST-005 now `invoiced`
+    line: linehaul | "Linehaul" | 1875.00 | no charge reference
+
+`invoice_number_config` had NO ROW before the call and `next_sequence = 2`
+after — the row was created by the allocation itself, which is how the "on write,
+not on open" claim was verified rather than asserted: the config table cannot
+have been touched by opening the screen, because it did not exist.
+
+A second attempt on the same load was **REFUSED**: `Load ST-TEST-005 is invoiced,
+not ready_to_invoice; it cannot be invoiced.` `next_sequence` stayed at 2 — a
+refusal costs no number.
+
+### Registered in the cutover purge procedure
+
+- `invoices` row `ST26-0001` (`76e0848a-6cd6-413b-9233-811ea82c2b0e`) and its one
+  `invoice_line_items` row, created by this verification. It is `open`, never
+  submitted, so no `SET LOCAL app.invoice_write = 'on'` unlock is needed — but it
+  must be deleted BEFORE `loads`, per the recorded RESTRICT order.
+- `loads.ST-TEST-005` must be returned to `ready_to_invoice` (or purged with the
+  invoice) — the verification advanced its status.
+- `invoice_number_config` row for 2026: delete it, or reset `next_sequence` to 1.
+  A purge that leaves it behind starts real invoicing at `ST26-0002`.
+
+### TESTS RUN (named, per the standing rule)
+
+`billing-schema` (36, rewritten from "no writer exists yet" to "exactly one
+writer" — the four protections asserted, the allocator's unreachability
+asserted, and the allocate-after-every-refusal ordering asserted),
+`definer-live-catalog` (13), `definer-search-path` (7), `definer-fail-open` (3),
+`policy-grant-parity` (4), `grant-parity-live`, `caller-evaluated-functions`,
+`invoice-dispatch-reconciliation` (3), `invoiceBuilder`,
+`shared-pay-percentage-source-guard`.
+
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` raised 111 → 112 for `create_invoice`, with
+the reason at the ceiling. It went up by ONE and not by two because
+`allocate_invoice_number()` reaches no client role.
+
+Three scratch fixtures in `billing-schema` had to stop picking the oldest load
+blindly — that load now has a real invoice, and `invoices_load_key` refused
+them. They now pick the oldest load with NO invoice, which is what they always
+meant.
+
+### CONTRADICTIONS: none found.
