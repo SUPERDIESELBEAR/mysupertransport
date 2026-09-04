@@ -14,6 +14,151 @@ export type Database = {
   }
   public: {
     Tables: {
+      accessorial_adjustments: {
+        Row: {
+          actual_cost: number | null
+          amount: number
+          approved_at: string | null
+          approved_by: string | null
+          billing_state: string
+          charge_type: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          funding_source: string | null
+          id: string
+          invoice_id: string | null
+          load_id: string
+          proof_document_id: string | null
+          reason: string
+          reference: string
+          sequence: number
+          settlement_id: string | null
+          settlement_line_item_id: string | null
+          status: string
+          updated_at: string
+          updated_by: string | null
+          void_reason: string | null
+        }
+        Insert: {
+          actual_cost?: number | null
+          amount: number
+          approved_at?: string | null
+          approved_by?: string | null
+          billing_state?: string
+          charge_type: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          funding_source?: string | null
+          id?: string
+          invoice_id?: string | null
+          load_id: string
+          proof_document_id?: string | null
+          reason: string
+          reference: string
+          sequence: number
+          settlement_id?: string | null
+          settlement_line_item_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+        }
+        Update: {
+          actual_cost?: number | null
+          amount?: number
+          approved_at?: string | null
+          approved_by?: string | null
+          billing_state?: string
+          charge_type?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          funding_source?: string | null
+          id?: string
+          invoice_id?: string | null
+          load_id?: string
+          proof_document_id?: string | null
+          reason?: string
+          reference?: string
+          sequence?: number
+          settlement_id?: string | null
+          settlement_line_item_id?: string | null
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+          void_reason?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accessorial_adjustments_approved_by_fkey"
+            columns: ["approved_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_proof_document_id_fkey"
+            columns: ["proof_document_id"]
+            isOneToOne: false
+            referencedRelation: "load_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_settlement_id_fkey"
+            columns: ["settlement_id"]
+            isOneToOne: false
+            referencedRelation: "settlements"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_settlement_line_item_id_fkey"
+            columns: ["settlement_line_item_id"]
+            isOneToOne: false
+            referencedRelation: "settlement_line_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accessorial_adjustments_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       active_dispatch: {
         Row: {
           assigned_dispatcher: string | null
@@ -11552,6 +11697,7 @@ export type Database = {
           scope: string
         }[]
       }
+      accessorial_adjustment_writer_active: { Args: never; Returns: boolean }
       acknowledge_eld_sync_alert: {
         Args: { p_alert_id: string }
         Returns: undefined

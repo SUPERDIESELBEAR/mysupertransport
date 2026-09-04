@@ -1325,6 +1325,29 @@ after the fact missed five loads and every storage object.
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
 
+**Module 5 Pass 4 addendum (2026-09-04).** Registered on the day the table was
+created, EMPTY, for the same reason.
+
+| Object | At cutover | Note |
+|---|---|---|
+| `accessorial_adjustments` | 0 | Purge BEFORE `loads` (`load_id` is `ON DELETE RESTRICT`, a leftover adjustment BLOCKS the load delete), BEFORE `settlements` (`settlement_id` is `ON DELETE RESTRICT`) and BEFORE `carrier_profile`. `invoice_id`, `settlement_line_item_id` and `proof_document_id` are `ON DELETE SET NULL` and impose no order. |
+
+**A SECOND TRAP, the same shape as the submitted-invoice one.** An `approved` or
+`settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
+reason, never deleted. Its unlock is its OWN setting, because
+`app.invoice_write` and `app.settlement_write` cannot open it:
+
+```sql
+BEGIN;
+SET LOCAL app.accessorial_adjustment_write = 'on';
+DELETE FROM public.accessorial_adjustments;
+COMMIT;
+```
+
+That step runs BEFORE the invoice unlock block below, and before Step 3's load
+deletes.
+
+
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
 deleted and its lines cannot be removed — the trigger refuses, exactly as it is
 meant to. If any test invoice reaches `submitted_at` before cutover, the purge
@@ -2477,7 +2500,62 @@ additive-only: that column is what the double-pay guard keys on, so every future
 reader gains a case. It is a deliberate schema change to be made in Module 5 Pass
 1, not incidentally.
 
+### Module 5, Pass 4 / PASS 1 — the schema (2026-09-04)
+
+Schema only: the table, its constraints, RLS, grants, the `source_table` CHECK
+extension and the tests. NO writer, NO sequence allocator, NO approval RPC, NO
+settlement seam, NO parts-assembler change, NO screen.
+
+**The classification gate had to be chosen, not copied.** `load_charges.charge_type`
+is not constrained by a CHECK at all — it is gated by `assert_known_charge_type`,
+called from `add_load_charge` and `update_load_charge`. An adjustment has no
+writer yet, so its gate is a CHECK listing the same nine types. The two can drift,
+so the INVARIANT is asserted rather than the list: the test parses the nine values
+out of `assert_known_charge_type`'s `prosrc` and out of
+`accessorial_adjustments_charge_type_check`, and fails if the sets differ. When
+Pass 2's writer lands it should call the function, and this CHECK becomes belt to
+its braces.
+
+**Its own writer gate: `app.accessorial_adjustment_write`.** Not
+`app.invoice_write`, not `app.settlement_write` — one privileged correction path
+should never open two sets of books. A test asserts the four setting names appear
+in none of each other's functions, in both directions.
+
+**FROZEN once approved:** `company_id`, `load_id`, `reference`, `sequence`,
+`charge_type`, `amount`, `funding_source`, `actual_cost`, `reason`, `approved_at`,
+`approved_by`. `funding_source` and `actual_cost` are frozen with the money and not
+merely alongside it: they decide whether the driver is reimbursed at 100% or paid
+at the policy percentage, so changing one after approval restates the pay without
+touching `amount`. **NOT FROZEN, deliberately:** `status`, `settlement_id`,
+`settlement_line_item_id`, `invoice_id`, `billing_state`, `void_reason` — an
+adjustment that cannot record its own consumption could never be paid or billed.
+Status may only advance out of `approved` (to `settled` or `void`); `settled` is
+final.
+
+**HARNESS LIMIT, recorded rather than worked around.** The test role holds SELECT
+and INSERT on public tables and NOT UPDATE or DELETE, and cannot `SET ROLE`. So
+every CHECK and UNIQUE refusal is EXERCISED with a real insert inside a rolled-back
+transaction, and the immutability rules are asserted against the live trigger body
+plus its attachment — the part a later migration is most likely to drop. That is
+the same limit `billing-schema.test.ts` records, and it is weaker evidence than a
+live UPDATE would be.
+
+**No definer ceiling moved.** Three definers were created —
+`stamp_accessorial_adjustment_actor`, `accessorial_adjustment_writer_active`,
+`enforce_accessorial_adjustment_immutability` — and all three reach `postgres`,
+`service_role` and the sandbox role only, verified through
+`aclexplode(pg_proc.proacl)` AFTER apply. `KNOWN_ANON_EXECUTABLE_MAX` and
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` are unchanged, which is the correct outcome:
+the ceilings count client-reachable functions, and none of these is one. Tenancy
+reuses the existing `stamp_billing_company_id()` on a trigger named
+`aa_stamp_company_id`, so no fourth function was created.
+
+**Tests:** `src/test/accessorial-adjustment-schema.test.ts` — 37, live catalog.
+Includes a NO WRITER EXISTS YET assertion which is to be REWRITTEN to name the one
+writer when Pass 2 arrives, never deleted.
+
 ## Module 11, Pass 1 — the driver home screen becomes today's work (2026-08-28)
+
 
 The operator home screen was a greeting and four tiles. It never said what the
 driver was doing. It now leads with the load he is on, read through the SAME
