@@ -7316,3 +7316,129 @@ so this pass was built from the brief and the Pass 1 record alone.
 A second, smaller contradiction is inside the brief itself: `Tax` is listed
 both as a KNOWN OPTIONAL column and as an example of an UNRECOGNISED one. It
 was built as KNOWN OPTIONAL, with a `tax` line type.
+
+---
+
+## Module 6 — the 2026-09-05 design proposal, RECORDED AFTER THE FACT
+
+This proposal was produced in conversation on 2026-09-05 and never written
+down. The pass that implemented part of it (Pass 2, above) was told to read it
+here and could not: it does not exist in the document. **A proposal that is not
+in this record cannot be read by the pass that implements it, and its findings
+die with the conversation.** That is the reason this section exists, and the
+standing lesson it carries: a design finding is not recorded until it is in
+this file.
+
+Its findings came from live catalog and data queries. Several are consequential.
+
+### 1. A REPAIR ON THE FUEL CARD IS DEDUCTED FROM THE DRIVER IN FULL, WITH NO APPROVAL
+
+`minor_repairs_amount` is parsed, stored, and emitted as a `minor_repairs`
+line. The settlement read selects only `total_amount` and
+`fuel_discount_amount` (`settlementRun.ts`) — and `total_amount` ALREADY
+INCLUDES the repair. So a repair comes out of the driver's pay in ONE WEEK, in
+FULL, with no approval, no threshold, and no separate line on the statement.
+
+This record states that maintenance purchases require approval. **Nothing
+implements it.** The gap is not that the approval step is missing — it is that
+THE MONEY MOVES ANYWAY.
+
+Currently unreachable only because `fuel_transactions` is EMPTY. It becomes
+live on the first real import.
+
+**TRIGGER: fix before the first MultiService file is imported.**
+
+### 2. Every fuel table is empty
+
+`fuel_transactions`, `fuel_transaction_lines`, `fuel_import_batches`,
+`cash_advances` and `deductions` all hold ZERO rows. See the amendment on the
+Pass 1 record. Nothing in Module 6 can be verified against real data until a
+file is imported.
+
+### 3. Cash advances — what the proposal established
+
+`cash_advances` has NO TRIGGERS. The phrase "population trigger" in section 9
+means the table pulls a driver INTO a settlement run, not that a database
+trigger writes it. Nothing writes it: no `public` function, no source file
+outside the settlement read. A dispatcher cannot issue an advance today and by
+RLS never will — the policy is management-or-owner. The engine can pay a
+`cash_advance` line but is never given one; `settlementRun.ts` passes
+`advances: []` deliberately.
+
+**FOUR QUESTIONS, OPEN AND NOT DECIDED:** instalments versus full recovery;
+what happens when net will not cover it; priority ordering against R&M and
+fuel; who may issue.
+
+**RECOMMENDATIONS AWAITING THE OWNER'S DECISION — not decisions:** instalments
+by default, reusing `deduction_installments`; recovery only down to zero net;
+priority R&M, then fuel, then advance. None of this may be built until the
+carrier decides.
+
+### 4. The period bound is `invoice_date`, and that is the right choice
+
+**Posting date — REJECTED.** MultiService does not print one, so it would be
+invented at import time, and an invented date is a pay rule written by the
+importer.
+
+**Import batch — REJECTED.** It makes a driver's deduction depend on when staff
+got round to uploading; a late upload would dump three weeks of fuel onto one
+settlement.
+
+**The residual, recorded:** fuel bought inside a period but imported AFTER that
+period settled is NEVER DEDUCTED. That is a LATE FUEL problem, structurally
+identical to the late accessorial `-A1` path, and it should be solved the same
+way — carried into the next open period with visible attribution back to its
+real week — **not by widening the bound.**
+
+**TRIGGER: decide before the first settlement runs against imported fuel.**
+
+### 5. Comdata is a NEW SIBLING MODULE, not an extension
+
+`multiserviceCsv.ts` cannot be extended to Comdata. It began as a frozen header
+with fixed positional indices, and even after Pass 2 it remains
+MultiService-SHAPED in its category names. The real seam is `ParsedFuelRow`
+plus `fuel_transaction_lines`: everything downstream of the line table is
+already provider-agnostic.
+
+`fuel_provider` has ONE label, `multiservice`. The build context lists
+`multiservice/comdata`; the enum does not. **Discrepancy recorded.**
+
+The dedupe key `(invoice_no, invoice_date, card_no)` is UNPROVEN for Comdata
+and must be re-established against a real Comdata file before any Comdata row
+is written. Comdata cannot be verified without a real Comdata file — not
+partially, not by analogy.
+
+### 6. Fuel has exactly ONE reader
+
+The driver settlement. Not the invoice, not the dispatch base, not
+`total_load_value`. The structural reason is that `fuel_transactions` carries
+NO LOAD REFERENCE.
+
+**Consequence:** any future pass that adds one — a lumper funded on the fuel
+card is the obvious candidate, and the wish list already names it — creates the
+FIRST path by which fuel could reach an invoice. Such a pass is a
+SETTLEMENT-AND-BILLING change, not a fuel change, and must be reviewed as one.
+
+### 7. Two errors in the Pass 2 brief, recorded
+
+- `Tax` was listed both as a KNOWN OPTIONAL column and as an example of an
+  UNRECOGNISED one. Built as KNOWN OPTIONAL — correctly.
+- The brief instructed the builder to read a design proposal that was not in
+  the record. See the opening of this section.
+
+### Addendum to the Pass 2 record — WHY name matching replaced positional
+
+The 23 columns of the live export are CHECKBOXES on MultiService's report
+screen, roughly fifty options, most unused by SUPERTRANSPORT. Under positional
+matching a missed checkbox, an extra checkbox, or a carrier fuelling CNG all
+failed the same way.
+
+And name matching alone does NOT catch a forgotten checkbox for a category that
+HAS MONEY IN IT: every column present parses perfectly. Only the reconciliation
+check catches it, **because the money is what reveals it.**
+
+The ten new `fuel_line_type` values — `diesel1, unleaded, cng, lng, lpg,
+reefer_cng, reefer_lng, reefer_lpg, oil, tax` — are LINE ITEMS, not new flat
+columns. `commit_fuel_import` gained a fourth argument and the three-argument
+form was dropped, so the inventory entry was RENAMED rather than added and the
+ceiling stayed at **120**.
