@@ -336,9 +336,11 @@ export function indexHeader(header: string[]): HeaderIndex {
     report: {
       recognized,
       unrecognized,
+      unrecognized_money: [],
       missing_optional,
       column_count: header.filter((h) => h.trim() !== '').length,
     },
+
   };
 }
 
