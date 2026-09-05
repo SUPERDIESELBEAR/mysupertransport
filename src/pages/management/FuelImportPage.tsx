@@ -16,7 +16,7 @@ import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
   FuelCsvFormatError, columnDriftNotice, parseMultiserviceCsv, reconciliationWarning,
-  unrecognizedColumnsNotice,
+  unrecognizedColumnsNotice, unrecognizedMoneyNotice,
   type FuelColumnReport, type ParsedFuelFile, type ParsedFuelRow,
 } from '@/lib/fuel/multiserviceCsv';
 import {
@@ -95,8 +95,8 @@ export default function FuelImportPage() {
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<ParsedFuelRow[] | null>(null);
   const [columns, setColumns] = useState<FuelColumnReport | null>(null);
-  const [notices, setNotices] = useState<{ reconciliation: string | null; unrecognized: string | null; drift: string | null }>(
-    { reconciliation: null, unrecognized: null, drift: null },
+  const [notices, setNotices] = useState<{ reconciliation: string | null; unrecognized: string | null; unrecognizedMoney: string | null; drift: string | null }>(
+    { reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null },
   );
   const [acknowledged, setAcknowledged] = useState(false);
   const [preview, setPreview] = useState<FuelPreview | null>(null);
@@ -128,7 +128,7 @@ export default function FuelImportPage() {
     setPreview(null);
     setRows(null);
     setColumns(null);
-    setNotices({ reconciliation: null, unrecognized: null, drift: null });
+    setNotices({ reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null });
     try {
       const parsed: ParsedFuelFile = parseMultiserviceCsv(await file.text());
       const previousColumns = await fetchLastImportColumns().catch(() => null);
@@ -138,6 +138,7 @@ export default function FuelImportPage() {
       setNotices({
         reconciliation: reconciliationWarning(parsed),
         unrecognized: unrecognizedColumnsNotice(parsed.columns),
+        unrecognizedMoney: unrecognizedMoneyNotice(parsed.columns),
         drift: columnDriftNotice(parsed.columns, previousColumns),
       });
       setAcknowledged(false);
@@ -163,7 +164,7 @@ export default function FuelImportPage() {
       setPreview(null);
       setRows(null);
       setColumns(null);
-      setNotices({ reconciliation: null, unrecognized: null, drift: null });
+      setNotices({ reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null });
       void qc.invalidateQueries({ queryKey: ['fuel-review-queue'] });
       void qc.invalidateQueries({ queryKey: ['fuel-batches'] });
       toast({ description: `Imported ${res.imported_count} rows.` });
@@ -329,6 +330,19 @@ export default function FuelImportPage() {
                       />
                       I have read this and want to import anyway.
                     </label>
+                  </div>
+                )}
+
+                {notices.unrecognizedMoney && (
+                  <div
+                    data-testid="fuel-unrecognized-money-warning"
+                    className="flex items-start gap-2 rounded-md border border-destructive/40 bg-[#FFE8E8] p-3 text-sm"
+                  >
+                    <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <div>
+                      <div className="font-medium">A column with money in it was not recognised</div>
+                      <div className="text-muted-foreground">{notices.unrecognizedMoney}</div>
+                    </div>
                   </div>
                 )}
 

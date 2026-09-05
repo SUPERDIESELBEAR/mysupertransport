@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   FuelCsvFormatError, MULTISERVICE_HEADER, REQUIRED_COLUMNS, columnDriftNotice,
   deriveLines, fileDateRange, parseInvoiceDate, parseMoney, parseMultiserviceCsv,
+  MULTISERVICE_HEADER_2026_09_05,
   reconcile, reconciliationWarning, splitCsvLine, unrecognizedColumnsNotice,
+  unrecognizedMoneyNotice,
 } from '../multiserviceCsv';
 
 /**
@@ -297,5 +299,105 @@ describe('REGRESSION — the live 23-column file is unchanged', () => {
       { line_type: 'fees', amount: 2.5, quantity: null },
       { line_type: 'fuel_discount', amount: -24.65, quantity: null },
     ]);
+  });
+});
+
+/* ==================================================================== */
+/* Pass 3 — the REAL 2026-09-05 header                                   */
+/* ==================================================================== */
+
+const REAL_HEADER = MULTISERVICE_HEADER_2026_09_05.map((h) => `"${h}"`).join(',');
+
+/** A row in the real 27-column file's own shape. */
+function realRow(over: Partial<Record<string, string>> = {}): string {
+  const base: Record<string, string> = {
+    'Unit No': '104', 'Card No': '45', 'Driver Name': 'PRATT JOHNATHAN',
+    'Merchant Name': "LOVE'S TRAVEL STOP #421", 'City': 'JOPLIN', 'State': 'MO',
+    'Invoice No': '55231', 'Invoice Date': '9/2/2026',
+    'Diesel2 Cost': '612.40', 'Diesel2 Gallons': '164.320',
+    'Reefer Cost': '0.00', 'Reefer Gallons': '0.000',
+    'Oil Amt': '0.00', 'Oil Qty': '0.000',
+    'Additive Amt': '0.00', 'Minor Repairs': '0.00', 'Misc Amt': '0.00', 'Tires': '0.00',
+    'Daycode': '4', '12 Digit Money': '0.00', 'E-Money': '0.00', 'Insta Money®': '0.00',
+    'Bulk DEF Amount': '0.00', 'Bulk DEF Quantity': '0.000', 'Fees': '$0.00',
+    'Fuel Disc Amt': '-24.65', 'Total Amount': '587.75',
+  };
+  const merged = { ...base, ...over };
+  return MULTISERVICE_HEADER_2026_09_05.map((h) => `"${merged[h] ?? ''}"`).join(',');
+}
+
+describe('the real 2026-09-05 export header', () => {
+  it('parses with Merchant Name as the only unrecognised column, and no money in it', () => {
+    const parsed = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow()}`);
+    expect(parsed.columns.unrecognized).toEqual(['Merchant Name']);
+    expect(parsed.columns.unrecognized_money).toEqual([]);
+    expect(unrecognizedMoneyNotice(parsed.columns)).toBeNull();
+    expect(parsed.flaggedCount).toBe(0);
+  });
+
+  it('captures Oil Amt and Oil Qty, the two names the checkbox labels got wrong', () => {
+    const parsed = parseMultiserviceCsv(
+      `${REAL_HEADER}\n${realRow({ 'Oil Amt': '412.00', 'Oil Qty': '4.000', 'Total Amount': '999.75' })}`,
+    );
+    const row0 = parsed.rows[0];
+    expect(row0.extra_amounts.oil).toBe(412);
+    expect(row0.extra_quantities.oil).toBe(4);
+    expect(row0.lines.find((l) => l.line_type === 'oil'))
+      .toEqual({ line_type: 'oil', amount: 412, quantity: 4 });
+    expect(row0.reconciliation_ok).toBe(true);
+  });
+
+  it('captures Reefer Gallons beside the reefer cost', () => {
+    const parsed = parseMultiserviceCsv(
+      `${REAL_HEADER}\n${realRow({ 'Reefer Cost': '80.00', 'Reefer Gallons': '20.500', 'Total Amount': '667.75' })}`,
+    );
+    expect(parsed.rows[0].lines.find((l) => l.line_type === 'reefer'))
+      .toEqual({ line_type: 'reefer', amount: 80, quantity: 20.5 });
+  });
+});
+
+describe('an unrecognised column with money in it is louder', () => {
+  it('names the column, the money and the row count', () => {
+    const header = `${REAL_HEADER},"Widget Amt"`;
+    const body = [
+      `${realRow()},"200.00"`,
+      `${realRow()},"212.00"`,
+      `${realRow()},"0.00"`,
+    ].join('\n');
+    const parsed = parseMultiserviceCsv(`${header}\n${body}`);
+    expect(parsed.columns.unrecognized_money)
+      .toEqual([{ column: 'Widget Amt', total: 412, rows: 2 }]);
+    expect(unrecognizedMoneyNotice(parsed.columns)).toBe(
+      '1 unrecognised column contains money: `Widget Amt` ($412.00 across 2 rows). '
+      + 'Its amount is NOT captured.',
+    );
+    // The quiet note keeps the descriptive column only.
+    expect(unrecognizedColumnsNotice(parsed.columns))
+      .toBe('1 column not recognised: Merchant Name.');
+  });
+
+  it('stays quiet for an unrecognised column that carries only text', () => {
+    const header = `${REAL_HEADER},"Notes"`;
+    const parsed = parseMultiserviceCsv(`${header}\n${realRow()},"fuel stop"`);
+    expect(parsed.columns.unrecognized_money).toEqual([]);
+    expect(unrecognizedMoneyNotice(parsed.columns)).toBeNull();
+    expect(unrecognizedColumnsNotice(parsed.columns))
+      .toBe('2 columns not recognised: Merchant Name, Notes.');
+  });
+});
+
+describe('currency symbols and short card numbers', () => {
+  it('parses "$0.00" as zero and "$1,234.56" as 1234.56', () => {
+    expect(parseMoney('$0.00')).toBe(0);
+    expect(parseMoney('$1,234.56')).toBe(1234.56);
+    expect(parseMoney('-$1,234.56')).toBe(-1234.56);
+  });
+
+  it('round-trips a short card number, leading zero intact', () => {
+    const short = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow({ 'Card No': '45' })}`);
+    const padded = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow({ 'Card No': '045' })}`);
+    expect(short.rows[0].card_no).toBe('45');
+    expect(padded.rows[0].card_no).toBe('045');
+    expect(padded.rows[0].card_no).not.toBe(short.rows[0].card_no);
   });
 });

@@ -88,15 +88,29 @@ export class FuelCsvFormatError extends Error {
 }
 
 /**
- * The 23 columns of the live SUPERTRANSPORT export. Retained as the reference
- * tick list and for the regression test — it is NO LONGER a positional
- * contract.
+ * The 23 columns of the FIRST live SUPERTRANSPORT export. Retained as the
+ * Pass 1 reference tick list and for the regression test — it is NO LONGER a
+ * positional contract.
  */
 export const MULTISERVICE_HEADER = [
   'Unit No', 'Card No', 'Driver Name', 'City', 'State', 'Invoice No', 'Invoice Date',
   'Diesel2 Cost', 'Diesel2 Gallons', 'Reefer Cost', 'Additive Amt', 'Minor Repairs',
   'Misc Amt', 'Tires', 'Daycode', '12 Digit Money', 'E-Money', 'Insta Money®',
   'Bulk DEF Amount', 'Bulk DEF Quantity', 'Fees', 'Fuel Disc Amt', 'Total Amount',
+] as const;
+
+/**
+ * The 27 columns of the REAL export dated 2026-09-05, verbatim and in file
+ * order. This is the only header any of these names has actually been SEEN in,
+ * and it is the reason `Oil Amt` / `Oil Qty` replaced the checkbox labels
+ * `Oil Amount` / `Oil Quantity`, which were both wrong.
+ */
+export const MULTISERVICE_HEADER_2026_09_05 = [
+  'Unit No', 'Card No', 'Driver Name', 'Merchant Name', 'City', 'State', 'Invoice No',
+  'Invoice Date', 'Diesel2 Cost', 'Diesel2 Gallons', 'Reefer Cost', 'Reefer Gallons',
+  'Oil Amt', 'Oil Qty', 'Additive Amt', 'Minor Repairs', 'Misc Amt', 'Tires', 'Daycode',
+  '12 Digit Money', 'E-Money', 'Insta Money®', 'Bulk DEF Amount', 'Bulk DEF Quantity',
+  'Fees', 'Fuel Disc Amt', 'Total Amount',
 ] as const;
 
 /** A row cannot be identified, dated or costed without these. */
@@ -110,6 +124,14 @@ const TEXT_COLUMNS = ['Unit No', 'Driver Name', 'City', 'State', 'Daycode'] as c
 /**
  * Every money category the report screen can emit. `field` names the flat
  * column on `fuel_transactions`; categories without one ride as line items.
+ *
+ * `unverified` marks a column name that came from a CHECKBOX LABEL on
+ * MultiService's report screen and has NEVER been seen in a real file header.
+ * Two out of two checkable labels (`Oil Amount`, `Oil Quantity`) turned out to
+ * be wrong, so every remaining label is assumed wrong until a real header
+ * containing it is examined. The CATEGORIES are real; only the names are in
+ * doubt, which is why none of these entries — and none of the `fuel_line_type`
+ * values — were deleted.
  */
 interface CategorySpec {
   column: string;
@@ -117,12 +139,16 @@ interface CategorySpec {
   lineType: FuelLineType;
   amountField?: keyof ParsedFuelRow;
   quantityField?: keyof ParsedFuelRow;
+  /** Name taken from a checkbox label, never seen in a file header. */
+  unverified?: true;
 }
 
 export const CATEGORY_SPECS: CategorySpec[] = [
+  // --- VERIFIED against the 2026-09-05 export header ---
   { column: 'Diesel2 Cost', quantityColumn: 'Diesel2 Gallons', lineType: 'diesel', amountField: 'diesel_amount', quantityField: 'diesel_gallons' },
-  { column: 'Reefer Cost', lineType: 'reefer', amountField: 'reefer_amount' },
+  { column: 'Reefer Cost', quantityColumn: 'Reefer Gallons', lineType: 'reefer', amountField: 'reefer_amount' },
   { column: 'Bulk DEF Amount', quantityColumn: 'Bulk DEF Quantity', lineType: 'def', amountField: 'def_amount', quantityField: 'def_quantity' },
+  { column: 'Oil Amt', quantityColumn: 'Oil Qty', lineType: 'oil' },
   { column: 'Additive Amt', lineType: 'additive', amountField: 'additive_amount' },
   { column: 'Minor Repairs', lineType: 'minor_repairs', amountField: 'minor_repairs_amount' },
   { column: 'Misc Amt', lineType: 'misc', amountField: 'misc_amount' },
@@ -132,17 +158,16 @@ export const CATEGORY_SPECS: CategorySpec[] = [
   { column: 'Insta Money®', lineType: 'cash_advance_insta', amountField: 'cash_advance_insta_amount' },
   { column: 'Fees', lineType: 'fees', amountField: 'fees_amount' },
   { column: 'Fuel Disc Amt', lineType: 'fuel_discount', amountField: 'fuel_discount_amount' },
-  // Not ticked by SUPERTRANSPORT; offered by the report screen.
-  { column: 'Diesel 1 Amount', quantityColumn: 'Diesel 1 Quantity', lineType: 'diesel1' },
-  { column: 'Unleaded Amount', quantityColumn: 'Unleaded Quantity', lineType: 'unleaded' },
-  { column: 'CNG Amount', quantityColumn: 'CNG Quantity', lineType: 'cng' },
-  { column: 'LNG Amount', quantityColumn: 'LNG Quantity', lineType: 'lng' },
-  { column: 'LPG Amount', quantityColumn: 'LPG Quantity', lineType: 'lpg' },
-  { column: 'Reefer CNG', lineType: 'reefer_cng' },
-  { column: 'Reefer LNG', lineType: 'reefer_lng' },
-  { column: 'Reefer LPG', lineType: 'reefer_lpg' },
-  { column: 'Oil Amount', quantityColumn: 'Oil Quantity', lineType: 'oil' },
-  { column: 'Tax', lineType: 'tax' },
+  // --- UNVERIFIED: checkbox labels, never seen in a file header ---
+  { column: 'Diesel 1 Amount', quantityColumn: 'Diesel 1 Quantity', lineType: 'diesel1', unverified: true },
+  { column: 'Unleaded Amount', quantityColumn: 'Unleaded Quantity', lineType: 'unleaded', unverified: true },
+  { column: 'CNG Amount', quantityColumn: 'CNG Quantity', lineType: 'cng', unverified: true },
+  { column: 'LNG Amount', quantityColumn: 'LNG Quantity', lineType: 'lng', unverified: true },
+  { column: 'LPG Amount', quantityColumn: 'LPG Quantity', lineType: 'lpg', unverified: true },
+  { column: 'Reefer CNG', lineType: 'reefer_cng', unverified: true },
+  { column: 'Reefer LNG', lineType: 'reefer_lng', unverified: true },
+  { column: 'Reefer LPG', lineType: 'reefer_lpg', unverified: true },
+  { column: 'Tax', lineType: 'tax', unverified: true },
 ];
 
 /** Every column name the parser understands, required and optional together. */
@@ -151,6 +176,7 @@ export const KNOWN_COLUMNS: string[] = [
   ...TEXT_COLUMNS,
   ...CATEGORY_SPECS.flatMap((s) => (s.quantityColumn ? [s.column, s.quantityColumn] : [s.column])),
 ];
+
 
 /* ------------------------------------------------------------------ */
 /* Primitives                                                          */
@@ -229,16 +255,32 @@ export function parseInvoiceDate(raw: string | undefined | null): string {
 /** Matching is case- and spacing-insensitive; reporting uses the file's text. */
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
+/** An unrecognised column that carries money — the loud case. */
+export interface UnrecognizedMoneyColumn {
+  column: string;
+  /** Sum of the non-zero numeric values found in that column. */
+  total: number;
+  /** How many rows carried a non-zero value. */
+  rows: number;
+}
+
 export interface FuelColumnReport {
   /** Known column names, as the file printed them, in file order. */
   recognized: string[];
   /** Columns the parser does not understand. Ignored for parsing, reported. */
   unrecognized: string[];
+  /**
+   * The subset of `unrecognized` that holds non-zero numbers. Money we are
+   * DROPPING, as opposed to a descriptive label we are rightly ignoring.
+   * Populated by `parseMultiserviceCsv`, which is the only place rows exist.
+   */
+  unrecognized_money: UnrecognizedMoneyColumn[];
   /** Known optional columns absent from this file — treated as zero. */
   missing_optional: string[];
   /** Total columns in the header, recognised or not. */
   column_count: number;
 }
+
 
 interface HeaderIndex {
   at: (column: string) => number | undefined;
@@ -294,9 +336,11 @@ export function indexHeader(header: string[]): HeaderIndex {
     report: {
       recognized,
       unrecognized,
+      unrecognized_money: [],
       missing_optional,
       column_count: header.filter((h) => h.trim() !== '').length,
     },
+
   };
 }
 
@@ -385,6 +429,17 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
   let flaggedCount = 0;
   let reconciliationDelta = 0;
 
+  // An unrecognised column is only a quiet note while it holds no money. Track
+  // each one as the rows go by so the preview can tell a dropped AMOUNT apart
+  // from a descriptive label. This is the check that would have caught
+  // `Oil Amt` on the first import.
+  const unknownTallies = report.unrecognized.map((name) => ({
+    column: name,
+    index: header.findIndex((h) => norm(h) === norm(name)),
+    total: 0,
+    rows: 0,
+  }));
+
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i]).map((v) => v.trim());
     // Width is still checked: a short row would silently read absent cells as
@@ -396,6 +451,13 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       );
     }
 
+    for (const t of unknownTallies) {
+      if (t.index < 0) continue;
+      let value = 0;
+      try { value = parseMoney(c[t.index], t.column); } catch { continue; } // text: not money
+      if (value !== 0) { t.total = round2(t.total + value); t.rows += 1; }
+    }
+
     const extra_amounts: Partial<Record<FuelLineType, number>> = {};
     const extra_quantities: Partial<Record<FuelLineType, number>> = {};
     const amountOf = (spec: CategorySpec) => parseMoney(cell(c, spec.column), spec.column);
@@ -403,12 +465,17 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       (spec.quantityColumn ? parseQuantity(cell(c, spec.quantityColumn), spec.quantityColumn) : 0);
 
     for (const spec of CATEGORY_SPECS) {
+      // A quantity with no flat column of its own — `Reefer Gallons` — rides
+      // as a line-item quantity beside its flat amount.
+      if (spec.quantityColumn && !spec.quantityField) {
+        const quantity = quantityOf(spec);
+        if (quantity !== 0) extra_quantities[spec.lineType] = quantity;
+      }
       if (spec.amountField) continue;
       const amount = amountOf(spec);
-      const quantity = quantityOf(spec);
       if (amount !== 0) extra_amounts[spec.lineType] = amount;
-      if (quantity !== 0) extra_quantities[spec.lineType] = quantity;
     }
+
 
     const flat = (column: string) => parseMoney(cell(c, column), column);
     const base = {
@@ -451,6 +518,10 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
     rows.push(row);
   }
 
+  report.unrecognized_money = unknownTallies
+    .filter((t) => t.rows > 0)
+    .map(({ column, total, rows: r }) => ({ column, total, rows: r }));
+
   return { rows, flaggedCount, columns: report, reconciliationDelta };
 }
 
@@ -476,12 +547,36 @@ export function reconciliationWarning(file: ParsedFuelFile): string | null {
   );
 }
 
-/** Unrecognised columns, named. Null when every column was understood. */
-export function unrecognizedColumnsNotice(columns: FuelColumnReport): string | null {
-  const n = columns.unrecognized.length;
-  if (n === 0) return null;
-  return `${n} column${n === 1 ? '' : 's'} not recognised: ${columns.unrecognized.join(', ')}.`;
+/**
+ * An unrecognised column carrying MONEY is not the same event as an
+ * unrecognised label. One is an amount we are dropping; the other is
+ * description. Null when no unrecognised column holds a non-zero number.
+ */
+export function unrecognizedMoneyNotice(columns: FuelColumnReport): string | null {
+  const cols = columns.unrecognized_money;
+  if (cols.length === 0) return null;
+  const detail = cols
+    .map((c) => `\`${c.column}\` (${money(c.total)} across ${c.rows} row${c.rows === 1 ? '' : 's'})`)
+    .join(', ');
+  return (
+    `${cols.length} unrecognised column${cols.length === 1 ? '' : 's'} `
+    + `contain${cols.length === 1 ? 's' : ''} money: ${detail}. `
+    + `${cols.length === 1 ? 'Its amount is' : 'Their amounts are'} NOT captured.`
+  );
 }
+
+/**
+ * The quiet note: unrecognised columns that hold no money. Those that DO hold
+ * money are reported separately and louder by `unrecognizedMoneyNotice`.
+ */
+export function unrecognizedColumnsNotice(columns: FuelColumnReport): string | null {
+  const loud = new Set(columns.unrecognized_money.map((c) => norm(c.column)));
+  const quiet = columns.unrecognized.filter((c) => !loud.has(norm(c)));
+  const n = quiet.length;
+  if (n === 0) return null;
+  return `${n} column${n === 1 ? '' : 's'} not recognised: ${quiet.join(', ')}.`;
+}
+
 
 /**
  * This file's column set against the last import for the same provider. Turns
