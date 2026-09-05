@@ -34,12 +34,20 @@ describe('MultiService header is a contract', () => {
     expect(() => parseMultiserviceCsv(`${HEADER}\n${row()}`)).not.toThrow();
   });
 
-  it('refuses a file whose columns were renamed rather than shifting values', () => {
+  /**
+   * Pass 2 retired the positional contract. A renamed category no longer
+   * shifts values — it is simply unrecognised, and the MONEY is what shows the
+   * money went missing: the categories left no longer reach Total Amount.
+   */
+  it('does not shift values when a column is renamed — it reports and does not add up', () => {
     const renamed = HEADER.replace('"Diesel2 Cost"', '"Diesel Cost"');
-    expect(() => parseMultiserviceCsv(`${renamed}\n${row()}`)).toThrow(FuelCsvFormatError);
+    const parsed = parseMultiserviceCsv(`${renamed}\n${row()}`);
+    expect(parsed.columns.unrecognized).toEqual(['Diesel Cost']);
+    expect(parsed.rows[0].diesel_amount).toBe(0);
+    expect(parsed.rows[0].reconciliation_ok).toBe(false);
   });
 
-  it('refuses a file with a column added or removed', () => {
+  it('refuses a row whose width does not match the header', () => {
     const short = HEADER.replace(',"Fees"', '');
     expect(() => parseMultiserviceCsv(`${short}\n${row()}`)).toThrow(/23/);
   });
