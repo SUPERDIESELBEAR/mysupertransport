@@ -387,6 +387,14 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
 
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i]).map((v) => v.trim());
+    // Width is still checked: a short row would silently read absent cells as
+    // zero, which is the one failure the name lookup cannot distinguish from a
+    // column the operator chose not to export.
+    if (c.length !== header.length) {
+      throw new FuelCsvFormatError(
+        `Row ${i + 1} has ${c.length} columns, expected ${header.length}.`,
+      );
+    }
 
     const extra_amounts: Partial<Record<FuelLineType, number>> = {};
     const extra_quantities: Partial<Record<FuelLineType, number>> = {};
