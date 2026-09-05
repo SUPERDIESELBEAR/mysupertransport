@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import type { ParsedFuelRow } from './multiserviceCsv';
+import type { FuelColumnReport, ParsedFuelRow } from './multiserviceCsv';
 
 /**
  * The client half of the fuel import. Every write goes through an RPC — the
@@ -65,12 +65,18 @@ export async function previewFuelImport(rows: ParsedFuelRow[]): Promise<FuelPrev
 export async function commitFuelImport(
   fileName: string,
   rows: ParsedFuelRow[],
+  columns: FuelColumnReport,
   provider = 'multiservice',
 ): Promise<FuelCommitResult> {
   const { data, error } = await supabase.rpc('commit_fuel_import', {
     _file_name: fileName,
     _provider: provider,
     _rows: toPayload(rows) as never,
+    _columns: {
+      recognized: columns.recognized,
+      unrecognized: columns.unrecognized,
+      missing_optional: columns.missing_optional,
+    } as never,
   });
   if (error) throw error;
   return data as unknown as FuelCommitResult;
@@ -150,6 +156,9 @@ export interface FuelBatchRecord {
   total_amount: number;
   date_range_start: string | null;
   date_range_end: string | null;
+  recognized_columns: string[];
+  unrecognized_columns: string[];
+  missing_optional_columns: string[];
 }
 
 export async function fetchFuelBatches(): Promise<FuelBatchRecord[]> {
@@ -157,10 +166,31 @@ export async function fetchFuelBatches(): Promise<FuelBatchRecord[]> {
     .from('fuel_import_batches')
     .select(
       'id, file_name, imported_at, row_count, imported_count, duplicate_count, matched_count, '
-      + 'unmatched_count, disagreement_count, flagged_count, total_amount, date_range_start, date_range_end',
+      + 'unmatched_count, disagreement_count, flagged_count, total_amount, date_range_start, '
+      + 'date_range_end, recognized_columns, unrecognized_columns, missing_optional_columns',
     )
     .order('imported_at', { ascending: false })
     .limit(50);
   if (error) throw error;
   return (data ?? []) as unknown as FuelBatchRecord[];
+}
+
+/**
+ * The column set of the most recent import for a provider. The preview
+ * compares against it so a forgotten report checkbox is a question the app
+ * answers before commit rather than after settlement.
+ */
+export async function fetchLastImportColumns(
+  provider = 'multiservice',
+): Promise<string[] | null> {
+  const { data, error } = await supabase
+    .from('fuel_import_batches')
+    .select('recognized_columns')
+    .eq('provider', provider)
+    .order('imported_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  const cols = (data as { recognized_columns?: string[] } | null)?.recognized_columns;
+  return cols && cols.length > 0 ? cols : null;
 }
