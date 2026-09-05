@@ -1718,24 +1718,24 @@ Expected: `1`; no row (or `2026, 1`); `0`.
 Per-step verification is named inline; each is a `count(*)` on the target plus a
 `count(*)` on the neighbouring real table that must not move.
 
-Irreversible without the Step 0 backup: **Step 5** (a `paid` settlement),
-**Step 6** (storage bytes are not in a Postgres backup; the manifest + download
-is the only recovery), **Step 7** (history rows cannot be reconstructed), and
-**Step 10** (an audit row is the only surviving record of a row already deleted —
-see the orphan at Step 10).
+Irreversible without the Step 0 backup: **Step 6** (a `paid` settlement),
+**Step 7** (storage bytes are not in a Postgres backup; the manifest + download
+is the only recovery), **Step 8** (history rows cannot be reconstructed), and
+**Step 11** (an audit row is the only surviving record of a row already deleted —
+see the orphan at Step 11).
 
 Cannot be verified before running, re-confirmed 2026-09-04 — the psql harness
 role holds SELECT and INSERT only, so no unlock path can be exercised from it:
 
-- **Step 3** — the `approved`-adjustment delete under
+- **Step 4** — the `approved`-adjustment delete under
   `app.accessorial_adjustment_write`.
-- **Step 4** — the invoice-line cascade under `app.invoice_write`. The UPDATE and
+- **Step 5** — the invoice-line cascade under `app.invoice_write`. The UPDATE and
   DELETE halves of `enforce_invoice_line_immutability` have never been exercised
   from this harness; that limitation is recorded in the Module 7 Pass 1 test note.
-- **Step 5** — the original entry, still true. The trigger either accepts the
+- **Step 6** — the original entry, still true. The trigger either accepts the
   `SET LOCAL` unlock or raises `42501`; the only way to know is to run it inside a
   transaction and inspect the row count before `COMMIT`.
-- **Step 6** — storage deletion is outside Postgres entirely; no catalog query can
+- **Step 7** — storage deletion is outside Postgres entirely; no catalog query can
   confirm the objects are gone.
 
 
