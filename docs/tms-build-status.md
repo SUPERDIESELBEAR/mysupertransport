@@ -1698,19 +1698,19 @@ Expected: `1`; no row (or `2026, 1`); `0`.
 #### 4. What must not be deleted, and scoping
 
 - **60 active non-demo operators** (154 total, 1 demo). No step deletes from
-  `operators` except the single Pate-linked row in Step 9, addressed by literal id.
+  `operators` except the single Pate-linked row in Step 10, addressed by literal id.
 - **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
   `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
   Deleting "the operator that owns the test loads" deletes a live driver. Never
   delete by joining through loads.
-- **326 real applications.** Step 9 touches one literal id.
+- **326 real applications.** Step 10 touches one literal id.
 - **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
-- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 6 names
+- **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 7 names
   bucket ids explicitly.
 - **Nine non-TEST brokers are real trading partners.** They are not distinguishable
   by any column (`factoring_status` is `unknown` on all nine). Keep them; review
   factoring status manually before the first real load.
-- **3,891 audit rows that are not test residue.** Step 10 names five
+- **3,891 audit rows that are not test residue.** Step 11 names five
   `entity_type` values and nothing else.
 
 #### 5. Verification and reversibility
