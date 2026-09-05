@@ -5004,7 +5004,9 @@ no deductions, and both withheld reasons in the engine's own words.
 
 **Open after this pass:**
 
-- **Cash advances are a population trigger only.** See section 9 in
+- **Cash advances are a population trigger for a settlement run only** — the
+  table pulls a driver INTO a run; it is NOT written by any database trigger,
+  and in fact nothing writes it at all. See section 9 in
   **Settlement rules — the authoritative record**. No repayment schedule exists
   anywhere in the schema, so the gathering layer records the outstanding balance
   as a reason to include the driver and produces NO recovery line. Inventing a
