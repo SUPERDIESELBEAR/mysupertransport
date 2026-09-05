@@ -1,6 +1,8 @@
 # Roadmap
 
 ## In progress
+- [docs] Correct false "fuel unbounded exposure" entry in `docs/tms-build-status.md` (RESOLVED section, ~line 5757) and record the standing lesson about verifying code claims before they enter the record.
+
 - Module 7 (Billing & Invoicing) — Pass 1 DONE 2026-09-04 (see build status).
   Next pass: invoice numbering + the builder that composes lines from
   `load_charges`, then the payment poster. Pass 1 delivered the schema only:

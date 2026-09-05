@@ -5754,23 +5754,48 @@ A departing driver whose true coverage sat in [-$700, +$500) was flipped from
 **$1,200**, plus any net pay released that would otherwise have been leverage to
 recover it. Non-departing drivers were unaffected.
 
-**Larger unbounded exposure.** The more severe silent failure was the
+**Bounded exposure, not unbounded.** The more severe silent failure was the
 `settlement_line_items` read feeding `settledSources`. A failed read returned an
 empty exclusion set, so already-settled items could be charged again. Loads are
 filtered by `deliveredInPeriod` BEFORE the exclusion check
 (`settlementRun.ts:141-142`), so a lost exclusion set can only re-touch loads
-delivered inside the period being run — load damage is contained. FUEL IS NOT.
-`settlementRun.ts:242-243` filters fuel on operator id and exclusion only, with
-no period bound. The exclusion set was the sole thing keeping previously-settled
-fuel out. A failed `settlement_line_items` read therefore re-deducted EVERY fuel
-transaction that driver had ever had, in a single settlement, unbounded by period
-— and on a driver with months of history that takes a settlement deeply negative,
-where negative settlements carry forward rather than being forgiven.
+delivered inside the period being run — load damage is contained. **Fuel damage
+is also contained.** `settlementRun.ts:242-243` filters fuel on operator id,
+exclusion, **and period**:
 
-The general shape is what makes this reusable: when a filter's only bound is an
-exclusion set, losing that set removes the bound entirely. A filter that ALSO
-carries an independent bound — a period, a date range — degrades instead of failing
-wide open. Loads had one; fuel did not.
+```
+.gte('invoice_date', period.periodStart)
+.lte('invoice_date', period.periodEnd)
+```
+
+The exclusion set is a **second** independent lock, not the only one. A failed
+`settlement_line_items` read could not have re-deducted every fuel transaction a
+driver ever had; the period bound on `invoice_date` would still have limited the
+read to the week being run.
+
+The general principle is sound and was learned honestly: when a filter's only
+bound is an exclusion set, losing that set removes the bound entirely. A
+filter that ALSO carries an independent bound — a period, a date range — degrades
+instead of failing wide open. Loads are an example of it. **Fuel was not an
+example of it; the claim that it was is wrong.**
+
+**How the false claim entered the record.** It was written on 2026-09-04 from an
+investigation that described the code without confirming its current state, and
+was amplified rather than checked by the reviewer, who called it the largest
+exposure in the settlement engine and asked for the mechanism to be spelled out
+more sharply. A five-line query — `rg "gte('invoice_date'"` or opening
+`settlementRun.ts:242-243` — would have refuted it. It was caught on 2026-09-05 by
+the Module 6 planning pass, because the standing instruction to stop and report
+when a brief disagrees with the code applied to a brief that had itself been
+written from the false entry. No test and no guard caught it; the instruction
+did.
+
+**Standing rule.** A finding about code is verified against the code before it
+enters the record, including by the reviewer. This is the fourth instance of a
+conclusion drawn without confirming current state, and the first to reach the
+authoritative record. Emphasis is not evidence — the more consequential a
+finding sounds, the more it needs the five-line check, not less.
+
 
 **The fix.** `gatherSettlementRun` now uses `SettlementReadError` helpers
 (`rowsOf`, `rowOf`, `readFailure`) and throws on every read that feeds a dollar
