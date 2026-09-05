@@ -1341,7 +1341,7 @@ after the fact missed five loads and every storage object.
 | `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices`, same step |
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
-| `invoice_number_config` | 1 | `2026 / ST / next_sequence 2`, created by the Pass 3 allocation. Reset at **Step 11**. Left behind, real invoicing starts at `ST26-0002`. |
+| `invoice_number_config` | 1 | `2026 / ST / next_sequence 2`, created by the Pass 3 allocation. Reset at **Step 12**. Left behind, real invoicing starts at `ST26-0002`. |
 
 **Module 5 Pass 4 addendum (2026-09-04).** Registered on the day the table was
 created, EMPTY, for the same reason.
