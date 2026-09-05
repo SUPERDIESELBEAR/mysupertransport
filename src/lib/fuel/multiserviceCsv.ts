@@ -255,16 +255,32 @@ export function parseInvoiceDate(raw: string | undefined | null): string {
 /** Matching is case- and spacing-insensitive; reporting uses the file's text. */
 const norm = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ');
 
+/** An unrecognised column that carries money — the loud case. */
+export interface UnrecognizedMoneyColumn {
+  column: string;
+  /** Sum of the non-zero numeric values found in that column. */
+  total: number;
+  /** How many rows carried a non-zero value. */
+  rows: number;
+}
+
 export interface FuelColumnReport {
   /** Known column names, as the file printed them, in file order. */
   recognized: string[];
   /** Columns the parser does not understand. Ignored for parsing, reported. */
   unrecognized: string[];
+  /**
+   * The subset of `unrecognized` that holds non-zero numbers. Money we are
+   * DROPPING, as opposed to a descriptive label we are rightly ignoring.
+   * Populated by `parseMultiserviceCsv`, which is the only place rows exist.
+   */
+  unrecognized_money: UnrecognizedMoneyColumn[];
   /** Known optional columns absent from this file — treated as zero. */
   missing_optional: string[];
   /** Total columns in the header, recognised or not. */
   column_count: number;
 }
+
 
 interface HeaderIndex {
   at: (column: string) => number | undefined;
