@@ -7477,9 +7477,9 @@ Ten `CategorySpec` entries carry `unverified: true`. They are still guesses — 
 export has ever shown them — and the first real file that contains one will
 either confirm the name or report it unrecognised WITH ITS MONEY:
 
-`Diesel 1 Cost`, `Unleaded Cost`, `CNG Cost`, `LNG Cost`, `LPG Cost`,
-`Reefer CNG Cost`, `Reefer LNG Cost`, `Reefer LPG Cost`, `Tax`, and the
-quantity columns paired with them.
+`Diesel 1 Amount`/`Diesel 1 Quantity`, `Unleaded Amount`/`Unleaded Quantity`,
+`CNG Amount`/`CNG Quantity`, `LNG Amount`/`LNG Quantity`,
+`LPG Amount`/`LPG Quantity`, `Reefer CNG`, `Reefer LNG`, `Reefer LPG`, `Tax`.
 
 ### The rule this pass adds
 
