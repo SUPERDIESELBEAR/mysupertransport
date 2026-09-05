@@ -7442,3 +7442,74 @@ reefer_cng, reefer_lng, reefer_lpg, oil, tax` — are LINE ITEMS, not new flat
 columns. `commit_fuel_import` gained a fourth argument and the three-argument
 form was dropped, so the inventory entry was RENAMED rather than added and the
 ceiling stayed at **120**.
+
+## Module 6, Pass 3 — the REAL export header (2026-09-05)
+
+Pass 2 guessed at column names for anything not in the 23-column file. The real
+2026-09-05 export is **27 columns**, and the guesses were wrong in two places
+and short in a third. `MULTISERVICE_HEADER_2026_09_05` in
+`src/lib/fuel/multiserviceCsv.ts` now holds it verbatim.
+
+### Names CORRECTED
+
+| Pass 2 guess | Real column |
+| --- | --- |
+| `Oil Amount` | `Oil Amt` |
+| `Oil Quantity` | `Oil Qty` |
+
+Under Pass 2 these two would have been UNRECOGNISED, and the oil money would
+have gone missing quietly — the exact failure mode Pass 2 was built to end.
+
+### Names ADDED
+
+`Reefer Gallons` is the quantity column for `Reefer Cost`. It rides on the
+`reefer` line item as a quantity; **no new database column was added** — the
+flat `reefer_amount` field is unchanged.
+
+`Merchant Name` is present in the real export and is deliberately NOT
+recognised: nothing in the schema stores it, and inventing a column to hold a
+label is not a fuel change worth making. It reports as unrecognised, quietly,
+because it carries no money.
+
+### UNVERIFIED entries, marked as such
+
+Ten `CategorySpec` entries carry `unverified: true`. They are still guesses — no
+export has ever shown them — and the first real file that contains one will
+either confirm the name or report it unrecognised WITH ITS MONEY:
+
+`Diesel 1 Cost`, `Unleaded Cost`, `CNG Cost`, `LNG Cost`, `LPG Cost`,
+`Reefer CNG Cost`, `Reefer LNG Cost`, `Reefer LPG Cost`, `Tax`, and the
+quantity columns paired with them.
+
+### The rule this pass adds
+
+**AN UNRECOGNISED COLUMN WITH MONEY IN IT IS A DIFFERENT EVENT FROM AN
+UNRECOGNISED LABEL.** Pass 2 reported both the same way — a grey note naming the
+column. `Merchant Name` and a dropped `Oil Amt` cannot share a notice.
+
+`parseMultiserviceCsv` now tallies every unrecognised column across every row.
+Any that parses as a non-zero number is reported by `unrecognizedMoneyNotice`
+in the red block, exactly:
+
+> 1 unrecognised column contains money: `Oil Amt` ($412.00 across 3 rows). Its
+> amount is NOT captured.
+
+Columns that are textual, or numeric but all zero, stay in the quiet grey note.
+This is a PREVIEW warning, not a block: the operator may still commit, and the
+reconciliation delta will show the same money a second way.
+
+### Two things CHECKED rather than assumed
+
+- **`$` and thousands separators.** `parseMoney` strips `[()$,\s-]` before
+  parsing, so `$0.00` → `0` and `-$1,234.56` → `-1234.56`. Already correct;
+  now covered by an explicit test rather than by inference.
+- **Short card numbers.** `fuel_resolve_card` compares
+  `upper(btrim(serial_number)) = upper(btrim(_card_no))` on TEXT, so a two-digit
+  card and a leading zero survive the round trip and `45` never matches `045`.
+  No numeric coercion exists anywhere on the path.
+
+### Suites run
+
+`src/lib/fuel/__tests__/multiserviceCsv.test.ts` (38), `fuel-import-live` (12),
+`npm run test:guards` (87 across 9 files). All green; the
+`grant-parity-live` exception noted in Pass 2 no longer fails.
