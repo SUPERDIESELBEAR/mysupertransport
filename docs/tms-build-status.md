@@ -1354,8 +1354,8 @@ created, EMPTY, for the same reason.
 `settled` adjustment refuses DELETE — deliberately: a wrong one is voided with a
 reason, never deleted. Its unlock is its OWN setting, because
 `app.invoice_write` and `app.settlement_write` cannot open it. **The executable
-block is Step 3**, which runs before the invoice deletes at Step 4 and long
-before the load deletes at **Step 7** (this line read "before Step 3's load
+block is Step 4**, which runs before the invoice deletes at Step 5 and long
+before the load deletes at **Step 8** (this line read "before Step 3's load
 deletes" until 2026-09-04; loads were never Step 3).
 
 **A TRAP the purge operator must know about.** A SUBMITTED invoice cannot be
