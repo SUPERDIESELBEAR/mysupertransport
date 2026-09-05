@@ -429,6 +429,17 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
   let flaggedCount = 0;
   let reconciliationDelta = 0;
 
+  // An unrecognised column is only a quiet note while it holds no money. Track
+  // each one as the rows go by so the preview can tell a dropped AMOUNT apart
+  // from a descriptive label. This is the check that would have caught
+  // `Oil Amt` on the first import.
+  const unknownTallies = report.unrecognized.map((name) => ({
+    column: name,
+    index: header.findIndex((h) => norm(h) === norm(name)),
+    total: 0,
+    rows: 0,
+  }));
+
   for (let i = 1; i < lines.length; i++) {
     const c = splitCsvLine(lines[i]).map((v) => v.trim());
     // Width is still checked: a short row would silently read absent cells as
@@ -440,6 +451,13 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       );
     }
 
+    for (const t of unknownTallies) {
+      if (t.index < 0) continue;
+      let value = 0;
+      try { value = parseMoney(c[t.index], t.column); } catch { continue; } // text: not money
+      if (value !== 0) { t.total = round2(t.total + value); t.rows += 1; }
+    }
+
     const extra_amounts: Partial<Record<FuelLineType, number>> = {};
     const extra_quantities: Partial<Record<FuelLineType, number>> = {};
     const amountOf = (spec: CategorySpec) => parseMoney(cell(c, spec.column), spec.column);
@@ -447,12 +465,17 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       (spec.quantityColumn ? parseQuantity(cell(c, spec.quantityColumn), spec.quantityColumn) : 0);
 
     for (const spec of CATEGORY_SPECS) {
+      // A quantity with no flat column of its own — `Reefer Gallons` — rides
+      // as a line-item quantity beside its flat amount.
+      if (spec.quantityColumn && !spec.quantityField) {
+        const quantity = quantityOf(spec);
+        if (quantity !== 0) extra_quantities[spec.lineType] = quantity;
+      }
       if (spec.amountField) continue;
       const amount = amountOf(spec);
-      const quantity = quantityOf(spec);
       if (amount !== 0) extra_amounts[spec.lineType] = amount;
-      if (quantity !== 0) extra_quantities[spec.lineType] = quantity;
     }
+
 
     const flat = (column: string) => parseMoney(cell(c, column), column);
     const base = {
