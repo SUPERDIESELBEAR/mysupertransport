@@ -3231,6 +3231,17 @@ Imports the MultiService "customized detail" CSV, attributes each transaction to
 an owner-operator, and surfaces what could not be attributed. It does **not**
 post anything to settlements — that is Module 4.
 
+> **AMENDMENT (2026-09-05) — THE EVIDENCE THIS RECORD CITES NO LONGER EXISTS.**
+> `fuel_transactions`, `fuel_transaction_lines` and `fuel_import_batches` all
+> hold ZERO rows in the live database today, as do `cash_advances` and
+> `deductions`. The 297-row MultiService export this pass was verified against
+> is NOT in this database. The verification happened; its evidence is gone.
+> This is the same shape as the ST26035 charge-identity case — a recorded live
+> verification whose rows were later purged. A future session must not look for
+> those rows, fail to find them, and conclude the verification never happened.
+> Nothing in Module 6 can be re-verified against real data until a real file is
+> imported.
+
 ### The deduplication key is invoice + date + card, not invoice
 
 `Invoice No` is the **merchant's** number, not MultiService's. Two truck stops
