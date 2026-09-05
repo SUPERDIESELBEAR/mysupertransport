@@ -1335,9 +1335,9 @@ after the fact missed five loads and every storage object.
 
 | Object | At cutover | Note |
 |---|---|---|
-| `invoices` | **1 as of Module 7 Pass 3** | `ST26-0001`, `open`, never submitted, load `ST-TEST-005`, path `direct`. Purge at **Step 4**, BEFORE `loads` (Step 7) and BEFORE `brokers` (Step 8): `load_id` and `broker_id` are `ON DELETE RESTRICT`, so a leftover invoice BLOCKS both. This is deliberate. |
+| `invoices` | **1 as of Module 7 Pass 3** | `ST26-0001`, `open`, never submitted, load `ST-TEST-005`, path `direct`. Purge at **Step 5**, BEFORE `loads` (Step 8) and BEFORE `brokers` (Step 9): `load_id` and `broker_id` are `ON DELETE RESTRICT`, so a leftover invoice BLOCKS both. This is deliberate. |
 | `invoice_line_items` | 1 | cascades from `invoices` |
-| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately, Step 4 |
+| `invoice_batches` | 0 | no cascade from invoices — `batch_id` is `ON DELETE SET NULL`; delete separately, Step 5 |
 | `payments` | 0 | `invoice_id` is `ON DELETE RESTRICT`; purge BEFORE `invoices`, same step |
 | `ar_aging_snapshots` | 0 | `broker_id` is `ON DELETE RESTRICT`; purge BEFORE `brokers` |
 | `factoring_remittances` | 0 | `payments.remittance_id` is `ON DELETE RESTRICT`; purge AFTER `payments`, or null the link first |
