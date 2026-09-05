@@ -2264,7 +2264,7 @@ its own trigger unlock correctly.
 **The procedure still would not have executed.** A full re-read on 2026-09-04
 found two failures that would have stopped cutover mid-run:
 
-1. Step 1's verify block named `dispatch_settlement_contributions` and
+1. Step 2's verify block named `dispatch_settlement_contributions` and
    `dispatch_settlement_verdicts`. Neither exists — the live names are
    `dispatch_settlement_load_contributions` and
    `dispatch_settlement_charge_verdicts`. Both raise `42P01`.
