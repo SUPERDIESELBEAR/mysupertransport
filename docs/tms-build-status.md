@@ -1363,7 +1363,7 @@ deleted and its lines cannot be removed — the trigger refuses, exactly as it i
 meant to. If any test invoice reaches `submitted_at` before cutover, the purge
 will FAIL at that row with a `42501` and no amount of retrying will help. The
 unlock is the same shape as the settlement one, and **the executable block is
-Step 4**. `enforce_payment_immutability` and `enforce_remittance_immutability`
+Step 5**. `enforce_payment_immutability` and `enforce_remittance_immutability`
 refuse EVERY delete, submitted or not, so that unlock is run unconditionally.
 
 `ar_aging_snapshots` has NO unlock and needs none: it holds no client-role
