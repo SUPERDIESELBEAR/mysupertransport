@@ -4345,7 +4345,16 @@ home screen before payday, while he can still act on it. The paperwork tail
 already renders there; the settlement engine surfaces the hold status alongside
 it. A short check discovered on payday is the failure mode this avoids.
 
-### 9. Cash advances — population trigger only, no recovery schedule
+### 9. Cash advances — a POPULATION TRIGGER FOR A SETTLEMENT RUN, no recovery schedule
+
+**Read the phrase carefully — it means the opposite of how it scans.**
+`cash_advances` has NO DATABASE TRIGGERS on it. "Population trigger" means the
+table PULLS A DRIVER INTO A SETTLEMENT RUN; it does not mean the table is
+written by a trigger. Nothing writes it at all: no function in `public` writes
+`cash_advances`, and no source file outside the settlement read references it.
+A dispatcher cannot issue an advance today, and by RLS never will — the policy
+is management-or-owner. The engine CAN pay a `cash_advance` line but is never
+given one: `settlementRun.ts` passes `advances: []` deliberately.
 
 A cash advance currently puts a driver into a settlement run (it is a population
 trigger) but produces NO recovery line. The schema has no repayment schedule,
