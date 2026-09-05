@@ -1309,8 +1309,24 @@ The previous list named 11 loads; it was incomplete.
 | `load_number_config` | `ST next=64` | reset to 1 |
 | Craig Pate application | 1 | `cepate60@gmail.com`; 1 resume token; 1 operator row references it |
 
-Empty and needing nothing: `fuel_transactions`, `deductions`, `rm_deposits`,
-`cash_advances`, `dispatch_deductions`, `pay_policy_assignments`.
+Empty and needing nothing: `deductions`, `rm_deposits`, `cash_advances`,
+`dispatch_deductions`, `pay_policy_assignments`.
+
+**Fuel import blast radius (registered 2026-09-05).** The upcoming MultiService test
+import writes only to `fuel_import_batches`, `fuel_transactions`, and
+`fuel_transaction_lines`. `operator_id` travels with the transaction row, so it is
+purged with the transaction. Card resolution reads `equipment_assignments` and
+writes nothing. Hand-assignment through the review queue writes only
+`fuel_transactions`. The blast radius is therefore exactly the three fuel tables —
+unusually clean, and worth remembering when this procedure is executed under
+pressure.
+
+**Owner's intent, plain.** Every fuel row created from here is test data. The
+owner's stated intent is a fresh start at cutover for the entire app — no test
+loads, no test fuel, no test invoices, no test settlements. This purge procedure is
+the mechanism and it is authoritative. The fuel import is being performed only to
+verify the importer against real data, per the standing rule that fixtures agree
+with wrong assumptions; its rows have no life beyond that verification.
 
 **Module 7 addendum (2026-09-04).** The billing tables created by Module 7 Pass 1
 are registered here on the day they were created, EMPTY, rather than discovered
