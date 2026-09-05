@@ -518,6 +518,10 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
     rows.push(row);
   }
 
+  report.unrecognized_money = unknownTallies
+    .filter((t) => t.rows > 0)
+    .map(({ column, total, rows: r }) => ({ column, total, rows: r }));
+
   return { rows, flaggedCount, columns: report, reconciliationDelta };
 }
 
@@ -543,12 +547,36 @@ export function reconciliationWarning(file: ParsedFuelFile): string | null {
   );
 }
 
-/** Unrecognised columns, named. Null when every column was understood. */
-export function unrecognizedColumnsNotice(columns: FuelColumnReport): string | null {
-  const n = columns.unrecognized.length;
-  if (n === 0) return null;
-  return `${n} column${n === 1 ? '' : 's'} not recognised: ${columns.unrecognized.join(', ')}.`;
+/**
+ * An unrecognised column carrying MONEY is not the same event as an
+ * unrecognised label. One is an amount we are dropping; the other is
+ * description. Null when no unrecognised column holds a non-zero number.
+ */
+export function unrecognizedMoneyNotice(columns: FuelColumnReport): string | null {
+  const cols = columns.unrecognized_money;
+  if (cols.length === 0) return null;
+  const detail = cols
+    .map((c) => `\`${c.column}\` (${money(c.total)} across ${c.rows} row${c.rows === 1 ? '' : 's'})`)
+    .join(', ');
+  return (
+    `${cols.length} unrecognised column${cols.length === 1 ? '' : 's'} `
+    + `contain${cols.length === 1 ? 's' : ''} money: ${detail}. `
+    + `${cols.length === 1 ? 'Its amount is' : 'Their amounts are'} NOT captured.`
+  );
 }
+
+/**
+ * The quiet note: unrecognised columns that hold no money. Those that DO hold
+ * money are reported separately and louder by `unrecognizedMoneyNotice`.
+ */
+export function unrecognizedColumnsNotice(columns: FuelColumnReport): string | null {
+  const loud = new Set(columns.unrecognized_money.map((c) => norm(c.column)));
+  const quiet = columns.unrecognized.filter((c) => !loud.has(norm(c)));
+  const n = quiet.length;
+  if (n === 0) return null;
+  return `${n} column${n === 1 ? '' : 's'} not recognised: ${quiet.join(', ')}.`;
+}
+
 
 /**
  * This file's column set against the last import for the same provider. Turns
