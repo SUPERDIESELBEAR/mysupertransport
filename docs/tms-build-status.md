@@ -1410,27 +1410,46 @@ fact that the seed brokers are real companies.
   carries `factoring_status = unknown` and must be MANUALLY REVIEWED before the first
   real load. Do not attempt to separate them by query.
 
-#### 3. The twelve ordered steps, and why each sits where it does
+#### 3. The thirteen ordered steps, and why each sits where it does
 
 Run each step in its own transaction. Verify before moving on.
 
-**RENUMBERED 2026-09-04.** The previous list had eight steps and kept two
-EXECUTABLE deletes — the adjustments and the invoices — in unnumbered addenda
-above it. An operator working the numbered steps in order reached
-`DELETE FROM public.loads` and failed `23503`, because `invoices.load_id` and
-`accessorial_adjustments.load_id` are both `ON DELETE RESTRICT` and both now
-have rows. **No addendum carries an executable step any more.** The order below
+**RENUMBERED 2026-09-05.** The previous list had twelve steps. Module 6 Pass 3
+adds a fuel import that writes only to `fuel_import_batches`, `fuel_transactions`
+and `fuel_transaction_lines`. Because those tables have no RESTRICT FKs pointing
+at any later-step table, the fuel delete can sit first, immediately after the
+snapshot. **No addendum carries an executable step any more.** The order below
 is established from live FK delete rules:
 
 ```text
-adjustments (unlocked) -> invoices (unlocked) -> settlement (unlocked)
+fuel -> adjustments (unlocked) -> invoices (unlocked) -> settlement (unlocked)
   -> storage -> loads -> brokers/facilities -> application -> audit -> resets
 ```
 
 **Step 0 — snapshot.** Full database backup plus manifest of the 27 storage
-objects. Steps 6, 7 and 8 are irreversible.
+objects. Steps 7, 8 and 9 are irreversible.
 
-**Step 1 — delete the dispatch settlement (2026-08-01, `draft`).**
+**Step 1 — delete the fuel import batches and their rows.**
+```sql
+DELETE FROM public.fuel_import_batches;
+```
+*Constraint:* `fuel_import_batches` cascades to `fuel_transactions`, which
+cascades to `fuel_transaction_lines`. `fuel_transactions.operator_id` is
+`ON DELETE SET NULL` to `operators`, and `matched_equipment_id` is
+`ON DELETE SET NULL` to `equipment_items`; neither blocks the batch delete. No
+`SET LOCAL` unlock is needed because no immutability trigger exists on the fuel
+tables.
+*Why first:* The fuel tables are independent of every later step. Doing them
+first keeps a late-discovered test fuel row from becoming a surprise blocker.
+*Verify:*
+```sql
+SELECT count(*) FROM public.fuel_import_batches;
+SELECT count(*) FROM public.fuel_transactions;
+SELECT count(*) FROM public.fuel_transaction_lines;
+```
+All three must be 0.
+
+**Step 2 — delete the dispatch settlement (2026-08-01, `draft`).**
 ```sql
 DELETE FROM public.dispatch_settlements WHERE period_month = '2026-08-01';
 ```
@@ -1452,7 +1471,7 @@ neither of which exists, and both raised `42P01`. The live names are
 `dispatch_settlement_load_contributions` and
 `dispatch_settlement_charge_verdicts`.
 
-**Step 2 — keep `dispatch_settlement_rates`.**
+**Step 3 — keep `dispatch_settlement_rates`.**
 No deletion. The 5.00% / 2.00% row effective 2026-01-01 is confirmed correct (see §2)
 and survives cutover.
 *Constraint:* none; this is the last moment the row is unambiguously test-adjacent,
@@ -1464,7 +1483,7 @@ FROM public.dispatch_settlement_rates;
 ```
 Expected: `5.00`, `2.00`, `2026-01-01`.
 
-**Step 3 — delete the accessorial adjustments. FIRST UNLOCK.**
+**Step 4 — delete the accessorial adjustments. FIRST UNLOCK.**
 Two rows: `ST-TEST-005-A1` (detention, $275.00, **approved**) and
 `ST-TEST-005-A2` (lumper, $120.00, `draft`).
 `enforce_accessorial_adjustment_immutability` refuses DELETE of an `approved` or
@@ -1480,15 +1499,15 @@ COMMIT;
 ```
 
 *Why first:* `accessorial_adjustments.load_id` is `ON DELETE RESTRICT` to
-`loads` (Step 7) and `settlement_id` is `ON DELETE RESTRICT` to `settlements`
-(Step 5). A leftover adjustment blocks both.
+`loads` (Step 8) and `settlement_id` is `ON DELETE RESTRICT` to `settlements`
+(Step 6). A leftover adjustment blocks both.
 *Verify:*
 ```sql
 SELECT count(*) FROM public.accessorial_adjustments;
 ```
 Must be 0.
 
-**Step 4 — delete the invoices, payments and remittances. SECOND UNLOCK.**
+**Step 5 — delete the invoices, payments and remittances. SECOND UNLOCK.**
 One row today: `ST26-0001` (`76e0848a-6cd6-413b-9233-811ea82c2b0e`), `open`,
 never submitted, with one `invoice_line_items` row. `payments`,
 `factoring_remittances`, `invoice_batches` and `ar_aging_snapshots` are empty.
@@ -1512,8 +1531,8 @@ DELETE FROM public.invoice_batches;
 COMMIT;
 ```
 
-*Why here:* `invoices.load_id` is `ON DELETE RESTRICT` to `loads` (Step 7) and
-`invoices.broker_id` is `ON DELETE RESTRICT` to `brokers` (Step 8);
+*Why here:* `invoices.load_id` is `ON DELETE RESTRICT` to `loads` (Step 8) and
+`invoices.broker_id` is `ON DELETE RESTRICT` to `brokers` (Step 9);
 `payments.invoice_id` and `payments.remittance_id` are `ON DELETE RESTRICT`, so
 payments precede invoices and remittances follow payments.
 *Verify:*
@@ -1526,7 +1545,7 @@ SELECT count(*) FROM public.invoice_batches;
 ```
 All must be 0.
 
-**Step 5 — delete the Pratt settlement. NAMED DECISION STEP. THIRD UNLOCK.**
+**Step 6 — delete the Pratt settlement. NAMED DECISION STEP. THIRD UNLOCK.**
 It is `paid`. `enforce_settlement_immutability` raises `42501` on DELETE unless
 `settlement_writer_active()` is true, which reads
 `current_setting('app.settlement_write')`. The only route is the schema's intended
@@ -1564,22 +1583,22 @@ SELECT count(*) FROM public.settlement_withheld_loads;
 ```
 All three must be 0.
 
-**ORDER-INDEPENDENCE HERE IS LUCK, NOT DESIGN (recorded 2026-09-04).** Steps 3
-and 5 could be swapped today only because `accessorial_adjustments.settlement_id`
+**ORDER-INDEPENDENCE HERE IS LUCK, NOT DESIGN (recorded 2026-09-04).** Steps 4
+and 6 could be swapped today only because `accessorial_adjustments.settlement_id`
 is NULL on both live rows. That column is `ON DELETE RESTRICT`. Module 5 Pass 3
 built the settlement write-back, so the first adjustment that reaches `settled`
-carries a real `settlement_id` — and from that moment Step 3 BEFORE Step 5 is
-load-bearing: run them the other way and Step 5 fails `23503`. Do not reorder
+carries a real `settlement_id` — and from that moment Step 4 BEFORE Step 6 is
+load-bearing: run them the other way and Step 6 fails `23503`. Do not reorder
 them on the evidence of today's data.
 
-**Step 6 — delete storage objects before the rows that name them.**
+**Step 7 — delete storage objects before the rows that name them.**
 27 objects: 23 in `load-documents`, 4 in `rate-con-ingest`. No FK from
 `storage.objects` to `load_documents`; deleting the load first destroys the only
 record of which object belonged to it.
 *Verify:* list bucket contents; expect 0 objects under the recorded prefixes; the
 other 19 buckets untouched.
 
-**Step 7 — null the SET NULL referrers, then delete the loads.**
+**Step 8 — null the SET NULL referrers, then delete the loads.**
 `parser_diagnostics` (74 rows) and `rate_con_ingest_queue` (5 rows) have
 `ON DELETE SET NULL` FKs to loads/documents. Delete them outright first so they do
 not survive as orphans that look real. Then:
@@ -1603,7 +1622,7 @@ SELECT count(*) FROM public.claim_flag_history;
 ```
 All must be 0.
 
-**Step 8 — brokers and facilities.**
+**Step 9 — brokers and facilities.**
 Delete the two `TEST-1000xx` brokers unconditionally. Their children cascade. Delete
 the two facilities. The nine non-TEST brokers are real companies (§2) — keep and
 manually review factoring status, do not try to separate them by query.
@@ -1614,7 +1633,7 @@ SELECT count(*) FROM public.facilities;
 ```
 Expected: `0`, `0`. Non-TEST brokers remain 9.
 
-**Step 9 — Craig Pate's application.**
+**Step 10 — Craig Pate's application.**
 One `operators` row carries
 `application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63'`. Resolve that operator
 first (delete if test, or null the link if real) before deleting the application.
@@ -1629,7 +1648,7 @@ WHERE application_id = '08066a41-c17e-4afb-a50a-cf7381af9f63';
 ```
 Both must be 0. `operators` count unchanged except for the deliberately removed row.
 
-**Step 10 — the audit trail. PURGE BY `entity_type`, NEVER BY JOIN.**
+**Step 11 — the audit trail. PURGE BY `entity_type`, NEVER BY JOIN.**
 11 rows across the test entities (live count 2026-09-04): `load` 1, `settlements`
 1, `dispatch_settlements` 3, `invoices` 1, `accessorial_adjustment` 5.
 
@@ -1645,7 +1664,7 @@ two adjustments exist. `4f5f3bc7-c453-4f04-89af-478aa786e583` has NO SURVIVING
 ADJUSTMENT — the audit row outlived the row it describes, which is what an audit
 log is for. A purge written as
 `DELETE ... USING accessorial_adjustments` would miss it permanently, and this
-step runs AFTER Step 3 has already removed the rows a join would need. Run it
+step runs AFTER Step 4 has already removed the rows a join would need. Run it
 last among the deletes, and key it on `entity_type`.
 *Verify:*
 ```sql
@@ -1656,7 +1675,7 @@ GROUP BY 1;
 ```
 Zero rows returned.
 
-**Step 11 — resets.**
+**Step 12 — resets.**
 Set `load_number_config.next_sequence = 1`. **Reset `invoice_number_config` too**
 — the live row is `2026 / ST / next_sequence 2`, created by the Module 7 Pass 3
 verification. Leave it and the first real invoice is numbered `ST26-0002`. Clear
