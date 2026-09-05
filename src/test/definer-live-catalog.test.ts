@@ -540,7 +540,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // internal resolver fuel_resolve_card holds no EXECUTE for authenticated at
   // all and so is deliberately absent from this list.
   "public.preview_fuel_import(jsonb)",
-  "public.commit_fuel_import(text,text,jsonb)",
+  // Module 6 Pass 2 replaced the three-argument form with a fourth argument
+  // carrying the file's column set. The old signature was DROPPED, so this is
+  // a rename of one entry, not an addition: the ceiling does not move.
+  "public.commit_fuel_import(text,text,jsonb,jsonb)",
   "public.assign_fuel_transaction_operator(uuid,uuid,text)",
 
 

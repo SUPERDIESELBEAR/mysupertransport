@@ -15,11 +15,13 @@ import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
-  FuelCsvFormatError, parseMultiserviceCsv, type ParsedFuelRow,
+  FuelCsvFormatError, columnDriftNotice, parseMultiserviceCsv, reconciliationWarning,
+  unrecognizedColumnsNotice,
+  type FuelColumnReport, type ParsedFuelFile, type ParsedFuelRow,
 } from '@/lib/fuel/multiserviceCsv';
 import {
   assignFuelTransactionOperator, commitFuelImport, fetchFuelBatches,
-  fetchFuelReviewQueue, previewFuelImport,
+  fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
   type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
 
@@ -92,6 +94,11 @@ export default function FuelImportPage() {
   const fileInput = useRef<HTMLInputElement>(null);
   const [fileName, setFileName] = useState<string | null>(null);
   const [rows, setRows] = useState<ParsedFuelRow[] | null>(null);
+  const [columns, setColumns] = useState<FuelColumnReport | null>(null);
+  const [notices, setNotices] = useState<{ reconciliation: string | null; unrecognized: string | null; drift: string | null }>(
+    { reconciliation: null, unrecognized: null, drift: null },
+  );
+  const [acknowledged, setAcknowledged] = useState(false);
   const [preview, setPreview] = useState<FuelPreview | null>(null);
   const [result, setResult] = useState<FuelCommitResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
@@ -120,10 +127,20 @@ export default function FuelImportPage() {
     setResult(null);
     setPreview(null);
     setRows(null);
+    setColumns(null);
+    setNotices({ reconciliation: null, unrecognized: null, drift: null });
     try {
-      const parsed = parseMultiserviceCsv(await file.text());
+      const parsed: ParsedFuelFile = parseMultiserviceCsv(await file.text());
+      const previousColumns = await fetchLastImportColumns().catch(() => null);
       setFileName(file.name);
       setRows(parsed.rows);
+      setColumns(parsed.columns);
+      setNotices({
+        reconciliation: reconciliationWarning(parsed),
+        unrecognized: unrecognizedColumnsNotice(parsed.columns),
+        drift: columnDriftNotice(parsed.columns, previousColumns),
+      });
+      setAcknowledged(false);
       setPreview(await previewFuelImport(parsed.rows));
     } catch (e) {
       if (e instanceof FuelCsvFormatError) {
@@ -138,13 +155,15 @@ export default function FuelImportPage() {
   }
 
   async function onCommit() {
-    if (!rows || !fileName) return;
+    if (!rows || !fileName || !columns) return;
     setBusy(true);
     try {
-      const res = await commitFuelImport(fileName, rows);
+      const res = await commitFuelImport(fileName, rows, columns);
       setResult(res);
       setPreview(null);
       setRows(null);
+      setColumns(null);
+      setNotices({ reconciliation: null, unrecognized: null, drift: null });
       void qc.invalidateQueries({ queryKey: ['fuel-review-queue'] });
       void qc.invalidateQueries({ queryKey: ['fuel-batches'] });
       toast({ description: `Imported ${res.imported_count} rows.` });
@@ -290,7 +309,48 @@ export default function FuelImportPage() {
                   </table>
                 </div>
 
-                <Button onClick={() => void onCommit()} disabled={busy || preview.importable_count === 0}>
+                {notices.reconciliation && (
+                  <div
+                    data-testid="fuel-reconciliation-warning"
+                    className="space-y-2 rounded-md border border-destructive/40 bg-[#FFE8E8] p-3 text-sm"
+                  >
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                      <div>
+                        <div className="font-medium">Check the export before committing</div>
+                        <div className="text-muted-foreground">{notices.reconciliation}</div>
+                      </div>
+                    </div>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={acknowledged}
+                        onChange={(e) => setAcknowledged(e.target.checked)}
+                      />
+                      I have read this and want to import anyway.
+                    </label>
+                  </div>
+                )}
+
+                {notices.drift && (
+                  <div className="rounded-md border border-border bg-[#E8F0FF] p-3 text-sm">
+                    {notices.drift}
+                  </div>
+                )}
+
+                {notices.unrecognized && (
+                  <div className="rounded-md border border-border bg-[#F9F9F9] p-3 text-sm text-muted-foreground">
+                    {notices.unrecognized} They are ignored; nothing from them is imported.
+                  </div>
+                )}
+
+                <Button
+                  onClick={() => void onCommit()}
+                  disabled={
+                    busy || preview.importable_count === 0
+                    || (notices.reconciliation !== null && !acknowledged)
+                  }
+                >
                   {busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
                   Commit {preview.importable_count} rows
                 </Button>

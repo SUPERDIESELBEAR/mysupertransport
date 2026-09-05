@@ -4820,11 +4820,14 @@ export type Database = {
           imported_by: string | null
           imported_count: number
           matched_count: number
+          missing_optional_columns: string[]
           provider: Database["public"]["Enums"]["fuel_provider"]
+          recognized_columns: string[]
           reconciliation_ok: boolean
           row_count: number
           total_amount: number
           unmatched_count: number
+          unrecognized_columns: string[]
           updated_at: string
         }
         Insert: {
@@ -4840,11 +4843,14 @@ export type Database = {
           imported_by?: string | null
           imported_count?: number
           matched_count?: number
+          missing_optional_columns?: string[]
           provider?: Database["public"]["Enums"]["fuel_provider"]
+          recognized_columns?: string[]
           reconciliation_ok?: boolean
           row_count?: number
           total_amount?: number
           unmatched_count?: number
+          unrecognized_columns?: string[]
           updated_at?: string
         }
         Update: {
@@ -4860,11 +4866,14 @@ export type Database = {
           imported_by?: string | null
           imported_count?: number
           matched_count?: number
+          missing_optional_columns?: string[]
           provider?: Database["public"]["Enums"]["fuel_provider"]
+          recognized_columns?: string[]
           reconciliation_ok?: boolean
           row_count?: number
           total_amount?: number
           unmatched_count?: number
+          unrecognized_columns?: string[]
           updated_at?: string
         }
         Relationships: [
@@ -11841,7 +11850,12 @@ export type Database = {
         Returns: Json
       }
       commit_fuel_import: {
-        Args: { _file_name: string; _provider: string; _rows: Json }
+        Args: {
+          _columns?: Json
+          _file_name: string
+          _provider: string
+          _rows: Json
+        }
         Returns: Json
       }
       compliance_status: {
@@ -13014,6 +13028,16 @@ export type Database = {
         | "cash_advance_insta"
         | "fees"
         | "fuel_discount"
+        | "diesel1"
+        | "unleaded"
+        | "cng"
+        | "lng"
+        | "lpg"
+        | "reefer_cng"
+        | "reefer_lng"
+        | "reefer_lpg"
+        | "oil"
+        | "tax"
       fuel_match_status: "matched" | "unmatched" | "matched_with_disagreement"
       fuel_provider: "multiservice"
       ica_status:
@@ -13387,6 +13411,16 @@ export const Constants = {
         "cash_advance_insta",
         "fees",
         "fuel_discount",
+        "diesel1",
+        "unleaded",
+        "cng",
+        "lng",
+        "lpg",
+        "reefer_cng",
+        "reefer_lng",
+        "reefer_lpg",
+        "oil",
+        "tax",
       ],
       fuel_match_status: ["matched", "unmatched", "matched_with_disagreement"],
       fuel_provider: ["multiservice"],

@@ -7200,3 +7200,97 @@ the invoice and never was.
 test:guards` — 87. No migration, no new function, ceiling unchanged at 120.
 
 ### CONTRADICTIONS: none found.
+
+---
+
+## Module 6, Pass 2 — columns are found by NAME (2026-09-05)
+
+Pass 1 matched the 23 columns of the live export BY POSITION. Those 23 are the
+checkboxes one operator happened to tick on MultiService's report screen, out
+of roughly fifty. Under the positional contract a forgotten tick, an extra
+tick, or a carrier who fuels CNG all produced the same outcome: the file was
+refused. Column order and column choice are now variations, not corruption.
+
+### The classification
+
+- **REQUIRED (4)** — `Card No`, `Invoice No`, `Invoice Date`, `Total Amount`.
+  Absent is a hard failure naming the column. Without them a row cannot be
+  identified, dated or costed.
+- **KNOWN OPTIONAL** — every other Pass 1 column, plus Diesel 1, Unleaded, CNG,
+  LNG, LPG, Reefer CNG/LNG/LPG, Oil (amount and quantity each) and Tax. Absent
+  means zero, and the absence is listed in the preview.
+- **UNRECOGNISED** — ignored for parsing, reported by name:
+  "2 columns not recognised: Merchant City, VIN."
+
+Matching is case- and whitespace-insensitive. A duplicate column name is a hard
+failure — a column cannot appear twice; that is malformed, not a variation.
+Row WIDTH is still checked against the header, because a short row would read
+absent cells as zero, and that is the one case the name lookup cannot tell
+apart from a column deliberately not exported.
+
+### The positional contract is retired, and one Pass 1 test said so
+
+`refuses a file whose columns were renamed rather than shifting values` was
+rewritten rather than deleted. A renamed category no longer shifts values —
+it becomes unrecognised, its amount reads zero, and the ROW NO LONGER ADDS UP.
+The test now asserts that chain, which is the honest replacement.
+
+### The money is the detector, not the header
+
+Name matching cannot see a category that was never exported: every column
+present parses perfectly. The shortfall against `Total Amount` is the only
+signal. The preview now states it plainly, verbatim:
+
+> Categories present do not sum to Total Amount on 4 rows, short by $312.40.
+> A category column may be missing from this export.
+
+It does not block the commit — a genuine rounding difference is possible and
+the standing behaviour is to flag rather than drop — but the Commit button is
+DISABLED until the operator ticks the acknowledgement beside the warning. Seen,
+not merely displayed.
+
+### The last import is remembered
+
+`fuel_import_batches` gained `recognized_columns`, `unrecognized_columns` and
+`missing_optional_columns`. The preview reads the most recent batch for the
+provider and reports the difference before commit:
+
+> This file has 22 columns. The last import had 23. `Minor Repairs` is absent.
+
+### `fuel_line_type` values ADDED (10)
+
+`diesel1`, `unleaded`, `cng`, `lng`, `lpg`, `reefer_cng`, `reefer_lng`,
+`reefer_lpg`, `oil`, `tax`. These categories have no flat column on
+`fuel_transactions`; they travel as line items and count towards
+reconciliation like any other category. No existing value changed.
+
+### FUNCTION CEILING UNCHANGED
+
+`commit_fuel_import` gained a fourth argument for the column set. The
+three-argument form was **DROPPED** in the same migration, so there is still
+exactly ONE writer and the authenticated-definer inventory entry was RENAMED,
+not added. `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` stays at 120.
+
+### UNCHANGED, deliberately
+
+Dedupe key `(invoice_no, invoice_date, card_no)`. Card resolution through
+`fuel_resolve_card`, date-scoped. Match / disagreement / unmatched semantics.
+The review queue and `assign_fuel_transaction_operator`. This pass changed how
+columns are FOUND, not what is done with them.
+
+### TESTS RUN (named, per the standing rule)
+
+`multiserviceCsv` (20 → 31), `fuel-import-live` (12), `grant-parity-live`,
+`policy-grant-parity`, `definer-search-path`, `caller-evaluated-functions`;
+`npm run test:guards` — 87. One migration, no net new function.
+
+### CONTRADICTION FOUND — the 2026-09-05 Module 6 design proposal is NOT in the record
+
+The brief asked me to read it here. Searching the file finds only the Pass 1
+record (2026-08-29) and the 2026-09-05 correction about fuel period bounds.
+The design proposal was delivered in chat and never written to this document,
+so this pass was built from the brief and the Pass 1 record alone.
+
+A second, smaller contradiction is inside the brief itself: `Tax` is listed
+both as a KNOWN OPTIONAL column and as an example of an UNRECOGNISED one. It
+was built as KNOWN OPTIONAL, with a `tax` line type.
