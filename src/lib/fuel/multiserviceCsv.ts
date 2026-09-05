@@ -88,15 +88,29 @@ export class FuelCsvFormatError extends Error {
 }
 
 /**
- * The 23 columns of the live SUPERTRANSPORT export. Retained as the reference
- * tick list and for the regression test — it is NO LONGER a positional
- * contract.
+ * The 23 columns of the FIRST live SUPERTRANSPORT export. Retained as the
+ * Pass 1 reference tick list and for the regression test — it is NO LONGER a
+ * positional contract.
  */
 export const MULTISERVICE_HEADER = [
   'Unit No', 'Card No', 'Driver Name', 'City', 'State', 'Invoice No', 'Invoice Date',
   'Diesel2 Cost', 'Diesel2 Gallons', 'Reefer Cost', 'Additive Amt', 'Minor Repairs',
   'Misc Amt', 'Tires', 'Daycode', '12 Digit Money', 'E-Money', 'Insta Money®',
   'Bulk DEF Amount', 'Bulk DEF Quantity', 'Fees', 'Fuel Disc Amt', 'Total Amount',
+] as const;
+
+/**
+ * The 27 columns of the REAL export dated 2026-09-05, verbatim and in file
+ * order. This is the only header any of these names has actually been SEEN in,
+ * and it is the reason `Oil Amt` / `Oil Qty` replaced the checkbox labels
+ * `Oil Amount` / `Oil Quantity`, which were both wrong.
+ */
+export const MULTISERVICE_HEADER_2026_09_05 = [
+  'Unit No', 'Card No', 'Driver Name', 'Merchant Name', 'City', 'State', 'Invoice No',
+  'Invoice Date', 'Diesel2 Cost', 'Diesel2 Gallons', 'Reefer Cost', 'Reefer Gallons',
+  'Oil Amt', 'Oil Qty', 'Additive Amt', 'Minor Repairs', 'Misc Amt', 'Tires', 'Daycode',
+  '12 Digit Money', 'E-Money', 'Insta Money®', 'Bulk DEF Amount', 'Bulk DEF Quantity',
+  'Fees', 'Fuel Disc Amt', 'Total Amount',
 ] as const;
 
 /** A row cannot be identified, dated or costed without these. */
@@ -110,6 +124,14 @@ const TEXT_COLUMNS = ['Unit No', 'Driver Name', 'City', 'State', 'Daycode'] as c
 /**
  * Every money category the report screen can emit. `field` names the flat
  * column on `fuel_transactions`; categories without one ride as line items.
+ *
+ * `unverified` marks a column name that came from a CHECKBOX LABEL on
+ * MultiService's report screen and has NEVER been seen in a real file header.
+ * Two out of two checkable labels (`Oil Amount`, `Oil Quantity`) turned out to
+ * be wrong, so every remaining label is assumed wrong until a real header
+ * containing it is examined. The CATEGORIES are real; only the names are in
+ * doubt, which is why none of these entries — and none of the `fuel_line_type`
+ * values — were deleted.
  */
 interface CategorySpec {
   column: string;
@@ -117,12 +139,16 @@ interface CategorySpec {
   lineType: FuelLineType;
   amountField?: keyof ParsedFuelRow;
   quantityField?: keyof ParsedFuelRow;
+  /** Name taken from a checkbox label, never seen in a file header. */
+  unverified?: true;
 }
 
 export const CATEGORY_SPECS: CategorySpec[] = [
+  // --- VERIFIED against the 2026-09-05 export header ---
   { column: 'Diesel2 Cost', quantityColumn: 'Diesel2 Gallons', lineType: 'diesel', amountField: 'diesel_amount', quantityField: 'diesel_gallons' },
-  { column: 'Reefer Cost', lineType: 'reefer', amountField: 'reefer_amount' },
+  { column: 'Reefer Cost', quantityColumn: 'Reefer Gallons', lineType: 'reefer', amountField: 'reefer_amount' },
   { column: 'Bulk DEF Amount', quantityColumn: 'Bulk DEF Quantity', lineType: 'def', amountField: 'def_amount', quantityField: 'def_quantity' },
+  { column: 'Oil Amt', quantityColumn: 'Oil Qty', lineType: 'oil' },
   { column: 'Additive Amt', lineType: 'additive', amountField: 'additive_amount' },
   { column: 'Minor Repairs', lineType: 'minor_repairs', amountField: 'minor_repairs_amount' },
   { column: 'Misc Amt', lineType: 'misc', amountField: 'misc_amount' },
@@ -132,17 +158,16 @@ export const CATEGORY_SPECS: CategorySpec[] = [
   { column: 'Insta Money®', lineType: 'cash_advance_insta', amountField: 'cash_advance_insta_amount' },
   { column: 'Fees', lineType: 'fees', amountField: 'fees_amount' },
   { column: 'Fuel Disc Amt', lineType: 'fuel_discount', amountField: 'fuel_discount_amount' },
-  // Not ticked by SUPERTRANSPORT; offered by the report screen.
-  { column: 'Diesel 1 Amount', quantityColumn: 'Diesel 1 Quantity', lineType: 'diesel1' },
-  { column: 'Unleaded Amount', quantityColumn: 'Unleaded Quantity', lineType: 'unleaded' },
-  { column: 'CNG Amount', quantityColumn: 'CNG Quantity', lineType: 'cng' },
-  { column: 'LNG Amount', quantityColumn: 'LNG Quantity', lineType: 'lng' },
-  { column: 'LPG Amount', quantityColumn: 'LPG Quantity', lineType: 'lpg' },
-  { column: 'Reefer CNG', lineType: 'reefer_cng' },
-  { column: 'Reefer LNG', lineType: 'reefer_lng' },
-  { column: 'Reefer LPG', lineType: 'reefer_lpg' },
-  { column: 'Oil Amount', quantityColumn: 'Oil Quantity', lineType: 'oil' },
-  { column: 'Tax', lineType: 'tax' },
+  // --- UNVERIFIED: checkbox labels, never seen in a file header ---
+  { column: 'Diesel 1 Amount', quantityColumn: 'Diesel 1 Quantity', lineType: 'diesel1', unverified: true },
+  { column: 'Unleaded Amount', quantityColumn: 'Unleaded Quantity', lineType: 'unleaded', unverified: true },
+  { column: 'CNG Amount', quantityColumn: 'CNG Quantity', lineType: 'cng', unverified: true },
+  { column: 'LNG Amount', quantityColumn: 'LNG Quantity', lineType: 'lng', unverified: true },
+  { column: 'LPG Amount', quantityColumn: 'LPG Quantity', lineType: 'lpg', unverified: true },
+  { column: 'Reefer CNG', lineType: 'reefer_cng', unverified: true },
+  { column: 'Reefer LNG', lineType: 'reefer_lng', unverified: true },
+  { column: 'Reefer LPG', lineType: 'reefer_lpg', unverified: true },
+  { column: 'Tax', lineType: 'tax', unverified: true },
 ];
 
 /** Every column name the parser understands, required and optional together. */
@@ -151,6 +176,7 @@ export const KNOWN_COLUMNS: string[] = [
   ...TEXT_COLUMNS,
   ...CATEGORY_SPECS.flatMap((s) => (s.quantityColumn ? [s.column, s.quantityColumn] : [s.column])),
 ];
+
 
 /* ------------------------------------------------------------------ */
 /* Primitives                                                          */
