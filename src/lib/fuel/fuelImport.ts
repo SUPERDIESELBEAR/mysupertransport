@@ -186,7 +186,7 @@ export async function fetchLastImportColumns(
   const { data, error } = await supabase
     .from('fuel_import_batches')
     .select('recognized_columns')
-    .eq('provider', provider)
+    .eq('provider', provider as 'multiservice')
     .order('imported_at', { ascending: false })
     .limit(1)
     .maybeSingle();
