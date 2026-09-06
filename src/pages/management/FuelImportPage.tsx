@@ -311,6 +311,8 @@ export default function FuelImportPage() {
     setRows(null);
     setColumns(null);
     setNotices({ reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null });
+    setTile(null);
+    setSort(null);
     try {
       const parsed: ParsedFuelFile = parseMultiserviceCsv(await file.text());
       const previousColumns = await fetchLastImportColumns().catch(() => null);
