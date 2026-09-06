@@ -7586,3 +7586,54 @@ the statement. The approval gate remains unbuilt.
 Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (12, live enum ran),
 `postgrestEmbeds`, the `src/lib/__tests__` settlement suites, operator isolation
 and pay-exposure, the driver settlement view, and `npm run test:guards` (87/87).
+
+## Module 6 Pass 5 — THE UNEXPLAINED BALANCE IS NAMED (2026-09-06)
+
+Pass 4 assigned the residual between the fuel line rows and the transaction's
+gross to `other`, so an itemisation that did not add up arrived at the driver as
+**Other fuel-card charges** — indistinguishable from a genuine miscellaneous
+charge. That is the defect this module exists to close, reintroduced one layer
+down: money on a statement with nothing accurately naming it.
+
+**TWO CASES, AND THEY ARE NOT THE SAME THING.**
+
+- **No line rows at all** — nothing to reconcile. One `Fuel` line for the gross,
+  exactly as before itemisation existed. This is the correct handling of a
+  transaction with no breakdown and is NOT labelled a discrepancy.
+- **Line rows exist but do not sum to the gross** — a defect. Its own line,
+  never merged into `other`, printed last:
+  - short: `Unexplained balance — the statement total exceeds its itemised lines`
+  - over: `Unexplained balance — the itemised lines exceed the statement total (not a credit)`
+
+  A negative residual reduces the deduction and so appears as a positive figure;
+  the wording denies it the reading of a credit, because it is a data defect,
+  not money the driver earned. Both carry `isDiscrepancy` and the same
+  invoice stamp, and both appear on the SAME `settlement_line_items` rows staff
+  and driver read — no view aggregates fuel lines, so it cannot be seen by one
+  and not the other.
+
+**THE IMPORTER'S VERDICT IS NOW READ.** `gatherSettlementRun` selects
+`reconciliation_ok, reconciliation_delta` and passes them through; a transaction
+the importer flagged carries ` [statement did not add up at import]` on EVERY
+one of its lines, whether or not the rows happen to sum at settlement time. This
+also makes the worse case self-identifying: **a discrepancy line WITHOUT the
+import suffix means the line rows and the category columns disagree with each
+other, both having passed their own check.**
+
+**THIS IS A DECISION, NOT AN INVARIANT — correcting Pass 4's record.** Pass 4
+entered the residual behaviour as invariant 2, which is how a choice nobody
+asked for became a property of the module. The choice is: SPLIT, BUT NAME THE
+DISCREPANCY HONESTLY. The alternative not considered at the time was to REFUSE
+TO SPLIT when the rows do not reconcile and fall back to the single `Fuel` line.
+Refusing is rejected because it hides a known defect behind the pre-Pass-4
+appearance of correctness — the statement would look normal precisely when the
+data is wrong. Assigning to `other` is rejected because it misnames the money.
+Naming it keeps both true: the driver is charged the identical total, and the
+part nobody can account for says so. What is NOT decided, and remains open: no
+one is alerted, and the settlement is not blocked.
+
+Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (16, live enum ran),
+`src/lib/fuel/__tests__/multiserviceCsv.test.ts`, `src/lib/__tests__` (58 files,
+673 tests, including the Pratt control in `sharedPayPct.test.ts` at $327.94),
+`fuel-import-live`, operator isolation and pay-exposure, the driver settlement
+view, and `npm run test:guards` (87/87).
