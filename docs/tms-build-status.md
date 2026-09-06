@@ -7740,8 +7740,8 @@ schema change dressed as a parser tweak, to hold a label that carries no money.
 
 ## Module 6, PENDING PASS — the import screen, as the owner asked for it (2026-09-06)
 
-Requested in conversation, none of it built, recorded here so it is not lost.
-**Source: the owner.**
+**DELIVERED 2026-09-06 by Module 6 Pass 6, below.** The list is retained as the
+request it was. **Source: the owner.**
 
 - **Remove `Invoice` from the import table**; keep it in an expandable row. It
   STAYS IN THE DATA — `(invoice_no, invoice_date, card_no)` is the dedupe key.
@@ -7757,6 +7757,59 @@ Requested in conversation, none of it built, recorded here so it is not lost.
 
 TRIGGER: before the first real import is committed — the screen is what staff will
 judge that import on.
+
+---
+
+## Module 6 Pass 6 — the import screen (2026-09-06)
+
+DISPLAY ONLY. No parser, schema, writer or settlement change. The dedupe key,
+card resolution, match semantics, review queue and `commit_fuel_import` are
+untouched; nothing about which rows import or what they cost moved.
+
+### FOUR bucket columns, not the three that were asked for — a DECISION
+
+The owner asked for Fuel, Advances and Other; he asked BEFORE the fourth bucket
+existed. The screen ships **Fuel, Advances, Repairs, Other**, plus an
+**Unexplained** column that is non-zero only when the itemisation and the total
+disagree.
+
+- **Alternatives rejected.** *Three columns with Repairs folded into Other* —
+  rejected: a repair is the one category this record says must stay visible, and
+  the fold would make the row's own arithmetic unverifiable by eye. *Three
+  columns plus a computed remainder* — rejected for the same reason with an extra
+  cost: the remainder would silently carry repairs, which is the exact defect
+  Pass 4 was built to close, reappearing on a different screen.
+- **What the four columns buy.** Fuel + Advances + Repairs + Other + Unexplained
+  = Total, on every row, checkable without opening anything.
+
+### ONE categorisation, shared
+
+`src/lib/fuel/fuelImportView.ts` calls `fuelBucketLines` — the SAME assembler the
+settlement uses — and maps no `line_type` itself. `shared-pay-percentage-source-guard`
+does NOT cover this file and should not: it guards pay-percentage and period
+logic, not bucket mapping. The equivalent guard for this class of duplication
+lives with the module it protects, in `src/lib/fuel/__tests__/fuelImportView.test.ts`:
+the view module must import from `./fuelBuckets` and must name no `fuel_line_type`
+value of its own.
+
+### The rest of the screen
+
+Tiles are buttons (`Will import`, `Duplicates`, `Matched`, `Unmatched`,
+`Disagreements`, `Failed reconciliation`); clicking filters, clicking again
+clears. Sorting uses the shared `src/lib/listSorting.ts` helpers on date, driver,
+each bucket, total, gallons and $/gal. Expandable rows carry the invoice number,
+the card, the date, the reconciliation verdict, the full split, DEF quantity and
+the discount. Dates print MM/DD/YYYY through `formatFuelDate`.
+
+### FIXTURE EVIDENCE, and it says so
+
+`fuel_transactions` is empty and the 2026-09-05 export was never committed, so
+the tests reconstruct it from the recorded figures: 69 rows, $31,913.66, 64/3/2,
+the card-224 advance, the four misc rows, the eleven DEF rows. The named rows are
+real; the filler rows carrying the balance to the recorded cent are not, and are
+labelled as filler in the file.
+
+
 
 ---
 
