@@ -168,7 +168,7 @@ describe('card 224, 09/01/2026 — the row as rendered', () => {
 
   it('shows the gallons and the cost per gallon', () => {
     expect(d.diesel_gallons).toBe(32.5);
-    expect(d.cost_per_gallon).toBe(3.701);
+    expect(d.cost_per_gallon).toBe(3.7); // 120.26 ÷ 32.5 = 3.7003, to the mill
   });
 });
 
