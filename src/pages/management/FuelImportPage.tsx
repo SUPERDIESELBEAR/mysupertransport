@@ -1,6 +1,9 @@
-import { useRef, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Copy, FileUp, Loader2, Upload } from 'lucide-react';
+import {
+  AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronRight, ChevronsUpDown, Copy, FileUp,
+  Loader2, Upload,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +27,16 @@ import {
   fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
   type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
+import {
+  FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
+} from '@/lib/fuel/fuelBuckets';
+import {
+  buildDisplayRows, filterRows, fuelSortValue,
+  type FuelDisplayRow, type FuelTileFilter,
+} from '@/lib/fuel/fuelImportView';
+import { compareValues, nextSortState, type SortState } from '@/lib/listSorting';
+
+
 
 /**
  * MultiService fuel import.
@@ -73,9 +86,20 @@ async function fetchOperatorOptions(): Promise<OperatorOption[]> {
 }
 
 
-function Stat({ label, value, tone }: { label: string; value: string | number; tone?: 'warn' | 'ok' }) {
-  return (
-    <div className="rounded-md border border-border bg-card px-3 py-2">
+function Stat({
+  label, value, tone, filter, active, onFilter,
+}: {
+  label: string;
+  value: string | number;
+  tone?: 'warn' | 'ok';
+  /** Present when this tile represents a subset of the table. */
+  filter?: FuelTileFilter;
+  active?: boolean;
+  onFilter?: (f: FuelTileFilter) => void;
+}) {
+  const clickable = Boolean(filter && onFilter);
+  const body = (
+    <>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div
         className={
@@ -85,9 +109,148 @@ function Stat({ label, value, tone }: { label: string; value: string | number; t
       >
         {value}
       </div>
-    </div>
+    </>
+  );
+  const base = 'rounded-md border px-3 py-2 text-left ' +
+    (active ? 'border-gold bg-gold/5 ring-1 ring-gold' : 'border-border bg-card');
+  if (!clickable) return <div className={base}>{body}</div>;
+  return (
+    <button
+      type="button"
+      data-testid={`fuel-tile-${filter}`}
+      aria-pressed={active}
+      onClick={() => onFilter!(filter!)}
+      className={`${base} transition-colors hover:border-gold/60`}
+    >
+      {body}
+    </button>
   );
 }
+
+/** Cycles a column header and keeps nulls last, via the shared list helpers. */
+function SortHead({
+  column, label, sort, onSort, className,
+}: {
+  column: string; label: string; sort: SortState | null;
+  onSort: (c: string) => void; className?: string;
+}) {
+  const active = sort?.column === column;
+  const Icon = !active ? ChevronsUpDown : sort?.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className={`p-2 font-medium ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        aria-label={`Sort by ${label}`}
+        className={`inline-flex items-center gap-1 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+      >
+        <span>{label}</span>
+        <Icon className={`h-3 w-3 shrink-0 ${active ? '' : 'opacity-40'}`} />
+      </button>
+    </th>
+  );
+}
+
+const money = (n: number) => (n ? formatCurrency(n) : '—');
+
+/** One preview row plus its expandable detail. */
+function PreviewRow({ row }: { row: FuelDisplayRow }) {
+  const [open, setOpen] = useState(false);
+  const s = row.split;
+  return (
+    <>
+      <tr className="border-t border-border">
+        <td className="p-2">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? 'Hide detail' : 'Show detail'}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+          </button>
+        </td>
+        <td className="p-2 whitespace-nowrap">{formatFuelDate(row.invoice_date)}</td>
+        <td className="p-2">{[row.unit_no, row.driver_name].filter(Boolean).join(' · ') || '—'}</td>
+        <td className="p-2 text-right">{money(s.fuel)}</td>
+        <td className="p-2 text-right">{money(s.cash_advance)}</td>
+        <td className="p-2 text-right">{money(s.repair)}</td>
+        <td className="p-2 text-right">{money(s.other)}</td>
+        <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
+          {money(s.discrepancy)}
+        </td>
+        <td className="p-2 text-right font-medium">{formatCurrency(row.total_amount)}</td>
+        <td className="p-2 text-right">{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</td>
+        <td className="p-2 text-right">
+          {row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}
+        </td>
+        <td className="p-2">
+          {row.duplicate ? (
+            <Badge variant="outline" className="gap-1">
+              <Copy className="h-3 w-3" /> Duplicate — skipped
+            </Badge>
+          ) : row.match_status === 'unmatched' ? (
+            <Badge variant="destructive">Unmatched</Badge>
+          ) : row.match_status === 'matched_with_disagreement' ? (
+            <Badge variant="secondary">Matched, disagreement</Badge>
+          ) : (
+            <Badge variant="outline">Matched</Badge>
+          )}
+          {!row.reconciliation_ok && (
+            <Badge variant="destructive" className="ml-1">
+              Does not add up ({formatCurrency(row.reconciliation_delta)})
+            </Badge>
+          )}
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-t border-border bg-[#F9F9F9]">
+          <td />
+          <td colSpan={11} className="p-3">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+              <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
+              <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
+              <div><dt className="text-muted-foreground">Date</dt><dd>{formatFuelDate(row.invoice_date)}</dd></div>
+              <div>
+                <dt className="text-muted-foreground">Reconciliation</dt>
+                <dd className={row.reconciliation_ok ? '' : 'text-destructive'}>
+                  {row.reconciliation_ok
+                    ? 'Categories add up to the total'
+                    : `Off by ${formatCurrency(row.reconciliation_delta)} at import`}
+                </dd>
+              </div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.fuel}</dt><dd>{formatCurrency(s.fuel)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.cash_advance}</dt><dd>{formatCurrency(s.cash_advance)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.repair}</dt><dd>{formatCurrency(s.repair)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.other}</dt><dd>{formatCurrency(s.other)}</dd></div>
+              {s.discrepancy !== 0 && (
+                <div className="col-span-2 sm:col-span-4 text-destructive">
+                  <dt className="text-muted-foreground">Unexplained balance</dt>
+                  <dd>
+                    {formatCurrency(s.discrepancy)} —{' '}
+                    {s.discrepancy > 0 ? FUEL_DISCREPANCY_LABELS.short : FUEL_DISCREPANCY_LABELS.over}
+                  </dd>
+                </div>
+              )}
+              <div><dt className="text-muted-foreground">Diesel gallons</dt><dd>{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</dd></div>
+              <div><dt className="text-muted-foreground">DEF quantity</dt><dd>{row.def_quantity ? row.def_quantity.toFixed(2) : '—'}</dd></div>
+              <div>
+                <dt className="text-muted-foreground">Cost per gallon</dt>
+                <dd>{row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Fuel discount</dt>
+                <dd>{row.fuel_discount_amount ? formatCurrency(row.fuel_discount_amount) : '—'}</dd>
+              </div>
+            </dl>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 
 export default function FuelImportPage() {
   const qc = useQueryClient();
@@ -103,6 +266,25 @@ export default function FuelImportPage() {
   const [result, setResult] = useState<FuelCommitResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Tile filter and column sort — view state only, nothing is persisted. */
+  const [tile, setTile] = useState<FuelTileFilter | null>(null);
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const toggleTile = (f: FuelTileFilter) => setTile((cur) => (cur === f ? null : f));
+  const onSort = (c: string) => setSort((cur) => nextSortState(cur, c));
+
+  const displayRows = useMemo(
+    () => (preview ? buildDisplayRows(preview.rows, rows ?? []) : []),
+    [preview, rows],
+  );
+  const visibleRows = useMemo(() => {
+    const filtered = filterRows(displayRows, tile);
+    if (!sort) return filtered;
+    return [...filtered].sort((a, b) =>
+      compareValues(fuelSortValue(a, sort.column), fuelSortValue(b, sort.column), sort.direction));
+  }, [displayRows, tile, sort]);
+
+
 
   const queue = useQuery({ queryKey: ['fuel-review-queue'], queryFn: fetchFuelReviewQueue });
   const batches = useQuery({ queryKey: ['fuel-batches'], queryFn: fetchFuelBatches });
@@ -129,6 +311,8 @@ export default function FuelImportPage() {
     setRows(null);
     setColumns(null);
     setNotices({ reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null });
+    setTile(null);
+    setSort(null);
     try {
       const parsed: ParsedFuelFile = parseMultiserviceCsv(await file.text());
       const previousColumns = await fetchLastImportColumns().catch(() => null);
@@ -238,77 +422,83 @@ export default function FuelImportPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label="Rows in file" value={preview.row_count} />
-                  <Stat label="Will import" value={preview.importable_count} tone="ok" />
+                  <Stat
+                    label="Will import" value={preview.importable_count} tone="ok"
+                    filter="importable" active={tile === 'importable'} onFilter={toggleTile}
+                  />
                   <Stat
                     label="Duplicates skipped"
                     value={preview.duplicate_count}
                     tone={preview.duplicate_count > 0 ? 'warn' : undefined}
+                    filter="duplicate" active={tile === 'duplicate'} onFilter={toggleTile}
                   />
                   <Stat label="Total" value={formatCurrency(preview.total_amount)} />
-                  <Stat label="Matched" value={preview.matched_count} />
+                  <Stat
+                    label="Matched" value={preview.matched_count}
+                    filter="matched" active={tile === 'matched'} onFilter={toggleTile}
+                  />
                   <Stat
                     label="Unmatched"
                     value={preview.unmatched_count}
                     tone={preview.unmatched_count > 0 ? 'warn' : undefined}
+                    filter="unmatched" active={tile === 'unmatched'} onFilter={toggleTile}
                   />
                   <Stat
                     label="Disagreements"
                     value={preview.disagreement_count}
                     tone={preview.disagreement_count > 0 ? 'warn' : undefined}
+                    filter="disagreement" active={tile === 'disagreement'} onFilter={toggleTile}
                   />
                   <Stat
                     label="Failed reconciliation"
                     value={preview.flagged_count}
                     tone={preview.flagged_count > 0 ? 'warn' : undefined}
+                    filter="flagged" active={tile === 'flagged'} onFilter={toggleTile}
                   />
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Dates covered: {preview.date_range_start ?? '—'} to {preview.date_range_end ?? '—'}
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span>
+                    Dates covered: {formatFuelDate(preview.date_range_start) || '—'} to{' '}
+                    {formatFuelDate(preview.date_range_end) || '—'}
+                  </span>
+                  {tile && (
+                    <button
+                      type="button"
+                      onClick={() => setTile(null)}
+                      className="text-gold underline underline-offset-2"
+                    >
+                      Showing {visibleRows.length} of {displayRows.length} rows — clear filter
+                    </button>
+                  )}
                 </div>
 
-                <div className="max-h-80 overflow-auto rounded-md border border-border">
+                <div className="max-h-96 overflow-auto rounded-md border border-border">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[#F9F9F9] text-left">
                       <tr>
-                        <th className="p-2 font-medium">Invoice</th>
-                        <th className="p-2 font-medium">Date</th>
-                        <th className="p-2 font-medium">Card</th>
-                        <th className="p-2 font-medium">Unit / name as printed</th>
-                        <th className="p-2 font-medium">Amount</th>
+                        <th className="p-2 w-8" />
+                        <SortHead column="date" label="Date" sort={sort} onSort={onSort} />
+                        <SortHead column="driver" label="Unit / name as printed" sort={sort} onSort={onSort} />
+                        <SortHead column="fuel" label="Fuel" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />
+                        <th className="p-2 font-medium text-right">Unexplained</th>
+                        <SortHead column="total" label="Total" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="cpg" label="$/gal" sort={sort} onSort={onSort} className="text-right" />
                         <th className="p-2 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.rows.map((r, i) => (
-                        <tr key={`${r.invoice_no}-${r.invoice_date}-${r.card_no}-${i}`} className="border-t border-border">
-                          <td className="p-2">{r.invoice_no}</td>
-                          <td className="p-2">{r.invoice_date}</td>
-                          <td className="p-2 font-mono text-xs">{r.card_no}</td>
-                          <td className="p-2">{[r.unit_no, r.driver_name].filter(Boolean).join(' · ')}</td>
-                          <td className="p-2">{formatCurrency(r.total_amount)}</td>
-                          <td className="p-2">
-                            {r.duplicate ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Copy className="h-3 w-3" /> Duplicate — skipped
-                              </Badge>
-                            ) : r.match_status === 'unmatched' ? (
-                              <Badge variant="destructive">Unmatched</Badge>
-                            ) : r.match_status === 'matched_with_disagreement' ? (
-                              <Badge variant="secondary">Matched, disagreement</Badge>
-                            ) : (
-                              <Badge variant="outline">Matched</Badge>
-                            )}
-                            {!r.reconciliation_ok && (
-                              <Badge variant="destructive" className="ml-1">
-                                Does not add up ({formatCurrency(r.reconciliation_delta)})
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
+                      {visibleRows.length === 0 && (
+                        <tr><td colSpan={12} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
+
 
                 {notices.reconciliation && (
                   <div
