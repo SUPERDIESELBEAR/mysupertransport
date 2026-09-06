@@ -266,6 +266,25 @@ export default function FuelImportPage() {
   const [result, setResult] = useState<FuelCommitResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** Tile filter and column sort — view state only, nothing is persisted. */
+  const [tile, setTile] = useState<FuelTileFilter | null>(null);
+  const [sort, setSort] = useState<SortState | null>(null);
+
+  const toggleTile = (f: FuelTileFilter) => setTile((cur) => (cur === f ? null : f));
+  const onSort = (c: string) => setSort((cur) => nextSortState(cur, c));
+
+  const displayRows = useMemo(
+    () => (preview ? buildDisplayRows(preview.rows, rows ?? []) : []),
+    [preview, rows],
+  );
+  const visibleRows = useMemo(() => {
+    const filtered = filterRows(displayRows, tile);
+    if (!sort) return filtered;
+    return [...filtered].sort((a, b) =>
+      compareValues(fuelSortValue(a, sort.column), fuelSortValue(b, sort.column), sort.direction));
+  }, [displayRows, tile, sort]);
+
+
 
   const queue = useQuery({ queryKey: ['fuel-review-queue'], queryFn: fetchFuelReviewQueue });
   const batches = useQuery({ queryKey: ['fuel-batches'], queryFn: fetchFuelBatches });
