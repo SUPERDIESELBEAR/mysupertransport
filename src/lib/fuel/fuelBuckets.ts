@@ -14,11 +14,13 @@
  *     enum-coverage test is what makes adding an enum value without deciding
  *     its bucket impossible.
  *
- *  2. THE BUCKETS ALWAYS SUM TO THE DEDUCTION. Never more, never less. The
- *     residual between the line rows and the transaction's gross is assigned
- *     rather than dropped, so no arrangement of line rows — missing, stale, or
- *     absent altogether — can change what the driver is charged. This module
- *     RE-LABELS money. It never re-computes it.
+ *  2. THE LINES ALWAYS SUM TO THE DEDUCTION. Never more, never less. But a
+ *     residual between the line rows and the transaction's gross is NOT quietly
+ *     filed under "Other" — it gets its own line saying it is unexplained, in
+ *     either direction. No arrangement of line rows — missing, stale, or absent
+ *     altogether — changes what the driver is charged. This module RE-LABELS
+ *     money. It never re-computes it.
+
  *
  * THE DISCOUNT IS NOT A BUCKET. `fuel_discount` is a reduction in the price of
  * the fuel, already subtracted from `total_amount`, and the settlement engine
