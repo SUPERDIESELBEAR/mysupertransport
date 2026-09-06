@@ -1,6 +1,9 @@
 import { useRef, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { AlertTriangle, CheckCircle2, Copy, FileUp, Loader2, Upload } from 'lucide-react';
+import {
+  AlertTriangle, ArrowDown, ArrowUp, CheckCircle2, ChevronRight, ChevronsUpDown, Copy, FileUp,
+  Loader2, Upload,
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
