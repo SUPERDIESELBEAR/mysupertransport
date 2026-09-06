@@ -40,7 +40,7 @@ export type FuelBucketAssignment = FuelBucket | 'discount';
  * not compile with a value missing, and the coverage test checks the same
  * thing against the live enum so a database-side addition cannot slip past.
  */
-export const FUEL_LINE_TYPE_BUCKET = {
+export const FUEL_LINE_TYPE_BUCKET: Record<FuelLineType, FuelBucketAssignment> = {
   // Fuel and the things that are fuel by another name.
   diesel: 'fuel',
   diesel1: 'fuel',
@@ -66,6 +66,7 @@ export const FUEL_LINE_TYPE_BUCKET = {
   // Work done on the truck. Named separately because a repair is the one
   // category this record says must be approved before it moves.
   minor_repairs: 'repair',
+  tires: 'repair',
 
   // Real charges that are none of the above. Named honestly rather than
   // pushed into a bucket they do not belong in.
@@ -76,7 +77,7 @@ export const FUEL_LINE_TYPE_BUCKET = {
 
   // Not a charge. See the header.
   fuel_discount: 'discount',
-} as Record<string, FuelBucketAssignment>;
+};
 
 /** Driver-facing bucket names. The driver's words, not the parser's. */
 export const FUEL_BUCKET_LABELS: Record<FuelBucket, string> = {
