@@ -7,7 +7,7 @@ import {
   fuelBucketLines,
 } from '../fuelBuckets';
 import { computeSettlement } from '@/lib/settlementEngine';
-import { DEFAULT_SETTLEMENT_SETTINGS } from '@/lib/settlementConfig';
+import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
 
 /**
  * MODULE 6 — the fuel deduction, broken out.
@@ -136,9 +136,10 @@ describe('the settlement it produces charges the same money', () => {
   const base = {
     operatorId: 'op-1',
     periodAnchorDate: '2026-08-20',
-    settings: DEFAULT_SETTLEMENT_SETTINGS,
+    settings: SETTLEMENT_SETTINGS_DEFAULTS,
     companyPolicy: null,
     loads: [],
+    equipmentOutstanding: false,
   };
   const gross = 700;
   const lines = [
