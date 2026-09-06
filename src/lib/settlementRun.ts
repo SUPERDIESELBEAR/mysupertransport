@@ -28,6 +28,15 @@ import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/s
 import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 
+/**
+ * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
+ * statement is broken out by; it never changes what he is charged, because
+ * `fuelBucketLines` assigns any residual between the lines and the gross.
+ */
+const FUEL_SELECT =
+  'id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date, '
+  + 'fuel_transaction_lines(line_type, amount)';
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
 
