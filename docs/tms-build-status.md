@@ -7548,3 +7548,41 @@ reconciliation delta will show the same money a second way.
 `src/lib/fuel/__tests__/multiserviceCsv.test.ts` (38), `fuel-import-live` (12),
 `npm run test:guards` (87 across 9 files). All green; the
 `grant-parity-live` exception noted in Pass 2 no longer fails.
+
+---
+
+## Module 6 Pass 4 — THE FUEL DEDUCTION IS BROKEN OUT (2026-09-06)
+
+Until this pass a fuel transaction left the driver's pay as ONE line reading
+"Fuel", whatever it contained. `src/lib/fuel/fuelBuckets.ts` is now the ONE map
+from `fuel_line_type` to the four driver-facing buckets — **Fuel**, **Cash
+advance**, **Repairs**, **Other fuel-card charges** — and the ONE assembler of
+the lines. `settlementRun.ts` reads `fuel_transaction_lines(line_type, amount)`
+through the module-level `FUEL_SELECT`; `settlementEngine.ts` emits one line per
+non-zero bucket, or the single legacy line when a transaction has no itemisation.
+
+**TWO INVARIANTS, and they are the whole of it.**
+
+1. **Every enum value has a bucket.** The `Record<FuelLineType, …>` will not
+   compile with one missing, and the live check reads `pg_enum` so a value added
+   in the database alone cannot slip past. `fuel_discount` carries the sentinel
+   `'discount'`: it is a price reduction already subtracted from `total_amount`,
+   and bucketing it would make the buckets sum to the NET rather than the gross.
+   It is DECIDED, not forgotten.
+
+2. **The buckets always sum to the deduction.** The residual between the line
+   rows and the gross is ASSIGNED — to `other`, or to `fuel` when nothing at all
+   was itemised — never dropped. A short, over-stated, stale or absent
+   itemisation therefore charges the driver the IDENTICAL total. This pass
+   RE-LABELS money; it does not re-compute it, and the settlement test asserts
+   the net is unchanged with and without buckets.
+
+**Advance fees ride with the advance**, so the driver sees the true cost of the
+money he drew rather than a stray charge filed under fuel. **`minor_repairs` and
+`tires` are now a named line** — which does NOT fix the recorded defect that a
+repair is deducted in full with no approval. It only makes the defect VISIBLE on
+the statement. The approval gate remains unbuilt.
+
+Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (12, live enum ran),
+`postgrestEmbeds`, the `src/lib/__tests__` settlement suites, operator isolation
+and pay-exposure, the driver settlement view, and `npm run test:guards` (87/87).
