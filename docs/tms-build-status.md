@@ -7508,7 +7508,7 @@ because it carries no money.
 
 ### UNVERIFIED entries, marked as such
 
-Ten `CategorySpec` entries carry `unverified: true`. They are still guesses — no
+Nine `CategorySpec` entries carry `unverified: true`. They are still guesses — no
 export has ever shown them — and the first real file that contains one will
 either confirm the name or report it unrecognised WITH ITS MONEY:
 
