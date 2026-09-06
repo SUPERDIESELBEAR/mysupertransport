@@ -510,3 +510,17 @@ evidence yet on how often the same broker's terms actually vary.
 TRIGGER: when a dispatcher reports retyping identical terms for the same broker,
 or when parser extraction (Module 5 Pass 3) lands and the parsed-vs-default
 disagreement becomes something the system can measure.
+
+### Fuel reporting (Module 9)
+The owner has asked to design fuel reporting as part of Module 9. Wanted:
+per-driver fuel totals; per-period; per-category; gallons; and cost per gallon,
+which is the figure that shows whether a driver is fuelling badly.
+
+NO FUEL REPORTING EXISTS ANYWHERE TODAY. The import screen lists a batch and its
+review queue and nothing else — no sorting, no filtering, no aggregation by
+operator. The data is there: `fuel_transactions` carries the operator, the date,
+the flat category amounts and diesel gallons / DEF quantity, and
+`fuel_transaction_lines` carries every category as a row.
+
+TRIGGER: when Module 9 is specified, or earlier if a driver's fuel spend is
+questioned and there is no way to answer it.

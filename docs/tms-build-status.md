@@ -7637,3 +7637,155 @@ Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (16, live enum ran),
 673 tests, including the Pratt control in `sharedPayPct.test.ts` at $327.94),
 `fuel-import-live`, operator isolation and pay-exposure, the driver settlement
 view, and `npm run test:guards` (87/87).
+
+---
+
+## Module 6 — THE REAL 2026-09-05 EXPORT, recorded 2026-09-06
+
+The only real-file evidence Module 6 has. It was previewed through the app and
+**NEVER COMMITTED**, so the fuel tables hold zero rows and the database carries no
+trace of it. **The file itself is NOT in this repository.** The figures below are
+the only surviving record of the exercise; nothing here can be re-derived.
+
+**The file.** `CustomizedDAMonitoringReport_202609050913.csv` — 69 rows, 27
+columns, covering 2026-08-28 to 2026-09-01.
+
+**The total.** **$31,913.66**, computed independently from the raw CSV and by the
+app's preview, agreeing TO THE CENT. Two implementations, one figure.
+
+**The counts.** 0 duplicates. 0 failed reconciliation — all 69 rows' categories
+summed to `Total Amount` exactly. 64 matched, 3 unmatched, 2 disagreements.
+
+**Unrecognised columns: `Merchant Name` only**, reported in the quiet grey note.
+That is the confirmation that the `Oil Amt` / `Oil Qty` correction took: under the
+Pass 2 names those two would have appeared here, with money in them.
+
+**Categories carrying money.** Misc $92.13 across 4 rows; E-Money $500.00 on 1;
+Bulk DEF $390.19 across 11; Fees $5.00 on 1. **`Minor Repairs` was ZERO on every
+row** — which is precisely why this file did not trigger the recorded repair
+defect. It proves nothing about that defect either way.
+
+### The five exceptions, and what they prove
+
+**Three unmatched — all one card.** Card 224, unit 260, Ali Mohamed, invoices
+1333199 / 50895 / 5533430, $1,960.56 in total. Cause established by the owner:
+SUPERDRIVE had his card recorded as **212**. MultiService is correct; our data was
+wrong.
+
+**Two disagreements — all one card.** Card 205, unit 253, Ian Dunfee, invoices
+01013799 / 42016924. Cause: MultiService has him as unit 253; his real unit is
+**258**. Their data is wrong; ours is correct.
+
+**THE MATCHING DESIGN FAILED CORRECTLY IN BOTH DIRECTIONS.** Where OUR data was
+wrong it refused to match and said so, rather than guessing from the printed name.
+Where THEIR data was wrong it matched on the authoritative field — the card — and
+flagged the printed unit as a disagreement rather than overriding it or refusing
+the row. Five exceptions in 69 rows, both traceable to a single wrong number, and
+neither one a parser fault.
+
+---
+
+## Module 6 — DECISIONS recorded after the fact (2026-09-06)
+
+Three choices had been stated rather than decided. The rejected alternative and
+the reasoning are what make a decision re-readable; here they are.
+
+### The per-driver fuel discount override — NOT YET BUILT
+
+The owner asked to toggle fuel discount pass-through per driver.
+
+**DECIDED:** a nullable `fuel_discount_passthrough_override` on the operator, with
+three states — `null` inherits the company policy, `true` passes the discount
+through, `false` explicitly does not. Three states, not two, because "not set" and
+"deliberately off" are different facts and only one of them should follow a later
+company-wide change.
+
+**REJECTED — a driver-specific pay policy**, which is the existing mechanism.
+It would clone the WHOLE company policy to flip one boolean, and thereby detach
+that driver from every future company-wide rate change. **One checkbox must not
+silently fork a driver's pay terms.**
+
+Not yet built. See also the `pay_policy_assignments` gap below, which is the
+reason the rejected alternative is not even reachable today.
+
+### Four buckets, not three
+
+The owner's first proposal was three — Fuel / Cash Advance / Repair.
+
+**DECIDED: four**, adding **Other fuel-card charges**. Three left misc, fees,
+tires, additive and oil unnamed, and the buckets must ALWAYS sum to the deduction.
+On the real 2026-09-05 export $97.13 (Misc $92.13 + Fees $5.00) would have had
+nowhere to go. Fees ride with the advance so the driver sees the true cost of the
+money he drew; tires ride with repairs.
+
+### `Merchant Name` stays unrecognised
+
+**REJECTED — adding it to `TEXT_COLUMNS`.** That is not a parser tweak: a text
+column that is parsed must be stored, which means a new column on
+`fuel_transactions` and a change to `commit_fuel_import`, the single writer. A
+schema change dressed as a parser tweak, to hold a label that carries no money.
+
+---
+
+## Module 6, PENDING PASS — the import screen, as the owner asked for it (2026-09-06)
+
+Requested in conversation, none of it built, recorded here so it is not lost.
+**Source: the owner.**
+
+- **Remove `Invoice` from the import table**; keep it in an expandable row. It
+  STAYS IN THE DATA — `(invoice_no, invoice_date, card_no)` is the dedupe key.
+- **Dates as MM/DD/YYYY**, matching the app convention.
+- **Add columns: Fuel, Advances, Other.**
+- **Rename `Amount` to `Total`.**
+- **The summary tiles FILTER the table** — clicking Unmatched shows those rows.
+- **Sortable columns**, especially driver name and total.
+- **Show gallons.** Diesel gallons and DEF quantity are captured at import and
+  displayed NOWHERE. Cost per gallon is the number that shows whether a driver is
+  fuelling badly.
+- **Expandable rows** showing the full category split.
+
+TRIGGER: before the first real import is committed — the screen is what staff will
+judge that import on.
+
+---
+
+## Module 6 — OPEN ITEMS, with triggers (2026-09-06)
+
+### The discrepancy is visible but nobody is alerted
+
+Pass 5 names an unexplained balance on the statement and blocks nothing. No
+notification, no queue, no settlement hold.
+
+**TRIGGER: before the first settlement runs against imported fuel.**
+
+### Comdata
+
+Recorded as a sibling module with a precondition (a real Comdata file) but no
+trigger event.
+
+**TRIGGER: when SUPERTRANSPORT issues a Comdata card to any driver, or when a
+second fuel provider is contracted — whichever comes first.**
+
+### `pay_policy_assignments` HAS NO WRITER — every driver is on the company default
+
+`pay_policy_assignments` holds ZERO rows, no `public` function writes it, and no
+UI references it. Every driver therefore resolves to the company default policy,
+permanently and with no way to change it.
+
+Consequences, both live:
+
+- It blocks the rejected alternative to the per-driver discount override — the
+  driver-specific pay policy cannot be assigned to anyone, so it was never a real
+  option in the first place.
+- It blocks `per_ton_pct` and `loadout_pct`, wired up on 2026-09-04 specifically
+  so rates could differ by freight type, from being set for ANY driver.
+
+This is the **NINTH recorded instance of a correct implementation with no caller.**
+
+**TRIGGER: before any driver is promised terms different from the company default.**
+
+### Module 9 fuel reporting
+
+No fuel reporting exists anywhere today — no sorting, no filtering, no aggregation
+by operator. Recorded on the wish list; see "Fuel reporting (Module 9)" in
+`docs/tms-wish-list.md`.
