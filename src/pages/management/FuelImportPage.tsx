@@ -401,77 +401,83 @@ export default function FuelImportPage() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label="Rows in file" value={preview.row_count} />
-                  <Stat label="Will import" value={preview.importable_count} tone="ok" />
+                  <Stat
+                    label="Will import" value={preview.importable_count} tone="ok"
+                    filter="importable" active={tile === 'importable'} onFilter={toggleTile}
+                  />
                   <Stat
                     label="Duplicates skipped"
                     value={preview.duplicate_count}
                     tone={preview.duplicate_count > 0 ? 'warn' : undefined}
+                    filter="duplicate" active={tile === 'duplicate'} onFilter={toggleTile}
                   />
                   <Stat label="Total" value={formatCurrency(preview.total_amount)} />
-                  <Stat label="Matched" value={preview.matched_count} />
+                  <Stat
+                    label="Matched" value={preview.matched_count}
+                    filter="matched" active={tile === 'matched'} onFilter={toggleTile}
+                  />
                   <Stat
                     label="Unmatched"
                     value={preview.unmatched_count}
                     tone={preview.unmatched_count > 0 ? 'warn' : undefined}
+                    filter="unmatched" active={tile === 'unmatched'} onFilter={toggleTile}
                   />
                   <Stat
                     label="Disagreements"
                     value={preview.disagreement_count}
                     tone={preview.disagreement_count > 0 ? 'warn' : undefined}
+                    filter="disagreement" active={tile === 'disagreement'} onFilter={toggleTile}
                   />
                   <Stat
                     label="Failed reconciliation"
                     value={preview.flagged_count}
                     tone={preview.flagged_count > 0 ? 'warn' : undefined}
+                    filter="flagged" active={tile === 'flagged'} onFilter={toggleTile}
                   />
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Dates covered: {preview.date_range_start ?? '—'} to {preview.date_range_end ?? '—'}
+                <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
+                  <span>
+                    Dates covered: {formatFuelDate(preview.date_range_start) || '—'} to{' '}
+                    {formatFuelDate(preview.date_range_end) || '—'}
+                  </span>
+                  {tile && (
+                    <button
+                      type="button"
+                      onClick={() => setTile(null)}
+                      className="text-gold underline underline-offset-2"
+                    >
+                      Showing {visibleRows.length} of {displayRows.length} rows — clear filter
+                    </button>
+                  )}
                 </div>
 
-                <div className="max-h-80 overflow-auto rounded-md border border-border">
+                <div className="max-h-96 overflow-auto rounded-md border border-border">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 bg-[#F9F9F9] text-left">
                       <tr>
-                        <th className="p-2 font-medium">Invoice</th>
-                        <th className="p-2 font-medium">Date</th>
-                        <th className="p-2 font-medium">Card</th>
-                        <th className="p-2 font-medium">Unit / name as printed</th>
-                        <th className="p-2 font-medium">Amount</th>
+                        <th className="p-2 w-8" />
+                        <SortHead column="date" label="Date" sort={sort} onSort={onSort} />
+                        <SortHead column="driver" label="Unit / name as printed" sort={sort} onSort={onSort} />
+                        <SortHead column="fuel" label="Fuel" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />
+                        <th className="p-2 font-medium text-right">Unexplained</th>
+                        <SortHead column="total" label="Total" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="cpg" label="$/gal" sort={sort} onSort={onSort} className="text-right" />
                         <th className="p-2 font-medium">Status</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {preview.rows.map((r, i) => (
-                        <tr key={`${r.invoice_no}-${r.invoice_date}-${r.card_no}-${i}`} className="border-t border-border">
-                          <td className="p-2">{r.invoice_no}</td>
-                          <td className="p-2">{r.invoice_date}</td>
-                          <td className="p-2 font-mono text-xs">{r.card_no}</td>
-                          <td className="p-2">{[r.unit_no, r.driver_name].filter(Boolean).join(' · ')}</td>
-                          <td className="p-2">{formatCurrency(r.total_amount)}</td>
-                          <td className="p-2">
-                            {r.duplicate ? (
-                              <Badge variant="outline" className="gap-1">
-                                <Copy className="h-3 w-3" /> Duplicate — skipped
-                              </Badge>
-                            ) : r.match_status === 'unmatched' ? (
-                              <Badge variant="destructive">Unmatched</Badge>
-                            ) : r.match_status === 'matched_with_disagreement' ? (
-                              <Badge variant="secondary">Matched, disagreement</Badge>
-                            ) : (
-                              <Badge variant="outline">Matched</Badge>
-                            )}
-                            {!r.reconciliation_ok && (
-                              <Badge variant="destructive" className="ml-1">
-                                Does not add up ({formatCurrency(r.reconciliation_delta)})
-                              </Badge>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
+                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
+                      {visibleRows.length === 0 && (
+                        <tr><td colSpan={12} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
+                      )}
                     </tbody>
                   </table>
                 </div>
+
 
                 {notices.reconciliation && (
                   <div
