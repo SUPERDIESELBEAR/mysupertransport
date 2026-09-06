@@ -3360,6 +3360,11 @@ and all three are registered in `KNOWN_AUTHENTICATED_EXECUTABLE`.
 No operator-facing read exists in this pass. Driver-visible fuel arrives with
 settlements.
 
+> **SUPERSEDED (2026-09-06).** It arrived. Pass 4 breaks the fuel deduction into
+> four driver-facing buckets and Pass 5 names an unexplained balance; both are read
+> by the driver on his settlement. The sentence above describes Pass 1 only.
+
+
 ### Test counts after this pass
 
 Two new files (20 pure parser tests, 7 live-catalog checks; the live file is
