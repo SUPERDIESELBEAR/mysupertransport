@@ -35,6 +35,9 @@ import type { PayPolicyRates } from '@/lib/payTreatment';
  */
 const FUEL_SELECT =
   'id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date, '
+  // THE IMPORTER ALREADY DECIDED WHETHER THE STATEMENT ADDS UP. Read its
+  // verdict rather than rediscovering the same defect where it is silent.
+  + 'reconciliation_ok, reconciliation_delta, '
   + 'fuel_transaction_lines(line_type, amount)';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -369,6 +372,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
             lines: (f.fuel_transaction_lines ?? []) as { line_type: string; amount: number }[],
             invoiceDate: f.invoice_date,
             invoiceNo: f.invoice_no,
+            reconciliationOk: f.reconciliation_ok,
+            reconciliationDelta: num(f.reconciliation_delta),
           }),
         };
       });
