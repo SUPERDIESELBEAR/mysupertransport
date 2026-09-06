@@ -25,6 +25,7 @@ import { computeSettlement, type ComputedSettlement, type SettlementComputeInput
 import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
 import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } from '@/lib/settlementPeriod';
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
+import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
