@@ -352,13 +352,21 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .filter(f => f.operator_id === operatorId && !settledSources.has(`fuel_transactions:${f.id}`))
       .map(f => {
         const discount = Math.abs(num(f.fuel_discount_amount));
+        const grossAmount = num(f.total_amount) + discount;
         return {
           id: f.id,
-          grossAmount: num(f.total_amount) + discount,
+          grossAmount,
           discountAmount: discount,
           description: `Fuel — invoice ${f.invoice_no} (${f.invoice_date})`,
+          buckets: fuelBucketLines({
+            grossAmount,
+            lines: (f.fuel_transaction_lines ?? []) as { line_type: string; amount: number }[],
+            invoiceDate: f.invoice_date,
+            invoiceNo: f.invoice_no,
+          }),
         };
       });
+
 
     const deductions = (dedRows)
       .filter(d => d.operator_id === operatorId
