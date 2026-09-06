@@ -241,11 +241,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
 
   const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes] = await Promise.all([
     sb.from('fuel_transactions')
-      .select('id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date, '
-        // The itemisation the driver's statement is broken out by. It NEVER
-        // changes what he is charged — `fuelBucketLines` assigns any residual
-        // — so a transaction with no line rows is charged exactly as before.
-        + 'fuel_transaction_lines(line_type, amount)')
+      .select(FUEL_SELECT)
       .not('operator_id', 'is', null)
       .gte('invoice_date', period.periodStart)
       .lte('invoice_date', period.periodEnd),
