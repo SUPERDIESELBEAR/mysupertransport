@@ -159,7 +159,16 @@ export interface SettlementFuelInput {
   /** Magnitude of the discount, always positive. Zero when there was none. */
   discountAmount?: number;
   description?: string;
+  /**
+   * The gross, BROKEN OUT by what it was actually spent on — fuel, a cash
+   * advance taken at the pump, a repair, everything else. Assembled by
+   * `fuelBucketLines`, which guarantees the buckets sum to `grossAmount`, so
+   * splitting the line changes only its LABELS. Absent or empty means the
+   * transaction has no itemisation and rides as one line, as before.
+   */
+  buckets?: { bucket: string; amount: number; description: string }[];
 }
+
 
 export interface SettlementDeductionInput {
   id: string;
@@ -573,7 +582,21 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   );
   for (const tx of fuel) {
     const gross = round2(num(tx.grossAmount));
-    if (gross) {
+    // The buckets are a RE-LABELLING of the same gross. `fuelBucketLines`
+    // assigns the residual, so what follows deducts the identical total
+    // whether it takes this branch or the single-line one below.
+    const buckets = (tx.buckets ?? []).filter(b => round2(num(b.amount)) !== 0);
+    if (gross && buckets.length) {
+      for (const b of buckets) {
+        lines.push({
+          lineType: 'fuel',
+          amount: -round2(num(b.amount)),
+          description: b.description,
+          sourceTable: 'fuel_transactions',
+          sourceId: tx.id,
+        });
+      }
+    } else if (gross) {
       lines.push({
         lineType: 'fuel',
         amount: -gross,
@@ -582,6 +605,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         sourceId: tx.id,
       });
     }
+
     const discount = round2(Math.abs(num(tx.discountAmount)));
     if (passthrough && discount) {
       lines.push({

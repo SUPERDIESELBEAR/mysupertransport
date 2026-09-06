@@ -25,7 +25,17 @@ import { computeSettlement, type ComputedSettlement, type SettlementComputeInput
 import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
 import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } from '@/lib/settlementPeriod';
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
+import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
+
+/**
+ * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
+ * statement is broken out by; it never changes what he is charged, because
+ * `fuelBucketLines` assigns any residual between the lines and the gross.
+ */
+const FUEL_SELECT =
+  'id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date, '
+  + 'fuel_transaction_lines(line_type, amount)';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type Client = any;
@@ -240,7 +250,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
 
   const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes] = await Promise.all([
     sb.from('fuel_transactions')
-      .select('id, operator_id, total_amount, fuel_discount_amount, invoice_no, invoice_date')
+      .select(FUEL_SELECT)
       .not('operator_id', 'is', null)
       .gte('invoice_date', period.periodStart)
       .lte('invoice_date', period.periodEnd),
@@ -348,13 +358,21 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .filter(f => f.operator_id === operatorId && !settledSources.has(`fuel_transactions:${f.id}`))
       .map(f => {
         const discount = Math.abs(num(f.fuel_discount_amount));
+        const grossAmount = num(f.total_amount) + discount;
         return {
           id: f.id,
-          grossAmount: num(f.total_amount) + discount,
+          grossAmount,
           discountAmount: discount,
           description: `Fuel — invoice ${f.invoice_no} (${f.invoice_date})`,
+          buckets: fuelBucketLines({
+            grossAmount,
+            lines: (f.fuel_transaction_lines ?? []) as { line_type: string; amount: number }[],
+            invoiceDate: f.invoice_date,
+            invoiceNo: f.invoice_no,
+          }),
         };
       });
+
 
     const deductions = (dedRows)
       .filter(d => d.operator_id === operatorId
