@@ -159,7 +159,16 @@ export interface SettlementFuelInput {
   /** Magnitude of the discount, always positive. Zero when there was none. */
   discountAmount?: number;
   description?: string;
+  /**
+   * The gross, BROKEN OUT by what it was actually spent on — fuel, a cash
+   * advance taken at the pump, a repair, everything else. Assembled by
+   * `fuelBucketLines`, which guarantees the buckets sum to `grossAmount`, so
+   * splitting the line changes only its LABELS. Absent or empty means the
+   * transaction has no itemisation and rides as one line, as before.
+   */
+  buckets?: { bucket: string; amount: number; description: string }[];
 }
+
 
 export interface SettlementDeductionInput {
   id: string;
