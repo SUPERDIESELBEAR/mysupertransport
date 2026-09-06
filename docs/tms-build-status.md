@@ -7461,22 +7461,16 @@ SETTLEMENT-AND-BILLING change, not a fuel change, and must be reviewed as one.
 - The brief instructed the builder to read a design proposal that was not in
   the record. See the opening of this section.
 
-### Addendum to the Pass 2 record — WHY name matching replaced positional
+### Addendum to the Pass 2 record — MERGED (2026-09-06)
 
-The 23 columns of the live export are CHECKBOXES on MultiService's report
-screen, roughly fifty options, most unused by SUPERTRANSPORT. Under positional
-matching a missed checkbox, an extra checkbox, or a carrier fuelling CNG all
-failed the same way.
+This addendum restated, three sections away from the pass it belonged to, why name
+matching replaced positional matching, the ten new `fuel_line_type` values and the
+unchanged function ceiling. All three now live in ONE place — the Pass 2 record
+above, under "The classification", "The money is the detector, not the header",
+"`fuel_line_type` values ADDED (10)" and "FUNCTION CEILING UNCHANGED". Nothing was
+lost in the merge; the checkbox explanation and the "only the reconciliation check
+catches a forgotten checkbox that HAS MONEY IN IT" point are both carried there.
 
-And name matching alone does NOT catch a forgotten checkbox for a category that
-HAS MONEY IN IT: every column present parses perfectly. Only the reconciliation
-check catches it, **because the money is what reveals it.**
-
-The ten new `fuel_line_type` values — `diesel1, unleaded, cng, lng, lpg,
-reefer_cng, reefer_lng, reefer_lpg, oil, tax` — are LINE ITEMS, not new flat
-columns. `commit_fuel_import` gained a fourth argument and the three-argument
-form was dropped, so the inventory entry was RENAMED rather than added and the
-ceiling stayed at **120**.
 
 ## Module 6, Pass 3 — the REAL export header (2026-09-05)
 
