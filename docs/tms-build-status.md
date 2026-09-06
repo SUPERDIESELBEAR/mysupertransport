@@ -7374,6 +7374,18 @@ line. The settlement read selects only `total_amount` and
 INCLUDES the repair. So a repair comes out of the driver's pay in ONE WEEK, in
 FULL, with no approval, no threshold, and no separate line on the statement.
 
+> **AMENDED IN PLACE (2026-09-06) — HALF OF THIS IS NOW STALE, HALF IS STILL LIVE.**
+> STALE: the settlement read no longer selects only those two columns. Pass 4 added
+> `fuel_transaction_lines(line_type, amount)` and Pass 5 added `reconciliation_ok,
+> reconciliation_delta` to `FUEL_SELECT` in `settlementRun.ts`. STALE: a repair is
+> no longer without a separate line — Pass 4 gives `minor_repairs` and `tires` their
+> own **Repairs** line on the statement.
+> **STILL TRUE, AND THIS IS THE DEFECT: THE MONEY MOVES ANYWAY.** A repair on the
+> fuel card is still deducted from the driver in ONE WEEK, IN FULL, with no approval
+> and no threshold. Pass 4 made the defect VISIBLE; it did not fix it. Do not retire
+> this finding on the strength of the two stale halves.
+
+
 This record states that maintenance purchases require approval. **Nothing
 implements it.** The gap is not that the approval step is missing — it is that
 THE MONEY MOVES ANYWAY.
