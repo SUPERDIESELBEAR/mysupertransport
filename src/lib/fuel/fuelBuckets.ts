@@ -14,11 +14,13 @@
  *     enum-coverage test is what makes adding an enum value without deciding
  *     its bucket impossible.
  *
- *  2. THE BUCKETS ALWAYS SUM TO THE DEDUCTION. Never more, never less. The
- *     residual between the line rows and the transaction's gross is assigned
- *     rather than dropped, so no arrangement of line rows — missing, stale, or
- *     absent altogether — can change what the driver is charged. This module
- *     RE-LABELS money. It never re-computes it.
+ *  2. THE LINES ALWAYS SUM TO THE DEDUCTION. Never more, never less. But a
+ *     residual between the line rows and the transaction's gross is NOT quietly
+ *     filed under "Other" — it gets its own line saying it is unexplained, in
+ *     either direction. No arrangement of line rows — missing, stale, or absent
+ *     altogether — changes what the driver is charged. This module RE-LABELS
+ *     money. It never re-computes it.
+
  *
  * THE DISCOUNT IS NOT A BUCKET. `fuel_discount` is a reduction in the price of
  * the fuel, already subtracted from `total_amount`, and the settlement engine
@@ -90,17 +92,40 @@ export const FUEL_BUCKET_LABELS: Record<FuelBucket, string> = {
 /** Fixed display order, so a statement always reads the same way. */
 export const FUEL_BUCKET_ORDER: FuelBucket[] = ['fuel', 'cash_advance', 'repair', 'other'];
 
+/**
+ * NOT a bucket. The line that says the itemisation and the statement total do
+ * not agree, and by how much. It is printed LAST, after every real category.
+ */
+export const FUEL_DISCREPANCY = 'discrepancy' as const;
+
+/**
+ * The two directions of the same defect, worded so neither can be read as a
+ * category of spending, and the negative one cannot be read as a refund.
+ */
+export const FUEL_DISCREPANCY_LABELS = {
+  /** Itemised lines fall SHORT of the statement total: money with no category. */
+  short: 'Unexplained balance — the statement total exceeds its itemised lines',
+  /** Itemised lines EXCEED the statement total. Reduces the deduction; it is
+   *  a defect in the data, NOT a credit the driver earned, and says so. */
+  over: 'Unexplained balance — the itemised lines exceed the statement total (not a credit)',
+} as const;
+
+/** Appended to every line of a transaction the IMPORTER already flagged. */
+export const FUEL_IMPORT_FLAG_SUFFIX = ' [statement did not add up at import]';
+
 export interface FuelTransactionLine {
   line_type: string;
   amount: number | string | null;
 }
 
 export interface FuelBucketLine {
-  bucket: FuelBucket;
-  /** Positive magnitude. The engine applies the sign. */
+  bucket: FuelBucket | typeof FUEL_DISCREPANCY;
+  /** Positive magnitude, EXCEPT a negative discrepancy. The engine negates. */
   amount: number;
   /** Ready to print: `Fuel — 08/28/2026 (invoice 771030)`. */
   description: string;
+  /** True only on the discrepancy line. Lets staff views single it out. */
+  isDiscrepancy?: boolean;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -126,18 +151,37 @@ export interface FuelBucketInput {
   lines?: FuelTransactionLine[] | null;
   invoiceDate?: string | null;
   invoiceNo?: string | null;
+  /**
+   * `fuel_transactions.reconciliation_ok` — the IMPORTER's verdict on whether
+   * the category COLUMNS summed to `Total Amount`. A settlement-time
+   * discrepancy is usually this same fact, rediscovered where it was silent,
+   * so it is carried through and named rather than re-derived.
+   */
+  reconciliationOk?: boolean | null;
+  /** `fuel_transactions.reconciliation_delta`, for the staff-facing note. */
+  reconciliationDelta?: number | null;
 }
 
 /**
  * The lines a single transaction contributes to a settlement.
  *
- * The residual rule is the load-bearing part. `Σ buckets` is compared with the
- * gross; whatever is left over is added to `other` (or, when there is nothing
- * else at all, becomes the single `fuel` line the driver saw before this pass).
- * A negative residual — line rows totalling MORE than the transaction — is
- * absorbed the same way. The consequence is that the driver's total is
- * IDENTICAL whatever the line rows say, which is what makes this safe to run
- * on data imported before the line table was trustworthy.
+ * TWO CASES, and they are NOT the same thing.
+ *
+ *   NO LINE ROWS AT ALL — there is nothing to reconcile. The whole gross is one
+ *   `Fuel` line, exactly as before itemisation existed. This is the correct
+ *   handling of a transaction with no breakdown, not a discrepancy, and it is
+ *   not labelled as one.
+ *
+ *   LINE ROWS EXIST BUT DO NOT SUM TO THE GROSS — something IS wrong: a
+ *   category the parser captured into a column the line derivation missed, or
+ *   rows deleted after import. The difference gets its OWN line, worded as
+ *   unexplained, and is NEVER merged into `Other fuel-card charges` — that
+ *   would be the very defect this module exists to close, money on a statement
+ *   with nothing accurately naming it. A NEGATIVE difference is the same defect
+ *   with the opposite sign and is worded so it cannot read as a credit.
+ *
+ * The sum is unchanged by either case: buckets + discrepancy = the gross, so
+ * this still only ever RE-LABELS money.
  */
 export function fuelBucketLines(input: FuelBucketInput): FuelBucketLine[] {
   const gross = round2(num(input.grossAmount));
@@ -146,11 +190,17 @@ export function fuelBucketLines(input: FuelBucketInput): FuelBucketLine[] {
     input.invoiceNo ? `(invoice ${input.invoiceNo})` : '',
   ].filter(Boolean).join(' ');
   const suffix = stamp ? ` — ${stamp}` : '';
+  // The importer's flag rides on EVERY line of the transaction, so a statement
+  // that failed its own check at import says so even when the line rows happen
+  // to sum here.
+  const flag = input.reconciliationOk === false ? FUEL_IMPORT_FLAG_SUFFIX : '';
 
   const totals = new Map<FuelBucket, number>();
+  let itemisedRows = 0;
   for (const line of input.lines ?? []) {
     const bucket = bucketOf(line.line_type);
     if (bucket === 'discount') continue;
+    itemisedRows += 1;
     const amount = round2(num(line.amount));
     if (!amount) continue;
     totals.set(bucket, round2((totals.get(bucket) ?? 0) + amount));
@@ -158,15 +208,33 @@ export function fuelBucketLines(input: FuelBucketInput): FuelBucketLine[] {
 
   const assigned = round2([...totals.values()].reduce((t, v) => t + v, 0));
   const residual = round2(gross - assigned);
-  if (residual) {
-    // Nothing at all was itemised: this is the old single-line case, and
-    // calling the whole of it "Other" would be less honest than "Fuel".
-    const home: FuelBucket = totals.size === 0 ? 'fuel' : 'other';
-    totals.set(home, round2((totals.get(home) ?? 0) + residual));
+
+  // CASE ONE: nothing itemised. One `Fuel` line, no discrepancy.
+  if (itemisedRows === 0) {
+    return gross
+      ? [{ bucket: 'fuel', amount: gross, description: `${FUEL_BUCKET_LABELS.fuel}${suffix}${flag}` }]
+      : [];
   }
 
-  return FUEL_BUCKET_ORDER
+  const lines: FuelBucketLine[] = FUEL_BUCKET_ORDER
     .map((bucket) => ({ bucket, amount: round2(totals.get(bucket) ?? 0) }))
     .filter((b) => b.amount !== 0)
-    .map((b) => ({ ...b, description: `${FUEL_BUCKET_LABELS[b.bucket]}${suffix}` }));
+    .map((b) => ({
+      bucket: b.bucket as FuelBucket,
+      amount: b.amount,
+      description: `${FUEL_BUCKET_LABELS[b.bucket]}${suffix}${flag}`,
+    }));
+
+  // CASE TWO: itemised, but it does not add up. Its own line, either sign.
+  if (residual) {
+    lines.push({
+      bucket: FUEL_DISCREPANCY,
+      amount: residual,
+      isDiscrepancy: true,
+      description: `${residual > 0 ? FUEL_DISCREPANCY_LABELS.short : FUEL_DISCREPANCY_LABELS.over}${suffix}${flag}`,
+    });
+  }
+
+  return lines;
 }
+

@@ -5,6 +5,8 @@ import {
   FUEL_LINE_TYPE_BUCKET,
   bucketOf,
   fuelBucketLines,
+  FUEL_DISCREPANCY_LABELS,
+  FUEL_IMPORT_FLAG_SUFFIX,
 } from '../fuelBuckets';
 import { computeSettlement } from '@/lib/settlementEngine';
 import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
@@ -113,22 +115,78 @@ describe('the buckets always sum to the deduction', () => {
     expect(lines[0].amount).toBe(431.22);
   });
 
-  it('assigns a short itemisation to other rather than losing the money', () => {
+  it('names a short itemisation as unexplained instead of filing it under other', () => {
     const lines = fuelBucketLines({
       grossAmount: 600, ...stamp,
       lines: [{ line_type: 'diesel', amount: 400 }],
     });
     expect(sum(lines)).toBe(600);
-    expect(lines.find(l => l.bucket === 'other')!.amount).toBe(200);
+    expect(lines.find(l => l.bucket === 'other')).toBeUndefined();
+    const gap = lines.find(l => l.isDiscrepancy)!;
+    expect(gap.bucket).toBe('discrepancy');
+    expect(gap.amount).toBe(200);
+    expect(gap.description).toBe(
+      `${FUEL_DISCREPANCY_LABELS.short} — 08/28/2026 (invoice 771030)`,
+    );
   });
 
-  it('absorbs an over-itemised transaction the same way', () => {
+  it('names an over-itemised transaction with the right sign, never as a credit', () => {
     const lines = fuelBucketLines({
       grossAmount: 400, ...stamp,
       lines: [{ line_type: 'diesel', amount: 500 }],
     });
     expect(sum(lines)).toBe(400);
-    expect(lines.find(l => l.bucket === 'other')!.amount).toBe(-100);
+    expect(lines.find(l => l.bucket === 'other')).toBeUndefined();
+    const gap = lines.find(l => l.isDiscrepancy)!;
+    expect(gap.amount).toBe(-100);
+    expect(gap.description.startsWith(FUEL_DISCREPANCY_LABELS.over)).toBe(true);
+    expect(gap.description.toLowerCase()).toContain('not a credit');
+  });
+
+  it('raises no discrepancy when nothing was itemised — there is nothing to reconcile', () => {
+    const lines = fuelBucketLines({ grossAmount: 431.22, lines: [], ...stamp });
+    expect(lines.some(l => l.isDiscrepancy)).toBe(false);
+    expect(lines[0].bucket).toBe('fuel');
+  });
+
+  it('raises no discrepancy when four buckets add up exactly', () => {
+    const lines = fuelBucketLines({
+      grossAmount: 700, ...stamp,
+      lines: [
+        { line_type: 'diesel', amount: 400 },
+        { line_type: 'cash_advance_emoney', amount: 150 },
+        { line_type: 'tires', amount: 100 },
+        { line_type: 'oil', amount: 50 },
+      ],
+    });
+    expect(lines.map(l => l.bucket)).toEqual(['fuel', 'cash_advance', 'repair', 'other']);
+    expect(lines.some(l => l.isDiscrepancy)).toBe(false);
+    expect(sum(lines)).toBe(700);
+  });
+
+  it('surfaces the importer flag on every line even when the rows do sum', () => {
+    const lines = fuelBucketLines({
+      grossAmount: 500, ...stamp,
+      reconciliationOk: false, reconciliationDelta: -12.5,
+      lines: [{ line_type: 'diesel', amount: 500 }],
+    });
+    expect(lines.every(l => l.description.endsWith(FUEL_IMPORT_FLAG_SUFFIX))).toBe(true);
+    expect(sum(lines)).toBe(500);
+  });
+
+  it('keeps buckets plus discrepancy equal to the gross for arbitrary rows', () => {
+    for (const [gross, amounts] of [
+      [1000, [10.01, 20.02, 30.03]],
+      [0.05, [0.03]],
+      [250, [100, 100, 100]],
+      [99.99, [33.33, 33.33, 33.33]],
+    ] as [number, number[]][]) {
+      const lines = fuelBucketLines({
+        grossAmount: gross, ...stamp,
+        lines: amounts.map((a, i) => ({ line_type: ['diesel', 'fees', 'oil'][i % 3], amount: a })),
+      });
+      expect(sum(lines)).toBe(gross);
+    }
   });
 });
 
