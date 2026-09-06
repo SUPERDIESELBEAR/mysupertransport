@@ -73,9 +73,20 @@ async function fetchOperatorOptions(): Promise<OperatorOption[]> {
 }
 
 
-function Stat({ label, value, tone }: { label: string; value: string | number; tone?: 'warn' | 'ok' }) {
-  return (
-    <div className="rounded-md border border-border bg-card px-3 py-2">
+function Stat({
+  label, value, tone, filter, active, onFilter,
+}: {
+  label: string;
+  value: string | number;
+  tone?: 'warn' | 'ok';
+  /** Present when this tile represents a subset of the table. */
+  filter?: FuelTileFilter;
+  active?: boolean;
+  onFilter?: (f: FuelTileFilter) => void;
+}) {
+  const clickable = Boolean(filter && onFilter);
+  const body = (
+    <>
       <div className="text-xs text-muted-foreground">{label}</div>
       <div
         className={
@@ -85,9 +96,148 @@ function Stat({ label, value, tone }: { label: string; value: string | number; t
       >
         {value}
       </div>
-    </div>
+    </>
+  );
+  const base = 'rounded-md border px-3 py-2 text-left ' +
+    (active ? 'border-gold bg-gold/5 ring-1 ring-gold' : 'border-border bg-card');
+  if (!clickable) return <div className={base}>{body}</div>;
+  return (
+    <button
+      type="button"
+      data-testid={`fuel-tile-${filter}`}
+      aria-pressed={active}
+      onClick={() => onFilter!(filter!)}
+      className={`${base} transition-colors hover:border-gold/60`}
+    >
+      {body}
+    </button>
   );
 }
+
+/** Cycles a column header and keeps nulls last, via the shared list helpers. */
+function SortHead({
+  column, label, sort, onSort, className,
+}: {
+  column: string; label: string; sort: SortState | null;
+  onSort: (c: string) => void; className?: string;
+}) {
+  const active = sort?.column === column;
+  const Icon = !active ? ChevronsUpDown : sort?.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className={`p-2 font-medium ${className ?? ''}`}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        aria-label={`Sort by ${label}`}
+        className={`inline-flex items-center gap-1 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+      >
+        <span>{label}</span>
+        <Icon className={`h-3 w-3 shrink-0 ${active ? '' : 'opacity-40'}`} />
+      </button>
+    </th>
+  );
+}
+
+const money = (n: number) => (n ? formatCurrency(n) : '—');
+
+/** One preview row plus its expandable detail. */
+function PreviewRow({ row }: { row: FuelDisplayRow }) {
+  const [open, setOpen] = useState(false);
+  const s = row.split;
+  return (
+    <>
+      <tr className="border-t border-border">
+        <td className="p-2">
+          <button
+            type="button"
+            onClick={() => setOpen((o) => !o)}
+            aria-expanded={open}
+            aria-label={open ? 'Hide detail' : 'Show detail'}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <ChevronRight className={`h-4 w-4 transition-transform ${open ? 'rotate-90' : ''}`} />
+          </button>
+        </td>
+        <td className="p-2 whitespace-nowrap">{formatFuelDate(row.invoice_date)}</td>
+        <td className="p-2">{[row.unit_no, row.driver_name].filter(Boolean).join(' · ') || '—'}</td>
+        <td className="p-2 text-right">{money(s.fuel)}</td>
+        <td className="p-2 text-right">{money(s.cash_advance)}</td>
+        <td className="p-2 text-right">{money(s.repair)}</td>
+        <td className="p-2 text-right">{money(s.other)}</td>
+        <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
+          {money(s.discrepancy)}
+        </td>
+        <td className="p-2 text-right font-medium">{formatCurrency(row.total_amount)}</td>
+        <td className="p-2 text-right">{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</td>
+        <td className="p-2 text-right">
+          {row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}
+        </td>
+        <td className="p-2">
+          {row.duplicate ? (
+            <Badge variant="outline" className="gap-1">
+              <Copy className="h-3 w-3" /> Duplicate — skipped
+            </Badge>
+          ) : row.match_status === 'unmatched' ? (
+            <Badge variant="destructive">Unmatched</Badge>
+          ) : row.match_status === 'matched_with_disagreement' ? (
+            <Badge variant="secondary">Matched, disagreement</Badge>
+          ) : (
+            <Badge variant="outline">Matched</Badge>
+          )}
+          {!row.reconciliation_ok && (
+            <Badge variant="destructive" className="ml-1">
+              Does not add up ({formatCurrency(row.reconciliation_delta)})
+            </Badge>
+          )}
+        </td>
+      </tr>
+      {open && (
+        <tr className="border-t border-border bg-[#F9F9F9]">
+          <td />
+          <td colSpan={11} className="p-3">
+            <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
+              <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
+              <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
+              <div><dt className="text-muted-foreground">Date</dt><dd>{formatFuelDate(row.invoice_date)}</dd></div>
+              <div>
+                <dt className="text-muted-foreground">Reconciliation</dt>
+                <dd className={row.reconciliation_ok ? '' : 'text-destructive'}>
+                  {row.reconciliation_ok
+                    ? 'Categories add up to the total'
+                    : `Off by ${formatCurrency(row.reconciliation_delta)} at import`}
+                </dd>
+              </div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.fuel}</dt><dd>{formatCurrency(s.fuel)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.cash_advance}</dt><dd>{formatCurrency(s.cash_advance)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.repair}</dt><dd>{formatCurrency(s.repair)}</dd></div>
+              <div><dt className="text-muted-foreground">{FUEL_BUCKET_LABELS.other}</dt><dd>{formatCurrency(s.other)}</dd></div>
+              {s.discrepancy !== 0 && (
+                <div className="col-span-2 sm:col-span-4 text-destructive">
+                  <dt className="text-muted-foreground">Unexplained balance</dt>
+                  <dd>
+                    {formatCurrency(s.discrepancy)} —{' '}
+                    {s.discrepancy > 0 ? FUEL_DISCREPANCY_LABELS.short : FUEL_DISCREPANCY_LABELS.over}
+                  </dd>
+                </div>
+              )}
+              <div><dt className="text-muted-foreground">Diesel gallons</dt><dd>{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</dd></div>
+              <div><dt className="text-muted-foreground">DEF quantity</dt><dd>{row.def_quantity ? row.def_quantity.toFixed(2) : '—'}</dd></div>
+              <div>
+                <dt className="text-muted-foreground">Cost per gallon</dt>
+                <dd>{row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">Fuel discount</dt>
+                <dd>{row.fuel_discount_amount ? formatCurrency(row.fuel_discount_amount) : '—'}</dd>
+              </div>
+            </dl>
+          </td>
+        </tr>
+      )}
+    </>
+  );
+}
+
 
 export default function FuelImportPage() {
   const qc = useQueryClient();
