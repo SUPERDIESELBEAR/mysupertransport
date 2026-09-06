@@ -27,6 +27,16 @@ import {
   fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
   type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
+import {
+  FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
+} from '@/lib/fuel/fuelBuckets';
+import {
+  buildDisplayRows, filterRows, fuelSortValue,
+  type FuelDisplayRow, type FuelTileFilter,
+} from '@/lib/fuel/fuelImportView';
+import { compareValues, nextSortState, type SortState } from '@/lib/listSorting';
+
+
 
 /**
  * MultiService fuel import.
