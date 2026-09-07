@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><style>
+svg{font-family:var(--font-sans)}
+.lbl{font-size:14px;font-weight:480;fill:hsl(var(--foreground))}
+.sub{font-size:12px;fill:hsl(var(--muted-foreground))}
+.box{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1}
+.wire{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none}
+.bad{stroke:hsl(var(--border));stroke-width:1;fill:none;stroke-dasharray:4 3}
+</style></head><body>
+<svg viewBox="0 0 640 260" width="100%">
+<defs><marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+<path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))"/></marker></defs>
+
+<rect class="box" x="10" y="40" width="150" height="60" rx="8"/>
+<text class="lbl" x="85" y="66" text-anchor="middle">Card 212</text>
+<text class="sub" x="85" y="84" text-anchor="middle">assigned to Ali</text>
+
+<line class="wire" x1="162" y1="70" x2="228" y2="70" marker-end="url(#a)"/>
+<text class="sub" x="195" y="60" text-anchor="middle" style="paint-order:stroke;stroke:hsl(var(--background));stroke-width:3">Return</text>
+
+<rect class="box" x="230" y="40" width="170" height="60" rx="8" fill="hsl(var(--muted))"/>
+<text class="lbl" x="315" y="66" text-anchor="middle">Good — Available</text>
+<text class="sub" x="315" y="84" text-anchor="middle">back to Unassigned Inventory</text>
+
+<line class="wire" x1="402" y1="70" x2="468" y2="70" marker-end="url(#a)"/>
+<rect class="box" x="470" y="40" width="160" height="60" rx="8"/>
+<text class="lbl" x="550" y="66" text-anchor="middle">212 free</text>
+<text class="sub" x="550" y="84" text-anchor="middle">for the next driver</text>
+
+<rect class="box" x="10" y="150" width="150" height="60" rx="8"/>
+<text class="lbl" x="85" y="176" text-anchor="middle">Card 224</text>
+<text class="sub" x="85" y="194" text-anchor="middle">unassigned</text>
+<line class="wire" x1="162" y1="180" x2="468" y2="180" marker-end="url(#a)"/>
+<text class="sub" x="315" y="170" text-anchor="middle" style="paint-order:stroke;stroke:hsl(var(--background));stroke-width:3">Assign to Ali</text>
+<rect x="470" y="150" width="160" height="60" rx="8" fill="hsl(var(--accent))" stroke="none"/>
+<text class="lbl" x="550" y="176" text-anchor="middle" fill="hsl(var(--accent-foreground))">Ali on 224</text>
+<text class="sub" x="550" y="194" text-anchor="middle" fill="hsl(var(--accent-foreground))">shown in his Equipment</text>
+
+<rect class="bad" x="230" y="150" width="170" height="60" rx="8"/>
+<text class="sub" x="315" y="176" text-anchor="middle">Deactivate — do not use</text>
+<text class="sub" x="315" y="194" text-anchor="middle">archives 212 for good</text>
+</svg>
+</body></html>
