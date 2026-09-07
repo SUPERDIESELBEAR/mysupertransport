@@ -209,7 +209,7 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
       {open && (
         <tr className="border-t border-border bg-[#F9F9F9]">
           <td />
-          <td colSpan={11} className="p-3">
+          <td colSpan={12} className="p-3">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
@@ -495,7 +495,7 @@ export default function FuelImportPage() {
                     <tbody>
                       {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
                       {visibleRows.length === 0 && (
-                        <tr><td colSpan={12} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
+                        <tr><td colSpan={13} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
                       )}
                     </tbody>
                   </table>
