@@ -4,7 +4,7 @@ import {
   buildDisplayRows, filterRows, fuelSortValue, splitParsedRow,
   type FuelDisplayRow,
 } from '../fuelImportView';
-import { FUEL_LINE_TYPE_BUCKET } from '../fuelBuckets';
+import { FUEL_LINE_TYPE_BUCKET, fuelBucketLines } from '../fuelBuckets';
 import { deriveLines, type ParsedFuelRow } from '../multiserviceCsv';
 import type { FuelPreviewRow } from '../fuelImport';
 
@@ -130,7 +130,8 @@ const PREVIEW: FuelPreviewRow[] = PARSED.map((p) => {
 const DISPLAY = buildDisplayRows(PREVIEW, PARSED);
 const find = (invoice: string) => DISPLAY.find((d) => d.invoice_no === invoice)!;
 const rowSum = (d: FuelDisplayRow) =>
-  r2(d.split.fuel + d.split.cash_advance + d.split.repair + d.split.other + d.split.discrepancy);
+  r2(d.split.fuel + d.split.cash_advance + d.split.repair + d.split.other
+    + d.split.discount + d.split.discrepancy);
 
 describe('the reconstructed 2026-09-05 export', () => {
   it('is 69 rows totalling $31,913.66, 64 matched / 3 unmatched / 2 disagreements', () => {
@@ -155,7 +156,7 @@ describe('card 224, 09/01/2026 — the row as rendered', () => {
 
   it('splits $625.26 into $120.26 fuel and $505.00 advances, nothing else', () => {
     expect(d.split).toEqual({
-      fuel: 120.26, cash_advance: 505, repair: 0, other: 0, discrepancy: 0,
+      fuel: 120.26, cash_advance: 505, repair: 0, other: 0, discount: 0, discrepancy: 0,
     });
     expect(d.total_amount).toBe(625.26);
     expect(rowSum(d)).toBe(625.26);
@@ -260,5 +261,60 @@ describe('the screen does not own a second categorisation', () => {
   it('names no fuel line type of its own', () => {
     const hits = Object.keys(FUEL_LINE_TYPE_BUCKET).filter((t) => src.includes(`'${t}'`));
     expect(hits, `the view module names ${hits.join(', ')} directly`).toEqual([]);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* THE DISCOUNT IS NOT A DISCREPANCY                                   */
+/* ------------------------------------------------------------------ */
+
+/**
+ * The four rows observed live on the 2026-09-05 export, each of which reported
+ * its discount as an "Unexplained" balance because the buckets were reconciled
+ * against the NET total while the assembler reconciles against the GROSS.
+ */
+const DISCOUNTED = [
+  { fuel: 367.3, discount: -1.41, total: 365.89 },
+  { fuel: 642.87, discount: -11.48, total: 631.39 },
+  { fuel: 500.01, discount: -1.85, total: 498.16 },
+  { fuel: 338.8, discount: -24.14, total: 314.66 },
+];
+
+describe('a discount is a named reduction, never an unexplained balance', () => {
+  it('leaves Unexplained at zero on every discounted row', () => {
+    for (const d of DISCOUNTED) {
+      const split = splitParsedRow(row({
+        card_no: '700', invoice_no: '910001', diesel_amount: d.fuel, diesel_gallons: 100,
+        fuel_discount_amount: d.discount, total_amount: d.total,
+      }));
+      expect(split.discrepancy, `discount ${d.discount}`).toBe(0);
+      expect(split.fuel).toBe(d.fuel);
+      expect(split.discount).toBe(d.discount);
+      expect(r2(split.fuel + split.discount)).toBe(d.total);
+    }
+  });
+
+  it('keeps a GENUINE discrepancy distinguishable from a discount', () => {
+    const both = splitParsedRow(row({
+      card_no: '701', invoice_no: '910002', diesel_amount: 400, diesel_gallons: 110,
+      fuel_discount_amount: -10, total_amount: 500,
+      reconciliation_ok: false, reconciliation_delta: -100,
+    }));
+    expect(both.discount).toBe(-10);
+    expect(both.discrepancy).toBe(110); // gross 510 − 400 itemised
+    expect(r2(both.fuel + both.discount + both.discrepancy)).toBe(500);
+  });
+});
+
+describe('the settlement still reconciles against the GROSS', () => {
+  it('is unchanged by the screen: buckets sum to total minus the discount', () => {
+    const r = row({
+      card_no: '702', invoice_no: '910003', diesel_amount: 367.3, diesel_gallons: 100,
+      fuel_discount_amount: -1.41, total_amount: 365.89,
+    });
+    const gross = r2(r.total_amount - r.fuel_discount_amount);
+    const lines = fuelBucketLines({ grossAmount: gross, lines: r.lines });
+    expect(r2(lines.reduce((t, l) => t + l.amount, 0))).toBe(gross);
+    expect(lines.some((l) => l.isDiscrepancy)).toBe(false);
   });
 });
