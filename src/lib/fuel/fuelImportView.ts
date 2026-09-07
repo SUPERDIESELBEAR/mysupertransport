@@ -26,9 +26,16 @@ export interface FuelRowSplit {
   cash_advance: number;
   repair: number;
   other: number;
+  /**
+   * The price reduction already netted into `Total`. Always ≤ 0, shown as its
+   * own negative column so the row reads down to the printed Total. It is a
+   * KNOWN and NAMED reduction, so it must never appear as a discrepancy.
+   */
+  discount: number;
   /** Signed. Non-zero only when the itemisation and the total disagree. */
   discrepancy: number;
 }
+
 
 export interface FuelDisplayRow {
   key: string;
