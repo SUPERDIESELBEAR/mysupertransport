@@ -116,7 +116,7 @@ export function buildDisplayRows(
     const parsed = parsedByKey.get(dedupeKey(r));
     const split = parsed
       ? splitParsedRow(parsed)
-      : { fuel: round2(r.total_amount), cash_advance: 0, repair: 0, other: 0, discrepancy: 0 };
+      : { fuel: round2(r.total_amount), cash_advance: 0, repair: 0, other: 0, discount: 0, discrepancy: 0 };
     const gallons = parsed?.diesel_gallons ?? 0;
     return {
       key: `${dedupeKey(r)}|${i}`,
