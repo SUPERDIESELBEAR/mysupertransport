@@ -17,6 +17,7 @@ import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
 import FuelCardDeactivateModal from './FuelCardDeactivateModal';
+import FuelCardUnassignModal from './FuelCardUnassignModal';
 import EquipmentHistoryModal from './EquipmentHistoryModal';
 import EquipmentDownloadModal from './EquipmentDownloadModal';
 import CreateSignOffSheetModal from './CreateSignOffSheetModal';
@@ -234,6 +235,7 @@ export default function EquipmentInventory({
   const [assignItem, setAssignItem] = useState<EquipmentItem | null>(null);
   const [returnItem, setReturnItem] = useState<EquipmentItem | null>(null);
   const [deactivateItem, setDeactivateItem] = useState<EquipmentItem | null>(null);
+  const [unassignItem, setUnassignItem] = useState<EquipmentItem | null>(null);
   const [historyItem, setHistoryItem] = useState<EquipmentItem | null>(null);
   const [activeTab, setActiveTab] = useState<'inventory' | 'by_driver' | 'sheets'>('inventory');
   const [signOffSheetOpen, setSignOffSheetOpen] = useState(false);
@@ -664,6 +666,7 @@ export default function EquipmentInventory({
                     onAssign={setAssignItem}
                     onReturn={setReturnItem}
                     onDeactivate={setDeactivateItem}
+                    onUnassign={setUnassignItem}
                     onHistory={setHistoryItem}
                   />
                 ) : (
@@ -678,6 +681,7 @@ export default function EquipmentInventory({
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
                             onDeactivate={() => setDeactivateItem(item)}
+                            onUnassign={() => setUnassignItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
@@ -693,6 +697,7 @@ export default function EquipmentInventory({
                             onAssign={() => setAssignItem(item)}
                             onReturn={() => setReturnItem(item)}
                             onDeactivate={() => setDeactivateItem(item)}
+                            onUnassign={() => setUnassignItem(item)}
                             onHistory={() => setHistoryItem(item)}
                           />
                         ))}
@@ -764,6 +769,12 @@ export default function EquipmentInventory({
         onClose={() => setDeactivateItem(null)}
         onSaved={fetchItems}
       />
+      <FuelCardUnassignModal
+        open={!!unassignItem}
+        item={unassignItem}
+        onClose={() => setUnassignItem(null)}
+        onSaved={fetchItems}
+      />
       <EquipmentHistoryModal
         open={!!historyItem}
         item={historyItem}
@@ -792,6 +803,7 @@ function EquipmentRow({
   onAssign,
   onReturn,
   onDeactivate,
+  onUnassign,
   onHistory,
 }: {
   item: EquipmentItem;
@@ -800,6 +812,7 @@ function EquipmentRow({
   onAssign: () => void;
   onReturn: () => void;
   onDeactivate: () => void;
+  onUnassign: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
@@ -870,6 +883,17 @@ function EquipmentRow({
             Return
           </Button>
         )}
+        {isFuelCard && item.status === 'assigned' && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onUnassign}
+            className="h-8 px-2.5 text-xs border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Unassign
+          </Button>
+        )}
         {isFuelCard && item.status !== 'deactivated' && (
           <Button
             variant="outline"
@@ -892,6 +916,7 @@ function EquipmentCard({
   onAssign,
   onReturn,
   onDeactivate,
+  onUnassign,
   onHistory,
 }: {
   item: EquipmentItem;
@@ -899,6 +924,7 @@ function EquipmentCard({
   onAssign: () => void;
   onReturn: () => void;
   onDeactivate: () => void;
+  onUnassign: () => void;
   onHistory: () => void;
 }) {
   const cfg = STATUS_CONFIG[item.status];
@@ -969,6 +995,11 @@ function EquipmentCard({
             <RotateCcw className="h-3 w-3" />Return
           </Button>
         )}
+        {isFuelCard && item.status === 'assigned' && (
+          <Button variant="outline" size="sm" onClick={onUnassign} className="h-7 px-2 text-xs gap-1 border-status-complete/40 text-status-complete hover:bg-status-complete/10 hover:text-status-complete">
+            <RotateCcw className="h-3 w-3" />Unassign
+          </Button>
+        )}
         {isFuelCard && item.status !== 'deactivated' && (
           <Button variant="outline" size="sm" onClick={onDeactivate} className="h-7 px-2 text-xs gap-1 border-border text-muted-foreground hover:bg-muted">
             <Archive className="h-3 w-3" />Deactivate
@@ -988,6 +1019,7 @@ function FuelCardSections({
   onAssign,
   onReturn,
   onDeactivate,
+  onUnassign,
   onHistory,
 }: {
   items: EquipmentItem[];
@@ -998,6 +1030,7 @@ function FuelCardSections({
   onAssign: (item: EquipmentItem) => void;
   onReturn: (item: EquipmentItem) => void;
   onDeactivate: (item: EquipmentItem) => void;
+  onUnassign: (item: EquipmentItem) => void;
   onHistory: (item: EquipmentItem) => void;
 }) {
   const assigned = sortEquipment(items.filter(i => i.status === 'assigned'));
@@ -1051,6 +1084,7 @@ function FuelCardSections({
                   onAssign={() => onAssign(item)}
                   onReturn={() => onReturn(item)}
                   onDeactivate={() => onDeactivate(item)}
+                  onUnassign={() => onUnassign(item)}
                   onHistory={() => onHistory(item)}
                 />
               ))}
@@ -1066,6 +1100,7 @@ function FuelCardSections({
                   onAssign={() => onAssign(item)}
                   onReturn={() => onReturn(item)}
                   onDeactivate={() => onDeactivate(item)}
+                  onUnassign={() => onUnassign(item)}
                   onHistory={() => onHistory(item)}
                 />
               ))}
