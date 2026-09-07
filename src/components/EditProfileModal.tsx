@@ -36,6 +36,7 @@ import {
   hasRegions,
 } from '@/lib/countryRegions';
 import { Slider } from '@/components/ui/slider';
+import { BIRTH_MONTHS, DAYS_IN_MONTH } from '@/lib/birthdayAnniversary/birthdayFields';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   AlertDialog,
@@ -105,12 +106,7 @@ async function getCroppedBlob(imageSrc: string, pixelCrop: Area, mimeType: strin
   });
 }
 
-const BIRTH_MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
-
-const DAYS_IN_MONTH = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+// Month names / day counts are shared with the Staff Directory birthday editor.
 
 interface EditProfileModalProps {
   open: boolean;
