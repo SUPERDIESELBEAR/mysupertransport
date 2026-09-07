@@ -524,3 +524,32 @@ the flat category amounts and diesel gallons / DEF quantity, and
 
 TRIGGER: when Module 9 is specified, or earlier if a driver's fuel spend is
 questioned and there is no way to answer it.
+
+### First appearance of a fuel category on a card
+Spending limits and permitted purchase categories are enforced upstream, in the
+MultiService account portal, at the card. That is why no repair-approval gate is
+built in SUPERDRIVE (see "A REPAIR ON THE FUEL CARD…", RESOLVED, in
+`docs/tms-build-status.md`).
+
+The residual: those controls are CONFIGURATION and can change. If permitted
+categories were ever widened — deliberately or by accident — SUPERDRIVE would
+deduct whatever appeared, with no signal that a new KIND of charge had shown up
+on a card.
+
+Proposal: flag the **first appearance of a category on a card that has never
+carried it before** — a note in the review queue, next to the existing match /
+disagreement / unmatched states. A note, NOT a gate: nothing blocked, nothing
+held, the money still moves as the statement says.
+
+Design caveat, known now: `fuel_transactions` is EMPTY. On the FIRST import every
+card carries every category for the first time, so a naive implementation flags
+every row and the signal is worthless. **The first import per card must be
+treated as a BASELINE, with flagging from the second import onward** — per card,
+not per file, because cards are issued at different times.
+
+Build this AFTER the first real import, so it is designed against actual
+card-and-category history rather than a guess about what cards carry. Same
+reasoning that let the real 2026-09-05 export catch the `Oil Amt` naming error
+that no amount of reading the spec had caught.
+
+NO TRIGGER. This is an idea, not an obligation.

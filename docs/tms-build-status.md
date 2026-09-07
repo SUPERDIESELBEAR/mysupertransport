@@ -7871,3 +7871,27 @@ This is the **NINTH recorded instance of a correct implementation with no caller
 No fuel reporting exists anywhere today — no sorting, no filtering, no aggregation
 by operator. Recorded on the wish list; see "Fuel reporting (Module 9)" in
 `docs/tms-wish-list.md`.
+
+---
+
+## STANDING LESSON — a control this system does not implement is not necessarily a control that does not exist (2026-09-06)
+
+"Maintenance purchases require approval" sat in this record as an unimplemented
+requirement, carrying a trigger and reading as debt, while it was being enforced
+the whole time — by the MultiService card controls, at the point of sale, days
+before the charge ever reached SUPERDRIVE. The record could not see it because
+the record only knows what this system does.
+
+**The rule.** Before building an approval, a limit or a gate, establish whether
+something UPSTREAM already enforces it — the card issuer, the broker, the factor,
+the insurer, the state. If it does:
+
+- do NOT build a second gate that can only re-approve a decision already made by
+  a system that could actually prevent the act, where ours can only observe it;
+- record **WHERE** the control lives, so the next reader does not file the same
+  requirement as debt again;
+- ask what was actually missing. Usually it is not authority. It is VISIBILITY —
+  and visibility is cheap, safe and does not slow anyone down.
+
+Corollary: an upstream control is CONFIGURATION and can change without telling
+us. The right residual is a signal when its output changes shape, not a gate.
