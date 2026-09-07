@@ -474,9 +474,17 @@ export default function FuelImportPage() {
                   )}
                 </div>
 
-                <div className="max-h-96 overflow-auto rounded-md border border-border">
+                {/*
+                  FULL HEIGHT, ONE SCROLLBAR. The table used to live in a
+                  fixed-height box, so six of sixty-nine rows were visible and
+                  the page carried a nested scrollbar. It now renders whole and
+                  the PAGE scrolls; `overflow-x-auto` is kept only for narrow
+                  screens. The header row sticks to the top of the viewport so
+                  twelve mostly-money columns are never unlabelled.
+                */}
+                <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[#F9F9F9] text-left">
+                    <thead className="sticky top-0 z-10 bg-[#F9F9F9] text-left shadow-[0_1px_0_0_hsl(var(--border))]">
                       <tr>
                         <th className="p-2 w-8" />
                         <SortHead column="date" label="Date" sort={sort} onSort={onSort} />
@@ -485,6 +493,7 @@ export default function FuelImportPage() {
                         <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="discount" label="Discount" sort={sort} onSort={onSort} className="text-right" />
                         <th className="p-2 font-medium text-right">Unexplained</th>
                         <SortHead column="total" label="Total" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
@@ -492,6 +501,7 @@ export default function FuelImportPage() {
                         <th className="p-2 font-medium">Status</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
                       {visibleRows.length === 0 && (
