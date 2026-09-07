@@ -7606,9 +7606,11 @@ non-zero bucket, or the single legacy line when a transaction has no itemisation
 
 **Advance fees ride with the advance**, so the driver sees the true cost of the
 money he drew rather than a stray charge filed under fuel. **`minor_repairs` and
-`tires` are now a named line** — which does NOT fix the recorded defect that a
-repair is deducted in full with no approval. It only makes the defect VISIBLE on
-the statement. The approval gate remains unbuilt.
+`tires` are now a named line** — and, as established on 2026-09-06, that
+visibility is exactly what the recorded "repair deducted with no approval" defect
+was actually missing. Approval itself is enforced upstream at the card by the fuel
+provider; no gate is built here. See proposal item 1, RESOLVED.
+
 
 Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (12, live enum ran),
 `postgrestEmbeds`, the `src/lib/__tests__` settlement suites, operator isolation
