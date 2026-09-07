@@ -26,9 +26,16 @@ export interface FuelRowSplit {
   cash_advance: number;
   repair: number;
   other: number;
+  /**
+   * The price reduction already netted into `Total`. Always ≤ 0, shown as its
+   * own negative column so the row reads down to the printed Total. It is a
+   * KNOWN and NAMED reduction, so it must never appear as a discrepancy.
+   */
+  discount: number;
   /** Signed. Non-zero only when the itemisation and the total disagree. */
   discrepancy: number;
 }
+
 
 export interface FuelDisplayRow {
   key: string;
@@ -60,14 +67,26 @@ const dedupeKey = (r: { invoice_no: string; invoice_date: string; card_no: strin
   `${r.invoice_no}|${r.invoice_date}|${r.card_no}`;
 
 /**
- * The four buckets plus the discrepancy for one parsed row, taken straight off
- * `fuelBucketLines`. By that function's own invariant the five figures sum to
- * the gross, which is what makes the on-screen row verifiable.
+ * The four buckets, the discount and the discrepancy for one parsed row, taken
+ * straight off `fuelBucketLines`.
+ *
+ * THE TWO TOTALS, RECONCILED. `fuelBucketLines` reconciles its buckets against
+ * the GROSS — what the card was charged before the price reduction — while the
+ * screen prints the NET `Total Amount`. Reconciling the buckets against the net
+ * made the discount surface as an over-itemisation, i.e. an "Unexplained"
+ * balance for money that is both known and named. The gross is therefore
+ * rebuilt here exactly as the settlement defines it (`total − discount`, the
+ * discount being negative), and the discount is carried as its own negative
+ * column that brings the row back down to Total. `Unexplained` is left meaning
+ * only what it was built to mean: a genuine discrepancy.
  */
 export function splitParsedRow(row: ParsedFuelRow): FuelRowSplit {
-  const split: FuelRowSplit = { fuel: 0, cash_advance: 0, repair: 0, other: 0, discrepancy: 0 };
+  const discount = round2(row.fuel_discount_amount ?? 0);
+  const split: FuelRowSplit = {
+    fuel: 0, cash_advance: 0, repair: 0, other: 0, discount, discrepancy: 0,
+  };
   for (const line of fuelBucketLines({
-    grossAmount: row.total_amount,
+    grossAmount: round2(row.total_amount - discount),
     lines: row.lines,
     invoiceDate: row.invoice_date,
     invoiceNo: row.invoice_no,
@@ -79,6 +98,7 @@ export function splitParsedRow(row: ParsedFuelRow): FuelRowSplit {
   }
   return split;
 }
+
 
 /**
  * Joins the RPC's verdict for each row to the parsed row it came from, by the
@@ -96,7 +116,7 @@ export function buildDisplayRows(
     const parsed = parsedByKey.get(dedupeKey(r));
     const split = parsed
       ? splitParsedRow(parsed)
-      : { fuel: round2(r.total_amount), cash_advance: 0, repair: 0, other: 0, discrepancy: 0 };
+      : { fuel: round2(r.total_amount), cash_advance: 0, repair: 0, other: 0, discount: 0, discrepancy: 0 };
     const gallons = parsed?.diesel_gallons ?? 0;
     return {
       key: `${dedupeKey(r)}|${i}`,
@@ -154,6 +174,8 @@ export function fuelSortValue(row: FuelDisplayRow, column: string): string | num
     case 'advances': return row.split.cash_advance;
     case 'repairs': return row.split.repair;
     case 'other': return row.split.other;
+    case 'discount': return row.split.discount;
+
     case 'gallons': return row.diesel_gallons || null;
     case 'cpg': return row.cost_per_gallon;
     default: return null;

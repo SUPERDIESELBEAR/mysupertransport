@@ -7831,6 +7831,49 @@ labelled as filler in the file.
 
 ---
 
+## Module 6 Pass 7 — THE DISCOUNT IS A COLUMN, NOT A DISCREPANCY (2026-09-07)
+
+DISPLAY ONLY. No parser, schema, writer or settlement change.
+
+**The defect.** Four rows of the real 2026-09-05 export rendered their fuel
+discount as an **Unexplained** balance (−$1.41, −$11.48, −$1.85, −$24.14). The
+cause was two different totals, not two different figures: `fuelBucketLines`
+reconciles its buckets against the GROSS (`total_amount − discount`, the
+discount being negative), and the import view reconciled the same buckets
+against the NET `Total`. The discount therefore surfaced as an over-itemisation.
+No money was affected. The Unexplained column worked exactly as designed — the
+inconsistency it caught was its own.
+
+**The decision: a DISCOUNT COLUMN, `Total` stays net.** Fuel + Advances +
+Repairs + Other + Discount + Unexplained = Total, the discount negative and
+visibly bringing the row down to the printed total.
+
+- *Rejected: show `Total` as gross with a separate net-payable figure.* Two
+  totals on one row invite the wrong one being read, and the printed statement
+  total is the one the driver and the provider both quote.
+- *Rejected: reconcile the view against gross and show the discount only in the
+  expandable row.* The discount is money someone earned; the owner has asked to
+  show it to the driver. A figure that must be opened to be seen is a figure
+  nobody sees.
+
+**`Unexplained` returns to meaning ONLY a genuine discrepancy.** Asserted:
+a discounted, otherwise-reconciling row shows zero unexplained; a row with both
+a discount and a real shortfall shows both, distinguishable; and the settlement's
+gross-based reconciliation is asserted unchanged in the same file. The shared
+mapping is still the only notion of a discount — `fuel_discount` keeps its
+`'discount'` sentinel and the view names no line type.
+
+**The table renders at full height.** It was trapped in a `max-h-96` box, so six
+of sixty-nine rows were visible behind a nested scrollbar. The page scrolls now;
+the header row is sticky. The review queue is a list of cards and needed no
+change.
+
+Suites: `fuelImportView.test.ts` (20), `fuelBuckets.test.ts` (16, live enum ran),
+`multiserviceCsv.test.ts` (38), `settlementEngine.test.ts` (29),
+`operator-pay-exposure`, and `npm run test:guards` (9 files, 87/87). `tsgo` clean.
+
+---
+
 ## Module 6 — OPEN ITEMS, with triggers (2026-09-06)
 
 ### The discrepancy is visible but nobody is alerted

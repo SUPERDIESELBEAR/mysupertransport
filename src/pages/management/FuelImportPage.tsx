@@ -177,10 +177,12 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
         <td className="p-2 text-right">{money(s.cash_advance)}</td>
         <td className="p-2 text-right">{money(s.repair)}</td>
         <td className="p-2 text-right">{money(s.other)}</td>
+        <td className="p-2 text-right">{money(s.discount)}</td>
         <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
           {money(s.discrepancy)}
         </td>
         <td className="p-2 text-right font-medium">{formatCurrency(row.total_amount)}</td>
+
         <td className="p-2 text-right">{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</td>
         <td className="p-2 text-right">
           {row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}
@@ -207,7 +209,7 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
       {open && (
         <tr className="border-t border-border bg-[#F9F9F9]">
           <td />
-          <td colSpan={11} className="p-3">
+          <td colSpan={12} className="p-3">
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
@@ -472,9 +474,17 @@ export default function FuelImportPage() {
                   )}
                 </div>
 
-                <div className="max-h-96 overflow-auto rounded-md border border-border">
+                {/*
+                  FULL HEIGHT, ONE SCROLLBAR. The table used to live in a
+                  fixed-height box, so six of sixty-nine rows were visible and
+                  the page carried a nested scrollbar. It now renders whole and
+                  the PAGE scrolls; `overflow-x-auto` is kept only for narrow
+                  screens. The header row sticks to the top of the viewport so
+                  twelve mostly-money columns are never unlabelled.
+                */}
+                <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0 bg-[#F9F9F9] text-left">
+                    <thead className="sticky top-0 z-10 bg-[#F9F9F9] text-left shadow-[0_1px_0_0_hsl(var(--border))]">
                       <tr>
                         <th className="p-2 w-8" />
                         <SortHead column="date" label="Date" sort={sort} onSort={onSort} />
@@ -483,6 +493,7 @@ export default function FuelImportPage() {
                         <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />
+                        <SortHead column="discount" label="Discount" sort={sort} onSort={onSort} className="text-right" />
                         <th className="p-2 font-medium text-right">Unexplained</th>
                         <SortHead column="total" label="Total" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
@@ -490,10 +501,11 @@ export default function FuelImportPage() {
                         <th className="p-2 font-medium">Status</th>
                       </tr>
                     </thead>
+
                     <tbody>
                       {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
                       {visibleRows.length === 0 && (
-                        <tr><td colSpan={12} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
+                        <tr><td colSpan={13} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
                       )}
                     </tbody>
                   </table>
