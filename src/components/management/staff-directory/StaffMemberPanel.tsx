@@ -4,11 +4,13 @@ import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import {
   RefreshCcw, Mail, X, Plus, Minus, AlertTriangle, CheckCircle2,
-  Phone, Trash2, Camera, Loader2, KeyRound,
+  Phone, Trash2, Camera, Loader2, KeyRound, Cake,
 } from 'lucide-react';
 import { formatPhoneInput } from '@/lib/utils';
+import { BIRTH_MONTHS, daysInBirthMonth, formatBirthday } from '@/lib/birthdayAnniversary/birthdayFields';
 import { ALL_STAFF_ROLES, ROLE_CONFIG, STATUS_CONFIG, type AppRole, type StaffMember, type StaffRole } from './types';
 
 interface StaffMemberPanelProps {
@@ -31,6 +33,10 @@ export default function StaffMemberPanel({
   const [editingPhone, setEditingPhone] = useState(member.phone ?? '');
   const [phoneEditActive, setPhoneEditActive] = useState(false);
   const [phoneSaving, setPhoneSaving] = useState(false);
+  const [editingBirthMonth, setEditingBirthMonth] = useState(member.birth_month ? String(member.birth_month) : '');
+  const [editingBirthDay, setEditingBirthDay] = useState(member.birth_day ? String(member.birth_day) : '');
+  const [birthdayEditActive, setBirthdayEditActive] = useState(false);
+  const [birthdaySaving, setBirthdaySaving] = useState(false);
   const [editingFirstName, setEditingFirstName] = useState(member.first_name ?? '');
   const [editingLastName, setEditingLastName] = useState(member.last_name ?? '');
   const [nameEditActive, setNameEditActive] = useState(false);
@@ -114,6 +120,49 @@ export default function StaffMemberPanel({
     } finally {
       setPhoneSaving(false);
     }
+  };
+
+  const saveBirthday = async (month: number | null, day: number | null) => {
+    if (guardDemo()) return;
+    setBirthdaySaving(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('get-staff-list', {
+        method: 'POST',
+        body: {
+          action: 'update_birthday',
+          user_id: member.user_id,
+          birth_month: month,
+          birth_day: day,
+          target_name: memberName,
+        },
+        headers: authHeaders,
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      onMemberChange({ ...member, birth_month: month, birth_day: day });
+      setEditingBirthMonth(month ? String(month) : '');
+      setEditingBirthDay(day ? String(day) : '');
+      setBirthdayEditActive(false);
+      toast({
+        title: month ? '✅ Birthday Updated' : '✅ Birthday Cleared',
+        description: month ? 'Birthday saved successfully.' : 'Birthday removed from this profile.',
+      });
+    } catch (err) {
+      toast({ title: 'Update Failed', description: err instanceof Error ? err.message : 'Unknown error', variant: 'destructive' });
+    } finally {
+      setBirthdaySaving(false);
+    }
+  };
+
+  const handleBirthdayUpdate = () => {
+    const m = Number(editingBirthMonth);
+    const d = Number(editingBirthDay);
+    if (!m || !d) {
+      toast({ title: 'Incomplete Birthday', description: 'Pick both a month and a day.', variant: 'destructive' });
+      return;
+    }
+    void saveBirthday(m, d);
   };
 
   const handleNameUpdate = async () => {
@@ -577,6 +626,102 @@ export default function StaffMemberPanel({
               </div>
             )}
           </div>
+
+          {/* Birthday */}
+          <div className="pt-1 border-t border-border">
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Birthday</p>
+              <span className="text-[10px] text-muted-foreground/60">Month and day only</span>
+            </div>
+            {birthdayEditActive ? (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2">
+                  <Select
+                    value={editingBirthMonth || 'none'}
+                    onValueChange={(v) => {
+                      const next = v === 'none' ? '' : v;
+                      setEditingBirthMonth(next);
+                      if (!next) setEditingBirthDay('');
+                      else if (editingBirthDay && Number(editingBirthDay) > daysInBirthMonth(Number(next))) setEditingBirthDay('');
+                    }}
+                  >
+                    <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="Month" /></SelectTrigger>
+                    <SelectContent className="max-h-64 bg-popover z-50">
+                      <SelectItem value="none">— Not set —</SelectItem>
+                      {BIRTH_MONTHS.map((m, i) => (
+                        <SelectItem key={m} value={String(i + 1)}>{m}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select
+                    value={editingBirthDay || 'none'}
+                    onValueChange={(v) => setEditingBirthDay(v === 'none' ? '' : v)}
+                    disabled={!editingBirthMonth}
+                  >
+                    <SelectTrigger className="h-8 text-sm bg-white"><SelectValue placeholder="Day" /></SelectTrigger>
+                    <SelectContent className="max-h-64 bg-popover z-50">
+                      <SelectItem value="none">— Not set —</SelectItem>
+                      {Array.from({ length: daysInBirthMonth(Number(editingBirthMonth)) }, (_, i) => i + 1).map((d) => (
+                        <SelectItem key={d} value={String(d)}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    disabled={birthdaySaving}
+                    onClick={handleBirthdayUpdate}
+                    className="h-8 px-3 text-xs bg-surface-dark text-surface-dark-foreground hover:bg-surface-dark/90 gap-1"
+                  >
+                    {birthdaySaving ? <RefreshCcw className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+                    Save
+                  </Button>
+                  {(member.birth_month || member.birth_day) && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      disabled={birthdaySaving}
+                      onClick={() => void saveBirthday(null, null)}
+                      className="h-8 px-3 text-xs"
+                    >
+                      Clear
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={birthdaySaving}
+                    onClick={() => {
+                      setBirthdayEditActive(false);
+                      setEditingBirthMonth(member.birth_month ? String(member.birth_month) : '');
+                      setEditingBirthDay(member.birth_day ? String(member.birth_day) : '');
+                    }}
+                    className="h-8 px-3 text-xs"
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div
+                className="flex items-center justify-between px-3 py-2 rounded-lg border border-dashed border-border bg-secondary/30 cursor-pointer hover:bg-secondary/50 transition-colors group"
+                onClick={() => setBirthdayEditActive(true)}
+              >
+                <div className="flex items-center gap-2 text-sm">
+                  <Cake className="h-3.5 w-3.5 text-muted-foreground/60 shrink-0" />
+                  {formatBirthday(member.birth_month, member.birth_day) ? (
+                    <span className="text-foreground">{formatBirthday(member.birth_month, member.birth_day)}</span>
+                  ) : (
+                    <span className="text-muted-foreground/60 italic">No birthday on file</span>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground/50 group-hover:text-muted-foreground transition-colors">Edit</span>
+              </div>
+            )}
+          </div>
+
+
 
           {/* Email address */}
           <div className="pt-1 border-t border-border">

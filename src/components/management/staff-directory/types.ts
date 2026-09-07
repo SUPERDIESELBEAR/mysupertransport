@@ -18,6 +18,8 @@ export interface StaffMember {
   roles: AppRole[];
   assigned_operator_count: number;
   avatar_url?: string | null;
+  birth_month?: number | null;
+  birth_day?: number | null;
 }
 
 export const ROLE_CONFIG: Record<StaffRole, { label: string; icon: ReactNode; color: string; desc: string }> = {

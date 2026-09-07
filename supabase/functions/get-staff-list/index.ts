@@ -70,7 +70,8 @@ Deno.serve(async (req) => {
 
     if (req.method === 'POST' && hasBody) {
       const body = await req.json();
-      const { action, user_id, role, target_name, phone, first_name, last_name, email } = body as {
+      const { action, user_id, role, target_name, phone, first_name, last_name, email,
+              birth_month, birth_day } = body as {
         action: string;
         user_id: string;
         role?: string;
@@ -79,6 +80,8 @@ Deno.serve(async (req) => {
         first_name?: string;
         last_name?: string;
         email?: string;
+        birth_month?: number | null;
+        birth_day?: number | null;
       };
 
       // ── Deactivate user ───────────────────────────────────────────────
@@ -290,6 +293,55 @@ Deno.serve(async (req) => {
         });
       }
 
+      // ── Update birthday (month + day, no year) ────────────────────────
+      if (action === 'update_birthday') {
+        const DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+        const m = birth_month == null ? null : Number(birth_month);
+        const d = birth_day == null ? null : Number(birth_day);
+
+        const clearing = m === null && d === null;
+        if (!clearing) {
+          if (!m || !Number.isInteger(m) || m < 1 || m > 12) {
+            return new Response(JSON.stringify({ error: 'Invalid birth month' }), {
+              status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+          if (!d || !Number.isInteger(d) || d < 1 || d > DAYS[m - 1]) {
+            return new Response(JSON.stringify({ error: 'Invalid birth day for the selected month' }), {
+              status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
+        }
+
+        const { error: bdayErr } = await supabaseAdmin
+          .from('profiles')
+          .update({ birth_month: clearing ? null : m, birth_day: clearing ? null : d })
+          .eq('user_id', user_id);
+
+        if (bdayErr) {
+          return new Response(JSON.stringify({ error: bdayErr.message }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        const actorNameB = await getActorName();
+        supabaseAdmin.from('audit_log').insert({
+          actor_id: callerUser.id,
+          actor_name: actorNameB,
+          action: 'birthday_updated',
+          entity_type: 'staff_profile',
+          entity_id: user_id,
+          entity_label: target_name ?? user_id,
+          metadata: { target_user_id: user_id, birth_month: clearing ? null : m, birth_day: clearing ? null : d },
+        }).then(() => {}).catch(e => console.error('Audit log error:', e));
+
+        return new Response(JSON.stringify({ success: true }), {
+          status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+
+
       // ── Send password reset link ─────────────────────────────────────
       if (action === 'send_password_reset') {
         // Look up target email
@@ -420,7 +472,7 @@ Deno.serve(async (req) => {
 
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, first_name, last_name, phone, account_status, created_at, updated_at, avatar_url')
+      .select('user_id, first_name, last_name, phone, account_status, created_at, updated_at, avatar_url, birth_month, birth_day')
       .in('user_id', staffUserIds);
 
     const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
@@ -451,6 +503,8 @@ Deno.serve(async (req) => {
       created_at: p.created_at,
       updated_at: p.updated_at,
       avatar_url: p.avatar_url ?? null,
+      birth_month: p.birth_month ?? null,
+      birth_day: p.birth_day ?? null,
       roles: roleRows.filter((r) => r.user_id === p.user_id).map((r) => r.role),
       assigned_operator_count: operatorCountMap[p.user_id] ?? 0,
     }));
