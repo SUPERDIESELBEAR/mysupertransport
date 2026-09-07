@@ -174,6 +174,8 @@ export function fuelSortValue(row: FuelDisplayRow, column: string): string | num
     case 'advances': return row.split.cash_advance;
     case 'repairs': return row.split.repair;
     case 'other': return row.split.other;
+    case 'discount': return row.split.discount;
+
     case 'gallons': return row.diesel_gallons || null;
     case 'cpg': return row.cost_per_gallon;
     default: return null;

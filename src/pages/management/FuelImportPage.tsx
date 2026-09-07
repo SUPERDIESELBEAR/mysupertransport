@@ -177,10 +177,12 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
         <td className="p-2 text-right">{money(s.cash_advance)}</td>
         <td className="p-2 text-right">{money(s.repair)}</td>
         <td className="p-2 text-right">{money(s.other)}</td>
+        <td className="p-2 text-right">{money(s.discount)}</td>
         <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
           {money(s.discrepancy)}
         </td>
         <td className="p-2 text-right font-medium">{formatCurrency(row.total_amount)}</td>
+
         <td className="p-2 text-right">{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</td>
         <td className="p-2 text-right">
           {row.cost_per_gallon !== null ? `$${row.cost_per_gallon.toFixed(3)}` : '—'}
