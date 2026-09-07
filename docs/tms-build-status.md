@@ -7371,34 +7371,50 @@ this file.
 
 Its findings came from live catalog and data queries. Several are consequential.
 
-### 1. A REPAIR ON THE FUEL CARD IS DEDUCTED FROM THE DRIVER IN FULL, WITH NO APPROVAL
+### 1. A REPAIR ON THE FUEL CARD IS DEDUCTED FROM THE DRIVER IN FULL — **RESOLVED (2026-09-06). DO NOT BUILD AN APPROVAL GATE.**
 
-`minor_repairs_amount` is parsed, stored, and emitted as a `minor_repairs`
-line. The settlement read selects only `total_amount` and
+**The finding as it was originally written, kept in full because half of it was
+real:** `minor_repairs_amount` is parsed, stored, and emitted as a
+`minor_repairs` line. The settlement read selected only `total_amount` and
 `fuel_discount_amount` (`settlementRun.ts`) — and `total_amount` ALREADY
-INCLUDES the repair. So a repair comes out of the driver's pay in ONE WEEK, in
+INCLUDES the repair. So a repair came out of the driver's pay in ONE WEEK, in
 FULL, with no approval, no threshold, and no separate line on the statement.
 
-> **AMENDED IN PLACE (2026-09-06) — HALF OF THIS IS NOW STALE, HALF IS STILL LIVE.**
-> STALE: the settlement read no longer selects only those two columns. Pass 4 added
-> `fuel_transaction_lines(line_type, amount)` and Pass 5 added `reconciliation_ok,
-> reconciliation_delta` to `FUEL_SELECT` in `settlementRun.ts`. STALE: a repair is
-> no longer without a separate line — Pass 4 gives `minor_repairs` and `tires` their
-> own **Repairs** line on the statement.
-> **STILL TRUE, AND THIS IS THE DEFECT: THE MONEY MOVES ANYWAY.** A repair on the
-> fuel card is still deducted from the driver in ONE WEEK, IN FULL, with no approval
-> and no threshold. Pass 4 made the defect VISIBLE; it did not fix it. Do not retire
-> this finding on the strength of the two stale halves.
+**AMENDED IN PLACE (2026-09-06) — the two stale halves.** The settlement read no
+longer selects only those two columns: Pass 4 added
+`fuel_transaction_lines(line_type, amount)` and Pass 5 added `reconciliation_ok,
+reconciliation_delta` to `FUEL_SELECT` in `settlementRun.ts`. And a repair is no
+longer without a separate line — Pass 4 gives `minor_repairs` and `tires` their
+own **Repairs** line on the statement.
 
+**RESOLVED (2026-09-06) — the approval half was never missing. It happens
+UPSTREAM, at the card.** The owner established that spending limits and permitted
+purchase categories are configured in the **MultiService account portal** and
+enforced **AT THE CARD, at the point of sale**. A repair that reaches the
+statement is a purchase that already passed those controls. The record never
+accounted for that control, so it filed an enforced requirement as unimplemented
+debt.
 
-This record states that maintenance purchases require approval. **Nothing
-implements it.** The gap is not that the approval step is missing — it is that
-THE MONEY MOVES ANYWAY.
+Why no gate is built here:
 
-Currently unreachable only because `fuel_transactions` is EMPTY. It becomes
-live on the first real import.
+- An approval gate in SUPERDRIVE would ask someone to re-approve a decision made
+  days earlier by a system that could actually **PREVENT** the purchase. Ours
+  cannot. By the time the statement arrives the money is already spent; the only
+  thing a gate could do is delay a deduction for a charge nobody can undo.
+- The build-context requirement that "maintenance purchases require approval" is
+  **SATISFIED — upstream, by the fuel provider**, not by this system.
+- What was genuinely missing was never approval. It was **VISIBILITY**: a repair
+  hiding inside a fuel line with nothing naming it. **Module 6 Pass 4 closed
+  that** — `minor_repairs` and `tires` now produce their own Repairs line on the
+  settlement, and Pass 6 gives Repairs its own column on the import screen.
 
-**TRIGGER: fix before the first MultiService file is imported.**
+The money-moving-silently half of the defect was real. The bucket work is what
+closed it. **No trigger. This item is closed.**
+
+Residual, recorded as an idea and not as debt: upstream controls are
+configuration and can change. See "First appearance of a fuel category on a card"
+in `docs/tms-wish-list.md`.
+
 
 ### 2. Every fuel table is empty
 
@@ -7590,9 +7606,11 @@ non-zero bucket, or the single legacy line when a transaction has no itemisation
 
 **Advance fees ride with the advance**, so the driver sees the true cost of the
 money he drew rather than a stray charge filed under fuel. **`minor_repairs` and
-`tires` are now a named line** — which does NOT fix the recorded defect that a
-repair is deducted in full with no approval. It only makes the defect VISIBLE on
-the statement. The approval gate remains unbuilt.
+`tires` are now a named line** — and, as established on 2026-09-06, that
+visibility is exactly what the recorded "repair deducted with no approval" defect
+was actually missing. Approval itself is enforced upstream at the card by the fuel
+provider; no gate is built here. See proposal item 1, RESOLVED.
+
 
 Suites: `src/lib/fuel/__tests__/fuelBuckets.test.ts` (12, live enum ran),
 `postgrestEmbeds`, the `src/lib/__tests__` settlement suites, operator isolation
@@ -7853,3 +7871,27 @@ This is the **NINTH recorded instance of a correct implementation with no caller
 No fuel reporting exists anywhere today — no sorting, no filtering, no aggregation
 by operator. Recorded on the wish list; see "Fuel reporting (Module 9)" in
 `docs/tms-wish-list.md`.
+
+---
+
+## STANDING LESSON — a control this system does not implement is not necessarily a control that does not exist (2026-09-06)
+
+"Maintenance purchases require approval" sat in this record as an unimplemented
+requirement, carrying a trigger and reading as debt, while it was being enforced
+the whole time — by the MultiService card controls, at the point of sale, days
+before the charge ever reached SUPERDRIVE. The record could not see it because
+the record only knows what this system does.
+
+**The rule.** Before building an approval, a limit or a gate, establish whether
+something UPSTREAM already enforces it — the card issuer, the broker, the factor,
+the insurer, the state. If it does:
+
+- do NOT build a second gate that can only re-approve a decision already made by
+  a system that could actually prevent the act, where ours can only observe it;
+- record **WHERE** the control lives, so the next reader does not file the same
+  requirement as debt again;
+- ask what was actually missing. Usually it is not authority. It is VISIBILITY —
+  and visibility is cheap, safe and does not slow anyone down.
+
+Corollary: an upstream control is CONFIGURATION and can change without telling
+us. The right residual is a signal when its output changes shape, not a gate.
