@@ -7948,6 +7948,42 @@ new), `fuelImportView.test.ts`, `fuelBuckets.test.ts`, `multiserviceCsv.test.ts`
 
 ---
 
+## Module 6 Pass 9 — THE EXPLANATION MOVES TO THE DECISION POINT (2026-09-08)
+
+Pass 8 wired the diagnosis into the REVIEW QUEUE, which works rows already
+committed. The preview — where "commit this, or fix something first?" is
+actually asked — expanded to a category breakdown and said nothing about why a
+row was unmatched. That is the wrong way round.
+
+**What the preview did not have: nothing it was not already given.** The RPC
+verdict (`FuelPreviewRow`) already carries `operator_id` and
+`disagreement_fields`; `buildDisplayRows` simply dropped them. Carrying them
+through is the whole gap. No new lookup was invented: the expanded preview row
+runs the SAME two staff SELECTs the queue runs — `fetchCardAssignments` and
+`fetchOperatorSourceValues` — and calls the SAME `diagnoseUnmatched`,
+`unmatchedReasonMessage` and `disagreementMessages`. Both queries are gated on
+the row being expanded, so a 69-row preview performs no reads until asked.
+
+**Every case is determinable before commit.** The diagnosis reads equipment
+assignments and the operator's two unit sources, none of which depend on the
+transaction existing. Nothing degrades to a worse message.
+
+Ali Mohamed, card 224, 09/01/2026, verbatim in the preview:
+
+`Card 224 is assigned to Ali Mohamed from 09/07/2026. This transaction is dated 09/01/2026, before that assignment began.`
+
+Diagnosis logic, review queue, parser, schema and matching are untouched; the
+change is display plumbing plus two carried fields.
+
+Suites: `fuelPreviewDiagnosis.test.ts` (4, new — parity with the queue's
+sentence, every disagreeing field with its source, matched rows explain
+nothing), `fuelImportView.test.ts` (20), `fuelDiagnosis.test.ts` (8),
+`fuelBuckets.test.ts` (16), `multiserviceCsv.test.ts` (38),
+`fuel-import-live.test.ts` (16), and `npm run test:guards` (9 files, 87/87).
+`tsgo` clean.
+
+---
+
 ## Module 6 — OPEN ITEMS, with triggers (2026-09-06)
 
 ### The discrepancy is visible but nobody is alerted

@@ -162,6 +162,37 @@ const money = (n: number) => (n ? formatCurrency(n) : '—');
 function PreviewRow({ row }: { row: FuelDisplayRow }) {
   const [open, setOpen] = useState(false);
   const s = row.split;
+
+  /**
+   * THE PREVIEW IS THE DECISION POINT. "Should I commit this, or fix something
+   * first?" is exactly what the explanation answers, so the SAME diagnosis the
+   * review queue uses is called here — no second diagnosis, no change to the
+   * matcher. Both reads are staff SELECTs, run only when the row is expanded.
+   */
+  const isUnmatched = row.match_status === 'unmatched';
+  const isDisagreement = row.match_status === 'matched_with_disagreement';
+
+  const cards = useQuery({
+    queryKey: ['fuel-card-assignments', row.card_no],
+    queryFn: () => fetchCardAssignments(row.card_no),
+    enabled: open && isUnmatched,
+  });
+  const sources = useQuery({
+    queryKey: ['fuel-operator-sources', row.operator_id],
+    queryFn: () => fetchOperatorSourceValues(row.operator_id as string),
+    enabled: open && isDisagreement && !!row.operator_id,
+  });
+
+  const reasonText = cards.data
+    ? unmatchedReasonMessage(
+        row.card_no, row.invoice_date,
+        diagnoseUnmatched(cards.data.cardExists, cards.data.assignments, row.invoice_date),
+      )
+    : null;
+  const disagreementText = isDisagreement
+    ? disagreementMessages(row.disagreement_fields, sources.data ?? null)
+    : [];
+
   return (
     <>
       <tr className="border-t border-border">
@@ -215,6 +246,21 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
         <tr className="border-t border-border bg-[#F9F9F9]">
           <td />
           <td colSpan={12} className="p-3">
+            {isUnmatched && (
+              <div className="mb-3 rounded-md border border-border bg-[#FFE8E8] p-2 text-xs">
+                {cards.isLoading
+                  ? <span className="text-muted-foreground">Checking the card…</span>
+                  : <span>{reasonText ?? 'Could not read the card record.'}</span>}
+              </div>
+            )}
+            {disagreementText.length > 0 && (
+              <div className="mb-3 space-y-1 rounded-md border border-border bg-[#E8F0FF] p-2 text-xs">
+                {disagreementText.map((line) => <div key={line}>{line}</div>)}
+                <div className="text-muted-foreground">
+                  Imported against the card. The card is the account the money moved on.
+                </div>
+              </div>
+            )}
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
