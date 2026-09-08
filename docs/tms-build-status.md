@@ -8048,3 +8048,84 @@ the insurer, the state. If it does:
 
 Corollary: an upstream control is CONFIGURATION and can change without telling
 us. The right residual is a signal when its output changes shape, not a gate.
+
+---
+
+### Ali Mohamed's card 224 `assigned_at` correction — a documented exception (2026-09-08)
+
+**What was corrected.** `public.equipment_assignments` row
+`2653d1bb-c0bd-4ce7-93e3-321a205eea51` (fuel card serial `224`, operator Ali
+Mohamed, unit 260).
+
+| | `assigned_at` | `returned_at` |
+|---|---|---|
+| Before | `2026-09-07 23:39:41.226906+00` | NULL |
+| After  | `2026-07-23 17:00:00+00` (2026-07-23 12:00 Central) | NULL |
+
+Nothing else changed on that row, and no other row was touched. The returned
+card `212` row (`92430f83-…`, `assigned_at 2026-07-24 17:07:56.193545+00`,
+`returned_at 2026-09-07 23:38:32.902+00`) is unchanged.
+
+**Why 2026-07-23 is the right date.** Ali has ALWAYS physically held card 224.
+SUPERDRIVE recorded 212 by mistake when he was issued a fuel card, and the typo
+stood until 2026-09-08, when 212 was returned and 224 issued. There was no
+equipment change — only the correction of a mis-keyed serial. The assignment
+therefore begins on the date of the original issue, not the date the typo was
+noticed.
+
+**One discrepancy, recorded rather than reconciled.** The instruction described
+2026-07-23 as "the date the returned 212 row carries." The 212 row actually
+carries `2026-07-24 17:07:56+00` (2026-07-24 12:07 Central) — a one-day
+difference. 2026-07-23 was applied as instructed; it is one day EARLIER than the
+212 row, so it cannot create a window that the mis-keyed row did not already
+cover, and it changes no fuel match in the 2026-08-28 → 2026-09-01 range.
+
+**It was a direct database write.** There is no UI for editing
+`equipment_assignments.assigned_at`, so the real path does not exist to use.
+`public.equipment_assignments` carries NO user triggers, so **the write produced
+NO history row of any kind** — no `audit_log` entry, no equipment history.
+Recorded plainly here so a future reader does not conclude the history is
+incomplete or wonder where the July date came from.
+
+This is the same shape and the same justification as the ST26059
+`confirmed_tons` correction: a direct write, justified by an ABSENT CONTROL,
+recorded in full. It is an **EXCEPTION, NOT A PRECEDENT.** The standing rule that
+real data moves through real paths is unchanged.
+
+**Verification.** `fuel_resolve_card('224', '2026-08-29')` — reproduced
+statement-for-statement against the live function body, which is executable only
+by the definer:
+
+- BEFORE: 0 rows (no card 224 assignment on or before that date).
+- AFTER: operator `dbe31d0d-b0b7-41fb-b736-446d874ceba1`, unit `260`,
+  `Ali Mohamed`.
+
+`fuel_resolve_card` itself was NOT touched.
+
+---
+
+### KNOWN DEBT — `equipment_assignments.assigned_at` has no correction control
+
+**The absent control.** There is no UI anywhere in SUPERDRIVE to correct an
+assignment's `assigned_at`. `fuel_resolve_card` depends on that column for EVERY
+fuel match: any assignment recorded on the wrong date — or simply recorded late,
+after the equipment was physically handed over — produces exactly the failure
+above, a correct resolver reporting no card holder for a real transaction.
+
+**This is the TENTH recorded instance of a correct implementation with no caller
+on the path that mattered.** The function was right. The data entry point it
+depends on had no way to be fixed.
+
+**TRIGGER: before the next fuel import that covers a period predating an
+assignment correction.**
+
+**Scope for whoever builds it — it is a PASS, not a field.** Correcting an
+assignment date has to decide:
+
+- what happens to OVERLAPS with a previous holder of the same item — moving one
+  start date backwards can put two operators on one card for the same days, and
+  `one_active_assignment_per_item` only guards open-ended rows;
+- whether the equipment history SHOWS the correction — today there is no trigger
+  and no history row, so a corrected date is indistinguishable from an original
+  one;
+- WHO may perform it, and with what recorded reason.
