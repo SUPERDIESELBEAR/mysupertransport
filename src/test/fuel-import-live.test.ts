@@ -215,3 +215,116 @@ describe("fuel disagreement flags require both sides to hold a value", () => {
     expect(body).toMatch(/COALESCE\(NULLIF\(btrim\(os\.unit_number\), ''\), NULLIF\(btrim\(o\.unit_number\), ''\)\)/);
   });
 });
+
+/**
+ * ACCEPTING A DISAGREEMENT MUST CHANGE NOTHING ELSE.
+ *
+ * A fuel file is a third party's report about what happened at a pump. If
+ * accepting it could edit an equipment record, MultiService would become
+ * authoritative over SUPERTRANSPORT's own data and the entire matching design
+ * — the card is authoritative, the printed unit and name are confirmation only
+ * — would be inverted. The assertion is therefore on the FUNCTION BODY: the
+ * only table it writes is the acceptance table.
+ */
+describe("accept_fuel_disagreement", () => {
+  const FORBIDDEN = [
+    "operators",
+    "onboarding_status",
+    "profiles",
+    "equipment_items",
+    "equipment_assignments",
+    // Not the transaction either: the row stays flagged in history.
+    "fuel_transactions",
+  ];
+
+  function body(): string {
+    return psql(`
+      select pg_get_functiondef(p.oid)
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'accept_fuel_disagreement'
+    `).join("\n");
+  }
+
+  itLive("writes the acceptance and nothing else", () => {
+    const src = body();
+    expect(src, "accept_fuel_disagreement is missing").toBeTruthy();
+
+    const writes = [...src.matchAll(
+      /\b(?:INSERT\s+INTO|UPDATE|DELETE\s+FROM)\s+(?:public\.)?([a-z_]+)/gi,
+    )].map((m) => m[1].toLowerCase());
+    expect(writes, `writes: ${writes.join(", ")}`)
+      .toEqual(["fuel_disagreement_acceptances"]);
+
+    for (const table of FORBIDDEN) {
+      expect(
+        writes.includes(table),
+        `accept_fuel_disagreement writes ${table}`,
+      ).toBe(false);
+    }
+  });
+
+  itLive("the four protections are in the body and on the grant", () => {
+    const src = body();
+    // 1. actor server-side, never a parameter.
+    expect(src).toMatch(/current_profile_id\(\)/);
+    expect(src).not.toMatch(/_actor(_id)?\s+uuid/);
+    expect(src).toMatch(/Not authenticated/);
+    // 2. management or owner, checked in the body.
+    expect(src).toMatch(/has_role\(auth\.uid\(\), 'management'\)/);
+    expect(src).toMatch(/has_role\(auth\.uid\(\), 'owner'\)/);
+    // 3. definer with a pinned search_path.
+    expect(src).toMatch(/SECURITY DEFINER/);
+    expect(src).toMatch(/search_path TO 'public', 'extensions'/);
+    // 4. refuse-only contract: the row, its flag, and the note.
+    expect(src).toMatch(/Fuel transaction not found/);
+    expect(src).toMatch(/matched_with_disagreement/);
+    expect(src).toMatch(/A note is required/);
+
+    const anon = psql(`
+      select has_function_privilege('anon', p.oid, 'EXECUTE')::text
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'accept_fuel_disagreement'
+    `);
+    expect(anon).toEqual(["false"]);
+  });
+
+  itLive("an accepted row stays flagged: the acceptance table is append-only", () => {
+    const trg = psql(`
+      select t.tgname
+        from pg_trigger t join pg_class c on c.oid = t.tgrelid
+       where c.relname = 'fuel_disagreement_acceptances' and not t.tgisinternal
+    `);
+    expect(trg, "no append-only trigger").toContain(
+      "fuel_disagreement_acceptances_append_only",
+    );
+
+    // Staff read it; no client role may write it directly either.
+    const writable = psql(`
+      select r || ' ' || priv
+        from unnest(array['anon','authenticated']) r,
+             unnest(array['INSERT','UPDATE','DELETE']) priv
+       where has_table_privilege(r, 'public.fuel_disagreement_acceptances', priv)
+    `);
+    expect(writable, writable.join(", ")).toEqual([]);
+
+    const [rls] = psql(`
+      select c.relrowsecurity::text from pg_class c
+        join pg_namespace n on n.oid = c.relnamespace
+       where n.nspname = 'public' and c.relname = 'fuel_disagreement_acceptances'
+    `);
+    expect(rls).toBe("true");
+  });
+
+  itLive("fuel_resolve_card is UNCHANGED — still card plus date window only", () => {
+    const src = psql(`
+      select pg_get_functiondef(p.oid)
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'fuel_resolve_card'
+    `).join("\n");
+    expect(src).toMatch(/ea\.assigned_at::date <= _on_date/);
+    expect(src).toMatch(/ea\.returned_at IS NULL OR ea\.returned_at::date >= _on_date/);
+    // No fallback matching on what the file printed.
+    expect(src).not.toMatch(/driver_name\s*=/);
+    expect(src).not.toMatch(/unit_no\b/);
+  });
+});
