@@ -162,6 +162,37 @@ const money = (n: number) => (n ? formatCurrency(n) : '—');
 function PreviewRow({ row }: { row: FuelDisplayRow }) {
   const [open, setOpen] = useState(false);
   const s = row.split;
+
+  /**
+   * THE PREVIEW IS THE DECISION POINT. "Should I commit this, or fix something
+   * first?" is exactly what the explanation answers, so the SAME diagnosis the
+   * review queue uses is called here — no second diagnosis, no change to the
+   * matcher. Both reads are staff SELECTs, run only when the row is expanded.
+   */
+  const isUnmatched = row.match_status === 'unmatched';
+  const isDisagreement = row.match_status === 'matched_with_disagreement';
+
+  const cards = useQuery({
+    queryKey: ['fuel-card-assignments', row.card_no],
+    queryFn: () => fetchCardAssignments(row.card_no),
+    enabled: open && isUnmatched,
+  });
+  const sources = useQuery({
+    queryKey: ['fuel-operator-sources', row.operator_id],
+    queryFn: () => fetchOperatorSourceValues(row.operator_id as string),
+    enabled: open && isDisagreement && !!row.operator_id,
+  });
+
+  const reasonText = cards.data
+    ? unmatchedReasonMessage(
+        row.card_no, row.invoice_date,
+        diagnoseUnmatched(cards.data.cardExists, cards.data.assignments, row.invoice_date),
+      )
+    : null;
+  const disagreementText = isDisagreement
+    ? disagreementMessages(row.disagreement_fields, sources.data ?? null)
+    : [];
+
   return (
     <>
       <tr className="border-t border-border">
