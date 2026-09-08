@@ -7984,6 +7984,72 @@ nothing), `fuelImportView.test.ts` (20), `fuelDiagnosis.test.ts` (8),
 
 ---
 
+## Module 6 Pass 10 — A PAGE AT A TIME, AND EMPTY COLUMNS DO NOT SHOW (2026-09-08)
+
+DISPLAY ONLY. No parser, schema, writer or settlement change. Row expansion, the
+diagnosis messages, the dedupe key and the review queue are untouched.
+
+### Page size — a Pass 7 misreading, corrected
+
+Pass 7 read "the table only scrolls" as the table being trapped in a fixed-height
+box and made it render at full height. The owner meant the opposite: about ten
+rows at a time, not sixty-nine. The screen now has a **10 / 25 / 50 / All** page
+size, **defaulting to 25** — enough rows to see the shape of a file and its
+exceptions without a page that runs for three screens, and the file the module was
+built against is 69 rows, so 25 is three pages rather than seven. The header stays
+sticky. The count reads **"Showing 1-25 of 69"**.
+
+**SORT AND FILTER RUN OVER THE WHOLE RESULT SET, then the page is cut from the
+result.** Sorting the visible page would silently mean "sort these twenty-five",
+which is a different and wrong answer to the same click. `fuelImportView.test.ts`
+asserts page 1 after sorting carries the GLOBAL first row, using a fixture ordered
+so that the page-local answer and the global answer differ.
+
+### A money column with nothing in it is not rendered
+
+Eleven columns, and on a clean import several are empty on every row — on the real
+2026-09-05 export `Unexplained` was `—` on all 69 rows, `Repairs` was zero on all
+69 (`Minor Repairs` carried no money in that file), and `Discount` was empty. Only
+**Fuel, Advances and Other** carry money there, so those three are all that render;
+Repairs, Discount and Unexplained are hidden. The width goes to `Status`.
+
+A money column appears if **ANY row in the WHOLE FILE** has a non-zero value for
+it — never the current page and never the current tile filter. A column that
+vanishes when you filter to three rows is worse than one that is always there: the
+reader cannot tell an empty column from a filtered-away one. `Total`, `Status`,
+`Date`, `Unit / name`, `Gallons` and `$/gal` always show.
+
+**THE SUM-CHECK SURVIVES HIDING, and this is asserted rather than argued.** A
+hidden column is zero on every row by definition, so the VISIBLE money columns
+still sum to `Total` on every row — dropping a column of zeros cannot change a
+sum. The test asserts both halves: the visible columns equal `Total`, and every
+hidden column is zero on every row.
+
+### WHY `Unexplained` STAYS — and item 2 is why it costs nothing
+
+"This column is always empty, delete it" is a reasonable thing for a future reader
+to think. It is wrong, and the reasoning belongs here where that reader will be.
+
+It has already caught two real defects. It surfaced the fuel discount being
+reconciled against NET while the buckets were computed against GROSS — the
+negative amounts observed on 2026-09-07, recorded in Pass 7. And on the settlement
+side the same mechanism is what stops a repair or a cash advance hiding inside a
+fuel line, which was a live money defect for months before Pass 4.
+
+**An always-empty discrepancy detector is a detector finding nothing, not a
+useless column.** Hiding it when empty preserves the signal and returns the space.
+The rule that hides it is stated on `visibleMoneyColumns` in
+`src/lib/fuel/fuelImportView.ts`, next to the code that would have to be changed to
+remove it.
+
+Suites: `fuelImportView.test.ts` (29), `fuelBuckets.test.ts`, `fuelDiagnosis.test.ts`,
+`fuelPreviewDiagnosis.test.ts`, `multiserviceCsv.test.ts` — 95 tests across the five
+fuel files — and `npm run test:guards` (9 files, 87/87). `tsgo` clean.
+
+CONTRADICTIONS: none found.
+
+---
+
 ## Module 6 — OPEN ITEMS, with triggers (2026-09-06)
 
 ### The discrepancy is visible but nobody is alerted
