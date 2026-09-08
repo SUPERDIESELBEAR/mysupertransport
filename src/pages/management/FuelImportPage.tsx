@@ -645,15 +645,42 @@ export default function FuelImportPage() {
 }
 
 function ReviewRow({
-  tx, operators, onAssign, busy,
+  tx, operators, onAssign, onAccept, accepted, busy,
 }: {
   tx: FuelTransactionRecord;
   operators: OperatorOption[];
   onAssign: (operatorId: string) => void;
+  onAccept: (note: string) => void;
+  accepted: FuelAcceptanceRecord[];
   busy: boolean;
 }) {
   const [choice, setChoice] = useState<string>('');
+  const [note, setNote] = useState('');
   const disagreements = Array.isArray(tx.disagreement_fields) ? tx.disagreement_fields : [];
+  const isUnmatched = tx.match_status === 'unmatched';
+
+  /**
+   * WHY, not just WHAT. Both reads are staff SELECTs on tables staff already
+   * read; neither touches `fuel_resolve_card`, which stays the only matcher.
+   */
+  const cards = useQuery({
+    queryKey: ['fuel-card-assignments', tx.card_no],
+    queryFn: () => fetchCardAssignments(tx.card_no),
+    enabled: isUnmatched,
+  });
+  const sources = useQuery({
+    queryKey: ['fuel-operator-sources', tx.operator_id],
+    queryFn: () => fetchOperatorSourceValues(tx.operator_id as string),
+    enabled: !isUnmatched && !!tx.operator_id,
+  });
+
+  const reasonText = cards.data
+    ? unmatchedReasonMessage(
+        tx.card_no, tx.invoice_date,
+        diagnoseUnmatched(cards.data.cardExists, cards.data.assignments, tx.invoice_date),
+      )
+    : null;
+  const disagreementText = disagreementMessages(disagreements, sources.data ?? null);
 
   return (
     <Card>
@@ -668,7 +695,7 @@ function ReviewRow({
               {tx.city ? ` · ${tx.city}, ${tx.state ?? ''}` : ''}
             </div>
           </div>
-          {tx.match_status === 'unmatched'
+          {isUnmatched
             ? <Badge variant="destructive">Unmatched card</Badge>
             : <Badge variant="secondary">Matched, disagreement</Badge>}
         </div>
@@ -678,24 +705,56 @@ function ReviewRow({
           <div>{[tx.unit_no, tx.driver_name].filter(Boolean).join(' · ') || '—'}</div>
         </div>
 
+        {isUnmatched && (
+          <div className="rounded-md border border-border bg-[#FFE8E8] p-2">
+            {cards.isLoading
+              ? <span className="text-muted-foreground">Checking the card…</span>
+              : <span>{reasonText ?? 'Could not read the card record.'}</span>}
+          </div>
+        )}
+
         {disagreements.length > 0 && (
           <div className="space-y-1 rounded-md border border-border bg-[#E8F0FF] p-2">
-            {disagreements.map((d) => (
-              <div key={d.field} className="flex flex-wrap gap-x-4">
-                <span className="text-xs uppercase text-muted-foreground">
-                  {d.field === 'unit_no' ? 'Unit number' : 'Driver name'}
-                </span>
-                <span>File: <strong>{d.csv_value || '—'}</strong></span>
-                <span>On record: <strong>{d.system_value || '—'}</strong></span>
-              </div>
-            ))}
+            {disagreementText.map((line) => <div key={line}>{line}</div>)}
             <div className="text-xs text-muted-foreground">
               Imported against the card. The card is the account the money moved on.
             </div>
           </div>
         )}
 
-        {tx.match_status === 'unmatched' && (
+        {accepted.length > 0 && (
+          <div className="space-y-1 rounded-md border border-border bg-[#F9F9F9] p-2 text-xs">
+            {accepted.map((a) => (
+              <div key={a.id}>
+                Accepted {new Date(a.accepted_at).toLocaleString()} — {a.note}
+              </div>
+            ))}
+            <div className="text-muted-foreground">
+              The row stays flagged. Accepting records that a human looked, not that the file was right.
+            </div>
+          </div>
+        )}
+
+        {!isUnmatched && disagreements.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2">
+            <Input
+              className="w-96"
+              placeholder="Note (required) — what you checked"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+            />
+            <Button
+              size="sm"
+              variant="outline"
+              disabled={busy || note.trim() === ''}
+              onClick={() => { onAccept(note.trim()); setNote(''); }}
+            >
+              Accept disagreement
+            </Button>
+          </div>
+        )}
+
+        {isUnmatched && (
           <div className="flex flex-wrap items-center gap-2">
             <Select value={choice} onValueChange={setChoice}>
               <SelectTrigger className="w-72"><SelectValue placeholder="Assign to a driver" /></SelectTrigger>
