@@ -310,6 +310,27 @@ export default function FuelImportPage() {
     },
   });
 
+  const acceptances = useQuery({
+    queryKey: ['fuel-disagreement-acceptances'],
+    queryFn: fetchFuelAcceptances,
+  });
+
+  /**
+   * ACCEPTANCE IS AN ANNOTATION, NOT AN ERASURE. The queue is not invalidated
+   * to make the row disappear — it stays flagged, with the acceptance beneath it.
+   */
+  const accept = useMutation({
+    mutationFn: (v: { id: string; note: string }) => acceptFuelDisagreement(v.id, v.note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['fuel-disagreement-acceptances'] });
+      toast({ description: 'Acceptance recorded. The row stays flagged.' });
+    },
+    onError: (e) => {
+      logDbError('accept fuel disagreement', e, {});
+      toast({ variant: 'destructive', description: getDbErrorMessage(e, 'Could not record that acceptance.') });
+    },
+  });
+
   async function onFile(file: File) {
     setBusy(true);
     setParseError(null);
