@@ -23,10 +23,15 @@ import {
   type FuelColumnReport, type ParsedFuelFile, type ParsedFuelRow,
 } from '@/lib/fuel/multiserviceCsv';
 import {
-  assignFuelTransactionOperator, commitFuelImport, fetchFuelBatches,
-  fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
-  type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
+  acceptFuelDisagreement, assignFuelTransactionOperator, commitFuelImport, fetchFuelAcceptances,
+  fetchFuelBatches, fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
+  type FuelAcceptanceRecord, type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
+import {
+  diagnoseUnmatched, disagreementMessages, fetchCardAssignments, fetchOperatorSourceValues,
+  unmatchedReasonMessage,
+} from '@/lib/fuel/fuelDiagnosis';
+import { Input } from '@/components/ui/input';
 import {
   FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
 } from '@/lib/fuel/fuelBuckets';
