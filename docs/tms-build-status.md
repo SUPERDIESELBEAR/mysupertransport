@@ -8099,9 +8099,9 @@ real data moves through real paths is unchanged.
 statement-for-statement against the live function body, which is executable only
 by the definer:
 
-- BEFORE: 0 rows (no card 224 assignment on or before that date).
-- AFTER: operator `dbe31d0d-b0b7-41fb-b736-446d874ceba1`, unit `260`,
-  `Ali Mohamed`.
+- BEFORE the correction: 0 rows (no card 224 assignment on or before that date).
+- AFTER (both the 07-23 attempt and the final 07-24 value): operator
+  `dbe31d0d-b0b7-41fb-b736-446d874ceba1`, unit `260`, `Ali Mohamed`.
 
 `fuel_resolve_card` itself was NOT touched.
 
