@@ -186,9 +186,83 @@ export function fuelSortValue(row: FuelDisplayRow, column: string): string | num
     case 'repairs': return row.split.repair;
     case 'other': return row.split.other;
     case 'discount': return row.split.discount;
+    case 'unexplained': return row.split.discrepancy;
 
     case 'gallons': return row.diesel_gallons || null;
     case 'cpg': return row.cost_per_gallon;
     default: return null;
   }
+}
+
+/* ------------------------------------------------------------------ *
+ * PAGE SIZE AND COLUMN PRESENCE — both computed over the WHOLE FILE.
+ * ------------------------------------------------------------------ */
+
+export type FuelPageSize = 10 | 25 | 50 | 'all';
+
+/** Default 25: enough to see the shape of a file without scrolling all 69. */
+export const DEFAULT_FUEL_PAGE_SIZE: FuelPageSize = 25;
+export const FUEL_PAGE_SIZES: FuelPageSize[] = [10, 25, 50, 'all'];
+
+export function paginateRows<T>(rows: T[], pageSize: FuelPageSize, page: number): T[] {
+  if (pageSize === 'all') return rows;
+  const start = (page - 1) * pageSize;
+  return rows.slice(start, start + pageSize);
+}
+
+export function pageCount(total: number, pageSize: FuelPageSize): number {
+  if (pageSize === 'all') return 1;
+  return Math.max(1, Math.ceil(total / pageSize));
+}
+
+/** "Showing 1-25 of 69". Zero rows says so rather than printing "1-0". */
+export function pageRangeLabel(total: number, pageSize: FuelPageSize, page: number): string {
+  if (total === 0) return 'Showing 0 of 0';
+  if (pageSize === 'all') return `Showing 1-${total} of ${total}`;
+  const start = (page - 1) * pageSize + 1;
+  const end = Math.min(total, page * pageSize);
+  return `Showing ${start}-${end} of ${total}`;
+}
+
+/**
+ * THE MONEY COLUMNS THAT CAN VANISH. `Total` is not here: it always shows, and
+ * neither are Date, Unit / name, Gallons, $/gal or Status.
+ *
+ * A hidden column is EMPTY ON EVERY ROW OF THE FILE by definition, so the
+ * visible money columns still sum to `Total` on every row — dropping a column
+ * of zeros cannot change a sum. `fuelImportView.test.ts` asserts exactly that.
+ */
+export const FUEL_MONEY_COLUMNS = [
+  { key: 'fuel', field: 'fuel' },
+  { key: 'advances', field: 'cash_advance' },
+  { key: 'repairs', field: 'repair' },
+  { key: 'other', field: 'other' },
+  { key: 'discount', field: 'discount' },
+  { key: 'unexplained', field: 'discrepancy' },
+] as const satisfies readonly { key: string; field: keyof FuelRowSplit }[];
+
+export type FuelMoneyColumnKey = typeof FUEL_MONEY_COLUMNS[number]['key'];
+
+/**
+ * A money column appears only if ANY row in the WHOLE FILE carries a non-zero
+ * value for it. Never the current page and never the current tile filter: a
+ * column that disappears when you filter to three rows is worse than one that
+ * is always there, and the reader would have no way to tell an empty column
+ * from a filtered-away one.
+ *
+ * `Unexplained` earns its place under this rule rather than in spite of it. It
+ * has already caught two real defects: the fuel discount reconciled against net
+ * while the buckets were computed against gross (the negative amounts seen on
+ * 2026-09-07), and — through the same mechanism on the settlement side — a
+ * repair or cash advance hiding inside a fuel line, which was a live money
+ * defect for months. An always-empty discrepancy detector is a detector finding
+ * nothing, not a useless column. Hiding it when empty keeps the signal and
+ * returns the width.
+ */
+export function visibleMoneyColumns(allRows: FuelDisplayRow[]): Set<FuelMoneyColumnKey> {
+  const visible = new Set<FuelMoneyColumnKey>();
+  for (const col of FUEL_MONEY_COLUMNS) {
+    if (allRows.some((r) => (r.split[col.field] ?? 0) !== 0)) visible.add(col.key);
+  }
+  return visible;
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  buildDisplayRows, filterRows, fuelSortValue, splitParsedRow,
+  DEFAULT_FUEL_PAGE_SIZE, FUEL_MONEY_COLUMNS, buildDisplayRows, filterRows, fuelSortValue,
+  pageCount, pageRangeLabel, paginateRows, splitParsedRow, visibleMoneyColumns,
   type FuelDisplayRow,
 } from '../fuelImportView';
+import { compareValues } from '@/lib/listSorting';
 import { FUEL_LINE_TYPE_BUCKET, fuelBucketLines } from '../fuelBuckets';
 import { deriveLines, type ParsedFuelRow } from '../multiserviceCsv';
 import type { FuelPreviewRow } from '../fuelImport';
@@ -316,5 +318,108 @@ describe('the settlement still reconciles against the GROSS', () => {
     const lines = fuelBucketLines({ grossAmount: gross, lines: r.lines });
     expect(r2(lines.reduce((t, l) => t + l.amount, 0))).toBe(gross);
     expect(lines.some((l) => l.isDiscrepancy)).toBe(false);
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/* PAGING AND COLUMN PRESENCE — Pass 10                                */
+/* ------------------------------------------------------------------ */
+
+describe('page size', () => {
+  it('defaults to 25 and cuts the page from the whole result set', () => {
+    expect(DEFAULT_FUEL_PAGE_SIZE).toBe(25);
+    expect(paginateRows(DISPLAY, 25, 1)).toHaveLength(25);
+    expect(paginateRows(DISPLAY, 25, 3)).toHaveLength(19);
+  });
+
+  it('page size 10 shows ten rows and All shows all sixty-nine', () => {
+    expect(paginateRows(DISPLAY, 10, 1)).toHaveLength(10);
+    expect(paginateRows(DISPLAY, 'all', 1)).toHaveLength(69);
+    expect(pageCount(69, 10)).toBe(7);
+    expect(pageCount(69, 'all')).toBe(1);
+  });
+
+  it('states the range in context', () => {
+    expect(pageRangeLabel(69, 25, 1)).toBe('Showing 1-25 of 69');
+    expect(pageRangeLabel(69, 25, 3)).toBe('Showing 51-69 of 69');
+    expect(pageRangeLabel(69, 'all', 1)).toBe('Showing 1-69 of 69');
+    expect(pageRangeLabel(0, 25, 1)).toBe('Showing 0 of 0');
+  });
+
+  it('SORTS ALL 69 THEN PAGINATES — page 1 carries the global first row', () => {
+    // The heaviest row is deliberately placed OFF page 1 of the unsorted order,
+    // so sorting the visible page instead of the file could not produce it.
+    const unsorted = [...DISPLAY].sort((a, b) =>
+      compareValues(fuelSortValue(a, 'total'), fuelSortValue(b, 'total'), 'asc'));
+    const sorted = [...unsorted].sort((a, b) =>
+      compareValues(fuelSortValue(a, 'total'), fuelSortValue(b, 'total'), 'desc'));
+    const globalTop = sorted[0];
+    expect(paginateRows(sorted, 10, 1)).toEqual(sorted.slice(0, 10));
+    expect(paginateRows(sorted, 10, 1)[0].key).toBe(globalTop.key);
+
+    const pageLocal = [...paginateRows(unsorted, 10, 1)].sort((a, b) =>
+      compareValues(fuelSortValue(a, 'total'), fuelSortValue(b, 'total'), 'desc'))[0];
+    expect(pageLocal.key).not.toBe(globalTop.key);
+    expect(globalTop.total_amount).toBeGreaterThan(pageLocal.total_amount);
+    expect(paginateRows(sorted, 10, 7)).toHaveLength(9);
+    expect(paginateRows(sorted, 10, 7)[8].key).toBe(sorted[68].key);
+  });
+
+  it('filtering by a tile then sorting works across the whole filtered set', () => {
+    const filtered = filterRows(DISPLAY, 'unmatched');
+    expect(filtered).toHaveLength(3);
+    const sorted = [...filtered].sort((a, b) =>
+      compareValues(fuelSortValue(a, 'total'), fuelSortValue(b, 'total'), 'asc'));
+    expect(sorted.map((d) => d.invoice_no)).toEqual(['771032', '771031', '771030']);
+    expect(paginateRows(sorted, 10, 1)).toHaveLength(3);
+  });
+});
+
+describe('empty money columns are hidden', () => {
+  it('hides the columns that are zero on every row of the real file', () => {
+    const cols = visibleMoneyColumns(DISPLAY);
+    expect([...cols].sort()).toEqual(['advances', 'fuel', 'other']);
+    expect(cols.has('repairs')).toBe(false);
+    expect(cols.has('discount')).toBe(false);
+    expect(cols.has('unexplained')).toBe(false);
+  });
+
+  it('shows the same column again as soon as ONE row carries a value', () => {
+    const discounted = row({
+      card_no: '600', invoice_no: '779001', invoice_date: '2026-09-01',
+      diesel_amount: 100, diesel_gallons: 27, fuel_discount_amount: -1.41,
+      total_amount: 98.59,
+    });
+    const withDiscount = buildDisplayRows(
+      [...PREVIEW, preview(discounted)], [...PARSED, discounted],
+    );
+    expect(visibleMoneyColumns(withDiscount).has('discount')).toBe(true);
+    const repair = row({
+      card_no: '601', invoice_no: '779002', invoice_date: '2026-09-01',
+      minor_repairs_amount: 240, total_amount: 240,
+    });
+    const withRepair = buildDisplayRows([...PREVIEW, preview(repair)], [...PARSED, repair]);
+    expect(visibleMoneyColumns(withRepair).has('repairs')).toBe(true);
+  });
+
+  it('COMPUTES OVER THE WHOLE FILE, not the filtered subset', () => {
+    // Advances live only on card 224. Filtering them away must NOT hide the column.
+    const filtered = filterRows(DISPLAY, 'matched');
+    expect(filtered.some((d) => d.split.cash_advance !== 0)).toBe(false);
+    expect(visibleMoneyColumns(DISPLAY).has('advances')).toBe(true);
+  });
+
+  it('THE SUM-CHECK SURVIVES HIDING — visible columns still equal Total on every row', () => {
+    const cols = visibleMoneyColumns(DISPLAY);
+    for (const d of DISPLAY) {
+      const shown = FUEL_MONEY_COLUMNS
+        .filter((c) => cols.has(c.key))
+        .reduce((t, c) => t + d.split[c.field], 0);
+      expect(r2(shown)).toBe(d.total_amount);
+      // a hidden column is empty BY DEFINITION — that is why the sum holds
+      for (const c of FUEL_MONEY_COLUMNS) {
+        if (!cols.has(c.key)) expect(d.split[c.field]).toBe(0);
+      }
+    }
   });
 });

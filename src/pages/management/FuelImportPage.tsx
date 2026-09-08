@@ -36,9 +36,11 @@ import {
   FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
 } from '@/lib/fuel/fuelBuckets';
 import {
-  buildDisplayRows, filterRows, fuelSortValue,
-  type FuelDisplayRow, type FuelTileFilter,
+  DEFAULT_FUEL_PAGE_SIZE, FUEL_PAGE_SIZES, buildDisplayRows, filterRows, fuelSortValue,
+  pageCount, pageRangeLabel, paginateRows, visibleMoneyColumns,
+  type FuelDisplayRow, type FuelMoneyColumnKey, type FuelPageSize, type FuelTileFilter,
 } from '@/lib/fuel/fuelImportView';
+
 import { compareValues, nextSortState, type SortState } from '@/lib/listSorting';
 
 
@@ -159,9 +161,10 @@ function SortHead({
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 /** One preview row plus its expandable detail. */
-function PreviewRow({ row }: { row: FuelDisplayRow }) {
+function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyColumnKey> }) {
   const [open, setOpen] = useState(false);
   const s = row.split;
+
 
   /**
    * THE PREVIEW IS THE DECISION POINT. "Should I commit this, or fix something
@@ -209,14 +212,17 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
         </td>
         <td className="p-2 whitespace-nowrap">{formatFuelDate(row.invoice_date)}</td>
         <td className="p-2">{[row.unit_no, row.driver_name].filter(Boolean).join(' · ') || '—'}</td>
-        <td className="p-2 text-right">{money(s.fuel)}</td>
-        <td className="p-2 text-right">{money(s.cash_advance)}</td>
-        <td className="p-2 text-right">{money(s.repair)}</td>
-        <td className="p-2 text-right">{money(s.other)}</td>
-        <td className="p-2 text-right">{money(s.discount)}</td>
-        <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
-          {money(s.discrepancy)}
-        </td>
+        {cols.has('fuel') && <td className="p-2 text-right">{money(s.fuel)}</td>}
+        {cols.has('advances') && <td className="p-2 text-right">{money(s.cash_advance)}</td>}
+        {cols.has('repairs') && <td className="p-2 text-right">{money(s.repair)}</td>}
+        {cols.has('other') && <td className="p-2 text-right">{money(s.other)}</td>}
+        {cols.has('discount') && <td className="p-2 text-right">{money(s.discount)}</td>}
+        {cols.has('unexplained') && (
+          <td className={`p-2 text-right ${s.discrepancy ? 'text-destructive' : ''}`}>
+            {money(s.discrepancy)}
+          </td>
+        )}
+
         <td className="p-2 text-right font-medium">{formatCurrency(row.total_amount)}</td>
 
         <td className="p-2 text-right">{row.diesel_gallons ? row.diesel_gallons.toFixed(2) : '—'}</td>
@@ -245,7 +251,8 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
       {open && (
         <tr className="border-t border-border bg-[#F9F9F9]">
           <td />
-          <td colSpan={12} className="p-3">
+          <td colSpan={6 + cols.size} className="p-3">
+
             {isUnmatched && (
               <div className="mb-3 rounded-md border border-border bg-[#FFE8E8] p-2 text-xs">
                 {cards.isLoading
@@ -319,23 +326,50 @@ export default function FuelImportPage() {
   const [result, setResult] = useState<FuelCommitResult | null>(null);
   const [parseError, setParseError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  /** Tile filter and column sort — view state only, nothing is persisted. */
+  /** Tile filter, column sort and page size — view state only, nothing is persisted. */
   const [tile, setTile] = useState<FuelTileFilter | null>(null);
   const [sort, setSort] = useState<SortState | null>(null);
+  const [pageSize, setPageSize] = useState<FuelPageSize>(DEFAULT_FUEL_PAGE_SIZE);
+  const [page, setPage] = useState(1);
 
-  const toggleTile = (f: FuelTileFilter) => setTile((cur) => (cur === f ? null : f));
-  const onSort = (c: string) => setSort((cur) => nextSortState(cur, c));
+  const toggleTile = (f: FuelTileFilter) => {
+    setTile((cur) => (cur === f ? null : f));
+    setPage(1);
+  };
+  const onSort = (c: string) => {
+    setSort((cur) => nextSortState(cur, c));
+    setPage(1);
+  };
 
   const displayRows = useMemo(
     () => (preview ? buildDisplayRows(preview.rows, rows ?? []) : []),
     [preview, rows],
   );
-  const visibleRows = useMemo(() => {
+  /**
+   * COMPUTED OVER THE WHOLE FILE, deliberately: not the page, not the tile.
+   * A column that vanishes when you filter to three rows is worse than one
+   * that is always there.
+   */
+  const moneyCols = useMemo(() => visibleMoneyColumns(displayRows), [displayRows]);
+
+  /**
+   * SORT THEN PAGINATE, never the other way round. The whole filtered result
+   * set is ordered first, so page 1 shows the global first row.
+   */
+  const sortedRows = useMemo(() => {
     const filtered = filterRows(displayRows, tile);
     if (!sort) return filtered;
     return [...filtered].sort((a, b) =>
       compareValues(fuelSortValue(a, sort.column), fuelSortValue(b, sort.column), sort.direction));
   }, [displayRows, tile, sort]);
+
+  const totalPages = pageCount(sortedRows.length, pageSize);
+  const currentPage = Math.min(page, totalPages);
+  const visibleRows = useMemo(
+    () => paginateRows(sortedRows, pageSize, currentPage),
+    [sortedRows, pageSize, currentPage],
+  );
+
 
 
 
@@ -387,6 +421,7 @@ export default function FuelImportPage() {
     setNotices({ reconciliation: null, unrecognized: null, unrecognizedMoney: null, drift: null });
     setTile(null);
     setSort(null);
+    setPage(1);
     try {
       const parsed: ParsedFuelFile = parseMultiserviceCsv(await file.text());
       const previousColumns = await fetchLastImportColumns().catch(() => null);
@@ -535,24 +570,43 @@ export default function FuelImportPage() {
                     Dates covered: {formatFuelDate(preview.date_range_start) || '—'} to{' '}
                     {formatFuelDate(preview.date_range_end) || '—'}
                   </span>
+                  <span data-testid="fuel-page-range">{pageRangeLabel(sortedRows.length, pageSize, currentPage)}</span>
                   {tile && (
                     <button
                       type="button"
                       onClick={() => setTile(null)}
                       className="text-gold underline underline-offset-2"
                     >
-                      Showing {visibleRows.length} of {displayRows.length} rows — clear filter
+                      Filtered from {displayRows.length} rows — clear filter
                     </button>
                   )}
+                  <span className="ml-auto flex items-center gap-2">
+                    Rows per page
+                    <Select
+                      value={String(pageSize)}
+                      onValueChange={(v) => {
+                        setPageSize(v === 'all' ? 'all' : (Number(v) as FuelPageSize));
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-8 w-20"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {FUEL_PAGE_SIZES.map((s) => (
+                          <SelectItem key={String(s)} value={String(s)}>
+                            {s === 'all' ? 'All' : s}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </span>
                 </div>
 
                 {/*
-                  FULL HEIGHT, ONE SCROLLBAR. The table used to live in a
-                  fixed-height box, so six of sixty-nine rows were visible and
-                  the page carried a nested scrollbar. It now renders whole and
-                  the PAGE scrolls; `overflow-x-auto` is kept only for narrow
-                  screens. The header row sticks to the top of the viewport so
-                  twelve mostly-money columns are never unlabelled.
+                  A PAGE AT A TIME, ten to sixty-nine rows as chosen; the header
+                  stays sticky. Sorting and tile filtering run over the WHOLE
+                  result set and the page is cut from the result, never the
+                  other way round. Money columns empty across the whole file are
+                  not rendered at all — see `visibleMoneyColumns`.
                 */}
                 <div className="overflow-x-auto rounded-md border border-border">
                   <table className="w-full text-sm">
@@ -561,12 +615,12 @@ export default function FuelImportPage() {
                         <th className="p-2 w-8" />
                         <SortHead column="date" label="Date" sort={sort} onSort={onSort} />
                         <SortHead column="driver" label="Unit / name as printed" sort={sort} onSort={onSort} />
-                        <SortHead column="fuel" label="Fuel" sort={sort} onSort={onSort} className="text-right" />
-                        <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />
-                        <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />
-                        <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />
-                        <SortHead column="discount" label="Discount" sort={sort} onSort={onSort} className="text-right" />
-                        <th className="p-2 font-medium text-right">Unexplained</th>
+                        {moneyCols.has('fuel') && <SortHead column="fuel" label="Fuel" sort={sort} onSort={onSort} className="text-right" />}
+                        {moneyCols.has('advances') && <SortHead column="advances" label="Advances" sort={sort} onSort={onSort} className="text-right" />}
+                        {moneyCols.has('repairs') && <SortHead column="repairs" label="Repairs" sort={sort} onSort={onSort} className="text-right" />}
+                        {moneyCols.has('other') && <SortHead column="other" label="Other" sort={sort} onSort={onSort} className="text-right" />}
+                        {moneyCols.has('discount') && <SortHead column="discount" label="Discount" sort={sort} onSort={onSort} className="text-right" />}
+                        {moneyCols.has('unexplained') && <th className="p-2 font-medium text-right">Unexplained</th>}
                         <SortHead column="total" label="Total" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
                         <SortHead column="cpg" label="$/gal" sort={sort} onSort={onSort} className="text-right" />
@@ -575,13 +629,38 @@ export default function FuelImportPage() {
                     </thead>
 
                     <tbody>
-                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} />)}
+                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} cols={moneyCols} />)}
                       {visibleRows.length === 0 && (
-                        <tr><td colSpan={13} className="p-3 text-muted-foreground">No rows match that tile.</td></tr>
+                        <tr>
+                          <td colSpan={7 + moneyCols.size} className="p-3 text-muted-foreground">
+                            No rows match that tile.
+                          </td>
+                        </tr>
                       )}
                     </tbody>
                   </table>
                 </div>
+
+                {totalPages > 1 && (
+                  <div className="flex items-center justify-end gap-2 text-sm">
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={currentPage <= 1}
+                      onClick={() => setPage(currentPage - 1)}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-muted-foreground">Page {currentPage} of {totalPages}</span>
+                    <Button
+                      variant="outline" size="sm"
+                      disabled={currentPage >= totalPages}
+                      onClick={() => setPage(currentPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+
 
 
                 {notices.reconciliation && (
