@@ -267,7 +267,7 @@ describe("accept_fuel_disagreement", () => {
     const src = body();
     // 1. actor server-side, never a parameter.
     expect(src).toMatch(/current_profile_id\(\)/);
-    expect(src).not.toMatch(/_actor(_id)?\s+uuid/);
+    expect(src).not.toMatch(/accept_fuel_disagreement\([^)]*actor/i);
     expect(src).toMatch(/Not authenticated/);
     // 2. management or owner, checked in the body.
     expect(src).toMatch(/has_role\(auth\.uid\(\), 'management'\)/);
