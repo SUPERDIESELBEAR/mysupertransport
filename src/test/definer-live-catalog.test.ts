@@ -545,6 +545,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // a rename of one entry, not an addition: the ceiling does not move.
   "public.commit_fuel_import(text,text,jsonb,jsonb)",
   "public.assign_fuel_transaction_operator(uuid,uuid,text)",
+  "public.accept_fuel_disagreement(uuid,text)",
 
 
 
@@ -657,7 +658,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   115 -> 120. enforce_accessorial_adjustment_transition() is NOT here — it
 //   is service_role only, which is what keeps 'settled' out of a client's
 //   reach, so this went up by five and not by six.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 120;
+// + accept_fuel_disagreement(uuid, text) (2026-09-08), Module 6 Pass 8's only
+//   writer of a disagreement acceptance: management or owner in the body, actor
+//   from current_profile_id(), a required note, and a single INSERT into
+//   fuel_disagreement_acceptances — it writes to no other table, which is the
+//   whole point of it: 120 -> 121. enforce_fuel_acceptance_append_only() is NOT
+//   here — it is a trigger function with EXECUTE revoked from every client role.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 121;
 
 
 
