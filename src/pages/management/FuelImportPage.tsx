@@ -246,6 +246,21 @@ function PreviewRow({ row }: { row: FuelDisplayRow }) {
         <tr className="border-t border-border bg-[#F9F9F9]">
           <td />
           <td colSpan={12} className="p-3">
+            {isUnmatched && (
+              <div className="mb-3 rounded-md border border-border bg-[#FFE8E8] p-2 text-xs">
+                {cards.isLoading
+                  ? <span className="text-muted-foreground">Checking the card…</span>
+                  : <span>{reasonText ?? 'Could not read the card record.'}</span>}
+              </div>
+            )}
+            {disagreementText.length > 0 && (
+              <div className="mb-3 space-y-1 rounded-md border border-border bg-[#E8F0FF] p-2 text-xs">
+                {disagreementText.map((line) => <div key={line}>{line}</div>)}
+                <div className="text-muted-foreground">
+                  Imported against the card. The card is the account the money moved on.
+                </div>
+              </div>
+            )}
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
