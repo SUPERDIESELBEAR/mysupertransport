@@ -8060,25 +8060,28 @@ Mohamed, unit 260).
 | | `assigned_at` | `returned_at` |
 |---|---|---|
 | Before | `2026-09-07 23:39:41.226906+00` | NULL |
-| After  | `2026-07-23 17:00:00+00` (2026-07-23 12:00 Central) | NULL |
+| After  | `2026-07-24 17:07:56.193545+00` | NULL |
 
-Nothing else changed on that row, and no other row was touched. The returned
-card `212` row (`92430f83-…`, `assigned_at 2026-07-24 17:07:56.193545+00`,
-`returned_at 2026-09-07 23:38:32.902+00`) is unchanged.
+The after value is **byte-identical to the returned card `212` row**
+(`92430f83-6586-44da-877c-9ad7c99eccdf`, `assigned_at 2026-07-24
+17:07:56.193545+00`, `returned_at 2026-09-07 23:38:32.902+00`). Nothing else
+changed on either row; the 212 row itself was not touched.
 
-**Why 2026-07-23 is the right date.** Ali has ALWAYS physically held card 224.
-SUPERDRIVE recorded 212 by mistake when he was issued a fuel card, and the typo
-stood until 2026-09-08, when 212 was returned and 224 issued. There was no
-equipment change — only the correction of a mis-keyed serial. The assignment
-therefore begins on the date of the original issue, not the date the typo was
-noticed.
+**Why exactly the 212 value, not merely near it.** The two rows record ONE
+event: Ali was issued a fuel card on 2026-07-24 and it was mis-keyed as serial
+212; he has physically held card 224 the whole time. Any difference between the
+two `assigned_at` values invites a future reader to conclude he held two cards,
+or that one was issued before the other. One event, one timestamp.
 
-**One discrepancy, recorded rather than reconciled.** The instruction described
-2026-07-23 as "the date the returned 212 row carries." The 212 row actually
-carries `2026-07-24 17:07:56+00` (2026-07-24 12:07 Central) — a one-day
-difference. 2026-07-23 was applied as instructed; it is one day EARLIER than the
-212 row, so it cannot create a window that the mis-keyed row did not already
-cover, and it changes no fuel match in the 2026-08-28 → 2026-09-01 range.
+**Why the first attempt wrote 2026-07-23.** The value came from the equipment
+history's DISPLAYED date, and the history renders carrier time (Central). The
+stored value is UTC: `2026-07-24 17:07:56+00` displays as 2026-07-23 12:07
+Central. Neither reading was wrong; they are the same moment two ways.
+
+**LESSON — a date read off a screen is not the value in the column.** Any
+correction sourced from a rendered display must be checked against the row
+itself before it is written. This will recur wherever UTC storage meets
+carrier-time rendering.
 
 **It was a direct database write.** There is no UI for editing
 `equipment_assignments.assigned_at`, so the real path does not exist to use.
