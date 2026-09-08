@@ -4806,6 +4806,54 @@ export type Database = {
           },
         ]
       }
+      fuel_disagreement_acceptances: {
+        Row: {
+          accepted_at: string
+          accepted_by: string
+          created_at: string
+          disagreement_fields: Json
+          id: string
+          note: string
+          transaction_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string
+          accepted_by: string
+          created_at?: string
+          disagreement_fields?: Json
+          id?: string
+          note: string
+          transaction_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string
+          accepted_by?: string
+          created_at?: string
+          disagreement_fields?: Json
+          id?: string
+          note?: string
+          transaction_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fuel_disagreement_acceptances_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_disagreement_acceptances_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "fuel_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       fuel_import_batches: {
         Row: {
           created_at: string
@@ -11705,6 +11753,10 @@ export type Database = {
           resource_id: string
           scope: string
         }[]
+      }
+      accept_fuel_disagreement: {
+        Args: { _note: string; _transaction_id: string }
+        Returns: Json
       }
       accessorial_adjustment_writer_active: { Args: never; Returns: boolean }
       acknowledge_eld_sync_alert: {

@@ -95,6 +95,45 @@ export async function assignFuelTransactionOperator(
   if (error) throw error;
 }
 
+/**
+ * ACCEPTING A DISAGREEMENT RECORDS THAT A HUMAN LOOKED — nothing more.
+ *
+ * A fuel file is a third party's report about what happened at a pump. Letting
+ * it edit equipment records would make MultiService authoritative over
+ * SUPERTRANSPORT's own data, and the matching design rests on the opposite: the
+ * card is authoritative, the printed unit and name are confirmation only. The
+ * RPC writes one annotation row and touches no operator, onboarding, profile or
+ * equipment record — and not the transaction either, so the row stays flagged.
+ */
+export async function acceptFuelDisagreement(
+  transactionId: string,
+  note: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('accept_fuel_disagreement', {
+    _transaction_id: transactionId,
+    _note: note,
+  });
+  if (error) throw error;
+}
+
+export interface FuelAcceptanceRecord {
+  id: string;
+  transaction_id: string;
+  note: string;
+  accepted_at: string;
+  accepted_by: string;
+}
+
+export async function fetchFuelAcceptances(): Promise<FuelAcceptanceRecord[]> {
+  const { data, error } = await supabase
+    .from('fuel_disagreement_acceptances')
+    .select('id, transaction_id, note, accepted_at, accepted_by')
+    .order('accepted_at', { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as FuelAcceptanceRecord[];
+}
+
 export interface FuelTransactionRecord {
   id: string;
   batch_id: string;
