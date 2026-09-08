@@ -7874,6 +7874,80 @@ Suites: `fuelImportView.test.ts` (20), `fuelBuckets.test.ts` (16, live enum ran)
 
 ---
 
+## Module 6 Pass 8 — THE ROW SAYS WHY (2026-09-08)
+
+Two real cases from the 2026-09-05 export the screen could not explain. Ali
+Mohamed, card 224, unit 260 — UNMATCHED, and the CSV was right: SUPERDRIVE held
+card 212 by mistake, 224 was issued on 2026-09-07, and his transactions are
+dated 08-29 and 09-01. Robert Francis, card 219, unit 263 — MATCHED with a
+disagreement, and the CSV was right: he was recorded as "TWEET FLEET", his
+company name. "Unmatched" and "Matched, disagreement" were the whole of what the
+screen said, and each covers several problems with different fixes.
+
+**Four unmatched reasons, each with its own sentence** (`src/lib/fuel/fuelDiagnosis.ts`,
+verbatim):
+
+- `Card 224 is not in SUPERDRIVE. No fuel card with that number exists in equipment inventory.`
+- `Card 224 is in equipment inventory but is not assigned to anyone.`
+- `Card 224 is assigned to Ali Mohamed from 09/07/2026. This transaction is dated 08/29/2026, before that assignment began.`
+- `Card 212 was assigned to Dan Pratt from 06/01/2026 until 08/15/2026. This transaction is dated 08/29/2026, after that assignment ended.`
+
+The third is the one that answers the owner's question unaided. Where a card has
+a gap between two holders, the nearer side is reported.
+
+**A disagreement names the source, because the resolver has two.**
+`fuel_resolve_card` returns `COALESCE(onboarding_status.unit_number,
+operators.unit_number)`, so a stale value in the first SHADOWS a correct one in
+the second — the difference between "ours is wrong" and "ours is wrong HERE".
+Every field that disagreed is shown, not the first:
+
+- `Unit: file says 263, SUPERDRIVE says 000 (from onboarding record).`
+- `Driver: file says Robert Francis, SUPERDRIVE says TWEET FLEET (from profile).`
+
+Both diagnoses are staff SELECTs on tables staff already read. No new read
+function; the function ceiling moved by one, for the writer alone.
+
+**ACCEPTING A DISAGREEMENT IS AN ANNOTATION, NOT AN ERASURE — decided by the
+owner.** A fuel file is a third party's report about what happened at a pump.
+Letting it edit equipment records would make MultiService authoritative over
+SUPERTRANSPORT's own data, and the whole matching design rests on the opposite:
+the card is authoritative, the printed unit and name are confirmation only.
+Accepting records that a human LOOKED, not that the file was right. The row
+stays flagged in history, with the acceptance beneath it.
+
+`accept_fuel_disagreement(uuid, text)` writes ONE row into
+`fuel_disagreement_acceptances` (transaction, snapshot of the disagreeing
+fields, required note, actor, timestamp) and nothing else — not `operators`,
+`onboarding_status`, `profiles`, `equipment_items`, `equipment_assignments`, and
+not `fuel_transactions` either. That is asserted against the live function body,
+not the intention. The table is append-only by trigger, staff-readable, and no
+client role holds INSERT, UPDATE or DELETE: the default privileges that arrive
+with a new table were revoked in a second migration, since one writer means one.
+
+**THE FOUR PROTECTIONS** on the new writer: actor from `current_profile_id()`,
+never a parameter; management or owner checked in the body; SECURITY DEFINER
+pinned to `public, extensions` with EXECUTE revoked from PUBLIC and anon; and a
+refuse-only contract — the transaction must exist, must actually carry
+`matched_with_disagreement`, and a note is required.
+
+**`fuel_resolve_card` IS UNCHANGED**, and a guard now asserts it: both ends of
+the date window, no fallback to the most recent assignment, no matching on the
+printed unit or name. Its date window is what caught Ali's case accurately. His
+row is fixed by BACKDATING the card 224 assignment to the day he actually
+received it — a data correction the owner makes, not a code change.
+
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 120 → **121**, one entry, with the reason
+in place. The acceptance row cascades from `fuel_transactions`, so the purge
+procedure needs no new step; `purge-path-coverage` was run and is green.
+
+Suites: `fuelDiagnosis.test.ts` (8, new), `fuel-import-live.test.ts` (16, four
+new), `fuelImportView.test.ts`, `fuelBuckets.test.ts`, `multiserviceCsv.test.ts`,
+`grant-parity-live`, `policy-grant-parity`, `caller-evaluated-functions`,
+`actor-stamp-fk`, `purge-path-coverage`, and `npm run test:guards` (9 files,
+87/87). `tsgo` clean.
+
+---
+
 ## Module 6 — OPEN ITEMS, with triggers (2026-09-06)
 
 ### The discrepancy is visible but nobody is alerted
