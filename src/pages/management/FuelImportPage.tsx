@@ -634,7 +634,9 @@ export default function FuelImportPage() {
                 tx={t}
                 operators={operators.data ?? []}
                 onAssign={(operatorId) => assign.mutate({ id: t.id, operatorId })}
-                busy={assign.isPending}
+                onAccept={(note) => accept.mutate({ id: t.id, note })}
+                accepted={(acceptances.data ?? []).filter((a) => a.transaction_id === t.id)}
+                busy={assign.isPending || accept.isPending}
               />
             ))
           )}
