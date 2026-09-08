@@ -19,7 +19,7 @@ import {
   FUEL_DISCREPANCY, fuelBucketLines, type FuelBucket,
 } from './fuelBuckets';
 import type { ParsedFuelRow } from './multiserviceCsv';
-import type { FuelPreviewRow } from './fuelImport';
+import type { FuelDisagreement, FuelPreviewRow } from './fuelImport';
 
 export interface FuelRowSplit {
   fuel: number;
@@ -48,6 +48,15 @@ export interface FuelDisplayRow {
   total_amount: number;
   duplicate: boolean;
   match_status: FuelPreviewRow['match_status'];
+  /**
+   * WHAT THE DIAGNOSIS NEEDS, CARRIED THROUGH. The preview verdict already
+   * knows which operator the card resolved to and which fields disagreed; the
+   * display row simply stopped carrying them. Passing them along is what makes
+   * the SAME `diagnoseUnmatched` / `disagreementMessages` reachable before
+   * commit. Nothing is re-derived here.
+   */
+  operator_id: string | null;
+  disagreement_fields: FuelDisagreement[];
   reconciliation_ok: boolean;
   reconciliation_delta: number;
   split: FuelRowSplit;
@@ -128,6 +137,8 @@ export function buildDisplayRows(
       total_amount: round2(r.total_amount),
       duplicate: r.duplicate,
       match_status: r.match_status,
+      operator_id: r.operator_id ?? null,
+      disagreement_fields: Array.isArray(r.disagreement_fields) ? r.disagreement_fields : [],
       reconciliation_ok: r.reconciliation_ok,
       reconciliation_delta: r.reconciliation_delta,
       split,
