@@ -2007,7 +2007,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
              driver inside the database function, not by anything sent here. */}
         {view === 'my-fuel' && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading your fuel…</div>}>
-            <MyFuel onReady={() => handleDestinationReady('my-fuel')} />
+            <MyFuel
+              onReady={() => handleDestinationReady('my-fuel')}
+              driverName={[authProfile?.first_name, authProfile?.last_name].filter(Boolean).join(' ')}
+              unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+            />
           </Suspense>
         )}
 
