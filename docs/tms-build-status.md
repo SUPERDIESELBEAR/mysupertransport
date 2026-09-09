@@ -8453,7 +8453,7 @@ mapping decided by the owner on 2026-09-06 and recorded beside `fees` in
 
 ### Suites run
 
-`fuelDriverDetail.test.ts` (new, 12), `fuelBucketSourceGuard.test.ts` (new, 3),
+`fuelDriverDetail.test.ts` (new, 11), `fuelBucketSourceGuard.test.ts` (new, 3),
 `fuelBuckets.test.ts`, `fuelImportView.test.ts`, `multiserviceCsv.test.ts`,
 `fuelDiagnosis.test.ts`, `fuelPreviewDiagnosis.test.ts`,
 `shared-pay-percentage-source-guard.test.ts`, `operator-pay-exposure.test.ts`,
