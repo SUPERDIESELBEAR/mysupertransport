@@ -176,7 +176,7 @@ const MUTED: [number, number, number] = [110, 110, 110];
 const PENDING_BG: [number, number, number] = [253, 243, 219];
 const MARGIN = 32;
 /** Column widths in points, summing to the printable width of letter landscape. */
-const WIDTHS = [50, 104, 66, 48, 50, 40, 40, 48, 52, 38, 38, 154];
+const WIDTHS = [50, 104, 74, 44, 56, 40, 38, 46, 50, 36, 36, 154];
 /** Letter landscape, minus both margins. The widths must not exceed it. */
 const PRINTABLE = 792 - MARGIN * 2;
 const ROW_HEIGHT = 18;
