@@ -267,7 +267,12 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
   model.rows.forEach((cells, ri) => {
     if (y > pageHeight - MARGIN - 20) {
       doc.addPage();
-      y = MARGIN + 20;
+      // A later page can be read on its own; it must still say whose it is.
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(10);
+      doc.setTextColor(...INK);
+      doc.text(`${model.driverLine} · continued`, MARGIN, MARGIN + 4);
+      y = MARGIN + 32;
       header();
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
