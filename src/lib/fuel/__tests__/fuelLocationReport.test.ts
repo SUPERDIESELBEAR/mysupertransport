@@ -8,7 +8,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import {
-  UNRECOGNISED_CHAIN, buildFuelLocationReport, chainOf, defaultDateRange,
+  INDEPENDENT_CHAIN, UNRECOGNISED_CHAIN, buildFuelLocationReport, chainOf, defaultDateRange,
   type FuelLocationTransaction,
 } from '../fuelLocationReport';
 
