@@ -8358,3 +8358,109 @@ reason, and an audit row (the delete performed today left none).
 **TRIGGER: before the first settlement runs against imported fuel.**
 
 **Contradictions with the record: none found.**
+
+---
+
+## Module 9 Pass 1 — PER-DRIVER FUEL DETAIL, management-facing (2026-09-09)
+
+The first item off the WANTED list in `docs/tms-wish-list.md`. **One driver, his
+transactions, in date order.** Not in this pass, and still open: the emailable
+per-driver report, the weekly exception view, the monthly trend, and
+cost-per-gallon by location.
+
+### The shape, and why
+
+**CHRONOLOGICAL, most recent first — NOT grouped by settlement period.** Decided
+with the owner. A driver thinks about fuel as "what I bought", in order, with
+dates; grouping by period makes him do arithmetic to answer a simple question and
+buries the transactions nearest a period boundary, which are exactly the ones he
+rings about.
+
+**But the settlement period is an ATTRIBUTE OF EVERY ROW**, because the question
+that generates the phone call is not "what did I spend" — his card statement
+answers that — it is "why did $2,400 come out of my check". A purchase on 09/01
+leaves a different check than one on 08/31 and that boundary lines up with nothing
+he would notice at the pump. A period filter is offered for when that view is
+wanted; it is never the organising structure.
+
+### Pending fuel is shown, and cannot be read as deducted
+
+Fuel bought but not yet settled appears, marked **`Not yet deducted`** on the row
+and tinted, and totals in its **own card**. A report that silently omits Monday's
+fill-up looks broken on Tuesday; a pending amount read as money already taken is
+worse. `FuelDriverSummary` has exactly two members, `settled` and `pending`, and
+**no combined field** — the shape itself refuses the figure that would mix money
+already taken with money not yet taken. A test asserts that.
+
+**Deducted is read from the money's own record** — a `settlement_line_items` row
+naming `fuel_transactions` as its source — never inferred from a date. A period
+can pass without a settlement running.
+
+### The bucket mapping is SHARED, not duplicated
+
+`src/lib/fuel/fuelDriverDetail.ts` computes no money: every bucket figure comes out
+of `fuelBucketLines`, the same assembler the settlement engine and the import
+screen use. The gross is rebuilt as `total − discount` exactly as `fuelImportView`
+does, so a known, named price reduction never surfaces as an unexplained balance.
+
+The source guard did NOT previously reach any fuel consumer, so this pass added
+`src/lib/fuel/__tests__/fuelBucketSourceGuard.test.ts`: it reads
+`fuelImportView.ts`, `fuelDriverDetail.ts` and `settlementRun.ts` as text
+(comments stripped) and refuses a local `line_type` name, a second
+`Record<FuelLineType, …>`, or a consumer that does not call `fuelBucketLines`.
+`fuel_discount` is deliberately excluded from the banned-token list — consumers
+legitimately read the COLUMN `fuel_discount_amount`, which is a transaction field
+and not a line-type decision.
+
+### Who sees it
+
+**Management and owner only.** It renders inside the management portal
+(Accounting → Driver Fuel Detail, view `fuel-driver-detail`). **No operator-facing
+route and no policy were added**, and no RLS change was needed: the existing
+`fuel_transactions_read_staff` / `fuel_lines_read_staff` policies already cover the
+read. The driver's own version is a later pass — operators see only their own data
+and that boundary deserves its own pass rather than being added incidentally.
+
+Also lifted: the driver picker moved out of `FuelImportPage` into
+`src/lib/fuel/fuelOperators.ts` so both fuel screens read one list.
+
+### EVIDENCE — what is real and what is fixture
+
+**Every one of the 69 committed transactions is PENDING. No settlement has run
+against fuel** (`select count(*) from settlement_line_items where
+source_table='fuel_transactions'` → 0). So:
+
+- **REAL-DATA EVIDENCE:** the pending state, the ordering, the buckets, the
+  discount, gallons and cost per gallon, the merchant and location, the pending
+  total, and the empty settled total.
+- **FIXTURE EVIDENCE ONLY:** the settled row — its period label, its payday, and
+  the settled total. That path stays fixture evidence **until a settlement runs
+  against real fuel.** Stated plainly rather than implied.
+
+**One real driver, as rendered** — Ali Mohamed, unit 260, all three rows pending:
+
+| Date | Where | Fuel | Advance | Discount | Total | Gallons | $/gal | Deducted on |
+|---|---|---|---|---|---|---|---|---|
+| 09/01/2026 | Flying J #733, Lubbock, TX | 514.08 | — | -8.12 | 505.96 | 81.23 | 5.699 | Not yet deducted |
+| 09/01/2026 | Pilot Travel Center #1033, Midland, TX | 122.30 | 505.00 | -2.04 | 625.26 | 20.39 | 5.998 | Not yet deducted |
+| 08/29/2026 | Loves #822, Clarksville, AR | 829.34 | — | — | 829.34 | 132.06 | 5.889 | Not yet deducted |
+
+Deducted total **$0.00 (0 transactions)** · Not-yet-deducted total **$1,960.56 (3
+transactions)** — fuel $1,465.72, advances $505.00, repairs $0, other $0, discount
+-$10.16, 233.68 gallons. The $505.00 is the $500 advance plus its $5 fee, the
+mapping decided by the owner on 2026-09-06 and recorded beside `fees` in
+`fuelBuckets.ts`. The total matches the stored sum for that operator to the cent.
+
+### Suites run
+
+`fuelDriverDetail.test.ts` (new, 11), `fuelBucketSourceGuard.test.ts` (new, 3),
+`fuelBuckets.test.ts`, `fuelImportView.test.ts`, `multiserviceCsv.test.ts`,
+`fuelDiagnosis.test.ts`, `fuelPreviewDiagnosis.test.ts`,
+`shared-pay-percentage-source-guard.test.ts`, `operator-pay-exposure.test.ts`,
+`operator-settlement-isolation.test.ts`, `fuel-import-live.test.ts` — **170
+passed**. Structural guards `definer-search-path`, `definer-fail-open`,
+`caller-evaluated-functions`, `grant-parity-live`, `policy-grant-parity` — **20
+passed**. Settlement suites — **70 passed**. `tsgo` clean. No migration and no
+function change in this pass.
+
+**Contradictions with the record: none found.**

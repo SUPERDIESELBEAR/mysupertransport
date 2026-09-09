@@ -11,6 +11,7 @@ import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
 import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import FuelImportPage from '@/pages/management/FuelImportPage';
+import FuelDriverDetailPage from '@/pages/management/FuelDriverDetailPage';
 import SettlementSettingsPage from '@/pages/management/SettlementSettingsPage';
 import SettlementRunPage from '@/pages/management/SettlementRunPage';
 import DispatchSettlementPage from '@/pages/management/DispatchSettlementPage';
@@ -108,7 +109,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'settlement-settings' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'settlement-settings' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -181,7 +182,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','settlement-run','dispatch-settlement','billing-queue','settlement-settings','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','settlement-run','dispatch-settlement','billing-queue','settlement-settings','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1052,6 +1053,7 @@ export default function ManagementPortal() {
       label: 'Accounting',
       items: [
         { label: 'Fuel Import', icon: <Fuel className="h-4 w-4" />, path: 'fuel-import' },
+        { label: 'Driver Fuel Detail', icon: <Fuel className="h-4 w-4" />, path: 'fuel-driver-detail' },
         { label: 'Billing Queue', icon: <FileText className="h-4 w-4" />, path: 'billing-queue' },
         { label: 'Settlement Run', icon: <Wallet className="h-4 w-4" />, path: 'settlement-run' },
         { label: 'Dispatch Settlement', icon: <Handshake className="h-4 w-4" />, path: 'dispatch-settlement' },
@@ -2130,6 +2132,7 @@ export default function ManagementPortal() {
         {view === 'brokers' && <BrokersListPage />}
         {view === 'parser-diagnostics' && <ParserDiagnosticsPage />}
         {view === 'fuel-import' && <FuelImportPage />}
+        {view === 'fuel-driver-detail' && <FuelDriverDetailPage />}
         {view === 'settlement-run' && <SettlementRunPage />}
         {view === 'dispatch-settlement' && <DispatchSettlementPage />}
         {view === 'billing-queue' && <BillingQueuePage />}
