@@ -444,13 +444,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (!effectiveUserId) return;
     const { data: op } = await supabase
       .from('operators')
-      .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
+      .select('id, unit_number, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
       .eq('user_id', effectiveUserId)
       .single();
 
     if (op) {
       const opId = (op as any).id;
       setOperatorId(opId);
+      // BOTH unit columns are kept, because neither one alone is the answer —
+      // `resolveOperatorUnit` decides. See src/lib/fuel/operatorUnit.ts.
+      setOperatorUnitNumber(((op as any).unit_number as string | null) ?? null);
       // onboarding_status is a 1:1 relation — returns object, not array
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
