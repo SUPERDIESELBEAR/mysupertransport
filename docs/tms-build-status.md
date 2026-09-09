@@ -8686,11 +8686,60 @@ defects were found and fixed that no unit test would have caught:
      rather than shortened into something that reads like a different merchant.
   3. Page 2 carried no identity. Later pages now repeat "<driver> · continued".
 
-EVIDENCE: pending path is REAL DATA (69 committed transactions, 2026-08-28 to
-2026-09-01, no settlement has run against fuel). Ali Mohamed / Unit 260:
-3 purchases, pending $1,960.56, settled $0.00, filename
-`fuel-ali-mohamed-2026-08-29-to-2026-09-01.pdf` — identical to both screens.
-The SETTLED path is FIXTURE EVIDENCE only.
+EVIDENCE — CORRECTED:
+
+- The pages that were rendered and reviewed were a **SAMPLE**, not live data.
+  They were 34 invented identical rows ("Pilot Travel Center #100" through
+  "#1033", all Oklahoma City, OK, all $625.26), with one hand-marked as deducted
+  so the settled half of the layout had content to check. That is why the PDF
+  showed 1 deducted / 33 not-yet-deducted and a settled label.
+- The real-driver parity claim was **NOT verified as written**. Ali's live rows
+  were checked separately against the database; the rendered pages were not his.
+- The **verified live figures** for Ali Mohamed are:
+
+| Date | Merchant | Location | Fuel | Cash advance | Discount | Total | Gallons | $/gal | Deducted |
+|---|---|---|---|---|---|---|---|---|---|
+| 09/01/2026 | Flying J #733 | Lubbock, TX | $514.08 | — | -$8.12 | $505.96 | 81.23 | $5.699 | Not yet |
+| 09/01/2026 | Pilot Travel Center #1033 | Midland, TX | $122.30 | $505.00 | -$2.04 | $625.26 | 20.39 | $5.998 | Not yet |
+| 08/29/2026 | Loves #822 | Clarksville, AR | $829.34 | — | — | $829.34 | 132.06 | $5.889 | Not yet |
+
+  Taken out of settlements: **$0.00, 0 purchases** (confirmed: zero
+  `settlement_line_items` rows source `fuel_transactions`).
+  Not yet deducted: **$1,960.56, 3 purchases**.
+  Filename `fuel-ali-mohamed-2026-08-29-to-2026-09-01.pdf`.
+
+### Driver-side parity is unproven — KNOWN DEBT
+
+`my_fuel_transactions()` resolves the driver from the signed-in session
+(`operators.user_id = auth.uid()`), and the build sandbox cannot sign in as a
+driver. So the operator screen's figures and its isolation are argued
+**structurally** — same table, same columns, same joins, no parameter the client
+can supply — and have **never been demonstrated with a driver's session**.
+
+This is recorded as known debt, not a defect: the argument is sound, the
+demonstration is missing. This is the one surface where an error exposes one
+driver's data to another.
+
+TRIGGER: before any driver is told to use the My Fuel screen, run a signed-in
+session check (e.g. preview-as-operator or a browser test with an injected
+session) and confirm the returned rows match the management view for that same
+driver.
+
+### Missing unit number and the gap it reveals
+
+Ali Mohamed has **no unit number in SUPERDRIVE** (`operators.unit_number` is
+null), yet MultiService prints unit 260 on every one of his transactions, and the
+import matched them with zero disagreements.
+
+This reveals a gap in the disagreement check: an **absent** value on our side is
+not compared, while a **wrong** value flags. A missing unit passes silently; a
+mismatched unit is caught. Absent and wrong are different, and only one of them
+is currently detected.
+
+TRIGGER: before the driver PDF is sent to anyone, decide whether a missing unit
+should be treated as a disagreement when the carrier's source data supplies one.
+If the unit is required for driver-facing documents, it must be populated or the
+PDF must omit the field rather than print a blank.
 
 SUITES: `src/lib/fuel/__tests__` (all), `operator-fuel-isolation`,
 `operator-pay-exposure`, `operator-settlement-isolation` — 12 files, 150 tests
