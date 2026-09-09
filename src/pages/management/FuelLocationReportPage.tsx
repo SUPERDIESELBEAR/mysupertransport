@@ -19,7 +19,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
-  UNRECOGNISED_CHAIN, buildFuelLocationReport, defaultDateRange,
+  INDEPENDENT_CHAIN, UNRECOGNISED_CHAIN, buildFuelLocationReport, defaultDateRange,
   type FuelLocationGroup, type FuelLocationTransaction,
 } from '@/lib/fuel/fuelLocationReport';
 
@@ -63,6 +63,9 @@ function GroupTable({ groups, showSublabel }: { groups: FuelLocationGroup[]; sho
                 <span className="font-medium">{g.key}</span>
                 {g.isUnrecognised && (
                   <Badge variant="outline" className="ml-2 text-[10px]">not classified</Badge>
+                )}
+                {g.isIndependent && (
+                  <Badge variant="secondary" className="ml-2 text-[10px]">confirmed independents</Badge>
                 )}
                 {showSublabel && g.sublabel && (
                   <span className="block text-xs text-muted-foreground">{g.sublabel}</span>
