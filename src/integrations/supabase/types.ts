@@ -5529,6 +5529,53 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_document_versions: {
+        Row: {
+          created_at: string
+          document_id: string
+          expires_at: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          source: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          source?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          source?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_documents: {
         Row: {
           driver_id: string | null
