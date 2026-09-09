@@ -21,6 +21,8 @@ export interface FuelPreviewRow {
   card_no: string;
   unit_no: string | null;
   driver_name: string | null;
+  /** The truck stop, when the export carried `Merchant Name`. */
+  merchant_name: string | null;
   total_amount: number;
   duplicate: boolean;
   operator_id: string | null;

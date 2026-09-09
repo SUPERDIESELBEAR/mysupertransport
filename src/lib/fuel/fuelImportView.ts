@@ -45,6 +45,12 @@ export interface FuelDisplayRow {
   card_no: string;
   unit_no: string | null;
   driver_name: string | null;
+  /**
+   * The truck stop. Null on any file that did not carry `Merchant Name`, and on
+   * every row imported before 2026-09-09. Shown in the expandable row only —
+   * the table already carries eleven columns.
+   */
+  merchant_name: string | null;
   total_amount: number;
   duplicate: boolean;
   match_status: FuelPreviewRow['match_status'];
