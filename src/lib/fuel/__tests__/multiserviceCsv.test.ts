@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  FuelCsvFormatError, MULTISERVICE_HEADER, REQUIRED_COLUMNS, columnDriftNotice,
+  CATEGORY_SPECS, FuelCsvFormatError, KNOWN_COLUMNS,
+  MULTISERVICE_HEADER, REQUIRED_COLUMNS, columnDriftNotice,
   deriveLines, fileDateRange, parseInvoiceDate, parseMoney, parseMultiserviceCsv,
   MULTISERVICE_HEADER_2026_09_05,
   reconcile, reconciliationWarning, splitCsvLine, unrecognizedColumnsNotice,
