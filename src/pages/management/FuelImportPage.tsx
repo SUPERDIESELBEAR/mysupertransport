@@ -751,7 +751,16 @@ export default function FuelImportPage() {
                     </thead>
 
                     <tbody>
-                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} cols={moneyCols} />)}
+                      {visibleRows.map((r) => (
+                        <PreviewRow
+                          key={r.key}
+                          row={r}
+                          cols={moneyCols}
+                          unitGap={unitGaps.get(r.key) ?? { kind: 'none' }}
+                          onFillUnit={(v) => fillUnit.mutate(v)}
+                          fillBusy={fillUnit.isPending}
+                        />
+                      ))}
                       {visibleRows.length === 0 && (
                         <tr>
                           <td colSpan={7 + moneyCols.size} className="p-3 text-muted-foreground">
