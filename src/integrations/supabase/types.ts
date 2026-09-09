@@ -3257,42 +3257,59 @@ export type Database = {
       }
       driver_uploads: {
         Row: {
+          binder_document_id: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
           driver_id: string
           file_name: string | null
           file_path: string | null
           file_url: string | null
           id: string
+          proposed_expires_at: string | null
+          review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at: string
         }
         Insert: {
+          binder_document_id?: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
           driver_id: string
           file_name?: string | null
           file_path?: string | null
           file_url?: string | null
           id?: string
+          proposed_expires_at?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at?: string
         }
         Update: {
+          binder_document_id?: string | null
           category?: Database["public"]["Enums"]["driver_upload_category"]
           driver_id?: string
           file_name?: string | null
           file_path?: string | null
           file_url?: string | null
           id?: string
+          proposed_expires_at?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_uploads_binder_document_id_fkey"
+            columns: ["binder_document_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_vault_documents: {
         Row: {
@@ -5331,6 +5348,9 @@ export type Database = {
           truck_vin: string | null
           truck_year: string | null
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           carrier_signature_url?: string | null
@@ -5369,6 +5389,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           carrier_signature_url?: string | null
@@ -5407,6 +5430,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -5414,6 +5440,13 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ica_contracts_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -5512,6 +5545,53 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: []
+      }
+      inspection_document_versions: {
+        Row: {
+          created_at: string
+          document_id: string
+          expires_at: string | null
+          file_path: string | null
+          file_url: string | null
+          id: string
+          source: string | null
+          uploaded_at: string
+          uploaded_by: string | null
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          document_id: string
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          source?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version: number
+        }
+        Update: {
+          created_at?: string
+          document_id?: string
+          expires_at?: string | null
+          file_path?: string | null
+          file_url?: string | null
+          id?: string
+          source?: string | null
+          uploaded_at?: string
+          uploaded_by?: string | null
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_document_versions_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inspection_documents: {
         Row: {
@@ -7471,6 +7551,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          decal_photo_driver_side_url: string | null
+          decal_photo_passenger_side_url: string | null
+          decal_photos_uploaded_at: string | null
+          decal_photos_uploaded_by: string | null
           driver_ip: string | null
           driver_signature_data_url: string | null
           driver_signature_name: string | null
@@ -7505,6 +7589,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          decal_photo_driver_side_url?: string | null
+          decal_photo_passenger_side_url?: string | null
+          decal_photos_uploaded_at?: string | null
+          decal_photos_uploaded_by?: string | null
           driver_ip?: string | null
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
@@ -7539,6 +7627,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          decal_photo_driver_side_url?: string | null
+          decal_photo_passenger_side_url?: string | null
+          decal_photos_uploaded_at?: string | null
+          decal_photos_uploaded_by?: string | null
           driver_ip?: string | null
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
@@ -7563,6 +7655,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheets_decal_photos_uploaded_by_fkey"
+            columns: ["decal_photos_uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "onboard_assignment_sheets_operator_id_fkey"
             columns: ["operator_id"]
@@ -9861,6 +9960,187 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadside_stop_documents: {
+        Row: {
+          file_name: string | null
+          file_path: string
+          file_url: string | null
+          id: string
+          stop_id: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          file_name?: string | null
+          file_path: string
+          file_url?: string | null
+          id?: string
+          stop_id: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          file_name?: string | null
+          file_path?: string
+          file_url?: string | null
+          id?: string
+          stop_id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stop_documents_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "roadside_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadside_stop_violations: {
+        Row: {
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_oos: boolean
+          stop_id: string
+          unit: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_oos?: boolean
+          stop_id: string
+          unit?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_oos?: boolean
+          stop_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stop_violations_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "roadside_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadside_stops: {
+        Row: {
+          agency: string | null
+          citation_issued: boolean
+          created_at: string
+          created_by: string | null
+          cvsa_sticker: boolean
+          driver_id: string | null
+          fine_amount: number | null
+          id: string
+          inspection_level:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number: string | null
+          inspector_name: string | null
+          load_id: string | null
+          location: string | null
+          notes: string | null
+          oos_driver: boolean
+          oos_vehicle: boolean
+          operator_id: string
+          outcome: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state: string | null
+          stop_at: string
+          stop_reason: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency?: string | null
+          citation_issued?: boolean
+          created_at?: string
+          created_by?: string | null
+          cvsa_sticker?: boolean
+          driver_id?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_level?:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number?: string | null
+          inspector_name?: string | null
+          load_id?: string | null
+          location?: string | null
+          notes?: string | null
+          oos_driver?: boolean
+          oos_vehicle?: boolean
+          operator_id: string
+          outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state?: string | null
+          stop_at: string
+          stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency?: string | null
+          citation_issued?: boolean
+          created_at?: string
+          created_by?: string | null
+          cvsa_sticker?: boolean
+          driver_id?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_level?:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number?: string | null
+          inspector_name?: string | null
+          load_id?: string | null
+          location?: string | null
+          notes?: string | null
+          oos_driver?: boolean
+          oos_vehicle?: boolean
+          operator_id?: string
+          outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state?: string | null
+          stop_at?: string
+          stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type?: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stops_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadside_stops_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
             referencedColumns: ["id"]
           },
         ]
@@ -12346,6 +12626,7 @@ export type Database = {
         Returns: boolean
       }
       invoice_writer_active: { Args: never; Returns: boolean }
+      is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
@@ -13087,6 +13368,11 @@ export type Database = {
         | "roadside_inspection_report"
         | "repairs_maintenance_receipt"
         | "miscellaneous"
+        | "binder_cdl_front"
+        | "binder_cdl_back"
+        | "binder_medical"
+        | "binder_irp"
+        | "binder_2290"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       equipment_assignment_state: "prior" | "during" | "not_assigned"
       equipment_type: "dry_van" | "reefer" | "flatbed" | "hopper_bottom"
@@ -13237,6 +13523,28 @@ export type Database = {
         | "dot_general"
         | "payroll"
       review_status: "pending" | "approved" | "denied" | "revisions_requested"
+      roadside_inspection_level:
+        | "level_1"
+        | "level_2"
+        | "level_3"
+        | "level_4"
+        | "level_5"
+        | "level_6"
+      roadside_stop_outcome:
+        | "clean"
+        | "warning"
+        | "citation"
+        | "violations_no_oos"
+        | "out_of_service"
+      roadside_stop_reason:
+        | "random"
+        | "weigh_station"
+        | "moving_violation"
+        | "equipment"
+        | "logs_hos"
+        | "permit_credential"
+        | "other"
+      roadside_stop_type: "dot_inspection" | "traffic_stop"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
       settlement_status:
@@ -13468,6 +13776,11 @@ export const Constants = {
         "roadside_inspection_report",
         "repairs_maintenance_receipt",
         "miscellaneous",
+        "binder_cdl_front",
+        "binder_cdl_back",
+        "binder_medical",
+        "binder_irp",
+        "binder_2290",
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       equipment_assignment_state: ["prior", "during", "not_assigned"],
@@ -13632,6 +13945,31 @@ export const Constants = {
         "payroll",
       ],
       review_status: ["pending", "approved", "denied", "revisions_requested"],
+      roadside_inspection_level: [
+        "level_1",
+        "level_2",
+        "level_3",
+        "level_4",
+        "level_5",
+        "level_6",
+      ],
+      roadside_stop_outcome: [
+        "clean",
+        "warning",
+        "citation",
+        "violations_no_oos",
+        "out_of_service",
+      ],
+      roadside_stop_reason: [
+        "random",
+        "weigh_station",
+        "moving_violation",
+        "equipment",
+        "logs_hos",
+        "permit_credential",
+        "other",
+      ],
+      roadside_stop_type: ["dot_inspection", "traffic_stop"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
       settlement_status: [

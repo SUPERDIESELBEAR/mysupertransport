@@ -1,8 +1,4 @@
 -- Binder document version history + DOT sync repair
--- 1. New append-only archive of prior binder document versions
--- 2. Trigger archiving the outgoing file whenever a binder document is replaced
--- 3. Fixed sync_dot_to_inspection_documents(): unprefixed path, link and location replaced together
-
 create table public.inspection_document_versions (
   id          uuid primary key default gen_random_uuid(),
   document_id uuid not null references public.inspection_documents(id) on delete cascade,
@@ -107,19 +103,16 @@ declare
   v_existing_id  uuid;
   v_latest_date  date;
 begin
-  -- Skip if this insert/update was caused by the reverse sync trigger
   if current_setting('app.skip_dot_sync', true) = 'on' then
     return new;
   end if;
 
-  -- Resolve the operator's auth user_id (binder rows are keyed by driver_id = user_id)
   select user_id into v_user_id
   from public.operators
   where id = new.operator_id;
 
   if v_user_id is null then return new; end if;
 
-  -- Only sync if THIS record is the latest inspection for the operator
   select max(inspection_date) into v_latest_date
   from public.truck_dot_inspections
   where operator_id = new.operator_id;

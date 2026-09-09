@@ -1,6 +1,3 @@
--- Roadside stop log: DOT roadside inspections and traffic stops
--- Staff and operators can both record stops; operators see only their own.
-
 create type public.roadside_stop_type as enum ('dot_inspection', 'traffic_stop');
 
 create type public.roadside_stop_reason as enum (
@@ -82,7 +79,6 @@ alter table public.roadside_stops enable row level security;
 alter table public.roadside_stop_violations enable row level security;
 alter table public.roadside_stop_documents enable row level security;
 
--- Helper: is this operator record owned by the current user?
 create or replace function public.is_own_operator(_operator_id uuid)
 returns boolean
 language sql
@@ -99,7 +95,6 @@ $$;
 revoke all on function public.is_own_operator(uuid) from public, anon;
 grant execute on function public.is_own_operator(uuid) to authenticated, service_role;
 
--- roadside_stops policies
 create policy "Staff manage roadside stops"
   on public.roadside_stops for all to authenticated
   using (public.is_staff(auth.uid()))
@@ -122,7 +117,6 @@ create policy "Operators correct their recent roadside stops"
   )
   with check (public.is_own_operator(operator_id));
 
--- child tables inherit access from the parent stop
 create policy "Roadside violations follow the stop"
   on public.roadside_stop_violations for all to authenticated
   using (
@@ -157,7 +151,6 @@ create policy "Roadside documents follow the stop"
     )
   );
 
--- Attribution + updated_at
 create or replace function public.stamp_roadside_stop()
 returns trigger
 language plpgsql
@@ -184,7 +177,6 @@ create trigger trg_stamp_roadside_stop
   before insert or update on public.roadside_stops
   for each row execute function public.stamp_roadside_stop();
 
--- Audit trail
 create or replace function public.audit_roadside_stop()
 returns trigger
 language plpgsql
