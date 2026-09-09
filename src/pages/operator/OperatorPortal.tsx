@@ -67,6 +67,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
 import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
+import { resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import {
   type OperatorNavigateOptions,
   type OperatorView,
