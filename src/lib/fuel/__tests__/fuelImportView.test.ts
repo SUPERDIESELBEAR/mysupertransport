@@ -402,6 +402,40 @@ describe('empty money columns are hidden', () => {
     expect(visibleMoneyColumns(withRepair).has('repairs')).toBe(true);
   });
 
+  /**
+   * THE FIXTURE PROBLEM, NAMED. Every other fixture in this file carries
+   * POSITIVE money, and `discount` is the only money column that is always
+   * negative. A visibility check written `> 0` instead of `!== 0` would pass
+   * every other test here and silently hide a column carrying real money — on
+   * the real 2026-09-05 export, 39 of 69 rows and -$533.63 of it. Reported once
+   * as hidden on 2026-09-08; it was a reporting error, not a defect, and this is
+   * what keeps it that way.
+   */
+  it('RENDERS A COLUMN WHOSE ONLY VALUES ARE NEGATIVE', () => {
+    const discounts = [-1.41, -11.48, -1.85, -24.14];
+    const negativeOnly = discounts.map((d, i) => row({
+      card_no: `70${i}`, invoice_no: `78900${i}`, invoice_date: '2026-09-01',
+      diesel_amount: 400, diesel_gallons: 100,
+      fuel_discount_amount: d, total_amount: r2(400 + d),
+    }));
+    const rows = buildDisplayRows(negativeOnly.map(preview), negativeOnly);
+
+    // every discount value is strictly negative — nothing here is > 0
+    expect(rows.every((r) => r.split.discount < 0)).toBe(true);
+    expect(r2(rows.reduce((t, r) => t + r.split.discount, 0))).toBe(-38.88);
+
+    const cols = visibleMoneyColumns(rows);
+    expect(cols.has('discount')).toBe(true);
+    // and the negative column still brings each row down to the printed Total
+    for (const r of rows) {
+      const shown = FUEL_MONEY_COLUMNS
+        .filter((c) => cols.has(c.key))
+        .reduce((t, c) => t + r.split[c.field], 0);
+      expect(r2(shown)).toBe(r.total_amount);
+    }
+  });
+
+
   it('COMPUTES OVER THE WHOLE FILE, not the filtered subset', () => {
     // Advances live only on card 224. Filtering them away must NOT hide the column.
     const filtered = filterRows(DISPLAY, 'matched');
