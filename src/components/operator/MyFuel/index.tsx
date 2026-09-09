@@ -158,17 +158,25 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
       >
         <Fuel className="h-6 w-6" />
         No fuel purchases on your card yet.
+        <Button variant="outline" size="sm" data-testid="my-fuel-pdf-empty" onClick={downloadPdf}>
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </CardContent></Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">My Fuel</h1>
-        <p className="text-sm text-muted-foreground">
-          Everything bought on your fuel card, newest first.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">My Fuel</h1>
+          <p className="text-sm text-muted-foreground">
+            Everything bought on your fuel card, newest first.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" data-testid="my-fuel-pdf" onClick={downloadPdf}>
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </div>
 
       {/* Two totals, never one. Money already taken out of a check and money
