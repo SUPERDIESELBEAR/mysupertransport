@@ -2367,6 +2367,60 @@ now a subset. A wider sweep of `src/test/` for live-row censuses found no other
 instance: every other numeric assertion in the DB-backed suites counts catalog
 objects, self-created fixture rows, or empty offender lists.
 
+### Extension — A CURRENT VALUE STANDING IN FOR A HISTORICAL ONE (2026-09-09)
+
+The subtler form of the same defect, found by the second of the two assertions
+the 2026-09-04 pass rewrote in this very file. That rewrite removed the count and
+left a **proxy**: "no void was issued against a driver who was already gone"
+judged the driver by their state TODAY —
+
+    and (o.is_active is not true or o.excluded_from_dispatch is true)
+
+— while the void it grades happened on 2026-08-31. There is no literal number in
+that line to make a reader suspicious, so it reads as an invariant and is not.
+
+It failed on 2026-09-09 because Dale Erickson (termination `14eee6ad…`, created
+2026-08-05, voided 2026-08-31 for the standard recorded reason, still
+`is_active = true`) had `excluded_from_dispatch` set at 12:48 UTC that day —
+**nine days after the void**. Ordinary staff work, retroactively condemning a
+correct decision. Exactly the outcome the 2026-09-04 rule exists to prevent,
+one level down.
+
+**The extension.** When a guard judges a decision made in the past, it evaluates
+the state AS OF THAT DECISION. Reading today's flags to grade yesterday's choices
+makes every legitimate change to those flags look like a defect.
+
+**And the second defect, separately.** `excluded_from_dispatch` never meant
+"gone". A lapsed medical, a truck in the shop, a week off — all set it. Departure
+is `is_active` / `deactivated_at`. The flag is dropped from the definition.
+
+The predicate is now dated against `lt.voided_at`, and is SHARED between the live
+check and a VALUES fixture, so the constructed bad void is graded by the same SQL
+that grades production: deactivated at or before the void, or inactive with no
+recorded date, or a prior non-voided termination already standing at that moment.
+A driver who departs AFTER a void is not a violation. Fixture verdicts asserted:
+`bad=true` (deactivated 08-01, voided 08-31), `dale=false` (active, excluded from
+dispatch after the void), `later=false` (deactivated 09-03, voided 08-31).
+All six live voided rows pass. 19 tests, all green.
+
+### The other four failures from the 2026-09-09 report — recorded, not fixed
+
+Investigated standalone on 2026-09-09 so the next reader does not repeat it:
+
+- `accessorial-adjustment-schema.test.ts` — **externally caused, with a caveat
+  that is ours.** Fails ALONE at the 5s default (4 failed / 51 passed: three
+  `Test timed out in 5000ms`, one hard
+  `psql: FATAL: (EAUTHQUERY) auth_query secret check timed out`), so it is not
+  worker contention. **Passes 55/55, twice, at `--testTimeout=60000`.** The suite
+  spends ~88s in live psql against the connection pooler inside a 5s per-test
+  budget. The latency is external; the budget is ours. Run it with
+  `--testTimeout=60000`.
+- `e2e/blueGraceLoadPath.test.tsx` — **genuinely external.** Passes standalone,
+  6/6 in 773ms. Already named in `src/test/README.md` among the RTL suites that
+  time out under full worker parallelism and pass with `--maxWorkers=2`.
+
+
+
 ### Correction to the 2026-09-04 three-failure report
 
 Of the three failures, **two were ours**, not "pre-existing and unrelated":
