@@ -229,6 +229,23 @@ function PreviewRow({
               Does not add up ({formatCurrency(row.reconciliation_delta)})
             </Badge>
           )}
+          {/*
+            A MISSING UNIT IS NOW VISIBLE WITHOUT EXPANDING THE ROW, and the
+            badge names the side that is missing it. `Unit missing here` and
+            `Unit missing on the file` are two different jobs for two different
+            people; one badge saying "unit problem" would send half of them to
+            the wrong system.
+          */}
+          {unitGap.kind === 'ours' && (
+            <Badge variant="secondary" className="ml-1" data-testid="unit-gap-ours">
+              Unit missing here
+            </Badge>
+          )}
+          {unitGap.kind === 'theirs' && (
+            <Badge variant="secondary" className="ml-1" data-testid="unit-gap-theirs">
+              Unit missing on the file
+            </Badge>
+          )}
         </td>
       </tr>
       {open && (
