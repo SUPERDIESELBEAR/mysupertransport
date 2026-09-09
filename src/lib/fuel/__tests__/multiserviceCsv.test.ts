@@ -406,9 +406,8 @@ describe('an unrecognised column with money in it is louder', () => {
       '1 unrecognised column contains money: `Widget Amt` ($412.00 across 2 rows). '
       + 'Its amount is NOT captured.',
     );
-    // The quiet note keeps the descriptive column only.
-    expect(unrecognizedColumnsNotice(parsed.columns))
-      .toBe('1 column not recognised: Merchant Name.');
+    // Merchant Name is recognised since 2026-09-09, so nothing is left quiet.
+    expect(unrecognizedColumnsNotice(parsed.columns)).toBeNull();
   });
 
   it('stays quiet for an unrecognised column that carries only text', () => {
@@ -417,7 +416,7 @@ describe('an unrecognised column with money in it is louder', () => {
     expect(parsed.columns.unrecognized_money).toEqual([]);
     expect(unrecognizedMoneyNotice(parsed.columns)).toBeNull();
     expect(unrecognizedColumnsNotice(parsed.columns))
-      .toBe('2 columns not recognised: Merchant Name, Notes.');
+      .toBe('1 column not recognised: Notes.');
   });
 });
 
