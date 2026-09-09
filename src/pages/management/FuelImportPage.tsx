@@ -411,6 +411,47 @@ export default function FuelImportPage() {
   const moneyCols = useMemo(() => visibleMoneyColumns(displayRows), [displayRows]);
 
   /**
+   * THE UNIT COMPARISON THE MATCHER CANNOT MAKE.
+   *
+   * `preview_fuel_import` raises a unit disagreement only when BOTH sides carry
+   * a value, so an absent unit was never compared at all. This read supplies
+   * the other half: for every driver the file resolved to, both unit columns,
+   * resolved by the one resolver the matcher itself now calls.
+   *
+   * ONE READ FOR THE WHOLE FILE, not one per row — the flag has to be visible
+   * in the table without expanding sixty-nine rows to find it.
+   */
+  const gapOperatorIds = useMemo(
+    () => [...new Set(displayRows.map((r) => r.operator_id).filter(Boolean) as string[])],
+    [displayRows],
+  );
+  const operatorUnits = useQuery({
+    queryKey: ['fuel-preview-operator-units', gapOperatorIds],
+    queryFn: () => fetchOperatorUnits(gapOperatorIds),
+    enabled: gapOperatorIds.length > 0,
+  });
+  const unitGaps = useMemo(() => {
+    const map = new Map<string, UnitGap>();
+    for (const r of displayRows) {
+      const values = r.operator_id ? operatorUnits.data?.get(r.operator_id) ?? null : null;
+      // An unmatched row resolved to no driver, so there is no "ours" to
+      // compare against — its own reason already explains the row.
+      map.set(r.key, r.operator_id
+        ? diagnoseUnitGap(r.unit_no, resolveOperatorUnit(values))
+        : { kind: 'none' });
+    }
+    return map;
+  }, [displayRows, operatorUnits.data]);
+  const unitGapCounts = useMemo(() => {
+    let ours = 0; let theirs = 0;
+    for (const g of unitGaps.values()) {
+      if (g.kind === 'ours') ours += 1;
+      else if (g.kind === 'theirs') theirs += 1;
+    }
+    return { ours, theirs };
+  }, [unitGaps]);
+
+  /**
    * SORT THEN PAGINATE, never the other way round. The whole filtered result
    * set is ordered first, so page 1 shows the global first row.
    */
