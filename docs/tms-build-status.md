@@ -8936,9 +8936,9 @@ prompted the question, the person answered it.
 `public.set_operator_unit_from_fuel_review(uuid, text, text)`, four protections quoted from
 the live definition:
 
-1. `if not (public.has_role(v_actor_user, 'management') or public.has_role(v_actor_user, 'owner')) then raise exception 'Not authorized to set a unit number' using errcode = '42501'; end if;`
-2. `if v_existing is not null and btrim(v_existing) <> '' then raise exception 'Driver already has unit % on file; this action only fills a missing value' using errcode = '23505'; end if;`
-3. `update public.operators set unit_number = v_unit, updated_at = now() where id = _operator_id;` — the unit and the timestamp, nothing else the file happens to carry.
+1. `IF NOT (public.has_role(auth.uid(), 'management') OR public.has_role(auth.uid(), 'owner')) THEN RAISE EXCEPTION 'Not authorized'; END IF;`
+2. `v_existing := public.operator_unit_number(v_onb_unit, v_op.unit_number); IF v_existing IS NOT NULL THEN RAISE EXCEPTION 'This driver already has unit % on file; this action only fills a missing unit', v_existing; END IF;` — and note that the existence check goes through the SHARED resolver, so a unit recorded in EITHER record blocks the fill. The 48 onboarding-only drivers are not fillable, and are not offered a fill; only the 12 with nothing anywhere are.
+3. `UPDATE public.operators SET unit_number = v_unit, updated_at = now() WHERE id = v_op.id;` — the unit and the timestamp, nothing else the file happens to carry.
 4. `revoke all on function public.set_operator_unit_from_fuel_review(uuid, text, text) from public, anon;`
 
 Also: the actor comes from `current_profile_id()`, never an argument; the note is required
