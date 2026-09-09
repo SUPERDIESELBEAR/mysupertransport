@@ -155,8 +155,10 @@ export interface FuelLocationGroup {
    * as the group's price.
    */
   meanOfRates: number | null;
-  /** True only on the `Unrecognised` chain group. */
+  /** True only on the `Unrecognised` chain group — the matcher could not place it. */
   isUnrecognised?: boolean;
+  /** True only on the `Independent` chain group — confirmed, not derived. */
+  isIndependent?: boolean;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
@@ -229,6 +231,7 @@ export function groupFuelByLocation(
         ? round3(g.rates.reduce((t, r) => t + r, 0) / g.rates.length)
         : null,
       isUnrecognised: g.key === UNRECOGNISED_CHAIN || undefined,
+      isIndependent: g.key === INDEPENDENT_CHAIN || undefined,
     }))
     .sort((a, b) => b.gallons - a.gallons || a.key.localeCompare(b.key));
 }
