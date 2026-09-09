@@ -1441,6 +1441,13 @@ cascades to `fuel_transaction_lines`. `fuel_transactions.operator_id` is
 tables.
 *Why first:* The fuel tables are independent of every later step. Doing them
 first keeps a late-discovered test fuel row from becoming a surprise blocker.
+*`merchant_name` IS NULL ON ALL 69 ROWS, AND THAT IS NOT A GAP TO FIX.* The
+column was added 2026-09-09, after those rows were imported, and the parser had
+discarded the value at import. **DO NOT BACKFILL AND DO NOT RE-IMPORT THEM.**
+They are the rows this step deletes: filling a field on data that is about to be
+deleted is work with no product, and a re-import would also rewrite
+`created_at`, `created_by` and the batch lineage of rows kept only as evidence.
+The first real import carries the merchant name from the file.
 *Verify:*
 ```sql
 SELECT count(*) FROM public.fuel_import_batches;
