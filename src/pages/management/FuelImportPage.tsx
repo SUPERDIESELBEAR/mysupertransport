@@ -676,8 +676,39 @@ export default function FuelImportPage() {
 
           {preview && (
             <Card>
-              <CardHeader><CardTitle className="text-base">Preview — nothing has been saved yet</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+                <CardTitle className="text-base">Preview — nothing has been saved yet</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="preview-recheck"
+                  disabled={busy}
+                  onClick={() => void onRecheck()}
+                >
+                  Re-check
+                </Button>
+              </CardHeader>
               <CardContent className="space-y-4">
+                {(unitGapCounts.ours > 0 || unitGapCounts.theirs > 0) && (
+                  <div
+                    className="rounded-md border border-border bg-[#E8F0FF] p-2 text-xs"
+                    data-testid="unit-gap-summary"
+                  >
+                    {unitGapCounts.ours > 0 && (
+                      <div>
+                        {unitGapCounts.ours} row(s): the file has a unit and SUPERDRIVE does not.
+                        Open the row to record it on the driver, then Re-check.
+                      </div>
+                    )}
+                    {unitGapCounts.theirs > 0 && (
+                      <div>
+                        {unitGapCounts.theirs} row(s): SUPERDRIVE has a unit and the file does not.
+                        That one is fixed in the MultiService portal.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label="Rows in file" value={preview.row_count} />
                   <Stat
