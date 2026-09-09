@@ -25,12 +25,17 @@ import {
 import {
   acceptFuelDisagreement, assignFuelTransactionOperator, commitFuelImport, fetchFuelAcceptances,
   fetchFuelBatches, fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
+  setOperatorUnitFromFuelReview,
   type FuelAcceptanceRecord, type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
 import {
   diagnoseUnmatched, disagreementMessages, fetchCardAssignments, fetchOperatorSourceValues,
   unmatchedReasonMessage,
 } from '@/lib/fuel/fuelDiagnosis';
+import {
+  diagnoseUnitGap, fetchOperatorUnits, resolveOperatorUnit, unitGapMessage, unitGapOffersFill,
+  type UnitGap,
+} from '@/lib/fuel/operatorUnit';
 import { Input } from '@/components/ui/input';
 import {
   FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
