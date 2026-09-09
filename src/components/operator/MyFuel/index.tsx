@@ -111,7 +111,12 @@ function PurchaseCard({ row }: { row: FuelDriverRow }) {
   );
 }
 
-export default function MyFuel({ onReady }: { onReady?: () => void }) {
+export default function MyFuel({ onReady, driverName, unitNumber }: {
+  onReady?: () => void;
+  /** For the PDF header only. No read on this screen is keyed by it. */
+  driverName?: string | null;
+  unitNumber?: string | null;
+}) {
   const q = useQuery({ queryKey: ['my-fuel'], queryFn: fetchMyFuel });
 
   const rows = useMemo(
