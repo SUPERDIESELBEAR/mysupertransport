@@ -8300,3 +8300,61 @@ predicate is unchanged), plus the structural guards — this pass altered two
 SECURITY DEFINER functions.
 
 **Contradictions with the record: none found.**
+
+---
+
+### The fuel import batch deletion — a documented exception (2026-09-09)
+
+**What was deleted.** The single `public.fuel_import_batches` row
+`6c5cde56-de83-4a1c-a4fd-8009f88a8b98` — "Aug 26 - Sept 1 superdrive -
+CustomizedDAMonitoringReport_202609050913.csv", imported 2026-09-08
+23:03:15.667156+00 (18:03 Central), 69 rows, $31,913.66. It cascaded to
+`fuel_transactions` and `fuel_transaction_lines`.
+
+| Table | Before | After |
+|---|---|---|
+| `fuel_import_batches` | 1 | 0 |
+| `fuel_transactions` | 69 | 0 |
+| `fuel_transaction_lines` | 125 | 0 |
+| `fuel_disagreement_acceptances` | 0 | 0 |
+
+**Why.** The rows predate Pass 11 and carry `merchant_name` NULL. Cost per gallon
+BY LOCATION cannot be VERIFIED against data that has no merchant. The file is
+re-imported through the real path, which now captures it.
+
+**What was checked before deleting.** Every constraint whose `confrelid` is one of
+the three fuel tables: only `fuel_transaction_lines`, `fuel_disagreement_acceptances`
+(0 rows) and the batch FK itself, all `ON DELETE CASCADE`. `settlement_line_items`
+holds 1 row, `source_table = 'loads'`; no row names a fuel table as its source.
+`dispatch_settlement_line_items` holds 9 rows, all `load_base` /
+`factoring_reduction` / `dispatch_fee`, with no fuel linkage column.
+`deductions` and `deduction_installments` are empty. No column outside the `fuel_*`
+tables references a fuel transaction. **Nothing had settled against these rows.**
+
+**It was a direct database write.** There is no UI and no RPC to delete a fuel
+import batch — the real path does not exist. Same shape and justification as the
+ST26059 `confirmed_tons` correction and the card 224 `assigned_at` correction: a
+direct write, justified by an ABSENT CONTROL, recorded in full. **EXCEPTION, NOT A
+PRECEDENT.**
+
+---
+
+### KNOWN DEBT — there is no supported way to delete a fuel import batch
+
+**The absent control.** No UI, no RPC. This is the **ELEVENTH recorded instance of
+a correct implementation with no caller on the path that mattered**, and it is
+load-bearing twice over:
+
+- the cutover purge procedure's Step 1 is `DELETE FROM public.fuel_import_batches`,
+  which today assumes direct database access;
+- an operator who imports the wrong file has no way to undo it.
+
+**The guard the eventual pass MUST carry:** a batch **MUST NOT be deletable once
+any of its transactions has been settled** — deleting one would remove money a
+driver was paid against. Nothing has settled today, which is precisely why deleting
+was safe now and will not be later. The pass also owes: who may delete, a recorded
+reason, and an audit row (the delete performed today left none).
+
+**TRIGGER: before the first settlement runs against imported fuel.**
+
+**Contradictions with the record: none found.**
