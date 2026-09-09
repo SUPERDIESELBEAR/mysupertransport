@@ -43,8 +43,11 @@ export interface FuelLocationTransaction {
   fuel_transaction_lines?: { line_type: string; amount: number | string | null }[] | null;
 }
 
-/** Printed wherever a merchant name could not be classified into a chain. */
+/** Printed where the matcher could not place a merchant and nobody has confirmed it. */
 export const UNRECOGNISED_CHAIN = 'Unrecognised';
+
+/** Printed where a merchant has been CONFIRMED as genuinely not part of a chain. */
+export const INDEPENDENT_CHAIN = 'Independent';
 
 /** Printed wherever a merchant name is missing altogether. */
 export const UNKNOWN_MERCHANT = 'Unnamed merchant';
@@ -61,17 +64,20 @@ export const UNKNOWN_STATE = 'Unknown state';
  * `One9`, `One9 Xpress Fuel`; `Pilot Travel Center`, `Pilot Travel Ctr`; and
  * `Thortons`, which is MultiService's misspelling of Thorntons).
  *
- * Anything not matched groups under `Unrecognised` and is counted there. A
- * chain average that silently drops purchases is worse than one that says what
- * it could not classify.
+ * Anything not matched and not confirmed independent groups under
+ * `Unrecognised` and is counted there. A chain average that silently drops
+ * purchases is worse than one that says what it could not classify.
  */
 export const FUEL_CHAIN_PATTERNS: { chain: string; test: RegExp }[] = [
   { chain: "Love's", test: /^love'?s\b/i },
-  { chain: 'Pilot', test: /^pilot\b/i },
-  { chain: 'Flying J', test: /^flying\s*j\b/i },
-  // Pilot Flying J's own combined billing name. Kept as its own group rather
-  // than folded into Pilot: the file distinguishes them and so does this.
-  { chain: 'PFJ (Pilot Flying J)', test: /^pfj\b/i },
+  // PILOT, FLYING J AND PFJ ARE ONE COMPANY, not three chains. Pilot and
+  // Flying J merged; `PFJ` is that company's own combined billing name on the
+  // MultiService statement. Owner decision 2026-09-09, superseding the earlier
+  // pass that kept the three apart because the file distinguishes them: the
+  // file distinguishes brands, the report groups OPERATORS, and split across
+  // three rows the group read as three small samples rather than as the most
+  // expensive chain we buy from at volume.
+  { chain: 'Pilot Flying J', test: /^(pilot|flying\s*j|pfj)\b/i },
   { chain: 'TA', test: /^ta\b/i },
   { chain: 'One9', test: /^one\s*9\b/i },
   { chain: 'QuikTrip', test: /^quik\s*trip\b/i },
@@ -85,12 +91,52 @@ export const FUEL_CHAIN_PATTERNS: { chain: string; test: RegExp }[] = [
   { chain: 'Thorntons', test: /^thor\w*tons\b/i },
 ];
 
-/** The derived chain for a merchant name, or `Unrecognised`. */
+/**
+ * CONFIRMED INDEPENDENTS — not a derivation.
+ *
+ * `Unrecognised` means the matcher could not place the name. `Independent`
+ * means a person looked at the merchant and confirmed it belongs to no chain.
+ * They are different claims and must not be collapsed: next month a real chain
+ * will arrive spelled a way the matcher does not know, and printing it as
+ * `Independent` would be a confident wrong answer.
+ *
+ * HOW A MERCHANT BECOMES INDEPENDENT: it is added to this list in a build pass,
+ * by someone who checked it. That is deliberately the lighter mechanism — a
+ * management screen for six rows would need a table, RLS, grants, a writer and
+ * an audit trail to record a fact that changes a few times a year and is
+ * already reviewable in the diff. Revisit if this list outgrows a screenful.
+ *
+ * Seeded 2026-09-09 with the six unmatched merchants on the committed file,
+ * each checked and confirmed as a genuine independent.
+ */
+export const CONFIRMED_INDEPENDENT_MERCHANTS: string[] = [
+  'Westville Truck Stop',
+  "Harry's #54",
+  'JP Palmetto',
+  'I-59/84 East Truck Stop',
+  'Tiger Truck Stop',
+  'Frog City Travel Plaza & Casino',
+];
+
+const INDEPENDENT_KEYS = new Set(
+  CONFIRMED_INDEPENDENT_MERCHANTS.map((m) => m.trim().toLowerCase()),
+);
+
+/** True when this exact merchant name has been confirmed as no chain at all. */
+export function isConfirmedIndependent(merchantName: string | null | undefined): boolean {
+  const name = String(merchantName ?? '').trim().toLowerCase();
+  return name.length > 0 && INDEPENDENT_KEYS.has(name);
+}
+
+/** The derived chain for a merchant name, or `Independent` / `Unrecognised`. */
 export function chainOf(merchantName: string | null | undefined): string {
   const name = String(merchantName ?? '').trim();
   if (!name) return UNRECOGNISED_CHAIN;
-  return FUEL_CHAIN_PATTERNS.find((p) => p.test.test(name))?.chain ?? UNRECOGNISED_CHAIN;
+  const matched = FUEL_CHAIN_PATTERNS.find((p) => p.test.test(name))?.chain;
+  if (matched) return matched;
+  return isConfirmedIndependent(name) ? INDEPENDENT_CHAIN : UNRECOGNISED_CHAIN;
 }
+
 
 export interface FuelLocationGroup {
   /** The grouping value as printed. */
