@@ -1,0 +1,56 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-family: var(--font-mono); font-size: 11px; fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zn { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .w { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { stroke: hsl(var(--accent)); stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+    </marker>
+    <marker id="b" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--accent))"/>
+    </marker>
+  </defs>
+
+  <rect class="bx" x="16" y="40" width="150" height="60" rx="8"/>
+  <text class="lbl" x="91" y="66" text-anchor="middle">Vehicle Hub</text>
+  <text class="sm" x="91" y="86" text-anchor="middle">new certificate saved</text>
+
+  <line class="w" x1="166" y1="70" x2="238" y2="70" marker-end="url(#a)"/>
+
+  <rect class="bx" x="240" y="24" width="180" height="92" rx="8"/>
+  <text class="lbl" x="330" y="50" text-anchor="middle">Binder record updated</text>
+  <text class="sm" x="330" y="72" text-anchor="middle">location: replaced</text>
+  <text class="sm" x="330" y="92" text-anchor="middle">link: left unchanged</text>
+
+  <line class="acc" x1="420" y1="70" x2="492" y2="70" marker-end="url(#b)"/>
+
+  <rect class="bx" x="494" y="40" width="132" height="60" rx="8"/>
+  <text class="lbl" x="560" y="66" text-anchor="middle">Binder screen</text>
+  <text class="sm" x="560" y="86" text-anchor="middle">shows the old file</text>
+
+  <rect class="zn" x="16" y="150" width="610" height="126" rx="8"/>
+  <text class="sm" x="32" y="172">after the fix</text>
+
+  <rect class="bx" x="40" y="188" width="150" height="60" rx="8"/>
+  <text class="lbl" x="115" y="214" text-anchor="middle">Vehicle Hub</text>
+  <text class="sm" x="115" y="234" text-anchor="middle">new certificate saved</text>
+
+  <line class="w" x1="190" y1="218" x2="252" y2="218" marker-end="url(#a)"/>
+
+  <rect class="bx" x="254" y="188" width="164" height="60" rx="8"/>
+  <text class="lbl" x="336" y="212" text-anchor="middle">Prior copy archived</text>
+  <text class="sm" x="336" y="232" text-anchor="middle">version history</text>
+
+  <line class="w" x1="418" y1="218" x2="480" y2="218" marker-end="url(#a)"/>
+
+  <rect class="bx" x="482" y="188" width="120" height="60" rx="8"/>
+  <text class="lbl" x="542" y="212" text-anchor="middle">Binder screen</text>
+  <text class="sm" x="542" y="232" text-anchor="middle">shows the newest</text>
+</svg>

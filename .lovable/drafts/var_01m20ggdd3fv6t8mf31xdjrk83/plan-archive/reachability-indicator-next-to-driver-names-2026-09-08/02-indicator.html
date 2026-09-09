@@ -1,0 +1,30 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <!-- Reachable row -->
+  <text x="24" y="30" font-size="12" fill="hsl(var(--muted-foreground))">Reachable — green check on avatar</text>
+  <circle cx="52" cy="72" r="20" fill="hsl(var(--muted))" stroke="hsl(var(--border))"/>
+  <text x="52" y="76" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))">AB</text>
+  <circle cx="66" cy="86" r="8" fill="hsl(var(--status-complete))" stroke="hsl(var(--background))" stroke-width="2"/>
+  <path d="M62.5 86 l2.5 2.5 l4 -5" stroke="hsl(var(--background))" stroke-width="1.5" fill="none"/>
+  <text x="88" y="68" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Anthony Bradley</text>
+  <text x="88" y="86" font-size="12" fill="hsl(var(--muted-foreground))">Active · Dispatched</text>
+
+  <!-- Not reachable row -->
+  <text x="24" y="150" font-size="12" fill="hsl(var(--muted-foreground))">Not reachable — amber triangle, reason on hover/tap</text>
+  <circle cx="52" cy="192" r="20" fill="hsl(var(--muted))" stroke="hsl(var(--border))"/>
+  <text x="52" y="196" font-size="12" text-anchor="middle" fill="hsl(var(--foreground))">AC</text>
+  <circle cx="66" cy="206" r="8" fill="hsl(var(--accent))" stroke="hsl(var(--background))" stroke-width="2"/>
+  <path d="M66 202.5 l3.5 6 h-7 z" fill="hsl(var(--accent-foreground))"/>
+  <text x="88" y="188" font-size="14" font-weight="480" fill="hsl(var(--foreground))">Adrian Acevedo</text>
+  <text x="88" y="206" font-size="12" fill="hsl(var(--muted-foreground))">Denied</text>
+
+  <!-- Tooltip example -->
+  <rect x="380" y="168" width="180" height="34" rx="8" fill="hsl(var(--foreground))"/>
+  <text x="470" y="189" font-size="12" text-anchor="middle" fill="hsl(var(--background))">Application denied</text>
+  <path d="M410 168 l-6 -8 h12 z" fill="hsl(var(--foreground))"/>
+
+  <!-- Bulk message summary line -->
+  <text x="24" y="262" font-size="12" fill="hsl(var(--muted-foreground))">Bulk Message — summary line above recipients</text>
+  <rect x="24" y="272" width="360" height="22" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <path d="M40 278.5 l3.5 6 h-7 z" fill="hsl(var(--accent))"/>
+  <text x="52" y="287" font-size="12" fill="hsl(var(--foreground))">3 of 46 selected drivers cannot receive messages</text>
+</svg>

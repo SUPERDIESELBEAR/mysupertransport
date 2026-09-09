@@ -1,0 +1,65 @@
+<div style="font-family:var(--font-sans)">
+<svg viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 Z" fill="hsl(var(--muted-foreground))"/>
+    </marker>
+  </defs>
+
+  <!-- Driver zone -->
+  <rect x="8" y="16" width="180" height="300" rx="8" fill="none" stroke="hsl(var(--border))" stroke-dasharray="4 3"/>
+  <text x="20" y="38" font-size="12" fill="hsl(var(--muted-foreground))">driver app</text>
+
+  <rect x="28" y="56" width="140" height="56" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="98" y="80" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">Upload new</text>
+  <text x="98" y="98" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">version</text>
+
+  <rect x="28" y="140" width="140" height="56" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="98" y="164" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">File + new</text>
+  <text x="98" y="182" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">expiry date</text>
+
+  <rect x="28" y="252" width="140" height="44" rx="8" fill="hsl(var(--muted))"/>
+  <text x="98" y="279" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">notified of decision</text>
+
+  <!-- Staff zone -->
+  <rect x="232" y="16" width="180" height="300" rx="8" fill="none" stroke="hsl(var(--border))" stroke-dasharray="4 3"/>
+  <text x="244" y="38" font-size="12" fill="hsl(var(--muted-foreground))">staff — fleet compliance</text>
+
+  <rect x="252" y="140" width="140" height="56" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="322" y="164" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">Pending review</text>
+  <text x="322" y="182" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">approve / reject</text>
+
+  <rect x="252" y="252" width="140" height="44" rx="8" fill="hsl(var(--muted))"/>
+  <text x="322" y="279" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">reject → note to driver</text>
+
+  <!-- Binder zone -->
+  <rect x="456" y="16" width="176" height="300" rx="8" fill="none" stroke="hsl(var(--border))" stroke-dasharray="4 3"/>
+  <text x="468" y="38" font-size="12" fill="hsl(var(--muted-foreground))">inspection binder</text>
+
+  <rect x="472" y="92" width="144" height="44" rx="8" fill="none" stroke="hsl(var(--muted-foreground))"/>
+  <text x="544" y="113" font-size="14" font-weight="480" fill="hsl(var(--foreground))" text-anchor="middle">Slot updated</text>
+  <text x="544" y="129" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">file + expiry together</text>
+
+  <rect x="472" y="156" width="144" height="44" rx="8" fill="hsl(var(--muted))"/>
+  <text x="544" y="177" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">old file archived</text>
+  <text x="544" y="191" font-size="12" fill="hsl(var(--muted-foreground))" text-anchor="middle">to History</text>
+
+  <rect x="472" y="224" width="144" height="52" rx="8" fill="hsl(var(--accent))"/>
+  <text x="544" y="247" font-size="14" font-weight="480" fill="hsl(var(--accent-foreground))" text-anchor="middle">Compliance alert</text>
+  <text x="544" y="265" font-size="14" font-weight="480" fill="hsl(var(--accent-foreground))" text-anchor="middle">clears automatically</text>
+
+  <!-- Wires -->
+  <line x1="168" y1="168" x2="246" y2="168" stroke="hsl(var(--muted-foreground))" marker-end="url(#arr)"/>
+  <line x1="392" y1="160" x2="466" y2="118" stroke="hsl(var(--muted-foreground))" marker-end="url(#arr)"/>
+  <line x1="392" y1="186" x2="392" y2="274" stroke="hsl(var(--muted-foreground))" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <line x1="544" y1="136" x2="544" y2="150" stroke="hsl(var(--muted-foreground))" marker-end="url(#arr)"/>
+  <line x1="544" y1="200" x2="544" y2="218" stroke="hsl(var(--muted-foreground))" marker-end="url(#arr)"/>
+
+  <!-- numbered notes -->
+  <circle cx="176" cy="150" r="9" fill="hsl(var(--accent))"/>
+  <text x="176" y="154" font-size="11" fill="hsl(var(--accent-foreground))" text-anchor="middle">1</text>
+  <circle cx="400" cy="140" r="9" fill="hsl(var(--accent))"/>
+  <text x="400" y="144" font-size="11" fill="hsl(var(--accent-foreground))" text-anchor="middle">2</text>
+</svg>
+<p style="font-size:12px;color:hsl(var(--muted-foreground));margin:6px 0 0">1 — upload waits for staff; nothing changes yet. 2 — approval is the single moment the binder, history, and alerts all move together.</p>
+</div>

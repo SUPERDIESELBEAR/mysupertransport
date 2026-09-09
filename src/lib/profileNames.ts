@@ -47,12 +47,15 @@ export function operatorDisplayName(
   },
   fallback = 'Unknown',
 ): string {
-  const appName = [args.application?.first_name, args.application?.last_name]
-    .filter(Boolean).join(' ').trim();
+  // Stored application names carry stray padding ("Deneric  Guidry "), which
+  // would otherwise render as a double space and break name comparisons.
+  const clean = (parts: (string | null | undefined)[]) =>
+    parts.filter(Boolean).join(' ').replace(/\s+/g, ' ').trim();
+
+  const appName = clean([args.application?.first_name, args.application?.last_name]);
   if (appName) return appName;
   if (args.is_demo && args.demo_label?.trim()) return args.demo_label.trim();
-  const profileName = [args.profile?.first_name, args.profile?.last_name]
-    .filter(Boolean).join(' ').trim();
+  const profileName = clean([args.profile?.first_name, args.profile?.last_name]);
   if (profileName && !args.is_demo) return profileName;
   return fallback;
 }

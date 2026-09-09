@@ -1,12 +1,14 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useBulkReminderCooldown } from '@/hooks/useBulkReminderCooldown';
 import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2 } from 'lucide-react';
+import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2, Eye, Upload } from 'lucide-react';
+import { FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
@@ -25,17 +27,18 @@ export interface ComplianceAlert {
   days_until: number;
   /** Present for DOT Inspection rows; references the source truck_dot_inspections row */
   dotInspectionId?: string;
+  /** Storage path of the document behind this alert, when one is on file */
+  filePath?: string | null;
 }
 
 interface Props {
   onOpenOperator?: (operatorId: string) => void;
-  onOpenOperatorWithFocus?: (operatorId: string, focusField: 'cdl' | 'medcert' | 'dot') => void;
   /** When true the panel mounts with the "No Action" filter pre-applied */
   defaultNoActionOnly?: boolean;
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
-export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWithFocus, defaultNoActionOnly = false }: Props) {
+export default function ComplianceAlertsPanel({ onOpenOperator, defaultNoActionOnly = false }: Props) {
   const { toast } = useToast();
   const { user, profile } = useAuth();
   const { windowDays } = useComplianceWindow();
@@ -48,6 +51,13 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const [sort, setSort] = useState<'urgency' | 'last_action_asc' | 'last_action_desc'>('urgency');
   const [noActionOnly, setNoActionOnly] = useState(defaultNoActionOnly);
   const [docFilter, setDocFilter] = useState<'all' | 'CDL' | 'Medical Cert' | 'DOT Inspection'>('all');
+
+  // Document preview (the "View" action on a row)
+  const [openingKey, setOpeningKey] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+
+  // Driver-proposed binder updates awaiting staff review
+  const [pendingBinderReviews, setPendingBinderReviews] = useState<{ operator_id: string; operator_name: string; count: number }[]>([]);
 
   // Outreach tracking
   const [lastReminded, setLastReminded] = useState<Record<string, string>>({});
@@ -99,7 +109,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
   const fetchData = useCallback(async () => {
     const today = new Date();
     try {
-    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }, { data: dotInspections }] = await Promise.all([
+    const [{ data: ops }, { data: reminders }, { data: renewals }, { data: binderDocs }, { data: dotInspections, error: dotError }, { data: pendingBinderUploads }] = await Promise.all([
       supabase
         .from('operators')
         .select('id, user_id, application_id, applications(first_name, last_name, cdl_expiration, medical_cert_expiration)')
@@ -117,25 +127,34 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         .limit(500),
       supabase
         .from('inspection_documents')
-        .select('driver_id, name, expires_at')
+        .select('id, driver_id, name, expires_at, file_path')
         .eq('scope', 'per_driver')
         .in('name', ['CDL (Front)', 'Medical Certificate']),
       supabase
         .from('truck_dot_inspections')
-        .select('id, operator_id, next_due_date, inspection_date')
+        .select('id, operator_id, next_due_date, inspection_date, certificate_file_path, certificate_file_url')
         .not('operator_id', 'is', null)
         .not('next_due_date', 'is', null)
         .order('inspection_date', { ascending: false }),
+      supabase
+        .from('driver_uploads')
+        .select('driver_id')
+        .eq('status', 'pending_review')
+        // binder_* enum values land with the staged migration; generated types catch up on accept
+        .in('category', ['binder_cdl_front', 'binder_cdl_back', 'binder_medical', 'binder_irp', 'binder_2290'] as unknown as Database['public']['Enums']['driver_upload_category'][]),
     ]);
+    if (dotError) {
+      toast({ title: 'DOT inspection data unavailable', description: dotError.message, variant: 'destructive' });
+    }
     if (!ops) return;
 
-    // Build binder expiry lookup: driver_id (user_id) → { cdl, med }
-    const binderDates: Record<string, { cdl?: string; med?: string }> = {};
+    // Build binder expiry lookup: driver_id (user_id) → { cdl, med } (+ file on record)
+    const binderDates: Record<string, { cdl?: string; med?: string; cdlFile?: string | null; medFile?: string | null }> = {};
     (binderDocs ?? []).forEach((doc: any) => {
       if (!doc.driver_id || !doc.expires_at) return;
       if (!binderDates[doc.driver_id]) binderDates[doc.driver_id] = {};
-      if (doc.name === 'CDL (Front)') binderDates[doc.driver_id].cdl = doc.expires_at;
-      if (doc.name === 'Medical Certificate') binderDates[doc.driver_id].med = doc.expires_at;
+      if (doc.name === 'CDL (Front)') { binderDates[doc.driver_id].cdl = doc.expires_at; binderDates[doc.driver_id].cdlFile = doc.file_path ?? null; }
+      if (doc.name === 'Medical Certificate') { binderDates[doc.driver_id].med = doc.expires_at; binderDates[doc.driver_id].medFile = doc.file_path ?? null; }
     });
 
     const remindedMap: Record<string, string> = {};
@@ -167,10 +186,14 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     const newAlerts: ComplianceAlert[] = [];
 
     // Latest DOT inspection per operator
-    const latestDotByOperator: Record<string, { id: string; nextDueDate: string }> = {};
+    const latestDotByOperator: Record<string, { id: string; nextDueDate: string; filePath: string | null }> = {};
     (dotInspections ?? []).forEach((row: any) => {
       if (!latestDotByOperator[row.operator_id]) {
-        latestDotByOperator[row.operator_id] = { id: row.id, nextDueDate: row.next_due_date };
+        latestDotByOperator[row.operator_id] = {
+          id: row.id,
+          nextDueDate: row.next_due_date,
+          filePath: row.certificate_file_path ?? row.certificate_file_url ?? null,
+        };
       }
     });
 
@@ -193,6 +216,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             doc_type: field === 'cdl_expiration' ? 'CDL' : 'Medical Cert',
             expiration_date: dateStr,
             days_until: days,
+            filePath: (field === 'cdl_expiration' ? binderDates[op.user_id]?.cdlFile : binderDates[op.user_id]?.medFile) ?? null,
           });
         }
       });
@@ -209,6 +233,7 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
             expiration_date: dot.nextDueDate,
             days_until: days,
             dotInspectionId: dot.id,
+            filePath: dot.filePath,
           });
         }
       }
@@ -227,6 +252,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     setNoActionOnly(false);
     setSort('urgency');
     setNoActionBulkSentCount(null);
+
+    // Driver-proposed binder updates awaiting review (keyed by operator via user_id)
+    const countsByUser: Record<string, number> = {};
+    (pendingBinderUploads ?? []).forEach((u: any) => {
+      if (u.driver_id) countsByUser[u.driver_id] = (countsByUser[u.driver_id] ?? 0) + 1;
+    });
+    const reviews: { operator_id: string; operator_name: string; count: number }[] = [];
+    (ops as any[]).forEach((op: any) => {
+      const count = countsByUser[op.user_id];
+      if (!count) return;
+      const app = Array.isArray(op.applications) ? op.applications[0] : op.applications;
+      const name = `${app?.first_name ?? ''} ${app?.last_name ?? ''}`.trim() || 'Unknown Operator';
+      reviews.push({ operator_id: op.id, operator_name: name, count });
+    });
+    setPendingBinderReviews(reviews);
     } finally {
       hasLoadedRef.current = true;
       setLoading(false);
@@ -252,10 +292,36 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
       .channel('compliance-alerts-panel-dot')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'truck_dot_inspections' }, () => fetchData())
       .subscribe();
-    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); };
+    const ch4 = supabase
+      .channel('compliance-alerts-panel-uploads')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_uploads' }, () => fetchData())
+      .subscribe();
+    return () => { supabase.removeChannel(ch1); supabase.removeChannel(ch2); supabase.removeChannel(ch3); supabase.removeChannel(ch4); };
   }, [fetchData]);
 
   // ── Handlers ──────────────────────────────────────────────────────────
+  /** Opens the actual document behind an alert in the shared in-app viewer. */
+  const handleViewDocument = async (alert: ComplianceAlert) => {
+    const path = alert.filePath;
+    if (!path) return;
+    const key = `${alert.operator_id}|${alert.doc_type}`;
+    setOpeningKey(key);
+    try {
+      if (/^https?:\/\//i.test(path)) {
+        setPreview({ url: path, name: `${alert.operator_name} — ${alert.doc_type}` });
+        return;
+      }
+      const bucket = bucketForBinderDoc(path);
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+      if (error || !data?.signedUrl) throw error ?? new Error('Could not open the document');
+      setPreview({ url: data.signedUrl, name: `${alert.operator_name} — ${alert.doc_type}` });
+    } catch (e: any) {
+      toast({ title: 'Could not open document', description: e?.message ?? 'Please try again.', variant: 'destructive' });
+    } finally {
+      setOpeningKey(null);
+    }
+  };
+
   const handleSendReminder = async (alert: ComplianceAlert) => {
     const key = `${alert.operator_id}|${alert.doc_type}`;
     setReminderSending(prev => ({ ...prev, [key]: true }));
@@ -494,14 +560,39 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
     </div>
   );
 
-  if (alerts.length === 0) return (
-    <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
-      <div className="h-10 w-10 rounded-full bg-status-complete/15 flex items-center justify-center shrink-0">
-        <ShieldCheck className="h-5 w-5 text-status-complete" />
+  // Pending binder updates strip — shown whether or not expiry alerts exist
+  const pendingBanner = pendingBinderReviews.length > 0 ? (
+    <div className="border border-info/30 bg-info/5 rounded-xl shadow-sm px-4 py-3">
+      <p className="text-xs font-semibold text-info mb-2 flex items-center gap-1.5">
+        <Upload className="h-3.5 w-3.5" />
+        {pendingBinderReviews.reduce((n, r) => n + r.count, 0)} binder update{pendingBinderReviews.reduce((n, r) => n + r.count, 0) !== 1 ? 's' : ''} awaiting review
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {pendingBinderReviews.map(r => (
+          <button
+            key={r.operator_id}
+            type="button"
+            onClick={() => onOpenOperator?.(r.operator_id)}
+            className="inline-flex items-center gap-1.5 h-7 px-2.5 rounded-full bg-info/10 border border-info/30 text-info text-xs font-medium hover:bg-info/20 transition-colors"
+          >
+            {r.operator_name} · {r.count}
+          </button>
+        ))}
       </div>
-      <div>
-        <p className="font-semibold text-sm text-status-complete">All clear — fleet is compliant</p>
-        <p className="text-xs text-muted-foreground mt-0.5">No CDL or Medical Cert expiries within the next 90 days</p>
+    </div>
+  ) : null;
+
+  if (alerts.length === 0) return (
+    <div className="space-y-3">
+      {pendingBanner}
+      <div className="border border-status-complete/30 bg-status-complete/5 rounded-xl shadow-sm px-5 py-6 flex items-center gap-4">
+        <div className="h-10 w-10 rounded-full bg-status-complete/15 flex items-center justify-center shrink-0">
+          <ShieldCheck className="h-5 w-5 text-status-complete" />
+        </div>
+        <div>
+          <p className="font-semibold text-sm text-status-complete">All clear — fleet is compliant</p>
+          <p className="text-xs text-muted-foreground mt-0.5">No CDL or Medical Cert expiries within the next 90 days</p>
+        </div>
       </div>
     </div>
   );
@@ -572,6 +663,9 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
           </button>
         </div>
       </div>
+
+      {/* ── Pending binder updates from drivers ──────────────────────────── */}
+      {pendingBanner && <div className="px-4 pt-3">{pendingBanner}</div>}
 
       {/* ── Band B: Filters (left) + bulk toolbar (right) ─────────────── */}
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 px-4 py-3 border-t border-destructive/10">
@@ -789,13 +883,21 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
                     </TooltipTrigger>
                     <TooltipContent side="top" className="text-xs max-w-[200px] text-center">{isRowRenewed ? 'Document renewed!' : warning ? <><span className="font-semibold text-warning block">Not urgent yet</span><span>{alert.doc_type} expires in {alert.days_until}d</span></> : `Mark ${alert.doc_type} as renewed (+1 year)`}</TooltipContent>
                   </Tooltip></TooltipProvider>
-                  {/* Open button */}
-                  {(onOpenOperator || onOpenOperatorWithFocus) && (
-                    <Button variant="ghost" size="sm" onClick={() => { const f = alert.doc_type === 'CDL' ? 'cdl' : alert.doc_type === 'DOT Inspection' ? 'dot' : 'medcert'; onOpenOperatorWithFocus ? onOpenOperatorWithFocus(alert.operator_id, f) : onOpenOperator?.(alert.operator_id); }}
-                      className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5">
-                      Open →
+                  {/* View / Open button: shows the actual document when one is on file,
+                      otherwise sends staff to the driver where they can upload it. */}
+                  {alert.filePath ? (
+                    <Button variant="ghost" size="sm" onClick={() => handleViewDocument(alert)} disabled={openingKey === `${alert.operator_id}|${alert.doc_type}`}
+                      className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5 gap-1">
+                      {openingKey === `${alert.operator_id}|${alert.doc_type}` ? <Loader2 className="h-3 w-3 animate-spin" /> : <Eye className="h-3 w-3" />}
+                      View
                     </Button>
-                  )}
+                  ) : onOpenOperator ? (
+                    <Button variant="ghost" size="sm" onClick={() => onOpenOperator(alert.operator_id)}
+                      className="text-xs text-gold hover:text-gold-light hover:bg-gold/10 shrink-0 h-7 px-1.5 gap-1">
+                      <Upload className="h-3 w-3" />
+                      Upload
+                    </Button>
+                  ) : null}
                 </div>
               </div>
             );
@@ -909,6 +1011,10 @@ export default function ComplianceAlertsPanel({ onOpenOperator, onOpenOperatorWi
         </AlertDialog>
       );
     })()}
+
+    {preview && (
+      <FilePreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />
+    )}
     </>
   );
 }

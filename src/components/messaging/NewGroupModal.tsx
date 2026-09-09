@@ -7,12 +7,18 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Users, Loader2, Search } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { loadDMCandidates } from '@/components/messaging/NewDirectMessageModal';
+import { ReachabilityBadge } from '@/components/messaging/ReachabilityBadge';
+import { reachabilityBlock, type MessagingLifecycle } from '@/lib/messagingAudience';
+
 
 interface Candidate {
   user_id: string;
   name: string;
   subtitle: string;
   kind: 'staff' | 'driver';
+  lifecycle?: MessagingLifecycle;
+  accountStatus?: string | null;
 }
 
 interface Props {
@@ -63,39 +69,16 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
         return;
       }
 
-      // Staff candidates: all users with a staff role
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['owner', 'management', 'onboarding_staff', 'dispatcher']);
-      const staffIds = Array.from(new Set((roles ?? []).map(r => r.user_id)));
-      if (staffIds.length) {
-        const { data: profs } = await supabase.rpc('get_staff_contact_info', { _user_ids: staffIds });
-        for (const p of profs ?? []) {
-          list.push({
-            user_id: p.user_id,
-            name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Staff Member',
-            subtitle: roleLabel(p.primary_role),
-            kind: 'staff',
-          });
-        }
+      // Staff mode: shared audience list — staff plus drivers who are still
+      // with us. Denied applicants are left out of group chats entirely.
+      const shared = await loadDMCandidates(true, user?.id ?? null);
+      for (const c of shared) {
+        list.push({
+          user_id: c.user_id, name: c.name, subtitle: c.subtitle, kind: c.kind,
+          lifecycle: c.lifecycle, accountStatus: c.accountStatus,
+        });
       }
 
-      // Driver candidates (staff mode only)
-      const { data: ops } = await supabase.from('operators').select('user_id');
-      const opIds = (ops ?? []).map(o => o.user_id);
-      if (opIds.length) {
-        const { data: opProfs } = await supabase
-          .from('profiles').select('user_id, first_name, last_name').in('user_id', opIds);
-        for (const p of opProfs ?? []) {
-          list.push({
-            user_id: p.user_id,
-            name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || 'Driver',
-            subtitle: 'Owner-Operator',
-            kind: 'driver',
-          });
-        }
-      }
 
       list.sort((a, b) => a.name.localeCompare(b.name));
       setCandidates(list);
@@ -188,6 +171,11 @@ export function NewGroupModal({ open, onOpenChange, callerIsStaff, onCreated }: 
                     {rows.map(c => (
                       <label key={c.user_id} className="flex items-center gap-3 px-3 py-2 cursor-pointer hover:bg-muted/50 border-t">
                         <Checkbox checked={selected.has(c.user_id)} onCheckedChange={() => toggle(c.user_id)} />
+                        {c.kind === 'driver' && (
+                          <ReachabilityBadge
+                            reason={reachabilityBlock(c.lifecycle ?? 'active', c.accountStatus ?? null, true)}
+                          />
+                        )}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">{c.name}</p>
                           <p className="text-[11px] text-muted-foreground truncate">{c.subtitle}</p>

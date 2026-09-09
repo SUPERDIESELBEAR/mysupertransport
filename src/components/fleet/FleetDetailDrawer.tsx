@@ -20,6 +20,7 @@ import MaintenanceRecordModal from './MaintenanceRecordModal';
 import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal, { REGISTRATION_DOC_NAME, REGISTRATION_DOC_LABEL } from './Registration2290Modal';
+import RoadsideStopsCard from '@/components/drivers/RoadsideStopsCard';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -1072,6 +1073,13 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
           )}
         </div>
       </div>
+
+      {/* Roadside stops — DOT inspections and traffic stops for this truck */}
+      <RoadsideStopsCard
+        operatorId={operatorId}
+        unitNumber={unitNumber}
+        mode={readOnly ? 'operator' : 'staff'}
+      />
 
       {!readOnly && (
         <>

@@ -13,6 +13,7 @@ import ParkedBadge from '@/components/drivers/ParkedBadge';
 import DepartingBadge from '@/components/drivers/DepartingBadge';
 import TerminationBadge from '@/components/drivers/TerminationBadge';
 import { cn } from '@/lib/utils';
+import { operatorDisplayName, type ProfileName } from '@/lib/profileNames';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
 import { useViewPreferences } from '@/hooks/useViewPreferences';
@@ -69,7 +70,8 @@ async function fetchBoard(): Promise<BoardData> {
     .select(`
       id, user_id, unit_number, is_active, excluded_from_dispatch, excluded_from_dispatch_reason,
       is_parked, parked_reason, parked_expected_return,
-      is_departing, departing_expected_date,
+      is_departing, departing_expected_date, is_demo, demo_label,
+      applications (first_name, last_name),
       onboarding_status (fully_onboarded, unit_number),
       active_dispatch (dispatch_status, assigned_dispatcher)
     `)
@@ -91,8 +93,11 @@ async function fetchBoard(): Promise<BoardData> {
       terminationByOperator[t.operator_id] = { effective_date: t.effective_date ?? null, reason: t.reason ?? null };
     }
   });
+  // Driver names come from the application first, with the login-account name as
+  // fallback — the same rule the Driver Hub uses. A driver who renames their own
+  // login account must never appear under a different name here.
   const userIds = opRows.map(o => o.user_id).filter(Boolean);
-  const nameByUser: Record<string, string> = {};
+  const profileByUser: Record<string, ProfileName> = {};
   if (userIds.length > 0) {
     const { data: profiles, error: profErr } = await supabase
       .from('profiles')
@@ -100,8 +105,7 @@ async function fetchBoard(): Promise<BoardData> {
       .in('user_id', userIds);
     if (profErr) throw profErr;
     (profiles ?? []).forEach(p => {
-      const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
-      if (p.user_id && name) nameByUser[p.user_id] = name;
+      if (p.user_id) profileByUser[p.user_id] = { first_name: p.first_name, last_name: p.last_name };
     });
   }
 
@@ -112,7 +116,12 @@ async function fetchBoard(): Promise<BoardData> {
       const d = getOne(o.active_dispatch) ?? {};
       return {
         operator_id: o.id as string,
-        name: (o.user_id ? nameByUser[o.user_id] : null) ?? 'Unnamed driver',
+        name: operatorDisplayName({
+          application: getOne(o.applications) ?? null,
+          is_demo: o.is_demo ?? null,
+          demo_label: o.demo_label ?? null,
+          profile: (o.user_id ? profileByUser[o.user_id] : null) ?? null,
+        }, 'Unnamed driver'),
         unit_number: os.unit_number ?? o.unit_number ?? null,
         dispatch_status: d.dispatch_status ?? 'not_dispatched',
         dispatchable: o.excluded_from_dispatch !== true && o.is_active !== false,

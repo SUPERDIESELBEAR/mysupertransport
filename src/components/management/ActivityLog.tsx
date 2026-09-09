@@ -11,7 +11,7 @@ import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen
 import {
   CheckCircle2, XCircle, UserPlus, UserMinus, Shield, FileText,
   Milestone, RefreshCcw, Activity, ChevronDown, ChevronRight, Download, CalendarIcon, X,
-  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, FilePen, RotateCcw, AlertTriangle, Check, FileSearch, ScrollText
+  User, Tag, Hash, Clock, StickyNote, Settings2, Info, Search, ExternalLink, Phone, Upload, MailPlus, Mail, UserCheck, UserCog, FilePen, RotateCcw, AlertTriangle, Check, FileSearch, ScrollText
 } from 'lucide-react';
 
 const STATUS_COLORS: Record<string, string> = {
@@ -80,6 +80,20 @@ const ACTION_CONFIG: Record<string, {
     icon: <Phone className="h-4 w-4" />,
     color: 'text-violet-600',
     bg: 'bg-violet-50 border-violet-200',
+  },
+  // Recorded by the database whenever an account name changes, including when a
+  // driver renames their own account from the operator app.
+  profile_name_changed: {
+    label: 'Account Name Changed',
+    icon: <UserCog className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
+  },
+  name_updated: {
+    label: 'Name Updated',
+    icon: <UserCog className="h-4 w-4" />,
+    color: 'text-amber-600',
+    bg: 'bg-amber-50 border-amber-200',
   },
   document_uploaded: {
     label: 'Document Uploaded',
@@ -163,6 +177,7 @@ const FILTER_OPTIONS = [
   { value: 'role_removed', label: 'Roles Revoked' },
   { value: 'operator_status_updated', label: 'Onboarding Updates' },
   { value: 'phone_updated', label: 'Phone Updates' },
+  { value: 'profile_name_changed', label: 'Account Name Changes' },
   { value: 'document_uploaded', label: 'Document Uploads' },
   { value: 'staff_invited', label: 'Staff Invitations' },
   { value: 'operator_invited', label: 'Operator Invitations' },

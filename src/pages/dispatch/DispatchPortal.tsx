@@ -797,7 +797,9 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         excluded_from_dispatch_reason,
         onboarding_status (fully_onboarded, unit_number, go_live_date, decal_photo_ds_url, decal_photo_ps_url, decal_photos),
         active_dispatch (id, dispatch_status, assigned_dispatcher, current_load_lane, eta_redispatch, status_notes, updated_at),
-        applications (phone, address_state)
+        is_demo,
+        demo_label,
+        applications (first_name, last_name, phone, address_state)
       `)
       .neq('is_active', false);
 
@@ -823,14 +825,29 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
         (profileData ?? []).forEach((p: any) => { profileMap[p.user_id] = p; });
       }
 
+      // Names come from the application first, with the login-account name as
+      // fallback — the same rule the Driver Hub uses, so a driver who renames
+      // their own login account cannot appear here under a different name.
+      const nameParts = (op: any, p: any): { first_name: string | null; last_name: string | null } => {
+        const app = getOne(op.applications) ?? {};
+        const trim = (v: any) => (typeof v === 'string' && v.trim() ? v.trim() : null);
+        const appFirst = trim(app.first_name);
+        const appLast = trim(app.last_name);
+        if (appFirst || appLast) return { first_name: appFirst, last_name: appLast };
+        if (op.is_demo && trim(op.demo_label)) {
+          const parts = (trim(op.demo_label) as string).split(/\s+/);
+          return { first_name: parts[0] ?? null, last_name: parts.slice(1).join(' ') || null };
+        }
+        return { first_name: trim(p.first_name), last_name: trim(p.last_name) };
+      };
+
       // Build excluded list for the footer dialog
       const excludedList = excludedOnboarded.map(op => {
         const os = getOne(op.onboarding_status) ?? {};
         const p = profileMap[op.user_id] ?? {};
         return {
           operator_id: op.id,
-          first_name: p.first_name ?? null,
-          last_name: p.last_name ?? null,
+          ...nameParts(op, p),
           unit_number: os.unit_number ?? op.unit_number ?? null,
           excluded_from_dispatch_reason: op.excluded_from_dispatch_reason ?? null,
         };
@@ -847,8 +864,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
             operator_id: op.id,
             operator_user_id: op.user_id,
             dispatch_id: d.id ?? null,
-            first_name: p.first_name ?? null,
-            last_name: p.last_name ?? null,
+            ...nameParts(op, p),
             // Fall back to the application when the account record was never populated
             // (matches Driver Hub roster behaviour).
             phone: p.phone ?? app.phone ?? null,

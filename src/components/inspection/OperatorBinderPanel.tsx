@@ -32,15 +32,23 @@ import {
   AlertDialogContent, AlertDialogDescription, AlertDialogFooter,
   AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs } from './InspectionBinderTypes';
+import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs, isBinderUploadCategory, binderDocNameForCategory } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
+import type { Database } from '@/integrations/supabase/types';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 type DriverUploadCategory = 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
 
-const UPLOAD_CATEGORY_LABELS: Record<DriverUploadCategory, string> = {
+const UPLOAD_CATEGORY_LABELS: Record<string, string> = {
   roadside_inspection_report: 'Roadside Inspection Report',
   repairs_maintenance_receipt: 'Repairs & Maintenance Receipt',
   miscellaneous: 'Miscellaneous',
+  binder_cdl_front: 'Binder update: CDL (Front)',
+  binder_cdl_back: 'Binder update: CDL (Back)',
+  binder_medical: 'Binder update: Medical Certificate',
+  binder_irp: 'Binder update: IRP Registration',
+  binder_2290: 'Binder update: Form 2290',
 };
 
 const STAFF_UPLOAD_SECTIONS: { key: DriverUploadCategory; label: string }[] = [
@@ -193,6 +201,102 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
     await supabase.from('driver_uploads').update({ status, reviewed_at: new Date().toISOString(), reviewed_by: user?.id }).eq('id', uploadId);
     toast({ title: 'Status updated', description: `Marked as ${UPLOAD_STATUS_LABELS[status]}.` });
     fetchDocs();
+  };
+
+  const [reviewingUploadId, setReviewingUploadId] = useState<string | null>(null);
+  const [rejectTarget, setRejectTarget] = useState<DriverUpload | null>(null);
+  const [rejectNote, setRejectNote] = useState('');
+
+  const notifyDriver = async (title: string, body: string) => {
+    await supabase.from('notifications').insert(insertPayload('notifications', {
+      user_id: driverUserId,
+      title,
+      body,
+      type: 'binder_update_review',
+      channel: 'in_app',
+      link: '/operator?tab=binder',
+    }));
+  };
+
+  /** Approve a driver-proposed binder replacement: file moves into the binder slot, expiry updates, old version archived by trigger. */
+  const approveBinderUpload = async (upload: DriverUpload) => {
+    if (guardDemo()) return;
+    const docName = binderDocNameForCategory(upload.category);
+    if (!docName || !upload.file_path) return;
+    setReviewingUploadId(upload.id);
+    try {
+      // Move the file from driver-uploads into the binder storage bucket
+      const { data: dl, error: dlErr } = await supabase.storage.from('driver-uploads').download(upload.file_path);
+      if (dlErr || !dl) throw dlErr ?? new Error('Could not read the uploaded file.');
+      const ext = upload.file_name?.split('.').pop() ?? 'pdf';
+      const destPath = `${driverUserId}/${Date.now()}_${upload.file_name ?? `document.${ext}`}`;
+      const { error: upErr } = await supabase.storage.from('fleet-documents').upload(destPath, dl, { upsert: false });
+      if (upErr) throw upErr;
+      const { data: urlData } = await supabase.storage.from('fleet-documents').createSignedUrl(destPath, 60 * 60 * 24 * 365);
+
+      const existing = perDriverDocs.find(d => d.id === upload.binder_document_id) ?? perDriverDocs.find(d => d.name === docName);
+      const docPayload = {
+        file_url: urlData?.signedUrl ?? null,
+        file_path: destPath,
+        expires_at: upload.proposed_expires_at ?? null,
+      };
+      if (existing) {
+        const { error } = await supabase.from('inspection_documents').update(updatePayload('inspection_documents', docPayload)).eq('id', existing.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', {
+          name: docName,
+          scope: 'per_driver',
+          driver_id: driverUserId,
+          ...docPayload,
+        } as Database['public']['Tables']['inspection_documents']['Insert'] & Record<string, unknown>));
+        if (error) throw error;
+      }
+
+      const { error: updErr } = await supabase.from('driver_uploads').update(updatePayload('driver_uploads', {
+        status: 'reviewed',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id,
+        binder_document_id: upload.binder_document_id ?? existing?.id ?? null,
+        review_note: null,
+      })).eq('id', upload.id);
+      if (updErr) throw updErr;
+
+      await notifyDriver(`${docName} approved`, `Your new ${docName} was approved and is now in your inspection binder.`);
+      toast({ title: 'Approved to binder', description: `${docName} was replaced. The previous version is kept in History.` });
+      fetchDocs();
+    } catch (err: unknown) {
+      toast({ title: 'Approval failed', description: err instanceof Error ? err.message : 'Something went wrong.', variant: 'destructive' });
+    } finally {
+      setReviewingUploadId(null);
+    }
+  };
+
+  /** Reject a driver-proposed binder replacement: binder stays unchanged, driver gets the note. */
+  const rejectBinderUpload = async () => {
+    if (!rejectTarget || guardDemo()) return;
+    const docName = binderDocNameForCategory(rejectTarget.category) ?? 'Binder document';
+    setReviewingUploadId(rejectTarget.id);
+    try {
+      const { error } = await supabase.from('driver_uploads').update(updatePayload('driver_uploads', {
+        status: 'needs_attention',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: user?.id,
+        review_note: rejectNote.trim() || null,
+      })).eq('id', rejectTarget.id);
+      if (error) throw error;
+      await notifyDriver(`${docName} not approved`, rejectNote.trim()
+        ? `Your new ${docName} wasn't approved: ${rejectNote.trim()}`
+        : `Your new ${docName} wasn't approved. Please upload a clearer or updated version.`);
+      toast({ title: 'Rejected', description: 'The driver was notified. Their binder is unchanged.' });
+      setRejectTarget(null);
+      setRejectNote('');
+      fetchDocs();
+    } catch (err: unknown) {
+      toast({ title: 'Could not reject', description: err instanceof Error ? err.message : 'Something went wrong.', variant: 'destructive' });
+    } finally {
+      setReviewingUploadId(null);
+    }
   };
 
   const staffUploadRefs = useRef<Record<string, HTMLInputElement | null>>({});
@@ -525,9 +629,15 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                           <div className="flex items-start justify-between gap-2 mb-2">
                             <div className="min-w-0">
                               <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {UPLOAD_CATEGORY_LABELS[upload.category] ?? upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
-                              </p>
+                               <p className="text-xs text-muted-foreground">
+                                 {UPLOAD_CATEGORY_LABELS[upload.category] ?? upload.category.replace(/_/g, ' ')} · {new Date(upload.uploaded_at).toLocaleDateString()}
+                               </p>
+                               {isBinderUploadCategory(upload.category) && upload.proposed_expires_at && (
+                                 <p className="text-xs text-muted-foreground">Proposed expiry: {parseLocalDate(upload.proposed_expires_at).toLocaleDateString()}</p>
+                               )}
+                               {isBinderUploadCategory(upload.category) && upload.review_note && upload.status === 'needs_attention' && (
+                                 <p className="text-xs text-destructive">Rejection note: {upload.review_note}</p>
+                               )}
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0">
                               <UploadStatusBadge status={upload.status} />
@@ -543,36 +653,60 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                               )}
                             </div>
                           </div>
-                          {/* Inline action buttons */}
-                          <div className="flex items-center gap-2 flex-wrap">
-                            {upload.status !== 'reviewed' && (
-                              <Button
-                                size="sm" variant="outline"
-                                className="h-7 gap-1.5 text-xs border-status-complete/50 text-status-complete hover:bg-status-complete/10 hover:text-status-complete hover:border-status-complete"
-                                onClick={() => updateUploadStatus(upload.id, 'reviewed')}
-                              >
-                                <CheckCircle2 className="h-3.5 w-3.5" />Mark Reviewed
-                              </Button>
-                            )}
-                            {upload.status !== 'needs_attention' && (
-                              <Button
-                                size="sm" variant="outline"
-                                className="h-7 gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
-                                onClick={() => updateUploadStatus(upload.id, 'needs_attention')}
-                              >
-                                <AlertTriangle className="h-3.5 w-3.5" />Needs Attention
-                              </Button>
-                            )}
-                            {upload.status !== 'pending_review' && (
-                              <Button
-                                size="sm" variant="ghost"
-                                className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
-                                onClick={() => updateUploadStatus(upload.id, 'pending_review')}
-                              >
-                                <RotateCcw className="h-3 w-3" />Reset
-                              </Button>
-                            )}
-                          </div>
+                           {/* Inline action buttons */}
+                           <div className="flex items-center gap-2 flex-wrap">
+                             {isBinderUploadCategory(upload.category) && upload.status === 'pending_review' ? (
+                               <>
+                                 <Button
+                                   size="sm" variant="outline"
+                                   className="h-7 gap-1.5 text-xs border-status-complete/50 text-status-complete hover:bg-status-complete/10 hover:text-status-complete hover:border-status-complete"
+                                   disabled={reviewingUploadId === upload.id}
+                                   onClick={() => approveBinderUpload(upload)}
+                                 >
+                                   {reviewingUploadId === upload.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                                   Approve to Binder
+                                 </Button>
+                                 <Button
+                                   size="sm" variant="outline"
+                                   className="h-7 gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                                   disabled={reviewingUploadId === upload.id}
+                                   onClick={() => { setRejectTarget(upload); setRejectNote(''); }}
+                                 >
+                                   <AlertTriangle className="h-3.5 w-3.5" />Reject
+                                 </Button>
+                               </>
+                             ) : (
+                               <>
+                                 {upload.status !== 'reviewed' && (
+                                   <Button
+                                     size="sm" variant="outline"
+                                     className="h-7 gap-1.5 text-xs border-status-complete/50 text-status-complete hover:bg-status-complete/10 hover:text-status-complete hover:border-status-complete"
+                                     onClick={() => updateUploadStatus(upload.id, 'reviewed')}
+                                   >
+                                     <CheckCircle2 className="h-3.5 w-3.5" />Mark Reviewed
+                                   </Button>
+                                 )}
+                                 {upload.status !== 'needs_attention' && !isBinderUploadCategory(upload.category) && (
+                                   <Button
+                                     size="sm" variant="outline"
+                                     className="h-7 gap-1.5 text-xs border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive hover:border-destructive"
+                                     onClick={() => updateUploadStatus(upload.id, 'needs_attention')}
+                                   >
+                                     <AlertTriangle className="h-3.5 w-3.5" />Needs Attention
+                                   </Button>
+                                 )}
+                                 {upload.status !== 'pending_review' && (
+                                   <Button
+                                     size="sm" variant="ghost"
+                                     className="h-7 gap-1.5 text-xs text-muted-foreground hover:text-foreground"
+                                     onClick={() => updateUploadStatus(upload.id, 'pending_review')}
+                                   >
+                                     <RotateCcw className="h-3 w-3" />Reset
+                                   </Button>
+                                 )}
+                               </>
+                             )}
+                           </div>
                         </div>
                       </div>
                     </div>
@@ -601,6 +735,34 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Reject binder update dialog */}
+      <Dialog open={!!rejectTarget} onOpenChange={open => { if (!open && !reviewingUploadId) { setRejectTarget(null); setRejectNote(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Reject this binder update?</DialogTitle>
+            <DialogDescription>
+              The binder stays unchanged. The driver is notified and can upload a corrected version.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <p className="text-xs font-medium text-foreground mb-1.5">Note to the driver (optional)</p>
+            <textarea
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm min-h-[80px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              placeholder="e.g. Photo is blurry — please retake in daylight."
+              value={rejectNote}
+              onChange={e => setRejectNote(e.target.value)}
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" disabled={!!reviewingUploadId} onClick={() => { setRejectTarget(null); setRejectNote(''); }}>Cancel</Button>
+            <Button variant="destructive" size="sm" disabled={!!reviewingUploadId} onClick={rejectBinderUpload} className="gap-1.5">
+              {reviewingUploadId ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <AlertTriangle className="h-3.5 w-3.5" />}
+              Reject
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {previewUrl && (
         <FilePreviewModal url={previewUrl} name={previewName} onClose={() => { setPreviewUrl(null); setPreviewFilePath(null); setPreviewBucket(null); }} bucketName={previewBucket ?? undefined} filePath={previewFilePath ?? undefined} onSaved={async () => { await fetchDocs(); }} />

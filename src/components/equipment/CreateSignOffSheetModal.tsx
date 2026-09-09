@@ -190,7 +190,9 @@ export default function CreateSignOffSheetModal({ open, initialOperatorId, onClo
       const row: any = (data ?? [])[0];
       const plateNumber = row?.mo_plates?.plate_number ?? null;
       setPlateAssignment(row && plateNumber ? { id: row.id, plateNumber, unitNumber: row.unit_number ?? null } : null);
-      setIncludePlate(false);
+      // A plate issued to this driver belongs on the sheet by default — it is
+      // company property that has to come back at offboarding.
+      setIncludePlate(!!(row && plateNumber));
       setPlateLoading(false);
     })();
     return () => { cancelled = true; };

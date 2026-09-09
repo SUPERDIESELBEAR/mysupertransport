@@ -35,8 +35,6 @@ import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
 import ICAAmendmentList from '@/components/ica/ICAAmendmentList';
-import LeaseTerminationBuilderModal from '@/components/ica/LeaseTerminationBuilderModal';
-import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
 import ParkDriverControl, { type ParkedFields } from '@/components/drivers/ParkDriverControl';
 import ParkedBadge from '@/components/drivers/ParkedBadge';
 import DepartingControl, { type DepartingFields } from '@/components/drivers/DepartingControl';
@@ -47,6 +45,7 @@ import { terminationReasonLabel } from '@/lib/leaseTermination';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 import OperatorBinderPanel from '@/components/inspection/OperatorBinderPanel';
 import DriverVaultCard from '@/components/drivers/DriverVaultCard';
+import RoadsideStopsCard from '@/components/drivers/RoadsideStopsCard';
 import TruckPhotoGridModal from '@/components/staff/TruckPhotoGridModal';
 import { formatDistanceToNow, format, differenceInDays, parseISO, startOfDay } from 'date-fns';
 import TruckInfoCard, { TruckInfo, TruckFieldsEditPayload, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
@@ -497,7 +496,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [lastWebSeenAt, setLastWebSeenAt] = useState<string | null>(null);
   const [showICABuilder, setShowICABuilder] = useState(false);
   const [showICAView, setShowICAView] = useState(false);
-  const [showTerminationBuilder, setShowTerminationBuilder] = useState(false);
   const [openTerminationId, setOpenTerminationId] = useState<string | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
@@ -654,7 +652,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Latest lease termination on file — surfaced so the write has a visible consequence
   const [latestTermination, setLatestTermination] = useState<{ id: string; effective_date: string | null; reason: string | null; voided_at?: string | null; void_reason?: string | null } | null>(null);
   const [liveDispatchStatus, setLiveDispatchStatus] = useState<string | null>(null);
-  const [showTerminationConfirm, setShowTerminationConfirm] = useState(false);
   const senderEmail: string = (session?.user?.email ?? '').toString();
 
   // Go Live ack gate state
@@ -3120,16 +3117,12 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
             </p>
           </div>
         )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="text-xs gap-1.5 border-destructive/50 text-destructive hover:bg-destructive/10"
-          data-testid="open-termination-confirm"
-          onClick={() => setShowTerminationConfirm(true)}
-        >
-          <FileSignature className="h-3.5 w-3.5" />
-          End ICA & Generate Lease Termination
-        </Button>
+        {/* Ending an ICA is one step of offboarding, never a standalone act —
+            it happens inside the Deactivation & Delease wizard. */}
+        <p className="text-[11px] text-muted-foreground">
+          Ending this agreement is part of offboarding. Use <span className="font-medium text-foreground">Deactivate &amp; Delease</span> to
+          end the ICA, send Appendix C to insurance and close out equipment in one place.
+        </p>
       </div>
 
       {/* ── Top Completion Summary ── */}
@@ -7364,6 +7357,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         </div>
       )}
 
+      {/* Roadside Stops — DOT inspections and traffic stops */}
+      <div style={{ order: isQuickView ? 8.5 : 35 }}>
+        <RoadsideStopsCard operatorId={operatorId} />
+      </div>
+
       {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
       <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={{ order: isQuickView ? 9 : 40 }}>
         <button
@@ -7669,44 +7667,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           operatorId={operatorId}
           operatorName={operatorName}
           onClose={() => setShowICAView(false)}
-        />
-      )}
-
-      <TerminationConsequenceDialog
-        open={showTerminationConfirm}
-        onOpenChange={setShowTerminationConfirm}
-        operatorName={operatorName}
-        signals={{
-          isActive,
-          excludedFromDispatch,
-          dispatchStatus: liveDispatchStatus,
-          hasRecentDispatchActivity: liveDispatchStatus === 'dispatched' || liveDispatchStatus === 'home',
-        }}
-        onParkInstead={() => {
-          document.querySelector('[data-testid="park-driver-control"]')
-            ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }}
-        onConfirm={() => {
-          setShowTerminationConfirm(false);
-          setShowTerminationBuilder(true);
-        }}
-      />
-
-      {/* Lease Termination Builder */}
-      {showTerminationBuilder && (
-        <LeaseTerminationBuilderModal
-          operatorId={operatorId}
-          operatorName={operatorName}
-          onClose={() => setShowTerminationBuilder(false)}
-          onCreated={(id) => {
-            setShowTerminationBuilder(false);
-            setOpenTerminationId(id);
-            void supabase.from('lease_terminations')
-              .select('id, effective_date, reason, voided_at, void_reason')
-              .eq('id', id)
-              .maybeSingle()
-              .then(({ data }) => setLatestTermination((data as any) ?? null));
-          }}
         />
       )}
 

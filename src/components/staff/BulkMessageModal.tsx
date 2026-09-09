@@ -18,8 +18,11 @@ import { useToast } from '@/hooks/use-toast';
 import {
   Search, Users, MessageSquare, Send, CheckSquare, Square, Loader2,
   CheckCircle2, X, Filter, ChevronDown, ChevronUp, BookOpen, Plus,
-  Trash2, CornerDownLeft, Save,
+  Trash2, CornerDownLeft, Save, AlertTriangle,
 } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { deriveLifecycle, reachabilityBlock, LIFECYCLE_LABEL, type MessagingLifecycle } from '@/lib/messagingAudience';
+import { ReachabilityBadge } from '@/components/messaging/ReachabilityBadge';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -33,7 +36,10 @@ interface OperatorOption {
   current_stage: string;
   dispatch_status: DispatchStatus | null;
   fully_onboarded: boolean;
+  lifecycle: MessagingLifecycle;
+  account_status: string | null;
 }
+
 
 interface MessageTemplate {
   id: string;
@@ -241,6 +247,10 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   const [search, setSearch] = useState('');
   const [stageFilter, setStageFilter] = useState('all');
   const [dispatchFilter, setDispatchFilter] = useState('all');
+  /** On by default: bulk sends go only to drivers who are fully active. */
+  const [activeOnly, setActiveOnly] = useState(true);
+  const [includeDenied, setIncludeDenied] = useState(false);
+
   const [filtersOpen, setFiltersOpen] = useState(false);
 
   // Compose
@@ -265,6 +275,10 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       .select(`
         id,
         user_id,
+        is_active,
+        on_hold,
+        is_departing,
+        deactivated_at,
         onboarding_status (
           mvr_ch_approval,
           pe_screening_result,
@@ -272,6 +286,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
           decal_applied,
           eld_installed,
           fuel_card_issued,
+          go_live_date,
           insurance_added_date,
           fully_onboarded
         )
@@ -282,9 +297,11 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     const userIds = (ops as any[]).map((o: any) => o.user_id).filter(Boolean);
     const operatorIds = (ops as any[]).map((o: any) => o.id).filter(Boolean);
 
-    const [{ data: profiles }, { data: dispatch }] = await Promise.all([
-      supabase.from('profiles').select('user_id, first_name, last_name').in('user_id', userIds),
+    const [{ data: profiles }, { data: dispatch }, { data: apps }, { data: terms }] = await Promise.all([
+      supabase.from('profiles').select('user_id, first_name, last_name, account_status').in('user_id', userIds),
       supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds),
+      supabase.from('applications').select('user_id, review_status').in('user_id', userIds),
+      supabase.from('lease_terminations').select('operator_id').in('operator_id', operatorIds),
     ]);
 
     const profileMap: Record<string, any> = {};
@@ -293,10 +310,25 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     const dispatchMap: Record<string, DispatchStatus> = {};
     (dispatch ?? []).forEach((d: any) => { dispatchMap[d.operator_id] = d.dispatch_status; });
 
+    const reviewMap: Record<string, string | null> = {};
+    (apps ?? []).forEach((a: any) => { reviewMap[a.user_id] = a.review_status; });
+
+    const terminated = new Set((terms ?? []).map((t: any) => t.operator_id));
+
     const rows: OperatorOption[] = (ops as any[]).map((op: any) => {
       const osRaw = op.onboarding_status;
       const os = Array.isArray(osRaw) ? (osRaw[0] ?? {}) : (osRaw ?? {});
       const p = profileMap[op.user_id] ?? {};
+      const lifecycle = deriveLifecycle({
+        is_active: op.is_active,
+        on_hold: op.on_hold,
+        is_departing: op.is_departing,
+        deactivated_at: op.deactivated_at,
+        go_live_date: os.go_live_date ?? null,
+        insurance_added_date: os.insurance_added_date ?? null,
+        review_status: reviewMap[op.user_id] ?? null,
+        terminated: terminated.has(op.id),
+      });
       return {
         id: op.id,
         user_id: op.user_id,
@@ -305,6 +337,8 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
         current_stage: computeStage(os),
         dispatch_status: dispatchMap[op.id] ?? null,
         fully_onboarded: os.fully_onboarded ?? false,
+        lifecycle,
+        account_status: (p.account_status as string | null) ?? null,
       };
     });
 
@@ -317,6 +351,7 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
     setOperators(rows);
     setLoading(false);
   }, []);
+
 
   // ── Load templates ─────────────────────────────────────────────────────────
   const loadTemplates = useCallback(async () => {
@@ -339,6 +374,9 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       setSentCount(null);
       setSearch('');
       setStageFilter('all');
+      setActiveOnly(true);
+      setIncludeDenied(false);
+
       setDispatchFilter('all');
       setShowSaveForm(false);
     }
@@ -353,6 +391,8 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   // ── Filtered list ─────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
     return operators.filter(op => {
+      if (op.lifecycle === 'denied' && !includeDenied) return false;
+      if (activeOnly && op.lifecycle !== 'active') return false;
       const name = `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim();
       if (search && !name.toLowerCase().includes(search.toLowerCase())) return false;
       if (stageFilter !== 'all' && op.current_stage !== stageFilter) return false;
@@ -362,7 +402,20 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       }
       return true;
     });
-  }, [operators, search, stageFilter, dispatchFilter]);
+  }, [operators, search, stageFilter, dispatchFilter, activeOnly, includeDenied]);
+
+  /** Selections that fall outside the current audience are dropped, so an
+   *  unticked switch can never quietly leave a denied driver in the send. */
+  useEffect(() => {
+    setSelectedIds(prev => {
+      const allowed = new Set(operators.filter(op =>
+        (op.lifecycle !== 'denied' || includeDenied) && (!activeOnly || op.lifecycle === 'active')
+      ).map(op => op.id));
+      const next = new Set(Array.from(prev).filter(id => allowed.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [operators, activeOnly, includeDenied]);
+
 
   const allFilteredSelected = filtered.length > 0 && filtered.every(op => selectedIds.has(op.id));
 
@@ -381,6 +434,14 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
   const selectedOperators = useMemo(
     () => operators.filter(op => selectedIds.has(op.id)),
     [operators, selectedIds]
+  );
+
+  /** Selected drivers who can't actually receive in-app messages right now. */
+  const blockedSelectedCount = useMemo(
+    () => selectedOperators.filter(op =>
+      reachabilityBlock(op.lifecycle, op.account_status, !!op.user_id) !== null
+    ).length,
+    [selectedOperators]
   );
 
   // ── Template actions ──────────────────────────────────────────────────────
@@ -529,6 +590,27 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   <span className="text-muted-foreground"> Need everyone in one conversation? Use New group chat instead.</span>
                 </p>
               </div>
+
+              {/* Audience guards */}
+              <div className="rounded-md border border-border bg-muted/30 px-3 py-2 space-y-2">
+                <label className="flex items-center justify-between gap-3 cursor-pointer">
+                  <span className="text-[11px] text-foreground/80">
+                    <strong>Fully active drivers only</strong>
+                    <span className="block text-muted-foreground">Leaves out onboarding, inactive and denied people.</span>
+                  </span>
+                  <Switch checked={activeOnly} onCheckedChange={setActiveOnly} />
+                </label>
+                {!activeOnly && (
+                  <label className="flex items-center justify-between gap-3 cursor-pointer border-t border-border pt-2">
+                    <span className="text-[11px] text-foreground/80">
+                      <strong>Include denied applicants</strong>
+                      <span className="block text-muted-foreground">Off by default — they normally shouldn't be contacted.</span>
+                    </span>
+                    <Switch checked={includeDenied} onCheckedChange={setIncludeDenied} />
+                  </label>
+                )}
+              </div>
+
               <div className="flex items-center gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -610,6 +692,13 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   )}
                 </span>
               </div>
+
+              {blockedSelectedCount > 0 && (
+                <p className="flex items-center gap-1.5 text-[11px] text-amber-700 dark:text-amber-400 pt-1">
+                  <AlertTriangle className="h-3 w-3 shrink-0" />
+                  {blockedSelectedCount} of {selectedIds.size} selected driver{selectedIds.size !== 1 ? 's' : ''} cannot receive messages
+                </p>
+              )}
             </div>
 
             {/* Operator list */}
@@ -630,14 +719,24 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
                   return (
                     <label key={op.id} className={`flex items-center gap-3 px-5 py-3 cursor-pointer border-b border-border/50 transition-colors hover:bg-muted/30 ${checked ? 'bg-primary/5' : ''}`}>
                       <Checkbox checked={checked} onCheckedChange={() => toggleOne(op.id)} className="shrink-0" />
-                      <div className={`h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border ${
+                      <div className={`relative h-8 w-8 rounded-full flex items-center justify-center shrink-0 text-xs font-bold border ${
                         checked ? 'bg-primary/15 border-primary/30 text-primary' : 'bg-muted border-border text-muted-foreground'
                       }`}>
                         {initials(name)}
+                        <ReachabilityBadge
+                          reason={reachabilityBlock(op.lifecycle, op.account_status, !!op.user_id)}
+                          className="absolute -bottom-0.5 -right-0.5"
+                        />
                       </div>
                       <div className="flex-1 min-w-0">
                         <p className={`text-sm truncate leading-tight ${checked ? 'font-semibold text-foreground' : 'font-medium text-foreground/80'}`}>{name}</p>
-                        <p className="text-[11px] text-muted-foreground truncate">{op.current_stage}</p>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          <span className={op.lifecycle === 'denied' ? 'text-destructive font-medium' : ''}>
+                            {LIFECYCLE_LABEL[op.lifecycle]}
+                          </span>
+                          {' · '}{op.current_stage}
+                        </p>
+
                       </div>
                       {op.dispatch_status && (
                         <div className="flex items-center gap-1.5 shrink-0">
