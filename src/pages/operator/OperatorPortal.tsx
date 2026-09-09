@@ -2015,7 +2015,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <MyFuel
               onReady={() => handleDestinationReady('my-fuel')}
               driverName={[authProfile?.first_name, authProfile?.last_name].filter(Boolean).join(' ')}
-              unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+              unitNumber={resolveOperatorUnit({
+                onboardingUnit: (onboardingStatus?.unit_number as string | null) ?? null,
+                operatorUnit: operatorUnitNumber,
+              })}
             />
           </Suspense>
         )}
