@@ -131,8 +131,18 @@ function SortHead({
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 /** One preview row plus its expandable detail. */
-function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyColumnKey> }) {
+function PreviewRow({
+  row, cols, unitGap, onFillUnit, fillBusy,
+}: {
+  row: FuelDisplayRow;
+  cols: Set<FuelMoneyColumnKey>;
+  /** Computed once for the whole file; see `unitGapsByRow` on the page. */
+  unitGap: UnitGap;
+  onFillUnit: (v: { operatorId: string; unit: string; note: string }) => void;
+  fillBusy: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const [unitNote, setUnitNote] = useState('');
   const s = row.split;
 
 
@@ -165,6 +175,9 @@ function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyCol
   const disagreementText = isDisagreement
     ? disagreementMessages(row.disagreement_fields, sources.data ?? null)
     : [];
+  const unitGapText = unitGapMessage(unitGap);
+  const offersFill = unitGapOffersFill(unitGap) && !!row.operator_id;
+
 
   return (
     <>
