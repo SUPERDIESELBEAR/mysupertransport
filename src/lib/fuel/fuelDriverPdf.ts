@@ -274,17 +274,28 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
     }
     if (model.pendingFlags[ri]) {
       doc.setFillColor(...PENDING_BG);
-      doc.rect(MARGIN, y - 9, contentWidth, 14, 'F');
+      doc.rect(MARGIN, y - 9, contentWidth, ROW_HEIGHT - 2, 'F');
     }
     doc.setTextColor(...INK);
     let x = MARGIN + 4;
     cells.forEach((cell, ci) => {
-      doc.text(doc.splitTextToSize(cell, WIDTHS[ci] - 6)[0] ?? '', x, y);
+      // The settlement label is the one long cell; it wraps rather than being
+      // silently cut off at the page edge — a truncated period on a document a
+      // driver keeps is exactly the ambiguity this report exists to remove.
+      const last = ci === cells.length - 1;
+      doc.setFontSize(last ? 7 : 8);
+      const lines = doc.splitTextToSize(cell, WIDTHS[ci] - 6) as string[];
+      if (last) {
+        lines.slice(0, 2).forEach((l, li) => doc.text(l, x, y + li * 8));
+      } else {
+        doc.text(lines[0] ?? '', x, y);
+      }
       x += WIDTHS[ci];
     });
+    doc.setFontSize(8);
     doc.setDrawColor(238);
-    doc.line(MARGIN, y + 5, pageWidth - MARGIN, y + 5);
-    y += 15;
+    doc.line(MARGIN, y + 8, pageWidth - MARGIN, y + 8);
+    y += ROW_HEIGHT;
   });
 
   return doc;
