@@ -5331,6 +5331,9 @@ export type Database = {
           truck_vin: string | null
           truck_year: string | null
           updated_at: string
+          void_reason: string | null
+          voided_at: string | null
+          voided_by: string | null
         }
         Insert: {
           carrier_signature_url?: string | null
@@ -5369,6 +5372,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Update: {
           carrier_signature_url?: string | null
@@ -5407,6 +5413,9 @@ export type Database = {
           truck_vin?: string | null
           truck_year?: string | null
           updated_at?: string
+          void_reason?: string | null
+          voided_at?: string | null
+          voided_by?: string | null
         }
         Relationships: [
           {
@@ -5414,6 +5423,13 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ica_contracts_voided_by_fkey"
+            columns: ["voided_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
         ]
@@ -7471,6 +7487,10 @@ export type Database = {
           created_at: string
           created_by: string | null
           created_by_name: string | null
+          decal_photo_driver_side_url: string | null
+          decal_photo_passenger_side_url: string | null
+          decal_photos_uploaded_at: string | null
+          decal_photos_uploaded_by: string | null
           driver_ip: string | null
           driver_signature_data_url: string | null
           driver_signature_name: string | null
@@ -7505,6 +7525,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          decal_photo_driver_side_url?: string | null
+          decal_photo_passenger_side_url?: string | null
+          decal_photos_uploaded_at?: string | null
+          decal_photos_uploaded_by?: string | null
           driver_ip?: string | null
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
@@ -7539,6 +7563,10 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           created_by_name?: string | null
+          decal_photo_driver_side_url?: string | null
+          decal_photo_passenger_side_url?: string | null
+          decal_photos_uploaded_at?: string | null
+          decal_photos_uploaded_by?: string | null
           driver_ip?: string | null
           driver_signature_data_url?: string | null
           driver_signature_name?: string | null
@@ -7563,6 +7591,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheets_decal_photos_uploaded_by_fkey"
+            columns: ["decal_photos_uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "onboard_assignment_sheets_operator_id_fkey"
             columns: ["operator_id"]
