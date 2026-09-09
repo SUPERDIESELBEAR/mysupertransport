@@ -22,12 +22,14 @@
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Fuel } from 'lucide-react';
+import { Download, Fuel } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchMyFuel } from '@/lib/fuel/myFuel';
+import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
 import {
   NOT_YET_DEDUCTED_LABEL, buildDriverRows, summarizeDriverRows,
   type FuelDriverRow, type FuelDriverTotals,
