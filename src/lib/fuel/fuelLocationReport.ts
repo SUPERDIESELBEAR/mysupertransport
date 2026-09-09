@@ -313,5 +313,7 @@ export function buildFuelLocationReport(
     byChain,
     unrecognisedChainPurchases:
       byChain.find((g) => g.key === UNRECOGNISED_CHAIN)?.purchases ?? 0,
+    independentChainPurchases:
+      byChain.find((g) => g.key === INDEPENDENT_CHAIN)?.purchases ?? 0,
   };
 }
