@@ -327,12 +327,46 @@ function realRow(over: Partial<Record<string, string>> = {}): string {
 }
 
 describe('the real 2026-09-05 export header', () => {
-  it('parses with Merchant Name as the only unrecognised column, and no money in it', () => {
+  it('recognises every column of the real header, Merchant Name included', () => {
     const parsed = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow()}`);
-    expect(parsed.columns.unrecognized).toEqual(['Merchant Name']);
+    expect(parsed.columns.unrecognized).toEqual([]);
     expect(parsed.columns.unrecognized_money).toEqual([]);
     expect(unrecognizedMoneyNotice(parsed.columns)).toBeNull();
+    expect(unrecognizedColumnsNotice(parsed.columns)).toBeNull();
     expect(parsed.flaggedCount).toBe(0);
+  });
+
+  /* ---- Merchant Name: TEXT, captured, and never money (2026-09-09) ---- */
+
+  it('captures Merchant Name as text', () => {
+    const parsed = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow()}`);
+    expect(parsed.rows[0].merchant_name).toBe("LOVE'S TRAVEL STOP #421");
+  });
+
+  it('parses cleanly with no Merchant Name column — another provider will not have it', () => {
+    const cols = MULTISERVICE_HEADER_2026_09_05.filter((c) => c !== 'Merchant Name');
+    const values: Record<string, string> = Object.fromEntries(
+      MULTISERVICE_HEADER_2026_09_05.map((h, i) => [h, realRow().split('","').map((v) => v.replace(/^"|"$/g, ''))[i]]),
+    );
+    const parsed = parseMultiserviceCsv(file([...cols], [values]));
+    expect(parsed.rows[0].merchant_name).toBe('');
+    expect(parsed.columns.unrecognized).toEqual([]);
+    expect(unrecognizedColumnsNotice(parsed.columns)).toBeNull();
+    expect(parsed.columns.missing_optional).toContain('Merchant Name');
+    expect(parsed.rows[0].total_amount).toBe(587.75);
+    expect(parsed.flaggedCount).toBe(0);
+  });
+
+  it('never lets the merchant name reach a line item or the reconciliation sum', () => {
+    const withIt = parseMultiserviceCsv(`${REAL_HEADER}\n${realRow()}`).rows[0];
+    const blank = parseMultiserviceCsv(
+      `${REAL_HEADER}\n${realRow({ 'Merchant Name': '' })}`,
+    ).rows[0];
+    expect(withIt.lines).toEqual(blank.lines);
+    expect(withIt.reconciliation_delta).toBe(blank.reconciliation_delta);
+    expect(withIt.lines.some((l) => String(l.amount).includes('NaN'))).toBe(false);
+    expect(CATEGORY_SPECS.some((s) => s.column === 'Merchant Name')).toBe(false);
+    expect(KNOWN_COLUMNS).toContain('Merchant Name');
   });
 
   it('captures Oil Amt and Oil Qty, the two names the checkbox labels got wrong', () => {
