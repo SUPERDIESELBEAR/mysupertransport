@@ -1,0 +1,188 @@
+/**
+ * COST PER GALLON BY LOCATION — management and owner only.
+ *
+ * Three groupings of the same purchases: truck stop, state, and derived chain.
+ * Every figure comes from `src/lib/fuel/fuelLocationReport.ts`; this file
+ * computes no money and holds no mapping.
+ *
+ * REPORT ONLY. No fleet benchmark, no "above average" flag — the owner chose
+ * report only on 2026-09-09 and comparison stays on the HELD list.
+ */
+import { useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Fuel, Info } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { supabase } from '@/integrations/supabase/client';
+import { formatCurrency } from '@/lib/loadFormat';
+import {
+  UNRECOGNISED_CHAIN, buildFuelLocationReport, defaultDateRange,
+  type FuelLocationGroup, type FuelLocationTransaction,
+} from '@/lib/fuel/fuelLocationReport';
+
+const TXN_SELECT =
+  'id, invoice_no, invoice_date, merchant_name, city, state, total_amount, '
+  + 'fuel_discount_amount, diesel_gallons, reconciliation_ok, '
+  + 'fuel_transaction_lines(line_type, amount)';
+
+async function fetchFuelTransactions(): Promise<FuelLocationTransaction[]> {
+  const { data, error } = await supabase
+    .from('fuel_transactions')
+    .select(TXN_SELECT)
+    .order('invoice_date', { ascending: false })
+    .limit(5000);
+  if (error) throw error;
+  return (data ?? []) as unknown as FuelLocationTransaction[];
+}
+
+const cpg = (n: number | null) => (n === null ? '—' : `$${n.toFixed(3)}`);
+
+function GroupTable({ groups, showSublabel }: { groups: FuelLocationGroup[]; showSublabel?: boolean }) {
+  if (groups.length === 0) {
+    return <p className="text-sm text-muted-foreground py-6">No purchases in this date range.</p>;
+  }
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
+          <tr>
+            <th className="text-left font-medium px-3 py-2">Location</th>
+            <th className="text-right font-medium px-3 py-2">Purchases</th>
+            <th className="text-right font-medium px-3 py-2">Gallons</th>
+            <th className="text-right font-medium px-3 py-2">Fuel spend</th>
+            <th className="text-right font-medium px-3 py-2">Avg cost / gal</th>
+          </tr>
+        </thead>
+        <tbody>
+          {groups.map((g) => (
+            <tr key={`${g.key}-${g.sublabel ?? ''}`} className="border-t even:bg-muted/20">
+              <td className="px-3 py-2">
+                <span className="font-medium">{g.key}</span>
+                {g.isUnrecognised && (
+                  <Badge variant="outline" className="ml-2 text-[10px]">not classified</Badge>
+                )}
+                {showSublabel && g.sublabel && (
+                  <span className="block text-xs text-muted-foreground">{g.sublabel}</span>
+                )}
+              </td>
+              <td className="px-3 py-2 text-right tabular-nums">{g.purchases}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{g.gallons.toFixed(2)}</td>
+              <td className="px-3 py-2 text-right tabular-nums">{formatCurrency(g.fuelSpend)}</td>
+              <td className="px-3 py-2 text-right tabular-nums font-medium">{cpg(g.costPerGallon)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export default function FuelLocationReportPage() {
+  const { data: transactions, isLoading } = useQuery({
+    queryKey: ['fuel-location-report'],
+    queryFn: fetchFuelTransactions,
+  });
+
+  const suggested = useMemo(
+    () => defaultDateRange(transactions ?? [], new Date().toISOString().slice(0, 10)),
+    [transactions],
+  );
+  const [range, setRange] = useState<{ from: string; to: string } | null>(null);
+  const from = range?.from ?? suggested.from;
+  const to = range?.to ?? suggested.to;
+
+  const report = useMemo(
+    () => buildFuelLocationReport(transactions ?? [], from, to),
+    [transactions, from, to],
+  );
+
+  if (isLoading) return <Skeleton className="h-96 w-full" />;
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold flex items-center gap-2">
+            <Fuel className="h-5 w-5" /> Cost per gallon by location
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Fuel purchases only — cash advances, repairs and other card charges are excluded.
+          </p>
+        </div>
+        <div className="flex items-end gap-2">
+          <label className="text-xs text-muted-foreground">
+            From
+            <Input
+              type="date" value={from} className="h-9"
+              onChange={(e) => setRange({ from: e.target.value, to })}
+            />
+          </label>
+          <label className="text-xs text-muted-foreground">
+            To
+            <Input
+              type="date" value={to} className="h-9"
+              onChange={(e) => setRange({ from, to: e.target.value })}
+            />
+          </label>
+        </div>
+      </div>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm">
+            {report.purchases} purchase{report.purchases === 1 ? '' : 's'} · {from} to {to}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-wrap gap-8 text-sm">
+          <div>
+            <div className="text-xs text-muted-foreground">Gallons</div>
+            <div className="text-lg font-semibold tabular-nums">{report.gallons.toFixed(2)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Fuel spend</div>
+            <div className="text-lg font-semibold tabular-nums">{formatCurrency(report.fuelSpend)}</div>
+          </div>
+          <div>
+            <div className="text-xs text-muted-foreground">Average cost per gallon</div>
+            <div className="text-lg font-semibold tabular-nums">{cpg(report.costPerGallon)}</div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Tabs defaultValue="chain">
+        <TabsList>
+          <TabsTrigger value="chain">By chain</TabsTrigger>
+          <TabsTrigger value="state">By state</TabsTrigger>
+          <TabsTrigger value="stop">By truck stop</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chain" className="space-y-2">
+          <p className="text-xs text-muted-foreground flex items-start gap-1">
+            <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+            Chain is <strong className="mx-1">derived</strong> from the merchant name on the
+            statement, not supplied by the fuel provider. {report.unrecognisedChainPurchases}{' '}
+            purchase{report.unrecognisedChainPurchases === 1 ? '' : 's'} could not be classified
+            and {report.unrecognisedChainPurchases === 1 ? 'is' : 'are'} shown under{' '}
+            {UNRECOGNISED_CHAIN}.
+          </p>
+          <Card><CardContent className="p-0"><GroupTable groups={report.byChain} /></CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="state">
+          <Card><CardContent className="p-0"><GroupTable groups={report.byState} /></CardContent></Card>
+        </TabsContent>
+
+        <TabsContent value="stop">
+          <Card>
+            <CardContent className="p-0">
+              <GroupTable groups={report.byTruckStop} showSublabel />
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}
