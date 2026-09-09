@@ -6,6 +6,7 @@
  * the same rows, in the same order, with the same two totals kept apart — and
  * it must not reintroduce the staff diagnostics the operator screen excludes.
  */
+import { TABLE_LAYOUT } from '../fuelDriverPdf';
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import {
@@ -192,5 +193,13 @@ describe('the file says who and when without being opened', () => {
     expect(doc.driverLine).toBe('Ali Mohamed · Unit 260');
     expect(doc.periodLine).toBe('Purchases 08/29/2026 – 09/01/2026');
     expect(doc.generatedLine).toBe('Generated 09/09/2026');
+  });
+});
+
+
+describe('the table fits the page it is printed on', () => {
+  it('never lays out columns wider than the printable width', () => {
+    const sum = TABLE_LAYOUT.widths.reduce((a, b) => a + b, 0);
+    expect(sum).toBeLessThanOrEqual(TABLE_LAYOUT.printable);
   });
 });

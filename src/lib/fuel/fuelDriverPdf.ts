@@ -180,6 +180,12 @@ const WIDTHS = [50, 104, 74, 44, 56, 40, 38, 46, 50, 36, 36, 154];
 /** Letter landscape, minus both margins. The widths must not exceed it. */
 const PRINTABLE = 792 - MARGIN * 2;
 const ROW_HEIGHT = 18;
+/**
+ * Exported so a test can hold the invariant that no column is pushed off the
+ * page: a clipped settlement period or merchant is a document that says
+ * something other than what the screen says.
+ */
+export const TABLE_LAYOUT = { widths: WIDTHS, printable: PRINTABLE };
 
 function drawTotals(doc: jsPDF, block: FuelPdfTotalsBlock, x: number, y: number, w: number, pending: boolean) {
   const h = 74;
