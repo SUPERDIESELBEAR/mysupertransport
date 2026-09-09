@@ -63,7 +63,15 @@ export const FUEL_LINE_TYPE_BUCKET: Record<FuelLineType, FuelBucketAssignment> =
   // A fee charged FOR taking the advance travels with the advance, so the
   // driver sees the true cost of the money he drew rather than a stray charge
   // filed under fuel.
+  //
+  // DECIDED BY THE OWNER 2026-09-06, AND QUERIED AGAIN 2026-09-09 — which is why
+  // the reasoning lives here and not only in a pass entry. Verified against the
+  // real 2026-09-05 export: the ONE row carrying a fee ($5.00) is the ONE row
+  // carrying a cash advance ($500.00). A fee for retrieving cash belongs with
+  // the cash it retrieved, so Advances reads $505.00. Do not move `fees` to
+  // `other` without reopening that decision with the owner.
   fees: 'cash_advance',
+
 
   // Work done on the truck. Named separately because a repair is the one
   // category this record says must be approved before it moves.

@@ -8007,11 +8007,40 @@ so that the page-local answer and the global answer differ.
 
 ### A money column with nothing in it is not rendered
 
-Eleven columns, and on a clean import several are empty on every row — on the real
-2026-09-05 export `Unexplained` was `—` on all 69 rows, `Repairs` was zero on all
-69 (`Minor Repairs` carried no money in that file), and `Discount` was empty. Only
-**Fuel, Advances and Other** carry money there, so those three are all that render;
-Repairs, Discount and Unexplained are hidden. The width goes to `Status`.
+Eleven columns, and on a clean import several are empty on every row. On the real
+2026-09-05 export **`Repairs` and `Unexplained` are hidden — both are zero on all
+69 rows** (`Minor Repairs` carried no money in that file, and the discrepancy
+detector found nothing). Everything else that carries money renders, `Discount`
+included. The width goes to `Status`.
+
+**CORRECTED 2026-09-09.** The original Pass 10 entry said `Discount` was empty and
+hidden. That was wrong, and it was wrong in the direction that matters: a money
+column reported as hidden while it in fact carried -$533.63. The verified figures,
+per money column, over the 69 committed rows:
+
+| Column | Renders | Non-zero rows | Sum |
+| --- | --- | --- | --- |
+| Fuel | yes | 69 | $31,850.16 |
+| Advances | yes | 1 | $505.00 |
+| Repairs | no | 0 | $0.00 |
+| Other | yes | 4 | $92.13 |
+| Discount | yes | 39 | -$533.63 |
+| Unexplained | no | 0 | $0.00 |
+
+**HOW THAT WAS ESTABLISHED, since the first claim was established the other way.**
+The 69 committed rows were pulled out of `fuel_transactions` and
+`fuel_transaction_lines`, rebuilt into parsed rows, and passed through the real
+`buildDisplayRows` and `visibleMoneyColumns` — not read off the code and reasoned
+about. Reading the code is how the wrong claim got in.
+
+**THE HYPOTHESIS WAS WRONG, AND TESTING IT WAS STILL RIGHT.** The suspicion was a
+sign bug: a visibility check written `> 0` would hide an always-negative column
+carrying real money. It is written `!== 0`, so it does not. Recording a hypothesis
+that was checked and refuted is worth the lines — the next reader who forms it can
+see it was already run down, and the alternative was assuming it and "fixing" a
+function that was correct.
+
+
 
 A money column appears if **ANY row in the WHOLE FILE** has a non-zero value for
 it — never the current page and never the current tile filter. A column that
@@ -8042,9 +8071,19 @@ The rule that hides it is stated on `visibleMoneyColumns` in
 `src/lib/fuel/fuelImportView.ts`, next to the code that would have to be changed to
 remove it.
 
-Suites: `fuelImportView.test.ts` (29), `fuelBuckets.test.ts`, `fuelDiagnosis.test.ts`,
-`fuelPreviewDiagnosis.test.ts`, `multiserviceCsv.test.ts` — 95 tests across the five
-fuel files — and `npm run test:guards` (9 files, 87/87). `tsgo` clean.
+Suites: `fuelImportView.test.ts` (29, now 30), `fuelBuckets.test.ts`,
+`fuelDiagnosis.test.ts`, `fuelPreviewDiagnosis.test.ts`, `multiserviceCsv.test.ts`
+— 95 tests across the five fuel files, 96 after the correction — and
+`npm run test:guards` (9 files, 87/87). `tsgo` clean.
+
+**THE THIRTIETH TEST, added 2026-09-09 with the correction above.** Every other
+fixture in `fuelImportView.test.ts` carries positive money, and `discount` is the
+only always-negative money column, so the suite could not have distinguished a
+`!== 0` check from a `> 0` one. `RENDERS A COLUMN WHOSE ONLY VALUES ARE NEGATIVE`
+builds four rows whose sole non-zero non-fuel value is a negative discount
+(-$38.88 in total), asserts the column renders, and asserts the visible columns
+still read down to `Total` with the negative column among them.
+
 
 CONTRADICTIONS: none found.
 
