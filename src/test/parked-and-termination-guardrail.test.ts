@@ -226,27 +226,76 @@ describe("parked — live schema and standing rows", () => {
     expect(orphanAudit[0]).toBe("0");
   });
 
+  /**
+   * WAS THE DRIVER GONE **AT THE MOMENT OF THE VOID**?
+   *
+   * The predicate is shared by the live check and by the fixture below, so the
+   * constructed bad void is graded by the same SQL that grades production.
+   *
+   * "Gone" is `is_active`/`deactivated_at`, and NOTHING ELSE.
+   * `excluded_from_dispatch` is not departure: a lapsed medical, a truck in the
+   * shop or a week off all set it, and it was an exclusion recorded on
+   * 2026-09-09 — nine days AFTER the void — that used to fail this test.
+   *
+   * Everything here is dated against `lt.voided_at`. A flag flipped after the
+   * void cannot reach back and condemn it.
+   */
+  const goneAsOfVoid = (lt: string, op: string) => `(
+       (${op}.deactivated_at is not null and ${op}.deactivated_at <= ${lt}.voided_at)
+    or (${op}.is_active is not true and ${op}.deactivated_at is null)
+    or exists (
+         select 1 from public.lease_terminations prior
+         where prior.operator_id = ${lt}.operator_id
+           and prior.id <> ${lt}.id
+           and prior.voided_at is null
+           and prior.created_at <= ${lt}.voided_at))`;
+
   itLive("no void was issued against a driver who was already gone", () => {
     // A void withdraws a termination recorded in error for someone who was
-    // still working. It is NOT a comment on what happens to that driver
-    // afterwards: Vino Huddleston's 2026-08-31 void was correct, and his
-    // genuine termination on 2026-09-03 does not retroactively invalidate it.
-    //
-    // So the check is scoped to voided rows with NO subsequent termination
-    // for the same operator. Those, and only those, must still describe a
-    // working driver. A void against someone already gone is the defect.
+    // still working AT THE TIME. It is NOT a comment on what happens to that
+    // driver afterwards: Vino Huddleston's 2026-08-31 void was correct, and his
+    // genuine termination on 2026-09-03 does not retroactively invalidate it —
+    // and neither does any later deactivation or dispatch exclusion.
     const notWorking = psql(`
       select count(*) from public.lease_terminations lt
       join public.operators o on o.id = lt.operator_id
       where lt.voided_at is not null
-        and not exists (
-          select 1 from public.lease_terminations later
-          where later.operator_id = lt.operator_id
-            and later.voided_at is null
-            and later.created_at > lt.created_at)
-        and (o.is_active is not true or o.excluded_from_dispatch is true)`);
+        and ${goneAsOfVoid("lt", "o")}`);
     expect(notWorking[0]).toBe("0");
   });
+
+  itLive("the same predicate still condemns a void against a departed driver", () => {
+    // The guard is only worth having if it fires. These three rows are
+    // constructed, never written: the identical predicate runs over a VALUES
+    // fixture, so what is demonstrated is the check itself, not a copy of it.
+    //
+    //   bad     — deactivated 2026-08-01, voided 2026-08-31. Already gone.
+    //   dale    — active, excluded from dispatch AFTER the void. Legitimate.
+    //   later   — deactivated 2026-09-03, voided 2026-08-31. Left afterwards.
+    const verdicts = psql(`
+      with lt(id, operator_id, voided_at, created_at, label) as (values
+        ('11111111-1111-1111-1111-111111111111'::uuid,
+         'aaaaaaaa-0000-0000-0000-000000000001'::uuid,
+         '2026-08-31'::timestamptz, '2026-08-05'::timestamptz, 'bad'),
+        ('22222222-2222-2222-2222-222222222222'::uuid,
+         'aaaaaaaa-0000-0000-0000-000000000002'::uuid,
+         '2026-08-31'::timestamptz, '2026-08-05'::timestamptz, 'dale'),
+        ('33333333-3333-3333-3333-333333333333'::uuid,
+         'aaaaaaaa-0000-0000-0000-000000000003'::uuid,
+         '2026-08-31'::timestamptz, '2026-08-05'::timestamptz, 'later')
+      ), o(id, is_active, deactivated_at, excluded_from_dispatch) as (values
+        ('aaaaaaaa-0000-0000-0000-000000000001'::uuid, false,
+         '2026-08-01'::timestamptz, false),
+        ('aaaaaaaa-0000-0000-0000-000000000002'::uuid, true,
+         null::timestamptz, true),
+        ('aaaaaaaa-0000-0000-0000-000000000003'::uuid, false,
+         '2026-09-03'::timestamptz, false)
+      )
+      select lt.label || '=' || (${goneAsOfVoid("lt", "o")})::text
+      from lt join o on o.id = lt.operator_id order by lt.label`);
+    expect(verdicts).toEqual(["bad=true", "dale=false", "later=false"]);
+  });
+
 
 
 
