@@ -237,6 +237,14 @@ export default function FuelDriverDetailPage() {
             </SelectContent>
           </Select>
         </div>
+        <Button
+          variant="outline"
+          data-testid="fuel-driver-pdf"
+          disabled={!selected || loading}
+          onClick={downloadPdf}
+        >
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </div>
 
       {!operatorId && (
