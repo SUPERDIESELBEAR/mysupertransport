@@ -8744,3 +8744,65 @@ PDF must omit the field rather than print a blank.
 SUITES: `src/lib/fuel/__tests__` (all), `operator-fuel-isolation`,
 `operator-pay-exposure`, `operator-settlement-isolation` — 12 files, 150 tests
 passed; `tsgo --noEmit -p tsconfig.app.json` clean. Contradictions: none found.
+
+---
+
+## Module 9 Pass 4 — COST PER GALLON BY LOCATION (2026-09-09)
+
+Three groupings of the committed fuel purchases: **by truck stop**
+(`merchant_name` + city/state), **by state**, and **by derived chain**.
+Management and owner only; nothing driver-facing.
+
+`src/lib/fuel/fuelLocationReport.ts` + `src/pages/management/FuelLocationReportPage.tsx`.
+
+**ONE COMPUTATION, THREE KEYS.** `groupFuelByLocation` is called three times with
+three key functions. There is no second aggregation, so a change to how a gallon
+or a dollar is counted cannot apply to one grouping and not the others.
+
+**THE AVERAGE IS WEIGHTED** — total fuel spend ÷ total gallons for the group, not
+the mean of the per-transaction rates. `meanOfRates` is carried alongside it for
+one purpose: to prove in a test that they differ, and so nobody re-derives the
+mean believing it equivalent. On the live 69 rows the two figures differ in **8
+of 16 chains** — Love's $5.721 weighted vs $5.694 mean; Pilot $6.014 vs $6.002;
+Speedway $5.030 vs $5.046.
+
+**FUEL BUCKET ONLY.** Spend comes from `fuelBucketLines`; advances, fees, repairs
+and other charges never reach a per-gallon average, and a transaction with zero
+gallons contributes no rate. The source guard now covers this file.
+
+**CHAIN IS DERIVED AND SAYS SO.** The patterns were established by reading the 66
+distinct merchant names on the 69 committed rows, not from what truck stops are
+expected to be called — the file writes `Loves`, `Loves Travel Stop`, `Loves
+Country Stores`; `One 9`, `One9`, `One9 Xpress Fuel`; `Pilot Travel Center` and
+`Pilot Travel Ctr`; and `Thortons`, MultiService's own misspelling of Thorntons.
+Anything unmatched groups under a visible **Unrecognised** and is counted, so the
+derivation's accuracy is shown rather than assumed. **6 of 69 purchases** are
+Unrecognised: Westville Truck Stop, Harry's #54, JP Palmetto, I-59/84 East Truck
+Stop, Tiger Truck Stop, Frog City Travel Plaza & Casino — six independents, no
+missed chain.
+
+`PFJ Southeast #420` is grouped as its own chain rather than folded into Pilot:
+the statement distinguishes the combined billing name and so does the report.
+
+**DEFAULT RANGE:** the 30 days ending on the NEWEST purchase present, not on
+today. The committed set spans five days at the end of August; a clock-anchored
+range would show an empty page a month later, which reads as broken rather than
+as "nothing imported recently".
+
+**REPORT ONLY.** No fleet average, no benchmark, no "above average" flag. The
+owner chose report only on 2026-09-09; comparison stays on the HELD list in
+`docs/tms-wish-list.md`.
+
+**REAL-DATA EVIDENCE.** No settlement is involved, so nothing here is
+fixture-backed. Live: 69 purchases, 2026-08-28 to 2026-09-01, 5,718.36 gallons,
+$31,850.16 of fuel spend, $5.570 per gallon fleet-wide. Top by volume — chain:
+Love's 21/$9,876.00/$5.721, TA 11/$6,312.06/$5.609, Pilot 8/$3,606.41/$6.014,
+QuikTrip 7/$2,911.14/$5.201. State: TX 18/$7,693.57/$5.622, TN
+9/$4,891.57/$5.386, AR 6/$3,831.88/$5.609. Cheapest state OH is the outlier at
+$6.278 on a single purchase; cheapest with volume is AL at $5.253.
+
+**SUITES:** `fuelLocationReport` (8), `fuelBucketSourceGuard` (6), `fuelBuckets`
+(16), full `src/lib/fuel` + `operator-fuel-isolation` (11 files, 149 tests),
+`tsgo` clean.
+
+**CONTRADICTIONS:** none found.
