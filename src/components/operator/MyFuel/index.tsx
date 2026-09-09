@@ -22,12 +22,14 @@
  */
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Fuel } from 'lucide-react';
+import { Download, Fuel } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchMyFuel } from '@/lib/fuel/myFuel';
+import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
 import {
   NOT_YET_DEDUCTED_LABEL, buildDriverRows, summarizeDriverRows,
   type FuelDriverRow, type FuelDriverTotals,
@@ -109,7 +111,12 @@ function PurchaseCard({ row }: { row: FuelDriverRow }) {
   );
 }
 
-export default function MyFuel({ onReady }: { onReady?: () => void }) {
+export default function MyFuel({ onReady, driverName, unitNumber }: {
+  onReady?: () => void;
+  /** For the PDF header only. No read on this screen is keyed by it. */
+  driverName?: string | null;
+  unitNumber?: string | null;
+}) {
   const q = useQuery({ queryKey: ['my-fuel'], queryFn: fetchMyFuel });
 
   const rows = useMemo(
@@ -117,6 +124,19 @@ export default function MyFuel({ onReady }: { onReady?: () => void }) {
     [q.data],
   );
   const summary = useMemo(() => summarizeDriverRows(rows), [rows]);
+
+  /**
+   * HIS OWN, AND ONLY HIS OWN. The PDF is built from `rows` — the rows the
+   * self-scoped `my_fuel_transactions()` returned for the signed-in driver.
+   * There is no operator id anywhere on this path and no parameterised read
+   * was added for the document.
+   */
+  const downloadPdf = () => downloadFuelPdf({
+    driverName: driverName?.trim() || 'Driver',
+    unitNumber: unitNumber ?? null,
+    rows,
+    generatedAt: new Date(),
+  });
 
   if (q.isSuccess && onReady) onReady();
 
@@ -138,17 +158,25 @@ export default function MyFuel({ onReady }: { onReady?: () => void }) {
       >
         <Fuel className="h-6 w-6" />
         No fuel purchases on your card yet.
+        <Button variant="outline" size="sm" data-testid="my-fuel-pdf-empty" onClick={downloadPdf}>
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </CardContent></Card>
     );
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h1 className="text-2xl font-bold">My Fuel</h1>
-        <p className="text-sm text-muted-foreground">
-          Everything bought on your fuel card, newest first.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">My Fuel</h1>
+          <p className="text-sm text-muted-foreground">
+            Everything bought on your fuel card, newest first.
+          </p>
+        </div>
+        <Button variant="outline" size="sm" data-testid="my-fuel-pdf" onClick={downloadPdf}>
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </div>
 
       {/* Two totals, never one. Money already taken out of a check and money

@@ -8652,3 +8652,46 @@ row: a void against an already-gone driver), `e2e/blueGraceLoadPath.test.tsx`
 (1, timeout).
 
 **Contradictions with the record: none found.**
+
+## Module 9 Pass 3 — DOWNLOADABLE FUEL DETAIL PDF, both screens (2026-09-09)
+
+`src/lib/fuel/fuelDriverPdf.ts` builds the document from ALREADY-BUILT
+`FuelDriverRow[]` and `summarizeDriverRows` — the same rows the two screens
+render. It performs no database read, no line-type mapping and no arithmetic of
+its own, so the PDF and the screens cannot disagree by construction.
+
+Downloads: management `FuelDriverDetailPage` (any driver, from the filtered rows
+on screen) and operator `MyFuel` (his own only, off the no-argument
+`my_fuel_transactions()` — no parameterised PDF path exists).
+
+Contents: date, merchant, city/state, four buckets, discount, total, gallons,
+$/gal, settlement period. Settled and pending total SEPARATELY and are never
+combined; pending rows and the pending block say "Not yet deducted" in print.
+Excluded: other drivers, averages, match status, disagreement/reconciliation
+diagnostics.
+
+NOT BUILT, DECIDED WITH THE OWNER: no emailing, no send log, no delivery
+handling. Sending a driver his fuel report is occasional and conversational — a
+send pipeline is work that then needs maintaining. Trigger to revisit: it
+becomes weekly for roughly a dozen drivers.
+
+VISUAL QA — the layout was reviewed as rendered pages, not as code, and three
+defects were found and fixed that no unit test would have caught:
+  1. Column widths summed to 828pt against a 728pt printable width, so the
+     settlement period ran off the page edge and a settled row read
+     "Week of 08/26/2026 –" with the payday lost. Widths now sum to 728 and
+     `TABLE_LAYOUT` is exported so a test holds that invariant.
+  2. Date and merchant cells were silently cut ("09/01/202", a four-digit store
+     number dropped). Widths corrected; any remaining overflow is ellipsised
+     rather than shortened into something that reads like a different merchant.
+  3. Page 2 carried no identity. Later pages now repeat "<driver> · continued".
+
+EVIDENCE: pending path is REAL DATA (69 committed transactions, 2026-08-28 to
+2026-09-01, no settlement has run against fuel). Ali Mohamed / Unit 260:
+3 purchases, pending $1,960.56, settled $0.00, filename
+`fuel-ali-mohamed-2026-08-29-to-2026-09-01.pdf` — identical to both screens.
+The SETTLED path is FIXTURE EVIDENCE only.
+
+SUITES: `src/lib/fuel/__tests__` (all), `operator-fuel-isolation`,
+`operator-pay-exposure`, `operator-settlement-isolation` — 12 files, 150 tests
+passed; `tsgo --noEmit -p tsconfig.app.json` clean. Contradictions: none found.

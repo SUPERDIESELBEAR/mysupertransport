@@ -15,8 +15,9 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { AlertTriangle, Fuel } from 'lucide-react';
+import { AlertTriangle, Download, Fuel } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
@@ -25,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchOperatorOptions, operatorLabel } from '@/lib/fuel/fuelOperators';
+import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
 import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
 import { loadSettlementSettings } from '@/lib/settlementRun';
 import {
@@ -190,6 +192,25 @@ export default function FuelDriverDetailPage() {
 
   const loading = Boolean(operatorId) && (txns.isLoading || settled.isLoading);
 
+  const selected = useMemo(
+    () => (operators.data ?? []).find((o) => o.id === operatorId) ?? null,
+    [operators.data, operatorId],
+  );
+
+  /**
+   * The PDF is built from `rows` — the very array the table below renders — so
+   * the document and the screen cannot show different figures.
+   */
+  const downloadPdf = () => {
+    if (!selected) return;
+    downloadFuelPdf({
+      driverName: selected.name,
+      unitNumber: selected.unit,
+      rows,
+      generatedAt: new Date(),
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
@@ -216,6 +237,14 @@ export default function FuelDriverDetailPage() {
             </SelectContent>
           </Select>
         </div>
+        <Button
+          variant="outline"
+          data-testid="fuel-driver-pdf"
+          disabled={!selected || loading}
+          onClick={downloadPdf}
+        >
+          <Download className="mr-2 h-4 w-4" /> Download PDF
+        </Button>
       </div>
 
       {!operatorId && (
