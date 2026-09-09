@@ -3257,42 +3257,59 @@ export type Database = {
       }
       driver_uploads: {
         Row: {
+          binder_document_id: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
           driver_id: string
           file_name: string | null
           file_path: string | null
           file_url: string | null
           id: string
+          proposed_expires_at: string | null
+          review_note: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           status: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at: string
         }
         Insert: {
+          binder_document_id?: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
           driver_id: string
           file_name?: string | null
           file_path?: string | null
           file_url?: string | null
           id?: string
+          proposed_expires_at?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at?: string
         }
         Update: {
+          binder_document_id?: string | null
           category?: Database["public"]["Enums"]["driver_upload_category"]
           driver_id?: string
           file_name?: string | null
           file_path?: string | null
           file_url?: string | null
           id?: string
+          proposed_expires_at?: string | null
+          review_note?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           status?: Database["public"]["Enums"]["driver_upload_status"]
           uploaded_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_uploads_binder_document_id_fkey"
+            columns: ["binder_document_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_documents"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_vault_documents: {
         Row: {
@@ -13169,6 +13186,11 @@ export type Database = {
         | "roadside_inspection_report"
         | "repairs_maintenance_receipt"
         | "miscellaneous"
+        | "binder_cdl_front"
+        | "binder_cdl_back"
+        | "binder_medical"
+        | "binder_irp"
+        | "binder_2290"
       driver_upload_status: "pending_review" | "reviewed" | "needs_attention"
       equipment_assignment_state: "prior" | "during" | "not_assigned"
       equipment_type: "dry_van" | "reefer" | "flatbed" | "hopper_bottom"
@@ -13550,6 +13572,11 @@ export const Constants = {
         "roadside_inspection_report",
         "repairs_maintenance_receipt",
         "miscellaneous",
+        "binder_cdl_front",
+        "binder_cdl_back",
+        "binder_medical",
+        "binder_irp",
+        "binder_2290",
       ],
       driver_upload_status: ["pending_review", "reviewed", "needs_attention"],
       equipment_assignment_state: ["prior", "during", "not_assigned"],
