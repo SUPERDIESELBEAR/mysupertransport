@@ -16,6 +16,7 @@ export type OperatorView =
   | 'my-truck'
   | 'forecast'
   | 'settlements'
+  | 'my-fuel'
   | 'onboard-systems'
   | 'eld-malfunction'
   | 'paper-logs';
@@ -38,6 +39,7 @@ export const OPERATOR_VIEWS: OperatorView[] = [
   'my-truck',
   'forecast',
   'settlements',
+  'my-fuel',
   'onboard-systems',
   'eld-malfunction',
   'paper-logs',
@@ -67,6 +69,7 @@ const VIEW_TO_ROUTE: Record<OperatorView, string> = {
   'my-truck': 'my-truck',
   forecast: 'forecast',
   settlements: 'settlements',
+  'my-fuel': 'my-fuel',
   'onboard-systems': 'onboard-systems',
   'eld-malfunction': 'eld-malfunction',
   'paper-logs': 'paper-logs',
@@ -96,6 +99,8 @@ const ROUTE_TO_VIEW: Record<string, OperatorView> = {
   'my-truck': 'my-truck',
   forecast: 'forecast',
   settlements: 'settlements',
+  'my-fuel': 'my-fuel',
+  fuel: 'my-fuel',
   'onboard-systems': 'onboard-systems',
   'eld-malfunction': 'eld-malfunction',
   eld: 'eld-malfunction',

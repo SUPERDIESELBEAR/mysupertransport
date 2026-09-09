@@ -457,6 +457,17 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // only; PUBLIC and anon are revoked in the migration that creates it.
   "public.my_rm_deposit()",
 
+  // my_fuel_transactions (2026-09-09), the driver's own fuel-card purchases on
+  // his portal. fuel_transactions carries staff-only read policies and must
+  // keep them: the function resolves the caller's operator row through
+  // operators.user_id = auth.uid(), TAKES NO ARGUMENT, and so has no parameter
+  // through which another driver's id could arrive. It returns his purchases,
+  // their line rows and the settlement each was deducted on -- and no match
+  // status, unmatched reason or reconciliation verdict, those being facts
+  // about our records rather than his spending. authenticated only; PUBLIC and
+  // anon are revoked in the migration that creates it.
+  "public.my_fuel_transactions()",
+
   // store_settlement_run (2026-09-01), the ONLY writer of a settlement. It is
   // definer because it writes three tables no client role may write, and it
   // gates itself on management/owner in its own body before anything is
@@ -664,7 +675,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   fuel_disagreement_acceptances — it writes to no other table, which is the
 //   whole point of it: 120 -> 121. enforce_fuel_acceptance_append_only() is NOT
 //   here — it is a trigger function with EXECUTE revoked from every client role.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 121;
+// + my_fuel_transactions() (2026-09-09), Module 9's driver-facing fuel read:
+//   no argument at all, the operator resolved from auth.uid() inside the
+//   function, and staff diagnostics deliberately absent from its result:
+//   121 -> 122.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 122;
 
 
 

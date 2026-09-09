@@ -12490,6 +12490,28 @@ export type Database = {
         }
         Returns: number
       }
+      my_fuel_transactions: {
+        Args: never
+        Returns: {
+          city: string
+          diesel_amount: number
+          diesel_gallons: number
+          fuel_discount_amount: number
+          id: string
+          invoice_date: string
+          invoice_no: string
+          lines: Json
+          merchant_name: string
+          payday: string
+          period_end: string
+          period_start: string
+          settlement_id: string
+          settlement_status: string
+          state: string
+          total_amount: number
+          work_week_start_dow: number
+        }[]
+      }
       my_rm_deposit: {
         Args: never
         Returns: {
