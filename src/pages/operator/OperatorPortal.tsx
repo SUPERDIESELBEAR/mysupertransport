@@ -237,6 +237,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [onboardingStatusLoaded, setOnboardingStatusLoaded] = useState(false);
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
+  /** `operators.unit_number`. Resolved against the onboarding value, never read alone. */
+  const [operatorUnitNumber, setOperatorUnitNumber] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
