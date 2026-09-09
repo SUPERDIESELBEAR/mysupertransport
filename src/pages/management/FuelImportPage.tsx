@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
-import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import { fetchOperatorOptions, type OperatorOption } from '@/lib/fuel/fuelOperators';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
   FuelCsvFormatError, columnDriftNotice, parseMultiserviceCsv, reconciliationWarning,
@@ -57,40 +57,10 @@ import { compareValues, nextSortState, type SortState } from '@/lib/listSorting'
  * holder, and how many failed their own arithmetic.
  */
 
-interface OperatorOption { id: string; name: string; unit: string | null }
-
 /**
- * `operators.user_id` points at `auth.users`, not at `public.profiles`, so
- * PostgREST cannot embed the name — the whole request would return nothing.
- * Names come from the second read in src/lib/profileNames.ts.
+ * The driver list moved to `src/lib/fuel/fuelOperators.ts` when the per-driver
+ * fuel detail screen needed the same read. Same query, one definition.
  */
-const OPERATOR_SELECT = 'id, unit_number, user_id';
-
-interface OperatorRow {
-  id: string;
-  unit_number: string | null;
-  user_id: string | null;
-}
-
-async function fetchOperatorOptions(): Promise<OperatorOption[]> {
-  const { data, error } = await supabase
-    .from('operators')
-    .select(OPERATOR_SELECT)
-    .eq('is_active', true)
-    .limit(500)
-    .returns<OperatorRow[]>();
-  if (error) throw error;
-
-  const rows = data ?? [];
-  const names = await fetchProfileNames(rows.map((o) => o.user_id));
-  return rows
-    .map((o) => ({
-      id: o.id,
-      name: formatProfileName(o.user_id ? names.get(o.user_id) : null, 'Unnamed driver'),
-      unit: o.unit_number,
-    }))
-    .sort((a, b) => a.name.localeCompare(b.name));
-}
 
 
 function Stat({
