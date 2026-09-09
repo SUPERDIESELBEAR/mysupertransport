@@ -176,7 +176,10 @@ const MUTED: [number, number, number] = [110, 110, 110];
 const PENDING_BG: [number, number, number] = [253, 243, 219];
 const MARGIN = 32;
 /** Column widths in points, summing to the printable width of letter landscape. */
-const WIDTHS = [52, 108, 92, 58, 62, 52, 48, 54, 60, 46, 44, 152];
+const WIDTHS = [44, 92, 76, 48, 54, 44, 40, 48, 52, 38, 38, 154];
+/** Letter landscape, minus both margins. The widths must not exceed it. */
+const PRINTABLE = 792 - MARGIN * 2;
+const ROW_HEIGHT = 18;
 
 function drawTotals(doc: jsPDF, block: FuelPdfTotalsBlock, x: number, y: number, w: number, pending: boolean) {
   const h = 74;
