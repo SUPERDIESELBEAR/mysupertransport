@@ -1031,7 +1031,7 @@ export default function ManagementPortal() {
       label: 'Drivers',
       items: [
         { label: 'Driver Hub',          icon: <Users2 className="h-4 w-4" />,         path: 'drivers' },
-        { label: 'Compliance Tracking', icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
+        { label: 'Fleet Compliance',    icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
         { label: 'Document Hub',        icon: <Library className="h-4 w-4" />,        path: 'docs-hub' },
         { label: 'Paper Logs (RODS)',   icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
         { label: 'Lease Terminations',  icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
@@ -1110,7 +1110,7 @@ export default function ManagementPortal() {
     { label: 'Overview',      icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Pipeline',      icon: <Users className="h-4 w-4" />,           path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages',      icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
-    { label: 'Compliance',    icon: <ShieldCheck className="h-4 w-4" />,     path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Fleet Compliance', icon: <ShieldCheck className="h-4 w-4" />,  path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Notifs',        icon: <BellRing className="h-4 w-4" />,        path: 'notifications', badge: unreadNotifCount },
   ];
 
@@ -2465,18 +2465,6 @@ export default function ManagementPortal() {
                 key={alertsPanelNoAction ? 'no-action' : 'default'}
                 defaultNoActionOnly={alertsPanelNoAction}
                 onOpenOperator={(id) => openOperatorDetail(id)}
-                onOpenOperatorWithFocus={async (operatorId, focusField) => {
-                  openOperatorDetail(operatorId, { focusField });
-                  const { data: op } = await supabase
-                    .from('operators')
-                    .select('application_id, applications(*)')
-                    .eq('id', operatorId)
-                    .single();
-                  if (op?.applications) {
-                    setSelectedApp(op.applications as FullApplication);
-                    setDrawerFocusField(focusField);
-                  }
-                }}
               />
             </div>
             <InspectionComplianceSummary
