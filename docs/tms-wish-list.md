@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-03
+Last updated: 2026-09-09
 
 ---
 
@@ -512,15 +512,49 @@ or when parser extraction (Module 5 Pass 3) lands and the parsed-vs-default
 disagreement becomes something the system can measure.
 
 ### Fuel reporting (Module 9)
-The owner has asked to design fuel reporting as part of Module 9. Wanted:
-per-driver fuel totals; per-period; per-category; gallons; and cost per gallon,
-which is the figure that shows whether a driver is fuelling badly.
+The owner has asked to design fuel reporting as part of Module 9. Design
+conversation on 2026-09-09 split the ideas into WANTED (in scope for the build)
+and HELD (deliberately parked, not rejected, not scheduled).
+
+**WANTED — owner confirmed in scope for the build**
+
+- Per-driver fuel detail, and a company-wide view.
+- A per-driver report the owner can **send to that driver** on request. It must be
+clean and itemised by the categories a driver will ask about.
+- A **weekly exception view before settlements** — outliers and anything unusual,
+answering "does anything look wrong before I pay them".
+- **Monthly trend for the business** — total cost, month over month, and average
+cost per gallon.
+- **Cost per gallon by location**.
+
+**HELD — raised on 2026-09-09 and deliberately parked by the owner**
+
+These are not rejected and not scheduled. Recorded here so they are not lost and
+not mistaken for scope:
+
+- Cost per gallon compared against what other drivers paid the same week.
+- Gallons against `loaded_miles` — MPG per driver and per truck.
+- Fuel as a share of what the driver earned.
+- Cash advance patterns as an early signal of financial difficulty.
+- Purchases outside a normal window — far from a route, or on a day with no
+dispatch.
+- Week-over-week change per driver, as an alert rather than a report.
+
+**RECORD WHAT EXISTS TO REPORT ON**
 
 NO FUEL REPORTING EXISTS ANYWHERE TODAY. The import screen lists a batch and its
 review queue and nothing else — no sorting, no filtering, no aggregation by
-operator. The data is there: `fuel_transactions` carries the operator, the date,
-the flat category amounts and diesel gallons / DEF quantity, and
-`fuel_transaction_lines` carries every category as a row.
+operator.
+
+The underlying data is committed: per transaction the record carries date,
+driver, unit, card, the four-bucket split plus discount, diesel gallons, DEF
+quantity, cost per gallon, city, state, and match status. The committed set is
+**69 transactions covering 2026-08-28 to 2026-09-01, $31,913.66**.
+
+**DATA DEPENDENCY**
+
+Everything in WANTED can be built against those 69 committed fuel transactions
+today. Nothing in WANTED requires loads or settlements.
 
 TRIGGER: when Module 9 is specified, or earlier if a driver's fuel spend is
 questioned and there is no way to answer it.
