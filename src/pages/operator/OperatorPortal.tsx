@@ -13,7 +13,7 @@ import {
   LogOut, Menu, X, Upload, Shield, FileCheck, Truck, TriangleAlert, Phone, Bell, CheckCheck, KeyRound, RefreshCw,
   ClipboardList,
   ArrowRight, Library, Cpu, Camera, CreditCard, Gauge, FolderOpen, Eye, Calculator, Home, ChevronRight, ChevronLeft,
-  HardDrive, Container, Wallet,
+  HardDrive, Container, Wallet, Fuel,
 } from 'lucide-react';
 // Heavy view-gated panels are lazy-loaded so the initial portal mount and
 // switches between unrelated views don't pay the full bundle/render cost
@@ -59,6 +59,7 @@ const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDe
 import { BuildInfo } from '@/components/BuildInfo';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
 const MySettlements = lazyWithRetry(() => import('@/components/operator/MySettlements'));
+const MyFuel = lazyWithRetry(() => import('@/components/operator/MyFuel'));
 const ELDMalfunctionView = lazyWithRetry(() => import('@/components/operator/eld/ELDMalfunctionView'));
 const RodsView = lazyWithRetry(() => import('@/components/operator/rods/RodsView'));
 import { useAppRefresh } from '@/hooks/useAppRefresh';
@@ -1208,6 +1209,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'settlements' as OperatorView, label: 'My Settlements', shortLabel: 'Settlements', icon: <Wallet className="h-5 w-5" /> },
+    { view: 'my-fuel' as OperatorView, label: 'My Fuel', shortLabel: 'Fuel', icon: <Fuel className="h-5 w-5" /> },
     { view: 'forecast' as OperatorView, label: 'Settlement Forecast', shortLabel: 'Forecast', icon: <Calculator className="h-5 w-5" /> },
     { view: 'ica' as OperatorView, label: 'ICA', icon: <FileText className="h-5 w-5" />, showIf: isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract) || icaComplete, icaDot: icaActionDot },
     { view: 'dispatch' as OperatorView, label: 'Dispatch', icon: <Container className="h-5 w-5" />, onlyOnboarded: true },
@@ -1739,6 +1741,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           }> = [
             { view: 'inspection-binder', label: '3-Ring Binder', sublabel: 'DOT inspection-ready documents', icon: <Shield className="h-8 w-8" /> },
             { view: 'settlements', label: 'My Settlements', sublabel: 'Settled pay, itemised', icon: <Wallet className="h-8 w-8" /> },
+            { view: 'my-fuel', label: 'My Fuel', sublabel: 'Fuel-card purchases, itemised', icon: <Fuel className="h-8 w-8" /> },
             { view: 'forecast', label: 'Settlement Forecast', sublabel: "This week's projected pay", icon: <Calculator className="h-8 w-8" /> },
             { view: 'my-truck', label: 'My Truck', sublabel: 'Equipment, specs & maintenance', icon: <Truck className="h-8 w-8" /> },
             { view: 'resource-center', label: 'Resource Center', sublabel: 'Guides, how-tos & references', icon: <BookOpen className="h-8 w-8" /> },
@@ -1997,6 +2000,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
         {view === 'settlements' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
+        )}
+
+        {/* ── MY FUEL VIEW (his own fuel-card purchases, read-only) ──
+             No operatorId is passed: the read is scoped to the signed-in
+             driver inside the database function, not by anything sent here. */}
+        {view === 'my-fuel' && (
+          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading your fuel…</div>}>
+            <MyFuel onReady={() => handleDestinationReady('my-fuel')} />
+          </Suspense>
         )}
 
         {/* ── SETTLEMENT FORECAST VIEW ── */}
