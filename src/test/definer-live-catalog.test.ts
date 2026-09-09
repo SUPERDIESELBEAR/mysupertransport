@@ -468,6 +468,18 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // anon are revoked in the migration that creates it.
   "public.my_fuel_transactions()",
 
+  // set_operator_unit_from_fuel_review (2026-09-10), the human fill for a
+  // driver with no unit number recorded. Definer because it writes operators,
+  // which no client role may write. It is narrow in every direction that
+  // matters: management/owner is checked IN THE BODY so the definer rights buy
+  // no privilege escalation, the actor comes from current_profile_id() rather
+  // than an argument, a note is required, ONE operator per call with no bulk
+  // path, it writes unit_number and updated_at and nothing else, and it
+  // REFUSES outright when the driver already has a unit — filling an absence
+  // and overwriting a value being different decisions. Every call is audited.
+  // authenticated only; PUBLIC and anon are revoked in the migration.
+  "public.set_operator_unit_from_fuel_review(uuid,text,text)",
+
   // store_settlement_run (2026-09-01), the ONLY writer of a settlement. It is
   // definer because it writes three tables no client role may write, and it
   // gates itself on management/owner in its own body before anything is
