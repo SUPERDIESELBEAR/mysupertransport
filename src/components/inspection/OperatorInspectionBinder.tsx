@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import type { Database } from '@/integrations/supabase/types';
 import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
@@ -9,13 +10,21 @@ import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import {
   FileText, Truck, Shield, CheckSquare, Square, Send, Mail, MessageSquare,
   Upload, Loader2, AlertTriangle, Clock, X, QrCode, List, BookOpen, ChevronRight,
+  RefreshCw,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { DateInput } from '@/components/ui/date-input';
+import {
+  Dialog, DialogContent, DialogDescription, DialogFooter,
+  DialogHeader, DialogTitle,
+} from '@/components/ui/dialog';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import logo from '@/assets/supertransport-logo.png';
 import {
   InspectionDocument, DriverUpload,
   COMPANY_WIDE_DOCS, PER_DRIVER_DOCS, getExpiryStatus, filterOptionalDocs,
+  BINDER_UPLOAD_SLOTS, isBinderUploadCategory, parseLocalDate,
 } from './InspectionBinderTypes';
 import { DocRow, ExpiryBadge, FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import BinderFlipbook, { FlipbookPage } from './BinderFlipbook';
@@ -52,6 +61,9 @@ function DriverUploadRow({ upload, onPreview }: { upload: DriverUpload; onPrevie
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium text-foreground truncate">{upload.file_name ?? 'Document'}</p>
         <p className="text-xs text-muted-foreground">{new Date(upload.uploaded_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</p>
+        {upload.status === 'needs_attention' && upload.review_note && (
+          <p className="text-xs text-destructive mt-0.5">Note from the office: {upload.review_note}</p>
+        )}
       </div>
       <div className="flex items-center gap-2 shrink-0">
         {statusBadge[upload.status]}
@@ -91,6 +103,12 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
     if (typeof window === 'undefined') return true;
     return localStorage.getItem('binder_opened_v1') === '1';
   });
+
+  // Binder replacement proposal (driver uploads a new version; staff approve)
+  const [replaceSlot, setReplaceSlot] = useState<{ category: string; docName: string } | null>(null);
+  const [replaceFile, setReplaceFile] = useState<File | null>(null);
+  const [replaceExpiry, setReplaceExpiry] = useState('');
+  const [replaceSubmitting, setReplaceSubmitting] = useState(false);
 
   const openBinder = useCallback(() => {
     setViewMode('pages');
@@ -195,6 +213,64 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
       setUploadingKey(null);
     }
   };
+
+  /** Submit a proposed new version of a binder document for staff review. */
+  const handleBinderReplaceSubmit = async () => {
+    if (!user || !replaceSlot || !replaceFile) return;
+    if (!replaceExpiry) {
+      toast({ title: 'Expiry date required', description: 'Enter the expiry date shown on the new document.', variant: 'destructive' });
+      return;
+    }
+    if (parseLocalDate(replaceExpiry).getTime() <= Date.now()) {
+      toast({ title: 'Expiry must be in the future', description: 'Check the date on the new document and try again.', variant: 'destructive' });
+      return;
+    }
+    setReplaceSubmitting(true);
+    try {
+      const ext = replaceFile.name.split('.').pop();
+      const path = `${userId}/binder/${Date.now()}.${ext}`;
+      const { error: storageErr, authUid, sessionExpired } = await uploadToBucket('driver-uploads', path, replaceFile);
+      if (storageErr) { console.error('[OperatorInspectionBinder/binder] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
+
+      const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
+      const existingDoc = perDriverDocs.find(d => d.name === replaceSlot.docName);
+      const { error: insertErr } = await supabase.from('driver_uploads').insert(insertPayload('driver_uploads', {
+        driver_id: userId,
+        // New binder_* enum values land in the staged migration; generated types catch up on accept.
+        category: replaceSlot.category as unknown as Database['public']['Enums']['driver_upload_category'],
+        file_url: urlData?.signedUrl ?? null,
+        file_path: path,
+        file_name: replaceFile.name,
+        binder_document_id: existingDoc?.id ?? null,
+        proposed_expires_at: replaceExpiry,
+      }));
+      if (insertErr) {
+        await supabase.storage.from('driver-uploads').remove([path]).catch(() => {});
+        throw insertErr;
+      }
+
+      toast({ title: 'Submitted for review', description: `${replaceSlot.docName} was sent to the office. Your binder updates once it's approved.` });
+      setReplaceSlot(null);
+      setReplaceFile(null);
+      setReplaceExpiry('');
+      fetchDocs();
+    } catch (err: unknown) {
+      toast({
+        title: 'Upload failed',
+        description: err instanceof Error
+          ? err.message
+          : "We couldn't upload that document. Please check your connection and try again.",
+        variant: 'destructive',
+      });
+    } finally {
+      setReplaceSubmitting(false);
+    }
+  };
+
+  /** Pending binder replacement proposal for a given doc slot, if any. */
+  const pendingReplaceFor = (docName: string) =>
+    driverUploads.find(u => u.status === 'pending_review' && isBinderUploadCategory(u.category)
+      && BINDER_UPLOAD_SLOTS.find(s => s.category === u.category)?.docName === docName);
 
   const toggleSelect = (id: string) => {
     setSelected(prev => {
@@ -374,17 +450,37 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
                 const spec = PER_DRIVER_DOCS.find(d => d.key === key);
                 if (!spec) return null;
                 const doc = findDriverDoc(key);
+                const slot = BINDER_UPLOAD_SLOTS.find(s => s.docName === key);
+                const pendingReplace = pendingReplaceFor(key);
                 return (
-                  <DocRow
-                    key={key}
-                    name={key}
-                    doc={doc}
-                    hasExpiry={spec.hasExpiry}
-                    selected={doc ? selected.has(doc.id) : false}
-                    selectMode={selectMode}
-                    onToggleSelect={() => doc && toggleSelect(doc.id)}
-                    canUpload={false}
-                  />
+                  <div key={key}>
+                    <DocRow
+                      name={key}
+                      doc={doc}
+                      hasExpiry={spec.hasExpiry}
+                      selected={doc ? selected.has(doc.id) : false}
+                      selectMode={selectMode}
+                      onToggleSelect={() => doc && toggleSelect(doc.id)}
+                      canUpload={false}
+                    />
+                    {slot && (
+                      pendingReplace ? (
+                        <p className="mt-1 ml-2 inline-flex items-center gap-1.5 text-[11px] text-info">
+                          <Clock className="h-3 w-3" />
+                          New version submitted {pendingReplace.proposed_expires_at ? `(expires ${parseLocalDate(pendingReplace.proposed_expires_at).toLocaleDateString()})` : ''} — awaiting office review
+                        </p>
+                      ) : (
+                        <button
+                          type="button"
+                          className="mt-1 ml-2 inline-flex items-center gap-1.5 text-[11px] font-medium text-gold hover:underline"
+                          onClick={() => { setReplaceSlot({ category: slot.category, docName: key }); setReplaceFile(null); setReplaceExpiry(''); }}
+                        >
+                          <RefreshCw className="h-3 w-3" />
+                          Upload new version
+                        </button>
+                      )
+                    )}
+                  </div>
                 );
               })}
             </div>
@@ -427,6 +523,29 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
           <div>
             <SectionHeader title="My Uploads" icon={<Upload className="h-3.5 w-3.5 text-gold" />} />
             <div className="space-y-6">
+              {(() => {
+                const binderUploads = driverUploads.filter(u => isBinderUploadCategory(u.category));
+                if (binderUploads.length === 0) return null;
+                return (
+                  <div>
+                    <div className="mb-2">
+                      <p className="text-sm font-semibold text-foreground">Binder Updates</p>
+                      <p className="text-xs text-muted-foreground">New document versions you've sent to the office. Your binder updates once approved.</p>
+                    </div>
+                    <div className="space-y-2">
+                      {binderUploads.map(u => (
+                        <div key={u.id}>
+                          <p className="text-[11px] font-medium text-muted-foreground mb-1 ml-1">
+                            {BINDER_UPLOAD_SLOTS.find(s => s.category === u.category)?.label ?? 'Binder document'}
+                            {u.proposed_expires_at ? ` · new expiry ${parseLocalDate(u.proposed_expires_at).toLocaleDateString()}` : ''}
+                          </p>
+                          <DriverUploadRow upload={u} onPreview={(url, name) => { setPreviewUrl(url); setPreviewName(name); setPreviewFilePath((u as any).file_path ?? null); setPreviewBucket('driver-uploads'); }} />
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
               {UPLOAD_SECTIONS.map(({ key, label, desc }) => {
                 const myUploads = driverUploads.filter(u => u.category === key);
                 return (
@@ -516,6 +635,47 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
         onUseMailApp={bulkShareEmailFallback}
       />
 
+      {/* ─── BINDER REPLACEMENT DIALOG ─── */}
+      <Dialog open={!!replaceSlot} onOpenChange={open => { if (!open && !replaceSubmitting) { setReplaceSlot(null); setReplaceFile(null); setReplaceExpiry(''); } }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Upload new {replaceSlot?.docName}</DialogTitle>
+            <DialogDescription>
+              The office reviews it first — your binder updates once approved. The expiry date is required so your compliance alerts stay accurate.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <p className="text-xs font-medium text-foreground mb-1.5">New document (PDF or photo)</p>
+              <input
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png"
+                className="block w-full text-xs text-muted-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-gold file:px-3 file:py-2 file:text-xs file:font-semibold file:text-surface-dark"
+                onChange={e => setReplaceFile(e.target.files?.[0] ?? null)}
+              />
+            </div>
+            <div>
+              <p className="text-xs font-medium text-foreground mb-1.5">Expiry date on the new document</p>
+              <DateInput value={replaceExpiry} onChange={setReplaceExpiry} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" size="sm" disabled={replaceSubmitting} onClick={() => { setReplaceSlot(null); setReplaceFile(null); setReplaceExpiry(''); }}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              className="bg-gold text-surface-dark hover:bg-gold-light gap-1.5"
+              disabled={!replaceFile || !replaceExpiry || replaceSubmitting}
+              onClick={handleBinderReplaceSubmit}
+            >
+              {replaceSubmitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+              Submit for review
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {previewUrl && (
         <FilePreviewModal
           url={previewUrl}
@@ -572,7 +732,9 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
           ...driverUploads.map((u): FlipbookPage => ({
             id: `u-${u.id}`,
             title: u.file_name || 'Upload',
-            subtitle: UPLOAD_SECTIONS.find(s => s.key === u.category)?.label || 'Upload',
+            subtitle: UPLOAD_SECTIONS.find(s => s.key === u.category)?.label
+              || BINDER_UPLOAD_SLOTS.find(s => s.category === (u.category as string))?.label
+              || 'Upload',
             fileUrl: u.file_url,
             fileName: u.file_name,
             shareToken: null,

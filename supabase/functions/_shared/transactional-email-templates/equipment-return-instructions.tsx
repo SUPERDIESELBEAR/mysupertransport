@@ -128,17 +128,42 @@ const EquipmentReturnInstructionsEmail = (props: EquipmentReturnProps) => {
             </tbody>
           </table>
 
+          <Heading style={h2}>Remove our markings from the truck</Heading>
+          <Text style={text}>
+            Before the truck goes back on the road for anyone else, remove the{' '}
+            <strong>{BRAND_NAME} logo and the DOT and unit numbers</strong> from
+            both sides of the cab. Then take <strong>two photos</strong> showing
+            they are gone and upload them in the driver app:
+          </Text>
+          <table style={factTable} cellPadding={0} cellSpacing={0}>
+            <tbody>
+              <tr>
+                <td style={factLabel}>Photo 1</td>
+                <td style={factCell}>Driver's side of the truck</td>
+              </tr>
+              <tr>
+                <td style={{ ...factLabel, borderBottom: 'none' }}>Photo 2</td>
+                <td style={{ ...factCell, borderBottom: 'none' }}>Passenger side of the truck</td>
+              </tr>
+            </tbody>
+          </table>
+          <Text style={muted}>
+            Take each photo far enough back that the whole side of the cab is
+            visible, in daylight if you can.
+          </Text>
+
           <div style={callout}>
             <strong>Important:</strong> after you mail the equipment, open your
-            Onboard Systems Assignment Sheet in the driver app and upload a photo
-            of the shipping receipt along with the tracking number. Your account
-            will remain open until at least one return receipt is on file.
+            Onboard Systems Assignment Sheet in the driver app and upload{' '}
+            <strong>three things</strong> — the shipping receipt with its tracking
+            number, and the two decal-removal photos. Your account will remain
+            open until all three are on file.
           </div>
 
           <Text style={muted}>
-            If a license plate is listed above, remove it from the truck and mail
-            it back with the other items. Your truck registration stays with the
-            truck and does not need to be returned.
+            If a license plate is listed above, it is company property: remove it
+            from the truck and mail it back with the other items. Your truck
+            registration stays with the truck and does not need to be returned.
           </Text>
 
           <Section style={ctaWrap}>

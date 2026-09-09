@@ -517,18 +517,6 @@ export default function DriverHubView({ canAddDriver = false, dispatchMode = fal
             <div className="p-4 pt-3">
               <ComplianceAlertsPanel
                 onOpenOperator={setSelectedOperatorId}
-                onOpenOperatorWithFocus={async (operatorId, focusField) => {
-                  setSelectedOperatorId(operatorId);
-                  const { data } = await supabase
-                    .from('operators')
-                    .select('application_id, applications(*)')
-                    .eq('id', operatorId)
-                    .single();
-                  if (data?.applications) {
-                    setReviewApp(data.applications as FullApplication);
-                    setReviewFocusField(focusField);
-                  }
-                }}
               />
             </div>
           )}

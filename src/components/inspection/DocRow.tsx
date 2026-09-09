@@ -1,7 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { pdfToImage } from '@/lib/pdfToImage';
 import { pdfToImages } from '@/lib/pdfToImages';
-import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { FileText, Upload, ExternalLink, Share2, QrCode, Loader2, CheckCircle2, AlertTriangle, Clock, X, Mail, MessageSquare, Copy, Check, Printer, Download, ZoomIn, ZoomOut, Pencil, ArrowLeft, RefreshCw, ChevronLeft, ChevronRight, History } from 'lucide-react';
+import { BinderDocHistoryDialog, signBinderFileUrl } from './BinderDocHistoryDialog';
 import { downloadBlob } from '@/lib/downloadBlob';
 import { printImageUrl } from '@/lib/printImage';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,6 +28,8 @@ import { lazyWithRetry } from '@/lib/lazyWithRetry';
  * 'application-documents'; everything else lives in 'inspection-documents'.
  */
 export function bucketForBinderDoc(filePath: string | null | undefined): string {
+  // Legacy rows were synced with the bucket name baked into the path
+  if (filePath?.startsWith('fleet-documents/')) return 'fleet-documents';
   if (filePath?.startsWith('applications/')) return 'application-documents';
   // Vehicle Hub DOT inspection certificates live in the fleet-documents bucket
   // (Path shape: "<operator_uuid>/dot/<filename>")
@@ -1077,10 +1080,22 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
   const [shareOpen, setShareOpen] = useState(false);
   const [pdfOpen, setPdfOpen] = useState(false);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const { toast } = useToast();
 
-  const hasFile = !!doc?.file_url;
+  // Prefer the stored link; fall back to signing the file location so a
+  // sync that moved file_path without file_url never shows the wrong/no file.
+  const [resolvedUrl, setResolvedUrl] = useState<string | null>(doc?.file_url ?? null);
+  useEffect(() => {
+    let cancelled = false;
+    if (doc?.file_url) { setResolvedUrl(doc.file_url); return; }
+    if (!doc?.file_path) { setResolvedUrl(null); return; }
+    signBinderFileUrl(doc).then(u => { if (!cancelled) setResolvedUrl(u); });
+    return () => { cancelled = true; };
+  }, [doc?.file_url, doc?.file_path]);
+
+  const hasFile = !!(doc?.file_url || doc?.file_path);
 
   const handleCopyLink = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -1198,6 +1213,23 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                     <TooltipContent side="top" className="text-xs">Share / QR code</TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
+                {doc && (
+                  <TooltipProvider delayDuration={150}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-8 w-8 p-0"
+                          onClick={() => setHistoryOpen(true)}
+                        >
+                          <History className="h-4 w-4" />
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="text-xs">Version history</TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                )}
               </>
             )}
             {canUpload && onUpload && (
@@ -1255,9 +1287,23 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
       </div>
 
       {shareOpen && doc && <ShareModal doc={doc} onClose={() => setShareOpen(false)} />}
-      {pdfOpen && doc?.file_url && (
+      {historyOpen && doc && (
+        <BinderDocHistoryDialog
+          open={historyOpen}
+          onClose={() => setHistoryOpen(false)}
+          documentId={doc.id}
+          docName={name}
+          current={{
+            file_path: doc.file_path,
+            file_url: doc.file_url,
+            expires_at: doc.expires_at,
+            uploaded_at: doc.uploaded_at,
+          }}
+        />
+      )}
+      {pdfOpen && doc && resolvedUrl && (
         <FilePreviewModal
-          url={doc.file_url}
+          url={resolvedUrl}
           name={name}
           onClose={() => setPdfOpen(false)}
           onEdit={canEdit ? () => { setPdfOpen(false); setEditorOpen(true); } : undefined}
@@ -1266,11 +1312,11 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
           onSaved={(newUrl) => onEditSave?.(newUrl)}
         />
       )}
-      {editorOpen && doc?.file_url && (
+      {editorOpen && doc && resolvedUrl && (
         <EditorErrorBoundary onClose={() => setEditorOpen(false)}>
           <Suspense fallback={<div className="fixed inset-0 z-[9999] bg-black/80 flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-white" /></div>}>
             <DocumentEditor
-              fileUrl={doc.file_url}
+              fileUrl={resolvedUrl}
               fileName={doc.name}
               bucketName={editBucketName}
               filePath={editFilePath || doc.file_path || undefined}

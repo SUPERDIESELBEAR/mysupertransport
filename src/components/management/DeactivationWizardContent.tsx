@@ -12,8 +12,10 @@ import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Loader2, CheckCircle2, AlertTriangle, Send, UserX, FileSignature, RotateCcw, CreditCard, ShieldAlert, MapPin, LogOut, ChevronRight, ChevronLeft, Ban, ArrowLeft } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Send, UserX, FileSignature, RotateCcw, CreditCard, ShieldAlert, MapPin, LogOut, ChevronRight, ChevronLeft, Ban, ArrowLeft, Mail, Camera } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
+import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
+import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 
 export interface DeactivationWizardContentProps {
   operatorId: string;
@@ -74,6 +76,8 @@ interface EquipmentSheet {
   status: Database['public']['Enums']['osas_status'];
   return_requested_at: string | null;
   return_completed_at: string | null;
+  decal_photo_driver_side_url: string | null;
+  decal_photo_passenger_side_url: string | null;
   items: { device_type: string; serial_snapshot: string | null }[];
 }
 
@@ -187,6 +191,22 @@ export function DeactivationWizardContent({
   // Step 7: ICA void
   const [icaVoided, setIcaVoided] = useState(false);
   const [voidingIca, setVoidingIca] = useState(false);
+  const [icaVoidReason, setIcaVoidReason] = useState('');
+
+  // Intent gate — the wizard ends a legal agreement, so leaving Step 1 requires
+  // the driver's name typed and a warning if they still look actively working.
+  const [intentConfirmed, setIntentConfirmed] = useState(false);
+  const [showIntentDialog, setShowIntentDialog] = useState(false);
+  const [dispatchSignals, setDispatchSignals] = useState<{ excludedFromDispatch: boolean; dispatchStatus: string | null }>({
+    excludedFromDispatch: false,
+    dispatchStatus: null,
+  });
+
+  // Appendix C → insurance, sent from this step rather than another hub
+  const [sendingInsurance, setSendingInsurance] = useState(false);
+  const [insuranceNotifiedAt, setInsuranceNotifiedAt] = useState<string | null>(null);
+  const [viewTerminationId, setViewTerminationId] = useState<string | null>(null);
+  const [operatorUserId, setOperatorUserId] = useState<string | null>(null);
 
   // Step 8: Login retention
   const [keepLoginActive, setKeepLoginActive] = useState(true);
@@ -237,15 +257,33 @@ export function DeactivationWizardContent({
       const [icaRes, carrierRes, sheetsRes, equipmentRes, platesRes, terminationRes] = await Promise.all([
         supabase.from('ica_contracts').select('id, status, truck_year, truck_make, truck_model, truck_vin, lease_effective_date').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('carrier_signature_settings').select('typed_name, title, signature_url').maybeSingle(),
-        supabase.from('onboard_assignment_sheets').select('id, unit_number, status, return_requested_at, return_completed_at, items:onboard_assignment_sheet_items(device_type, serial_snapshot)').eq('operator_id', operatorId).order('created_at', { ascending: false }),
+        (supabase as any).from('onboard_assignment_sheets').select('id, unit_number, status, return_requested_at, return_completed_at, decal_photo_driver_side_url, decal_photo_passenger_side_url, items:onboard_assignment_sheet_items(device_type, serial_snapshot)').eq('operator_id', operatorId).order('created_at', { ascending: false }),
         supabase
           .from('equipment_assignments')
           .select('id, equipment_id, equipment_items!inner(id, device_type, serial_number, status)')
           .eq('operator_id', operatorId)
           .is('returned_at', null),
         supabase.from('mo_plate_assignments').select('id, plate_id, assigned_at, mo_plates!inner(plate_number)').eq('operator_id', operatorId).is('returned_at', null).order('assigned_at', { ascending: false }),
-        supabase.from('lease_terminations').select('id').eq('operator_id', operatorId).is('voided_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('lease_terminations').select('id, insurance_notified_at').eq('operator_id', operatorId).is('voided_at', null).order('created_at', { ascending: false }).limit(1).maybeSingle(),
       ]);
+
+      // Signals for the intent gate: a driver who still looks like he is
+      // working should not be offboarded without a second look.
+      const dispatchRes = await supabase
+        .from('active_dispatch')
+        .select('dispatch_status')
+        .eq('operator_id', operatorId)
+        .maybeSingle();
+      const opRes = await supabase
+        .from('operators')
+        .select('excluded_from_dispatch, user_id')
+        .eq('id', operatorId)
+        .maybeSingle();
+      setOperatorUserId((opRes.data as any)?.user_id ?? null);
+      setDispatchSignals({
+        excludedFromDispatch: Boolean((opRes.data as any)?.excluded_from_dispatch),
+        dispatchStatus: (dispatchRes.data as any)?.dispatch_status ?? null,
+      });
 
       // Truck snapshot + owner, so a unit that stays leased keeps its identity
       // after the driver's records are torn down.
@@ -283,6 +321,8 @@ export function DeactivationWizardContent({
         status: s.status,
         return_requested_at: s.return_requested_at,
         return_completed_at: s.return_completed_at,
+        decal_photo_driver_side_url: s.decal_photo_driver_side_url ?? null,
+        decal_photo_passenger_side_url: s.decal_photo_passenger_side_url ?? null,
         items: s.items || [],
       })) || []);
       if (equipmentRes.error) {
@@ -309,6 +349,7 @@ export function DeactivationWizardContent({
       if (terminationRes.data) {
         setExistingTerminationId((terminationRes.data as any).id);
         setTerminationCreated(true);
+        setInsuranceNotifiedAt((terminationRes.data as any).insurance_notified_at ?? null);
       }
 
       // Resume: hydrate step statuses previously persisted for this operator
@@ -368,7 +409,7 @@ export function DeactivationWizardContent({
     if (loading) return;
     if (!sheets.length && !receiptsUploaded) {
       updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets');
-    } else if (sheets.every(s => s.return_completed_at)) {
+    } else if (sheets.every(s => s.return_completed_at && s.decal_photo_driver_side_url && s.decal_photo_passenger_side_url)) {
       updateStepStatus('equipment_return', 'completed');
     } else {
       updateStepStatus('equipment_return', 'pending');
@@ -528,12 +569,38 @@ export function DeactivationWizardContent({
 
       setExistingTerminationId((data as any).id);
       setTerminationCreated(true);
+      setInsuranceNotifiedAt(null);
       updateStepStatus('lease_termination', 'completed');
-      toast({ title: 'Lease termination signed', description: 'Appendix C saved and ready to send.' });
+      toast({ title: 'Lease termination signed', description: 'Appendix C saved — send it to insurance below.' });
     } catch (err: any) {
       toast({ title: 'Sign failed', description: err.message, variant: 'destructive' });
     } finally {
       setSaving(false);
+    }
+  };
+
+  /** Appendix C goes to the insurance company from here — not a second hub. */
+  const handleSendToInsurance = async () => {
+    if (!existingTerminationId) return;
+    setSendingInsurance(true);
+    try {
+      const { data, error: fnErr } = await supabase.functions.invoke('send-lease-termination', {
+        body: { termination_id: existingTerminationId },
+        headers: session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : undefined,
+      });
+      if (fnErr) throw new Error(fnErr.message || 'Failed to send');
+      if (data && data.success === false) throw new Error(data.error || 'Failed to send');
+      const { data: row } = await supabase
+        .from('lease_terminations')
+        .select('insurance_notified_at')
+        .eq('id', existingTerminationId)
+        .maybeSingle();
+      setInsuranceNotifiedAt((row as any)?.insurance_notified_at ?? new Date().toISOString());
+      toast({ title: 'Sent to insurance', description: 'Appendix C was emailed to the insurance company.' });
+    } catch (err: any) {
+      toast({ title: 'Send failed', description: err.message, variant: 'destructive' });
+    } finally {
+      setSendingInsurance(false);
     }
   };
 
@@ -618,8 +685,17 @@ export function DeactivationWizardContent({
   const handleVoidIca = async () => {
     setVoidingIca(true);
     try {
-      const { error: delError } = await supabase.from('ica_contracts').delete().eq('operator_id', operatorId);
-      if (delError) throw delError;
+      // The agreement is voided, never deleted: the signed record has to
+      // survive offboarding for insurance, audit and any later dispute.
+      const { error: voidError } = await (supabase as any).from('ica_contracts')
+        .update({
+          voided_at: new Date().toISOString(),
+          voided_by: user?.id ?? null,
+          void_reason: icaVoidReason.trim() || deactivationReason || 'Driver offboarded',
+        })
+        .eq('operator_id', operatorId)
+        .is('voided_at', null);
+      if (voidError) throw voidError;
 
       const { data: statusRow } = await supabase.from('onboarding_status').select('id').eq('operator_id', operatorId).maybeSingle();
       if (statusRow) {
@@ -634,13 +710,13 @@ export function DeactivationWizardContent({
         entity_type: 'operator',
         entity_id: operatorId,
         entity_label: operatorName,
-        metadata: { via: 'deactivation_wizard' },
+        metadata: { via: 'deactivation_wizard', void_reason: icaVoidReason.trim() || deactivationReason || null },
       });
 
       setIcaVoided(true);
       setIca(null);
       updateStepStatus('ica_void', 'completed');
-      toast({ title: 'ICA voided', description: 'The contract has been cleared.' });
+      toast({ title: 'ICA voided', description: 'The agreement is ended. The signed record is kept on file.' });
     } catch (err: any) {
       toast({ title: 'Error voiding ICA', description: err.message, variant: 'destructive' });
     } finally {
@@ -657,6 +733,27 @@ export function DeactivationWizardContent({
         deactivated_by: user?.id ?? null,
       } as any).eq('id', operatorId);
       if (error) throw error;
+
+      // A departed driver is no longer "departing" — leaving the flag set
+      // would keep him in the leaving-soon queue forever.
+      const { error: departErr } = await (supabase as any).rpc('clear_operator_departing', { p_operator_id: operatorId });
+      if (departErr) console.error('Failed to clear departing flag', departErr);
+
+      // Login retention is a decision that has to actually take effect, not
+      // just a note in the audit trail.
+      if (!keepLoginActive && operatorUserId) {
+        const { error: loginErr } = await supabase
+          .from('profiles')
+          .update({ account_status: 'inactive' as any })
+          .eq('id', operatorUserId);
+        if (loginErr) {
+          toast({
+            title: 'Access not revoked',
+            description: `The driver was deactivated but their login is still open: ${loginErr.message}`,
+            variant: 'destructive',
+          });
+        }
+      }
 
       // Persist step completion for audit
       const stepRecords = Object.values(steps).map(s => ({
@@ -882,7 +979,15 @@ export function DeactivationWizardContent({
           </Button>
         )}
         {currentStep !== 'confirm' && (
-          <Button size="sm" onClick={goNext} disabled={!canGoNext || finalizing} className="gap-1">
+          <Button
+            size="sm"
+            onClick={() => {
+              if (currentStep === 'reason' && !intentConfirmed) { setShowIntentDialog(true); return; }
+              goNext();
+            }}
+            disabled={!canGoNext || finalizing}
+            className="gap-1"
+          >
             Next <ChevronRight className="h-4 w-4" />
           </Button>
         )}
@@ -1139,8 +1244,37 @@ export function DeactivationWizardContent({
                   )}
                 </div>
                 {terminationCreated || existingTerminationId ? (
-                  <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
-                    <CheckCircle2 className="h-4 w-4" /> Lease termination signed and saved
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
+                      <CheckCircle2 className="h-4 w-4" /> Lease termination signed and saved
+                    </div>
+                    {insuranceNotifiedAt ? (
+                      <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
+                        <CheckCircle2 className="h-4 w-4" />
+                        Sent to insurance on {new Date(insuranceNotifiedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </div>
+                    ) : (
+                      <Alert className="border-warning/30 bg-warning/5">
+                        <AlertTriangle className="h-4 w-4 text-warning" />
+                        <AlertDescription className="text-xs">
+                          The insurance company has not been notified yet. Send Appendix C before you finish offboarding.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        size="sm"
+                        className="gap-1.5 bg-gold hover:bg-gold/90 text-black"
+                        onClick={handleSendToInsurance}
+                        disabled={sendingInsurance}
+                      >
+                        {sendingInsurance ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Mail className="h-3.5 w-3.5" />}
+                        {insuranceNotifiedAt ? 'Resend to Insurance' : 'Send to Insurance'}
+                      </Button>
+                      <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setViewTerminationId(existingTerminationId)}>
+                        <FileSignature className="h-3.5 w-3.5" /> View Appendix C
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <Button className="w-full gap-1.5 bg-gold hover:bg-gold/90 text-black" onClick={handleCreateLeaseTermination} disabled={!carrierSettings?.signature_url || saving}>
@@ -1174,7 +1308,30 @@ export function DeactivationWizardContent({
                     </Badge>
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    Items: {sheet.items.map(i => `${i.device_type}${i.serial_snapshot ? ` (${i.serial_snapshot})` : ''}`).join(', ') || 'None recorded'}
+                    Items: {sheet.items.map(i => `${i.device_type.replace(/_/g, ' ')}${i.serial_snapshot ? ` (${i.serial_snapshot})` : ''}`).join(', ') || 'None recorded'}
+                  </div>
+                  {/* Decals off the truck is part of the return, not a separate errand. */}
+                  <div className="rounded-md border border-border bg-muted/20 p-2 space-y-1">
+                    <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                      <Camera className="h-3.5 w-3.5 text-muted-foreground" /> Decal removal photos
+                    </div>
+                    {([
+                      ['Driver\u2019s side', sheet.decal_photo_driver_side_url],
+                      ['Passenger side', sheet.decal_photo_passenger_side_url],
+                    ] as [string, string | null][]).map(([label, url]) => (
+                      <div key={label} className="flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground">{label}</span>
+                        {url ? (
+                          <a href={url} target="_blank" rel="noreferrer" className="text-status-complete font-medium inline-flex items-center gap-1">
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Received
+                          </a>
+                        ) : (
+                          <span className="text-warning font-medium inline-flex items-center gap-1">
+                            <AlertTriangle className="h-3.5 w-3.5" /> Waiting on driver
+                          </span>
+                        )}
+                      </div>
+                    ))}
                   </div>
                   <div className="flex gap-2">
                     {!sheet.return_requested_at && !sheet.return_completed_at && (
@@ -1204,9 +1361,19 @@ export function DeactivationWizardContent({
               </div>
             )}
             {sheets.length > 0 && !sheets.some(s => !s.return_completed_at) && (
-              <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
-                <CheckCircle2 className="h-4 w-4" /> All equipment return sheets resolved
-              </div>
+              sheets.every(s => s.decal_photo_driver_side_url && s.decal_photo_passenger_side_url) ? (
+                <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
+                  <CheckCircle2 className="h-4 w-4" /> Equipment returned and decals confirmed removed
+                </div>
+              ) : (
+                <Alert className="border-warning/30 bg-warning/5">
+                  <AlertTriangle className="h-4 w-4 text-warning" />
+                  <AlertDescription className="text-xs">
+                    Equipment is back, but the decal-removal photos are still outstanding. Resend the return
+                    instructions, or skip this step with a reason if you have confirmed removal another way.
+                  </AlertDescription>
+                </Alert>
+              )
             )}
           </div>
         );
@@ -1308,9 +1475,21 @@ export function DeactivationWizardContent({
                 <Alert variant="destructive" className="bg-destructive/5">
                   <AlertTriangle className="h-4 w-4" />
                   <AlertDescription className="text-xs">
-                    Voiding the ICA removes the contract record and resets the driver's onboarding ICA status to "Not Issued". This cannot be undone.
+                    Voiding ends the agreement and resets the driver's onboarding ICA status to "Not Issued".
+                    The signed contract is kept on file for insurance and audit — it is not deleted. This cannot be undone.
                   </AlertDescription>
                 </Alert>
+                {!icaVoided && (
+                  <div>
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Reason for Voiding</Label>
+                    <Textarea
+                      value={icaVoidReason}
+                      onChange={e => setIcaVoidReason(e.target.value)}
+                      placeholder={deactivationReason ? `Defaults to "${deactivationReason}"` : 'Why is this agreement ending?'}
+                      className="text-sm min-h-[60px] resize-none mt-1.5"
+                    />
+                  </div>
+                )}
                 {icaVoided ? (
                   <div className="flex items-center gap-2 text-status-complete text-sm font-medium">
                     <CheckCircle2 className="h-4 w-4" /> ICA voided
@@ -1348,7 +1527,8 @@ export function DeactivationWizardContent({
               <Alert variant="destructive" className="bg-destructive/5">
                 <AlertTriangle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  The driver will lose access to the SUPERDRIVE portal immediately. Only choose this if all equipment has been returned and no further uploads are needed.
+                  When you finish this wizard the driver's account will be switched off and they will lose access to
+                  SUPERDRIVE. Only choose this if all equipment has been returned and no further uploads are needed.
                 </AlertDescription>
               </Alert>
             )}
@@ -1405,6 +1585,40 @@ export function DeactivationWizardContent({
 
   const isManagementInternal = isManagement;
 
+  const dialogs = (
+    <>
+      <TerminationConsequenceDialog
+        open={showIntentDialog}
+        onOpenChange={setShowIntentDialog}
+        operatorName={operatorName}
+        signals={{
+          isActive,
+          excludedFromDispatch: dispatchSignals.excludedFromDispatch,
+          dispatchStatus: dispatchSignals.dispatchStatus,
+        }}
+        onParkInstead={() => {
+          toast({
+            title: 'Park the driver instead',
+            description: 'Use the Park control on the driver profile to record a temporary absence.',
+          });
+          onCancel();
+        }}
+        onConfirm={() => {
+          setIntentConfirmed(true);
+          setShowIntentDialog(false);
+          goNext();
+        }}
+      />
+      {viewTerminationId && (
+        <LeaseTerminationViewModal
+          terminationId={viewTerminationId}
+          operatorName={operatorName}
+          onClose={() => { setViewTerminationId(null); fetchAllData(); }}
+        />
+      )}
+    </>
+  );
+
   if (layout === 'modal') {
     return (
       <div className="flex flex-col h-full max-h-[80dvh]">
@@ -1429,6 +1643,7 @@ export function DeactivationWizardContent({
         <div className="px-6 py-4 flex items-center justify-between">
           {actionButtons}
         </div>
+        {dialogs}
       </div>
     );
   }
@@ -1456,6 +1671,7 @@ export function DeactivationWizardContent({
           {actionButtons}
         </div>
       </div>
+      {dialogs}
     </div>
   );
 }

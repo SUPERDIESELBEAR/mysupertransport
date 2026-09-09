@@ -25,7 +25,11 @@ type Sheet = {
   unit_number: string | null;
   return_requested_at: string | null;
   return_completed_at: string | null;
+  decal_photo_driver_side_url: string | null;
+  decal_photo_passenger_side_url: string | null;
 };
+
+type DecalSide = 'driver' | 'passenger';
 
 type Receipt = {
   id: string;
@@ -50,14 +54,15 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
   const [tracking, setTracking] = useState('');
   const [carrier, setCarrier] = useState<string>('');
   const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
+  const [decalBusy, setDecalBusy] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
 
   const load = useCallback(async () => {
     if (!operatorId) return;
     const [{ data: sheetRows }, { data: receiptRows }] = await Promise.all([
-      supabase
+      (supabase as any)
         .from('onboard_assignment_sheets')
-        .select('id, unit_number, return_requested_at, return_completed_at')
+        .select('id, unit_number, return_requested_at, return_completed_at, decal_photo_driver_side_url, decal_photo_passenger_side_url')
         .eq('operator_id', operatorId)
         .not('return_requested_at', 'is', null)
         .order('return_requested_at', { ascending: false }),
@@ -86,13 +91,74 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
 
   const receiptsFor = (sheetId: string) => receipts.filter(r => r.sheet_id === sheetId || r.sheet_id === null);
 
+  const decalPhotosDone = (s: Sheet) =>
+    !!s.decal_photo_driver_side_url && !!s.decal_photo_passenger_side_url;
+
+  // The return is only finished when the receipt AND both decal-removal photos
+  // are on file, so an outstanding photo keeps the item on the driver's list.
   const pendingReturns = sheets.filter(
-    s => !s.return_completed_at && receipts.filter(r => r.sheet_id === s.id || r.sheet_id === null).length === 0,
+    s => !s.return_completed_at
+      && (receipts.filter(r => r.sheet_id === s.id || r.sheet_id === null).length === 0 || !decalPhotosDone(s)),
   ).length;
   useEffect(() => {
     if (loading) return;
     onSummary?.({ count: sheets.length, actionNeeded: pendingReturns > 0 });
   }, [loading, sheets.length, pendingReturns, onSummary]);
+
+  const handleDecalUpload = async (sheet: Sheet, side: DecalSide, photo: File | null) => {
+    if (guardDemo()) return;
+    if (!user?.id) { toast.error('You must be signed in.'); return; }
+    if (!photo) return;
+    const check = validateFile(photo, true);
+    if (!check.valid) { toast.error(check.error ?? 'Invalid file'); return; }
+
+    const busyKey = `${sheet.id}:${side}`;
+    setDecalBusy(busyKey);
+    try {
+      const rawExt = photo.name.split('.').pop()?.toLowerCase() ?? '';
+      const ext = /^[a-z0-9]{1,5}$/.test(rawExt) ? rawExt : 'jpg';
+      const path = `${operatorId}/decal-removal/${side}-${Date.now()}.${ext}`;
+      const { error: upErr } = await uploadToBucket('operator-documents', path, photo, { upsert: true });
+      if (upErr) throw upErr;
+      const { data: signed } = await supabase.storage
+        .from('operator-documents')
+        .createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
+      const url = signed?.signedUrl;
+      if (!url) throw new Error('Could not create a link for the uploaded photo.');
+
+      const column = side === 'driver'
+        ? 'decal_photo_driver_side_url'
+        : 'decal_photo_passenger_side_url';
+      const other = side === 'driver'
+        ? sheet.decal_photo_passenger_side_url
+        : sheet.decal_photo_driver_side_url;
+
+      const { error } = await (supabase as any)
+        .from('onboard_assignment_sheets')
+        .update({
+          [column]: url,
+          decal_photos_uploaded_by: user.id,
+          decal_photos_uploaded_at: other ? new Date().toISOString() : null,
+        })
+        .eq('id', sheet.id);
+      if (error) {
+        await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
+        throw error;
+      }
+
+      toast.success(
+        side === 'driver' ? "Driver's side photo received" : 'Passenger side photo received',
+        { description: other ? 'Both photos are on file — thank you.' : 'One more photo to go.' },
+      );
+      load();
+    } catch (err: any) {
+      console.error('[EquipmentReturnCard] decal upload failed', err);
+      toast.error("We couldn't upload that photo", { description: err?.message ?? 'Please try again.' });
+    } finally {
+      setDecalBusy(null);
+    }
+  };
+
 
   const handleUpload = async (sheet: Sheet) => {
     if (guardDemo()) return;
@@ -209,7 +275,7 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
                       <ul className="mt-2 space-y-1 text-muted-foreground">
                         <li>• Your receipt was attached to this assignment sheet and the SUPERTRANSPORT team was notified automatically.</li>
                         <li>• Staff will confirm the shipment when your equipment arrives and close out the return.</li>
-                        <li>• Your driver login stays active — nothing else is needed from you unless staff reach out.</li>
+                        <li>• Your driver login stays active. {decalPhotosDone(sheet) ? 'Nothing else is needed from you unless staff reach out.' : 'Please still upload the two decal-removal photos below.'}</li>
                       </ul>
                       <button
                         type="button"
@@ -261,6 +327,58 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
                 </Button>
               </div>
             )}
+
+            <div className="rounded-lg border border-border bg-muted/20 p-3 space-y-3">
+              <div>
+                <div className="text-sm font-medium text-foreground">Decal removal photos</div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Remove the SUPERTRANSPORT logo and the DOT and unit numbers from both
+                  sides of the cab, then upload one photo of each side.
+                </p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(['driver', 'passenger'] as DecalSide[]).map(side => {
+                  const url = side === 'driver'
+                    ? sheet.decal_photo_driver_side_url
+                    : sheet.decal_photo_passenger_side_url;
+                  const label = side === 'driver' ? "Driver's side" : 'Passenger side';
+                  const sideBusy = decalBusy === `${sheet.id}:${side}`;
+                  return (
+                    <div key={side} className="space-y-1.5">
+                      <Label className="text-xs">
+                        {label} {url ? null : <span className="text-destructive">*</span>}
+                      </Label>
+                      {url ? (
+                        <div className="flex items-center gap-2 rounded-lg border border-status-complete/40 bg-status-complete/10 px-3 py-2">
+                          <CheckCircle2 className="h-4 w-4 text-status-complete shrink-0" />
+                          <button
+                            type="button"
+                            className="text-xs text-primary underline underline-offset-2"
+                            onClick={() => setPreview({ url, name: `${label} — decals removed` })}
+                          >
+                            View photo
+                          </button>
+                        </div>
+                      ) : (
+                        <Input
+                          type="file"
+                          accept="image/*"
+                          capture="environment"
+                          disabled={sideBusy}
+                          onChange={e => handleDecalUpload(sheet, side, e.target.files?.[0] ?? null)}
+                          className="text-xs"
+                        />
+                      )}
+                      {sideBusy && (
+                        <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <Loader2 className="h-3 w-3 animate-spin" /> Uploading…
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       })}

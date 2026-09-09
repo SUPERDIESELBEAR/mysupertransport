@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
-import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload, History } from 'lucide-react';
+import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload, History, Eye } from 'lucide-react';
+import { FilePreviewModal, bucketForBinderDoc } from './DocRow';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -34,6 +35,8 @@ interface DocEntry {
   dotInspectionId?: string;
   /** True when expiry was edited but no new file was uploaded (>24h) */
   isStale?: boolean;
+  /** Storage path of the document on file, when there is one */
+  filePath?: string | null;
 }
 
 // ── Helpers ────────────────────────────────────────────────────────────────
@@ -114,6 +117,17 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
   useEffect(() => {
     try { localStorage.setItem('compliance_summary_view', viewMode); } catch {}
   }, [viewMode]);
+  // Fleet (company-wide) rows live on their own tab so they don't interrupt the driver grid.
+  const [scope, setScope] = useState<'drivers' | 'fleet'>(() => {
+    if (typeof window === 'undefined') return 'drivers';
+    return (localStorage.getItem('compliance_summary_scope') as 'drivers' | 'fleet') || 'drivers';
+  });
+  useEffect(() => {
+    try { localStorage.setItem('compliance_summary_scope', scope); } catch {}
+  }, [scope]);
+  // Document preview for the "View" action
+  const [viewingKey, setViewingKey] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string } | null>(null);
   const [sortMode, setSortMode] = useState<SortMode>(() => {
     if (typeof window === 'undefined') return 'urgency';
     return (localStorage.getItem('compliance_summary_sort') as SortMode) || 'urgency';
@@ -161,7 +175,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     // error is surfaced rather than discarded.
     const { data: dotRows, error: dotError } = await supabase
       .from('truck_dot_inspections')
-      .select('id, operator_id, next_due_date, inspection_date, operators(id, application_id, applications(first_name, last_name))')
+      .select('id, operator_id, next_due_date, inspection_date, certificate_file_path, certificate_file_url, operators(id, application_id, applications(first_name, last_name))')
       .order('next_due_date', { ascending: true });
 
     if (dotError) {
@@ -198,6 +212,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         status: getStatus(r.days_until ?? null, windowDays),
         inspectionDocId: r.inspection_doc_id ?? undefined,
         isStale,
+        filePath: filePath ?? null,
       };
     });
 
@@ -217,6 +232,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         daysUntil,
         status: getStatus(daysUntil, windowDays),
         dotInspectionId: r.id,
+        filePath: r.certificate_file_path ?? r.certificate_file_url ?? null,
       });
     });
 
@@ -767,9 +783,14 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       if (t !== 0) return t;
       return a.operatorName.localeCompare(b.operatorName);
     });
-    // When a search is active, hide fleet rows so results stay focused.
-    const fleet = q ? [] : fleetGroups;
-    return [...fleet, ...drivers];
+    // Fleet-wide rows live on their own tab; search applies within the active tab.
+    if (scope === 'fleet') {
+      const fleet = q
+        ? fleetGroups.filter(f => DOC_DISPLAY[f.entry.docKey].toLowerCase().includes(q))
+        : fleetGroups;
+      return fleet;
+    }
+    return drivers;
   })();
 
   // ── Tiny reusable bits for the new views ─────────────────────────────────
@@ -906,8 +927,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
               Stale
             </span>
           </TooltipTrigger>
-          <TooltipContent side="top" className="max-w-[220px] text-xs">
-            Expiry date was updated but no renewed file has been uploaded. Upload the new document to clear this flag.
+          <TooltipContent side="top" className="max-w-xs text-xs whitespace-normal break-words">
+            No document on file backs up this expiry date — either nothing was ever uploaded, or the file on record is older than the last date change. Upload the renewal to clear this.
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -1001,6 +1022,52 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
     });
   };
 
+  /** Opens the document currently on file for this row. */
+  const handleViewDocument = async (entry: DocEntry) => {
+    const path = entry.filePath;
+    if (!path) return;
+    const key = `${entry.operatorId}|${entry.docKey}`;
+    setViewingKey(key);
+    try {
+      const name = `${entry.operatorId === '__fleet__' ? 'Fleet' : entry.operatorName} — ${DOC_DISPLAY[entry.docKey]}`;
+      if (/^https?:\/\//i.test(path)) {
+        setPreview({ url: path, name });
+        return;
+      }
+      const { data, error } = await supabase.storage
+        .from(bucketForBinderDoc(path))
+        .createSignedUrl(path, 60 * 60);
+      if (error || !data?.signedUrl) throw error ?? new Error('Could not open the document');
+      setPreview({ url: data.signedUrl, name });
+    } catch (e: any) {
+      toast({ title: 'Could not open document', description: e?.message ?? 'Please try again.', variant: 'destructive' });
+    } finally {
+      setViewingKey(null);
+    }
+  };
+
+  const ViewButton = ({ entry }: { entry: DocEntry }) => {
+    if (!entry.filePath) return null;
+    const isOpening = viewingKey === `${entry.operatorId}|${entry.docKey}`;
+    return (
+      <TooltipProvider delayDuration={250}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={() => handleViewDocument(entry)}
+              disabled={isOpening}
+              aria-label={`View ${DOC_DISPLAY[entry.docKey]} document`}
+              className="h-6 w-6 rounded flex items-center justify-center shrink-0 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+            >
+              {isOpening ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+            </button>
+          </TooltipTrigger>
+          <TooltipContent side="top">View document on file</TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  };
+
   const HistoryButton = ({ entry }: { entry: DocEntry }) => {
     if (!entry.inspectionDocId) return null;
     return (
@@ -1089,6 +1156,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             'flex items-center gap-1 shrink-0 transition-opacity',
             isCompliant || isMissing ? 'opacity-50 hover:opacity-100' : 'opacity-100',
           )}>
+            <ViewButton entry={entry} />
             <HistoryButton entry={entry} />
             <UploadButton entry={entry} />
             <RemindButton entry={entry} />
@@ -1135,7 +1203,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           <div className="flex items-center gap-1">
             <CertPill entry={entry} />
             <div className="ml-auto flex items-center gap-0.5 opacity-0 group-hover/cell:opacity-100 focus-within:opacity-100 transition-opacity">
-              <HistoryButton entry={entry} />
+              <ViewButton entry={entry} />
+            <HistoryButton entry={entry} />
               <UploadButton entry={entry} />
               <RemindButton entry={entry} />
             </div>
@@ -1280,6 +1349,29 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                 className="h-8 pl-7 text-xs"
               />
             </div>
+            {/* Drivers / Fleet scope */}
+            <div className="inline-flex rounded-md border border-border bg-background overflow-hidden">
+              <button
+                onClick={() => setScope('drivers')}
+                aria-pressed={scope === 'drivers'}
+                className={cn(
+                  'inline-flex items-center px-2 h-8 text-[11px] font-semibold transition-colors',
+                  scope === 'drivers' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Drivers
+              </button>
+              <button
+                onClick={() => setScope('fleet')}
+                aria-pressed={scope === 'fleet'}
+                className={cn(
+                  'inline-flex items-center px-2 h-8 text-[11px] font-semibold transition-colors',
+                  scope === 'fleet' ? 'bg-foreground text-background' : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Fleet
+              </button>
+            </div>
             {/* Sort */}
             <div className="ml-auto inline-flex items-center gap-1">
               <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
@@ -1408,7 +1500,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                           )}
                           <span className="ml-auto flex items-center gap-1.5">
                             <StaleChip entry={entry} />
-                            <HistoryButton entry={entry} />
+                            <ViewButton entry={entry} />
+            <HistoryButton entry={entry} />
                             <UploadButton entry={entry} />
                             <CertPill entry={entry} />
                           </span>
@@ -1550,7 +1643,8 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                             </div>
                             <div className="flex items-center gap-1.5 shrink-0 justify-end">
                               <StaleChip entry={entry} />
-                              <HistoryButton entry={entry} />
+                              <ViewButton entry={entry} />
+            <HistoryButton entry={entry} />
                               <UploadButton entry={entry} />
                               <CertPill entry={entry} />
                               {onOpenInspectionBinder && (
@@ -1729,6 +1823,10 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
             driverUserId={historyTarget.driverUserId}
           />
         )
+      )}
+
+      {preview && (
+        <FilePreviewModal url={preview.url} name={preview.name} onClose={() => setPreview(null)} />
       )}
     </div>
   );

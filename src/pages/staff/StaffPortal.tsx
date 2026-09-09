@@ -785,10 +785,6 @@ export default function StaffPortal() {
               key={alertsPanelNoAction ? 'no-action' : 'default'}
               defaultNoActionOnly={alertsPanelNoAction}
               onOpenOperator={handleOpenOperator}
-              onOpenOperatorWithFocus={async (operatorId, focusField) => {
-                handleOpenOperator(operatorId);
-                await resolveAndOpenAppReview(operatorId, focusField);
-              }}
             />
           </div>
           <InspectionComplianceSummary

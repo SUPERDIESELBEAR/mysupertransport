@@ -1,0 +1,46 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Roadside stop flow">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lbl { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; rx: 8; }
+    .zn { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; rx: 8; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zn" x="8" y="16" width="290" height="120"/>
+  <text x="20" y="34">entry points</text>
+  <rect class="bx" x="28" y="48" width="110" height="40"/>
+  <text class="lbl" x="83" y="72" text-anchor="middle">Driver phone</text>
+  <rect class="bx" x="168" y="48" width="110" height="40"/>
+  <text class="lbl" x="223" y="72" text-anchor="middle">Driver Hub</text>
+  <text x="28" y="112">report a stop</text>
+  <text x="168" y="112">office adds / edits</text>
+
+  <rect class="acc" x="360" y="48" width="250" height="88"/>
+  <text class="lbl" x="485" y="76" text-anchor="middle">Roadside stop record</text>
+  <text x="485" y="98" text-anchor="middle">date · location · reason · outcome</text>
+  <text x="485" y="116" text-anchor="middle">unit · load · report no. · violations · files</text>
+
+  <line class="wire" x1="138" y1="68" x2="164" y2="68" marker-end="url(#a)"/>
+  <line class="wire" x1="278" y1="88" x2="356" y2="90" marker-end="url(#a)"/>
+
+  <line class="wire" x1="485" y1="136" x2="485" y2="176" marker-end="url(#a)"/>
+
+  <rect class="zn" x="8" y="176" width="602" height="100"/>
+  <text x="20" y="194">shows on</text>
+  <rect class="bx" x="40" y="206" width="160" height="48"/>
+  <text class="lbl" x="120" y="228" text-anchor="middle">Driver profile</text>
+  <text x="120" y="246" text-anchor="middle">history + 12-month counts</text>
+  <rect class="bx" x="240" y="206" width="160" height="48"/>
+  <text class="lbl" x="320" y="228" text-anchor="middle">Vehicle Hub</text>
+  <text x="320" y="246" text-anchor="middle">stops per truck</text>
+  <rect class="bx" x="440" y="206" width="160" height="48"/>
+  <text class="lbl" x="520" y="228" text-anchor="middle">Operator portal</text>
+  <text x="520" y="246" text-anchor="middle">own history, read-only</text>
+</svg>

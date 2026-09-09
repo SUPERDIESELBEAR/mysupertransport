@@ -3,17 +3,24 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Input } from '@/components/ui/input';
 import { format, isToday, isYesterday } from 'date-fns';
-import { MessageSquare, Search, User, MailOpen, Mail } from 'lucide-react';
+import { MessageSquare, Search, User, MailOpen, Mail, AlertTriangle } from 'lucide-react';
 import { MessageThread } from '@/components/messaging/MessageThread';
 import type { ChatMessage } from '@/components/messaging/types';
 import StaffAvailabilityCard from './StaffAvailabilityCard';
+import MessageReachabilityCard from './MessageReachabilityCard';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Settings2, Users, Plus, Send } from 'lucide-react';
 import { NewGroupModal } from '@/components/messaging/NewGroupModal';
 import { NewDirectMessageModal, loadDMCandidates, type DMCandidate } from '@/components/messaging/NewDirectMessageModal';
 import { ManageGroupModal } from '@/components/messaging/ManageGroupModal';
+import {
+  matchesGroup, reachabilityBlock, LIFECYCLE_LABEL, DISPATCH_LABEL, DISPATCH_DOT,
+  type AudienceGroup, type MessagingLifecycle, type MessagingDispatchStatus,
+} from '@/lib/messagingAudience';
+import { ReachabilityBadge } from '@/components/messaging/ReachabilityBadge';
 import { toast } from 'sonner';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -23,11 +30,15 @@ interface Thread {
   name: string;
   subtitle: string;
   kind: 'staff' | 'driver';
+  lifecycle: MessagingLifecycle;
+  dispatchStatus: MessagingDispatchStatus | null;
+  accountStatus: string | null;
   lastMessage: string;
   lastAt: string;
   unreadCount: number;
   oldestUnreadAt: string | null;
 }
+
 
 interface GroupThreadRow {
   thread_id: string;
@@ -61,7 +72,17 @@ function previewBody(m: { body: string; deleted_at: string | null; attachment_na
 }
 
 const DEFAULT_VIEW_KEY = 'superdrive_messages_default_view';
+const AUDIENCE_VIEW_KEY = 'superdrive_messages_audience';
 type RailFilter = 'all' | 'unread';
+
+const AUDIENCE_CHIPS: { key: AudienceGroup; label: string }[] = [
+  { key: 'active', label: 'Active' },
+  { key: 'onboarding', label: 'Onboarding' },
+  { key: 'inactive', label: 'Inactive' },
+  { key: 'denied', label: 'Denied' },
+  { key: 'all', label: 'All' },
+];
+
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 
@@ -88,13 +109,25 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
   const [railFilter, setRailFilter] = useState<RailFilter>(() => {
     try { return localStorage.getItem(DEFAULT_VIEW_KEY) === 'unread' ? 'unread' : 'all'; } catch { return 'all'; }
   });
+  const [audienceGroup, setAudienceGroup] = useState<AudienceGroup>(() => {
+    try {
+      const saved = localStorage.getItem(AUDIENCE_VIEW_KEY);
+      return (saved && ['active', 'onboarding', 'inactive', 'denied', 'all'].includes(saved))
+        ? saved as AudienceGroup
+        : 'active';
+    } catch { return 'active'; }
+  });
+  const [dispatchFilter, setDispatchFilter] = useState<'all' | MessagingDispatchStatus>('all');
 
   // ── Load messageable contacts (staff + drivers) ───────────────────────────
+  // Denied applicants are loaded so existing conversations aren't lost, but the
+  // rail only shows them when the Denied filter is chosen.
   const loadContacts = useCallback(async () => {
-    const list = await loadDMCandidates(true, user?.id ?? null);
+    const list = await loadDMCandidates(true, user?.id ?? null, { includeDenied: true });
     setContacts(list);
     if (list.length === 0) setLoadingThreads(false);
   }, [user?.id]);
+
 
   // ── Load group threads I'm a participant of ─────────────────────────
   const loadGroups = useCallback(async () => {
@@ -148,6 +181,10 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
         name: p.name,
         subtitle: p.subtitle,
         kind: p.kind,
+        lifecycle: p.lifecycle,
+        dispatchStatus: p.dispatchStatus,
+        accountStatus: p.accountStatus,
+
         lastMessage: previewBody(latest ?? null),
         lastAt: latest?.sent_at ?? '',
         unreadCount: unread,
@@ -217,12 +254,21 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
   // ── Derived ───────────────────────────────────────────────────────────────
   const q = search.toLowerCase();
   const tabThreads = threads.filter(t => (contactTab === 'staff' ? t.kind === 'staff' : t.kind === 'driver'));
-  const filteredThreads = tabThreads.filter(t =>
+  const audienceThreads = contactTab === 'staff'
+    ? tabThreads
+    : tabThreads.filter(t =>
+        matchesGroup(t.lifecycle, audienceGroup, audienceGroup === 'denied')
+        && (dispatchFilter === 'all' || t.dispatchStatus === dispatchFilter));
+  const filteredThreads = audienceThreads.filter(t =>
     t.name.toLowerCase().includes(q) && (railFilter === 'all' || t.unreadCount > 0)
   );
   const filteredGroups = groupThreads.filter(g =>
     (g.title ?? '').toLowerCase().includes(q) && (railFilter === 'all' || (g.unread_count ?? 0) > 0)
   );
+  const groupCounts = AUDIENCE_CHIPS.reduce((acc, c) => {
+    acc[c.key] = threads.filter(t => t.kind === 'driver' && matchesGroup(t.lifecycle, c.key, c.key === 'denied')).length;
+    return acc;
+  }, {} as Record<AudienceGroup, number>);
   const selectedThread = threads.find(t => t.userId === selectedUserId);
   const selectedGroup = groupThreads.find(g => g.thread_id === selectedGroupId);
   const driverUnread = threads.filter(t => t.kind === 'driver').reduce((s, t) => s + t.unreadCount, 0);
@@ -238,6 +284,12 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
     setRailFilter(f);
     try { localStorage.setItem(DEFAULT_VIEW_KEY, f); } catch { /* ignore */ }
   };
+
+  const changeAudience = (g: AudienceGroup) => {
+    setAudienceGroup(g);
+    try { localStorage.setItem(AUDIENCE_VIEW_KEY, g); } catch { /* ignore */ }
+  };
+
 
   // ── Mark a DM thread read / unread ────────────────────────────────────────
   const markThread = useCallback(async (otherUserId: string, read: boolean) => {
@@ -330,7 +382,9 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
                 </SheetHeader>
                 <div className="px-3 pb-6">
                   <StaffAvailabilityCard />
+                  <MessageReachabilityCard />
                 </div>
+
               </SheetContent>
             </Sheet>
           </div>
@@ -378,7 +432,40 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
               </button>
             ))}
           </div>
+
+          {/* Driver audience filters */}
+          {contactTab === 'drivers' && (
+            <>
+              <div className="flex flex-wrap gap-1 mt-2">
+                {AUDIENCE_CHIPS.map(c => (
+                  <button
+                    key={c.key}
+                    onClick={() => changeAudience(c.key)}
+                    className={`h-6 px-2 rounded-full text-[11px] font-medium transition-colors border ${
+                      audienceGroup === c.key
+                        ? 'bg-primary/15 text-primary border-primary/30'
+                        : 'text-muted-foreground border-border hover:bg-muted'
+                    }`}
+                  >
+                    {c.label} {groupCounts[c.key] ?? 0}
+                  </button>
+                ))}
+              </div>
+              <Select value={dispatchFilter} onValueChange={(v) => setDispatchFilter(v as 'all' | MessagingDispatchStatus)}>
+                <SelectTrigger className="h-7 text-[11px] mt-2">
+                  <SelectValue placeholder="Any driver status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Any driver status</SelectItem>
+                  {(Object.keys(DISPATCH_LABEL) as MessagingDispatchStatus[]).map(s => (
+                    <SelectItem key={s} value={s}>{DISPATCH_LABEL[s]}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
+
 
         <div className="flex-1 overflow-y-auto">
           {filteredGroups.length > 0 && (
@@ -449,6 +536,13 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
                       <div className="h-9 w-9 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
                         <span className="text-primary text-xs font-bold">{initials(t.name)}</span>
                       </div>
+                      {t.kind === 'driver' && (
+                        <ReachabilityBadge
+                          reason={reachabilityBlock(t.lifecycle, t.accountStatus, true)}
+                          showWhenReachable
+                          className="absolute -bottom-0.5 -left-0.5"
+                        />
+                      )}
                       {t.unreadCount > 0 && (
                         <span className="absolute -top-0.5 -right-0.5 h-4 min-w-4 px-0.5 rounded-full bg-destructive text-white text-[9px] font-bold flex items-center justify-center">
                           {t.unreadCount > 9 ? '9+' : t.unreadCount}
@@ -466,10 +560,28 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
                           </span>
                         )}
                       </div>
+                      {t.kind === 'driver' && (
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <span className={`text-[10px] px-1.5 rounded-full border ${
+                            t.lifecycle === 'active' ? 'text-status-complete border-status-complete/40'
+                            : t.lifecycle === 'denied' ? 'text-destructive border-destructive/40'
+                            : 'text-muted-foreground border-border'
+                          }`}>
+                            {LIFECYCLE_LABEL[t.lifecycle]}
+                          </span>
+                          {t.dispatchStatus && (
+                            <span className="flex items-center gap-1 text-[10px] text-muted-foreground">
+                              <span className={`h-1.5 w-1.5 rounded-full ${DISPATCH_DOT[t.dispatchStatus]}`} />
+                              {DISPATCH_LABEL[t.dispatchStatus]}
+                            </span>
+                          )}
+                        </div>
+                      )}
                       <p className={`text-[11px] truncate mt-0.5 ${t.unreadCount > 0 ? 'text-foreground/70 font-medium' : 'text-muted-foreground'}`}>
                         {t.lastMessage}
                       </p>
                     </div>
+
                   </div>
                 </button>
                 {t.lastAt && (
@@ -533,18 +645,37 @@ export default function MessagesView({ initialUserId, onBulkMessage }: MessagesV
             )}
           </>
         ) : (
-          <MessageThread
-            key={selectedUserId}
-            myUserId={user?.id ?? null}
-            otherUserId={selectedUserId}
-            otherName={selectedThread?.name ?? 'Contact'}
-            otherSubtitle={selectedThread?.subtitle ?? 'Owner-Operator'}
-            isStaff={true}
-            onBack={backToList}
-            placeholder={`Message ${selectedThread?.name ?? 'contact'}…`}
-            onMessagesChanged={handleMessagesChanged}
-          />
+          <>
+            {selectedThread?.kind === 'driver' && selectedThread.lifecycle !== 'active' && (
+              <div className={`flex items-start gap-2 px-4 py-2 text-[11px] border-b ${
+                selectedThread.lifecycle === 'denied'
+                  ? 'bg-destructive/10 border-destructive/30 text-destructive'
+                  : 'bg-muted border-border text-muted-foreground'
+              }`}>
+                <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
+                <span>
+                  {selectedThread.lifecycle === 'denied'
+                    ? 'This applicant was denied. Please don\u2019t send new messages unless the decision has changed.'
+                    : selectedThread.lifecycle === 'inactive'
+                      ? 'This driver is no longer active with us.'
+                      : 'This driver is still onboarding — they may not be set up to reply yet.'}
+                </span>
+              </div>
+            )}
+            <MessageThread
+              key={selectedUserId}
+              myUserId={user?.id ?? null}
+              otherUserId={selectedUserId}
+              otherName={selectedThread?.name ?? 'Contact'}
+              otherSubtitle={selectedThread?.subtitle ?? 'Owner-Operator'}
+              isStaff={true}
+              onBack={backToList}
+              placeholder={`Message ${selectedThread?.name ?? 'contact'}…`}
+              onMessagesChanged={handleMessagesChanged}
+            />
+          </>
         )}
+
       </div>
 
       {newGroupOpen && (

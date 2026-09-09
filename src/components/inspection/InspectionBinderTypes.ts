@@ -13,10 +13,38 @@ export interface InspectionDocument {
   shared_with_fleet: boolean;
 }
 
+export type DriverUploadCategory =
+  | 'roadside_inspection_report'
+  | 'repairs_maintenance_receipt'
+  | 'miscellaneous'
+  | BinderUploadCategory;
+
+/** Binder slots a driver may propose a new version of (staff approve first). */
+export const BINDER_UPLOAD_SLOTS = [
+  { category: 'binder_cdl_front', docName: 'CDL (Front)', label: 'CDL (Front)' },
+  { category: 'binder_cdl_back', docName: 'CDL (Back)', label: 'CDL (Back)' },
+  { category: 'binder_medical', docName: 'Medical Certificate', label: 'Medical Certificate' },
+  { category: 'binder_irp', docName: 'IRP Registration (cab card)', label: 'IRP Registration' },
+  { category: 'binder_2290', docName: 'Form 2290', label: 'Form 2290' },
+] as const;
+
+export type BinderUploadCategory = (typeof BINDER_UPLOAD_SLOTS)[number]['category'];
+
+const BINDER_CATEGORIES: readonly string[] = BINDER_UPLOAD_SLOTS.map(s => s.category);
+
+export function isBinderUploadCategory(category: string): category is BinderUploadCategory {
+  return BINDER_CATEGORIES.includes(category);
+}
+
+/** Binder doc name a driver-upload category proposes to replace. */
+export function binderDocNameForCategory(category: string): string | null {
+  return BINDER_UPLOAD_SLOTS.find(s => s.category === category)?.docName ?? null;
+}
+
 export interface DriverUpload {
   id: string;
   driver_id: string;
-  category: 'roadside_inspection_report' | 'repairs_maintenance_receipt' | 'miscellaneous';
+  category: DriverUploadCategory;
   file_url: string | null;
   file_path: string | null;
   file_name: string | null;
@@ -24,6 +52,9 @@ export interface DriverUpload {
   uploaded_at: string;
   reviewed_at: string | null;
   reviewed_by: string | null;
+  binder_document_id?: string | null;
+  proposed_expires_at?: string | null;
+  review_note?: string | null;
 }
 
 // Company-wide document slots (one per scope: company_wide)
