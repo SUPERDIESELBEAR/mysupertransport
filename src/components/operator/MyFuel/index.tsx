@@ -125,6 +125,19 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
   );
   const summary = useMemo(() => summarizeDriverRows(rows), [rows]);
 
+  /**
+   * HIS OWN, AND ONLY HIS OWN. The PDF is built from `rows` — the rows the
+   * self-scoped `my_fuel_transactions()` returned for the signed-in driver.
+   * There is no operator id anywhere on this path and no parameterised read
+   * was added for the document.
+   */
+  const downloadPdf = () => downloadFuelPdf({
+    driverName: driverName?.trim() || 'Driver',
+    unitNumber: unitNumber ?? null,
+    rows,
+    generatedAt: new Date(),
+  });
+
   if (q.isSuccess && onReady) onReady();
 
   if (q.isLoading) return <Skeleton className="h-64 w-full" />;
