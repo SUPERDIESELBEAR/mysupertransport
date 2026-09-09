@@ -250,6 +250,8 @@ export interface FuelLocationReport {
   byChain: FuelLocationGroup[];
   /** How many purchases the chain derivation could not classify. */
   unrecognisedChainPurchases: number;
+  /** How many purchases fell to merchants CONFIRMED as independents. */
+  independentChainPurchases: number;
 }
 
 /** Inclusive date-range filter on the DATE column. No zone conversion. */
