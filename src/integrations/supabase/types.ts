@@ -9964,6 +9964,187 @@ export type Database = {
           },
         ]
       }
+      roadside_stop_documents: {
+        Row: {
+          file_name: string | null
+          file_path: string
+          file_url: string | null
+          id: string
+          stop_id: string
+          uploaded_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          file_name?: string | null
+          file_path: string
+          file_url?: string | null
+          id?: string
+          stop_id: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          file_name?: string | null
+          file_path?: string
+          file_url?: string | null
+          id?: string
+          stop_id?: string
+          uploaded_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stop_documents_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "roadside_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadside_stop_violations: {
+        Row: {
+          code: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_oos: boolean
+          stop_id: string
+          unit: string
+        }
+        Insert: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_oos?: boolean
+          stop_id: string
+          unit?: string
+        }
+        Update: {
+          code?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_oos?: boolean
+          stop_id?: string
+          unit?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stop_violations_stop_id_fkey"
+            columns: ["stop_id"]
+            isOneToOne: false
+            referencedRelation: "roadside_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      roadside_stops: {
+        Row: {
+          agency: string | null
+          citation_issued: boolean
+          created_at: string
+          created_by: string | null
+          cvsa_sticker: boolean
+          driver_id: string | null
+          fine_amount: number | null
+          id: string
+          inspection_level:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number: string | null
+          inspector_name: string | null
+          load_id: string | null
+          location: string | null
+          notes: string | null
+          oos_driver: boolean
+          oos_vehicle: boolean
+          operator_id: string
+          outcome: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state: string | null
+          stop_at: string
+          stop_reason: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          agency?: string | null
+          citation_issued?: boolean
+          created_at?: string
+          created_by?: string | null
+          cvsa_sticker?: boolean
+          driver_id?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_level?:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number?: string | null
+          inspector_name?: string | null
+          load_id?: string | null
+          location?: string | null
+          notes?: string | null
+          oos_driver?: boolean
+          oos_vehicle?: boolean
+          operator_id: string
+          outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state?: string | null
+          stop_at: string
+          stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          agency?: string | null
+          citation_issued?: boolean
+          created_at?: string
+          created_by?: string | null
+          cvsa_sticker?: boolean
+          driver_id?: string | null
+          fine_amount?: number | null
+          id?: string
+          inspection_level?:
+            | Database["public"]["Enums"]["roadside_inspection_level"]
+            | null
+          inspection_report_number?: string | null
+          inspector_name?: string | null
+          load_id?: string | null
+          location?: string | null
+          notes?: string | null
+          oos_driver?: boolean
+          oos_vehicle?: boolean
+          operator_id?: string
+          outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          state?: string | null
+          stop_at?: string
+          stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
+          stop_type?: Database["public"]["Enums"]["roadside_stop_type"]
+          truck_unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "roadside_stops_load_id_fkey"
+            columns: ["load_id"]
+            isOneToOne: false
+            referencedRelation: "loads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "roadside_stops_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rods_amendments: {
         Row: {
           created_at: string
@@ -12445,6 +12626,7 @@ export type Database = {
         Returns: boolean
       }
       invoice_writer_active: { Args: never; Returns: boolean }
+      is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
@@ -13341,6 +13523,28 @@ export type Database = {
         | "dot_general"
         | "payroll"
       review_status: "pending" | "approved" | "denied" | "revisions_requested"
+      roadside_inspection_level:
+        | "level_1"
+        | "level_2"
+        | "level_3"
+        | "level_4"
+        | "level_5"
+        | "level_6"
+      roadside_stop_outcome:
+        | "clean"
+        | "warning"
+        | "citation"
+        | "violations_no_oos"
+        | "out_of_service"
+      roadside_stop_reason:
+        | "random"
+        | "weigh_station"
+        | "moving_violation"
+        | "equipment"
+        | "logs_hos"
+        | "permit_credential"
+        | "other"
+      roadside_stop_type: "dot_inspection" | "traffic_stop"
       screening_result: "pending" | "clear" | "non_clear"
       screening_status: "not_started" | "scheduled" | "results_in"
       settlement_status:
@@ -13741,6 +13945,31 @@ export const Constants = {
         "payroll",
       ],
       review_status: ["pending", "approved", "denied", "revisions_requested"],
+      roadside_inspection_level: [
+        "level_1",
+        "level_2",
+        "level_3",
+        "level_4",
+        "level_5",
+        "level_6",
+      ],
+      roadside_stop_outcome: [
+        "clean",
+        "warning",
+        "citation",
+        "violations_no_oos",
+        "out_of_service",
+      ],
+      roadside_stop_reason: [
+        "random",
+        "weigh_station",
+        "moving_violation",
+        "equipment",
+        "logs_hos",
+        "permit_credential",
+        "other",
+      ],
+      roadside_stop_type: ["dot_inspection", "traffic_stop"],
       screening_result: ["pending", "clear", "non_clear"],
       screening_status: ["not_started", "scheduled", "results_in"],
       settlement_status: [
