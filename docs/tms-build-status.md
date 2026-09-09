@@ -8464,3 +8464,137 @@ passed**. Settlement suites — **70 passed**. `tsgo` clean. No migration and no
 function change in this pass.
 
 **Contradictions with the record: none found.**
+
+---
+
+## Module 9 Pass 2 — THE DRIVER'S OWN FUEL, operator-facing (2026-09-09)
+
+The driver sees his own fuel in the portal, at `/operator/my-fuel`, in the
+sidebar and on the home tiles directly under **My Settlements** — the two
+screens answer the same question about the same check.
+
+### How isolation is enforced
+
+At the database, in `public.my_fuel_transactions()`. It **takes no argument**:
+
+```sql
+CREATE OR REPLACE FUNCTION public.my_fuel_transactions()
+ RETURNS TABLE(id uuid, invoice_no text, invoice_date date, merchant_name text,
+   city text, state text, total_amount numeric, fuel_discount_amount numeric,
+   diesel_amount numeric, diesel_gallons numeric, lines jsonb, settlement_id uuid,
+   period_start date, period_end date, payday date, settlement_status text,
+   work_week_start_dow integer)
+ LANGUAGE sql STABLE SECURITY DEFINER SET search_path TO 'public', 'extensions'
+```
+
+with the operator resolved inside the body:
+
+```sql
+  JOIN public.operators o
+    ON o.id = ft.operator_id
+   AND o.user_id = auth.uid()
+  ...
+  WHERE auth.uid() IS NOT NULL;
+```
+
+There is therefore no operator id a client could supply, and no filter a client
+could change — the same self-scoping the operator settlement surfaces use.
+`fuel_transactions` and `fuel_transaction_lines` keep their staff-only read
+policies; **no operator policy was added to either table**, and no policy was
+altered anywhere.
+
+**Deviation from the brief, stated rather than reconciled:** the brief said scope
+by `current_profile_id()`. That function returns `profiles.id`, and
+`fuel_transactions.operator_id` points at `operators`, whose link to the session
+is `operators.user_id = auth.uid()` — the join `current_profile_id()` would need
+is one hop longer with no extra guarantee. The existing operator settlement
+policies scope by `operators.user_id = auth.uid()`, and the brief also said to
+follow that pattern rather than invent one. This followed the pattern.
+
+**The four protections, quoted from the migration:**
+
+```sql
+REVOKE ALL ON FUNCTION public.my_fuel_transactions() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.my_fuel_transactions() FROM anon;
+GRANT EXECUTE ON FUNCTION public.my_fuel_transactions() TO authenticated;
+-- SECURITY DEFINER, SET search_path TO 'public', 'extensions'
+```
+
+### The refusal — what was demonstrated, and what was not
+
+`src/test/operator-fuel-isolation.test.ts` (new, 7 tests).
+
+DEMONSTRATED live, by attempt: a caller holding no grant calls the function and
+the database refuses it —
+
+```text
+ERROR:  permission denied for function my_fuel_transactions
+```
+
+NOT DEMONSTRABLE from this sandbox, and recorded as such rather than papered
+over: a full impersonated driver session. The sandbox connects as `sandbox_exec`,
+which holds no membership in `authenticated` (`set role authenticated` →
+`permission denied to set role`) and cannot grant itself one (`grant execute …`
+→ `permission denied for function`). So one driver reading another driver's rows
+could not be *attempted* live.
+
+ASSERTED from the catalog instead, which together closes every route:
+`prosecdef` true, search path pinned, `has_function_privilege` false for both
+`public` and `anon` and true for `authenticated`; no SELECT policy on either fuel
+table names `'operator'::app_role`; `anon` holds no grant on either fuel table;
+the function's identity argument list is EMPTY, so there is no parameter to
+substitute; and its result shape names none of `match_status`, `disagreement`,
+`reconciliation`, `unmatched`.
+
+### The two views cannot diverge
+
+`src/lib/fuel/myFuel.ts` reshapes RPC rows and does nothing else; every figure is
+produced by `buildDriverRows`/`summarizeDriverRows` in `fuelDriverDetail.ts`, the
+same functions the management screen calls, off the same `fuelBucketLines`.
+`myFuel.test.ts` (new, 6) feeds the same two transactions through both doors and
+asserts the row arrays are `toEqual` and the totals are `toEqual`.
+
+The configured work week is returned BY the function (`work_week_start_dow`,
+live value 3) because operators cannot read `settlement_settings`; a local
+default here is precisely how the driver's weeks and the office's weeks would
+drift apart.
+
+`fuelBucketSourceGuard.test.ts` now covers the operator surface: no local
+`line_type` map, no `Record<FuelLineType…>`, both screens must call
+`buildDriverRows`, and the operator files must name none of `match_status`,
+`disagreement`, `fuelDiagnosis`, `unmatched`.
+
+### One real driver, as he sees it
+
+Ali Mohamed, three purchases, **all pending — this is REAL-DATA evidence**; no
+settlement has yet run against fuel, so the deducted path remains **FIXTURE
+evidence only** (`myFuel.test.ts`, `fuelDriverDetail.test.ts`).
+
+| Date | Where | Total | Gallons | Status |
+|---|---|---|---|---|
+| 09/01/2026 | Flying J #733, Lubbock, TX | 505.96 | 81.23 | Not yet deducted |
+| 09/01/2026 | Pilot Travel Center #1033, Midland, TX | 625.26 | 20.39 | Not yet deducted |
+| 08/29/2026 | Loves #822, Clarksville, AR | 829.34 | 132.06 | Not yet deducted |
+
+Taken out of settlements **$0.00 (0)** · Not yet deducted **$1,960.56 (3)** —
+identical to the management figure recorded in Pass 1.
+
+### Suites run
+
+`operator-fuel-isolation.test.ts` (new, 7), `myFuel.test.ts` (new, 6),
+`fuelBucketSourceGuard.test.ts` (6), `fuelDriverDetail.test.ts`,
+`fuelBuckets.test.ts`, `fuelImportView.test.ts`, `multiserviceCsv.test.ts`,
+`fuelDiagnosis.test.ts`, `fuelPreviewDiagnosis.test.ts` — **129 passed**.
+`definer-live-catalog.test.ts` — **13 passed** after adding
+`public.my_fuel_transactions()` to `KNOWN_AUTHENTICATED_EXECUTABLE` with its
+reasoning and raising `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 121 → 122.
+`operator-settlement-isolation.test.ts`, `operator-pay-exposure.test.ts` — passed.
+`tsgo` clean.
+
+**Pre-existing failures, unrelated to this pass and NOT introduced by it:**
+`accessorial-adjustment-schema.test.ts` (3, all `Test timed out in 5000ms` on
+live psql calls), `parked-and-termination-guardrail.test.ts` (1, a standing data
+row: a void against an already-gone driver), `e2e/blueGraceLoadPath.test.tsx`
+(1, timeout).
+
+**Contradictions with the record: none found.**
