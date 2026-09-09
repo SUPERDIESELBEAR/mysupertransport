@@ -26,6 +26,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchOperatorOptions, operatorLabel } from '@/lib/fuel/fuelOperators';
+import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
 import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
 import { loadSettlementSettings } from '@/lib/settlementRun';
 import {
