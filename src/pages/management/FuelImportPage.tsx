@@ -570,6 +570,33 @@ export default function FuelImportPage() {
     }
   }
 
+  /**
+   * RE-CHECK WITHOUT RE-UPLOADING.
+   *
+   * The parsed rows are already in memory, so the file is NOT read again — the
+   * bytes cannot change between the upload and the re-check, and re-parsing
+   * would only invite the two to differ. What CAN change is the database: a
+   * unit filled in, a card assignment corrected. So this re-runs the preview
+   * RPC over the same rows and re-reads the unit columns, and nothing else.
+   */
+  async function onRecheck() {
+    if (!rows) return;
+    setBusy(true);
+    try {
+      setPreview(await previewFuelImport(rows));
+      await qc.invalidateQueries({ queryKey: ['fuel-preview-operator-units'] });
+      toast({ description: 'Re-checked against SUPERDRIVE.' });
+    } catch (e) {
+      logDbError('recheck fuel preview', e, {});
+      toast({
+        variant: 'destructive',
+        description: getDbErrorMessage(e, 'Could not re-check that file.'),
+      });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function onCommit() {
     if (!rows || !fileName || !columns) return;
     setBusy(true);
