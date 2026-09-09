@@ -39,7 +39,7 @@ describe('the average cost per gallon is weighted, not a mean of rates', () => {
         fuel_transaction_lines: [{ line_type: 'diesel', amount: 500 }],
       }),
     ]);
-    const chain = r.byChain.find((g) => g.key === 'Pilot')!;
+    const chain = r.byChain.find((g) => g.key === 'Pilot Flying J')!;
     expect(chain.costPerGallon).toBe(5.091);
     expect(chain.meanOfRates).toBe(5.5);
     expect(chain.costPerGallon).not.toBe(chain.meanOfRates);
