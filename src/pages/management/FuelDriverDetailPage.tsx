@@ -192,6 +192,25 @@ export default function FuelDriverDetailPage() {
 
   const loading = Boolean(operatorId) && (txns.isLoading || settled.isLoading);
 
+  const selected = useMemo(
+    () => (operators.data ?? []).find((o) => o.id === operatorId) ?? null,
+    [operators.data, operatorId],
+  );
+
+  /**
+   * The PDF is built from `rows` — the very array the table below renders — so
+   * the document and the screen cannot show different figures.
+   */
+  const downloadPdf = () => {
+    if (!selected) return;
+    downloadFuelPdf({
+      driverName: selected.name,
+      unitNumber: selected.unit,
+      rows,
+      generatedAt: new Date(),
+    });
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-end gap-3">
