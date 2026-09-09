@@ -8806,3 +8806,52 @@ $6.278 on a single purchase; cheapest with volume is AL at $5.253.
 `tsgo` clean.
 
 **CONTRADICTIONS:** none found.
+
+## Module 9 Pass 5 — CHAIN GROUPING: ONE COMPANY, AND CONFIRMED INDEPENDENTS (2026-09-09)
+
+Two owner decisions applied to the chain derivation in
+`src/lib/fuel/fuelLocationReport.ts`. Nothing else moved: the weighted average,
+the bucket mapping, and the state and truck-stop groupings are untouched, and
+the report still carries no benchmark or comparison.
+
+**PILOT, FLYING J AND PFJ ARE ONE CHAIN.** This SUPERSEDES the Pass 4 decision
+to keep `PFJ (Pilot Flying J)` as its own group because the statement
+distinguishes it. The statement distinguishes brands; the report groups
+operators, and Pilot and Flying J are one company. Split three ways the group
+read as three small samples. Merged, live: **11 purchases, 811.30 gallons,
+$4,877.66, $6.012/gal** — the most expensive chain we buy from at meaningful
+volume. The reason is written next to the rule in the matcher, not only here.
+
+**INDEPENDENT AND UNRECOGNISED ARE DIFFERENT CLAIMS AND BOTH REMAIN.**
+`Unrecognised` = the matcher could not place the name. `Independent` =
+a person checked the merchant and confirmed it belongs to no chain. Collapsing
+them would turn a next-month chain spelled unfamiliarly into a confident wrong
+answer. `Independent` is a CONFIRMED classification and reads differently in the
+UI from the DERIVED chain label; `Unrecognised` keeps its visible purchase count
+so the derivation's accuracy stays measurable.
+
+**HOW A MERCHANT BECOMES INDEPENDENT:** it is added to
+`CONFIRMED_INDEPENDENT_MERCHANTS` in a build pass by whoever checked it. Chosen
+over a management action deliberately — a screen for six rows would need a
+table, grants, RLS, a writer and an audit trail to record a fact that changes a
+few times a year, where the code list already gives review and attribution
+through the diff. Revisit if the list outgrows a screenful. Seeded with the six
+merchants checked on the committed file: Westville Truck Stop, Harry's #54, JP
+Palmetto, I-59/84 East Truck Stop, Tiger Truck Stop, Frog City Travel Plaza &
+Casino. Matching is by exact name, so a variant spelling falls to Unrecognised
+rather than being assumed independent.
+
+**REAL-DATA EVIDENCE.** 69 purchases, 14 chain groups, counts summing to 69.
+Love's 21/1,726.41/$9,876.00/$5.721 · TA 11/1,125.43/$6,312.06/$5.609 · Pilot
+Flying J 11/811.30/$4,877.66/$6.012 · Independent 6/602.96/$3,206.27/$5.318 ·
+QuikTrip 7/559.73/$2,911.14/$5.201 · One9 3/228.50/$1,201.63/$5.259 · Speedway
+3/147.78/$743.37/$5.030 · Casey's, RaceTrac, Kwik Star, Circle K, Thorntons,
+Kangaroo Express, RaceWay 1 each. **Unrecognised is 0 today** — every unmatched
+merchant on this file has been confirmed. That is a property of this file, not
+of the matcher, which is exactly why the group still exists.
+
+**SUITES:** `fuelLocationReport` (17), `fuelBucketSourceGuard`, `fuelBuckets`,
+full `src/lib/fuel` + `operator-fuel-isolation` (11 files, 153 tests), `tsgo`
+clean.
+
+**CONTRADICTIONS:** none found.
