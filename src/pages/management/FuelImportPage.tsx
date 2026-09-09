@@ -268,6 +268,58 @@ function PreviewRow({
                 </div>
               </div>
             )}
+
+            {/*
+              THE FILE PROMPTED THE QUESTION; A PERSON ANSWERS IT. A fuel file
+              never writes to an operator record — that would make MultiService
+              authoritative over our own data. A named human typing a unit after
+              reading it is a different act, and it is offered ONLY where the
+              file has the value and we do not. Where WE have it and the file
+              does not, there is nothing to fill in and no button appears.
+            */}
+            {unitGapText && (
+              <div
+                className="mb-3 space-y-2 rounded-md border border-border bg-[#E8F0FF] p-2 text-xs"
+                data-testid="unit-gap-message"
+              >
+                <div>{unitGapText}</div>
+                {offersFill ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      className="h-8 w-80"
+                      placeholder="Note (required) — what you checked"
+                      value={unitNote}
+                      onChange={(e) => setUnitNote(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="unit-gap-fill"
+                      disabled={fillBusy || unitNote.trim() === ''}
+                      onClick={() => {
+                        onFillUnit({
+                          operatorId: row.operator_id as string,
+                          unit: (unitGap as { fileUnit: string }).fileUnit,
+                          note: unitNote.trim(),
+                        });
+                        setUnitNote('');
+                      }}
+                    >
+                      Set this driver&apos;s unit to {(unitGap as { fileUnit: string }).fileUnit}
+                    </Button>
+                    <span className="text-muted-foreground">
+                      Writes the unit onto this driver&apos;s record, with your name and note.
+                      Nothing else on the file is written.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground">
+                    Nothing to fill in here — the correction belongs in the MultiService portal.
+                  </div>
+                )}
+              </div>
+            )}
+
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
