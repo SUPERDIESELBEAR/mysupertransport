@@ -165,11 +165,19 @@ export default function FuelLocationReportPage() {
         <TabsContent value="chain" className="space-y-2">
           <p className="text-xs text-muted-foreground flex items-start gap-1">
             <Info className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-            Chain is <strong className="mx-1">derived</strong> from the merchant name on the
-            statement, not supplied by the fuel provider. {report.unrecognisedChainPurchases}{' '}
-            purchase{report.unrecognisedChainPurchases === 1 ? '' : 's'} could not be classified
-            and {report.unrecognisedChainPurchases === 1 ? 'is' : 'are'} shown under{' '}
-            {UNRECOGNISED_CHAIN}.
+            <span>
+              Chain is <strong className="mx-1">derived</strong> from the merchant name on the
+              statement, not supplied by the fuel provider. Pilot, Flying J and PFJ are one
+              company and are grouped as {'Pilot Flying J'}.{' '}
+              {report.independentChainPurchases} purchase
+              {report.independentChainPurchases === 1 ? '' : 's'}{' '}
+              {report.independentChainPurchases === 1 ? 'is at a merchant' : 'are at merchants'}{' '}
+              <strong className="mx-1">confirmed</strong> to belong to no chain, shown under{' '}
+              {INDEPENDENT_CHAIN}. {report.unrecognisedChainPurchases}{' '}
+              purchase{report.unrecognisedChainPurchases === 1 ? '' : 's'} could not be classified
+              at all and {report.unrecognisedChainPurchases === 1 ? 'is' : 'are'} shown under{' '}
+              {UNRECOGNISED_CHAIN}.
+            </span>
           </p>
           <Card><CardContent className="p-0"><GroupTable groups={report.byChain} /></CardContent></Card>
         </TabsContent>
