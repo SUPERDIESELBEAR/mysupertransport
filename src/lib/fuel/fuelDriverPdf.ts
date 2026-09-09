@@ -176,7 +176,7 @@ const MUTED: [number, number, number] = [110, 110, 110];
 const PENDING_BG: [number, number, number] = [253, 243, 219];
 const MARGIN = 32;
 /** Column widths in points, summing to the printable width of letter landscape. */
-const WIDTHS = [44, 92, 76, 48, 54, 44, 40, 48, 52, 38, 38, 154];
+const WIDTHS = [50, 104, 66, 48, 50, 40, 40, 48, 52, 38, 38, 154];
 /** Letter landscape, minus both margins. The widths must not exceed it. */
 const PRINTABLE = 792 - MARGIN * 2;
 const ROW_HEIGHT = 18;
@@ -288,7 +288,9 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
       if (last) {
         lines.slice(0, 2).forEach((l, li) => doc.text(l, x, y + li * 8));
       } else {
-        doc.text(lines[0] ?? '', x, y);
+        // Anything too wide is ellipsised, never silently shortened into
+        // something that reads like a different merchant.
+        doc.text(lines.length > 1 ? `${(lines[0] ?? '').trimEnd()}…` : (lines[0] ?? ''), x, y);
       }
       x += WIDTHS[ci];
     });
