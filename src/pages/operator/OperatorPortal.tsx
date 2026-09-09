@@ -67,6 +67,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
 import { isIcaComplete, isIcaActionRequired } from '@/lib/icaCompletion';
 import { appendNavTrace, ensurePointerTraceInstalled } from '@/lib/navTrace';
+import { resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import {
   type OperatorNavigateOptions,
   type OperatorView,
@@ -237,6 +238,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const [onboardingStatusLoaded, setOnboardingStatusLoaded] = useState(false);
   const [latestIcaContract, setLatestIcaContract] = useState<{ status?: string | null; contractor_signed_at?: string | null } | null>(null);
   const [operatorId, setOperatorId] = useState<string | null>(null);
+  /** `operators.unit_number`. Resolved against the onboarding value, never read alone. */
+  const [operatorUnitNumber, setOperatorUnitNumber] = useState<string | null>(null);
   const [uploadedDocs, setUploadedDocs] = useState<UploadedDoc[]>([]);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -444,13 +447,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     if (!effectiveUserId) return;
     const { data: op } = await supabase
       .from('operators')
-      .select('id, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
+      .select('id, unit_number, application_id, assigned_onboarding_staff, onboarding_status(*), operator_documents(*)')
       .eq('user_id', effectiveUserId)
       .single();
 
     if (op) {
       const opId = (op as any).id;
       setOperatorId(opId);
+      // BOTH unit columns are kept, because neither one alone is the answer —
+      // `resolveOperatorUnit` decides. See src/lib/fuel/operatorUnit.ts.
+      setOperatorUnitNumber(((op as any).unit_number as string | null) ?? null);
       // onboarding_status is a 1:1 relation — returns object, not array
       const os = (op as any).onboarding_status ?? {};
       setOnboardingStatus(os);
@@ -2010,7 +2016,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <MyFuel
               onReady={() => handleDestinationReady('my-fuel')}
               driverName={[authProfile?.first_name, authProfile?.last_name].filter(Boolean).join(' ')}
-              unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
+              unitNumber={resolveOperatorUnit({
+                onboardingUnit: (onboardingStatus?.unit_number as string | null) ?? null,
+                operatorUnit: operatorUnitNumber,
+              })}
             />
           </Suspense>
         )}

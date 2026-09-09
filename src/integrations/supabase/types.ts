@@ -12532,6 +12532,10 @@ export type Database = {
         Args: { _operator_id: string }
         Returns: boolean
       }
+      operator_unit_number: {
+        Args: { _onboarding_unit: string; _operator_unit: string }
+        Returns: string
+      }
       post_invoice_payment_internal: {
         Args: {
           p_actor: string
@@ -12864,6 +12868,10 @@ export type Database = {
           _reason: Database["public"]["Enums"]["operator_parked_reason"]
         }
         Returns: string
+      }
+      set_operator_unit_from_fuel_review: {
+        Args: { _note: string; _operator_id: string; _unit_no: string }
+        Returns: Json
       }
       settlement_writer_active: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }

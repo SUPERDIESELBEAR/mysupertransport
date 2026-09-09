@@ -25,12 +25,17 @@ import {
 import {
   acceptFuelDisagreement, assignFuelTransactionOperator, commitFuelImport, fetchFuelAcceptances,
   fetchFuelBatches, fetchFuelReviewQueue, fetchLastImportColumns, previewFuelImport,
+  setOperatorUnitFromFuelReview,
   type FuelAcceptanceRecord, type FuelCommitResult, type FuelPreview, type FuelTransactionRecord,
 } from '@/lib/fuel/fuelImport';
 import {
   diagnoseUnmatched, disagreementMessages, fetchCardAssignments, fetchOperatorSourceValues,
   unmatchedReasonMessage,
 } from '@/lib/fuel/fuelDiagnosis';
+import {
+  diagnoseUnitGap, fetchOperatorUnits, resolveOperatorUnit, unitGapMessage, unitGapOffersFill,
+  type UnitGap,
+} from '@/lib/fuel/operatorUnit';
 import { Input } from '@/components/ui/input';
 import {
   FUEL_BUCKET_LABELS, FUEL_DISCREPANCY_LABELS, formatFuelDate,
@@ -131,8 +136,18 @@ function SortHead({
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 /** One preview row plus its expandable detail. */
-function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyColumnKey> }) {
+function PreviewRow({
+  row, cols, unitGap, onFillUnit, fillBusy,
+}: {
+  row: FuelDisplayRow;
+  cols: Set<FuelMoneyColumnKey>;
+  /** Computed once for the whole file; see `unitGapsByRow` on the page. */
+  unitGap: UnitGap;
+  onFillUnit: (v: { operatorId: string; unit: string; note: string }) => void;
+  fillBusy: boolean;
+}) {
   const [open, setOpen] = useState(false);
+  const [unitNote, setUnitNote] = useState('');
   const s = row.split;
 
 
@@ -165,6 +180,9 @@ function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyCol
   const disagreementText = isDisagreement
     ? disagreementMessages(row.disagreement_fields, sources.data ?? null)
     : [];
+  const unitGapText = unitGapMessage(unitGap);
+  const offersFill = unitGapOffersFill(unitGap) && !!row.operator_id;
+
 
   return (
     <>
@@ -216,6 +234,23 @@ function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyCol
               Does not add up ({formatCurrency(row.reconciliation_delta)})
             </Badge>
           )}
+          {/*
+            A MISSING UNIT IS NOW VISIBLE WITHOUT EXPANDING THE ROW, and the
+            badge names the side that is missing it. `Unit missing here` and
+            `Unit missing on the file` are two different jobs for two different
+            people; one badge saying "unit problem" would send half of them to
+            the wrong system.
+          */}
+          {unitGap.kind === 'ours' && (
+            <Badge variant="secondary" className="ml-1" data-testid="unit-gap-ours">
+              Unit missing here
+            </Badge>
+          )}
+          {unitGap.kind === 'theirs' && (
+            <Badge variant="secondary" className="ml-1" data-testid="unit-gap-theirs">
+              Unit missing on the file
+            </Badge>
+          )}
         </td>
       </tr>
       {open && (
@@ -238,6 +273,58 @@ function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyCol
                 </div>
               </div>
             )}
+
+            {/*
+              THE FILE PROMPTED THE QUESTION; A PERSON ANSWERS IT. A fuel file
+              never writes to an operator record — that would make MultiService
+              authoritative over our own data. A named human typing a unit after
+              reading it is a different act, and it is offered ONLY where the
+              file has the value and we do not. Where WE have it and the file
+              does not, there is nothing to fill in and no button appears.
+            */}
+            {unitGapText && (
+              <div
+                className="mb-3 space-y-2 rounded-md border border-border bg-[#E8F0FF] p-2 text-xs"
+                data-testid="unit-gap-message"
+              >
+                <div>{unitGapText}</div>
+                {offersFill ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Input
+                      className="h-8 w-80"
+                      placeholder="Note (required) — what you checked"
+                      value={unitNote}
+                      onChange={(e) => setUnitNote(e.target.value)}
+                    />
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      data-testid="unit-gap-fill"
+                      disabled={fillBusy || unitNote.trim() === ''}
+                      onClick={() => {
+                        onFillUnit({
+                          operatorId: row.operator_id as string,
+                          unit: (unitGap as { fileUnit: string }).fileUnit,
+                          note: unitNote.trim(),
+                        });
+                        setUnitNote('');
+                      }}
+                    >
+                      Set this driver&apos;s unit to {(unitGap as { fileUnit: string }).fileUnit}
+                    </Button>
+                    <span className="text-muted-foreground">
+                      Writes the unit onto this driver&apos;s record, with your name and note.
+                      Nothing else on the file is written.
+                    </span>
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground">
+                    Nothing to fill in here — the correction belongs in the MultiService portal.
+                  </div>
+                )}
+              </div>
+            )}
+
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
@@ -324,6 +411,47 @@ export default function FuelImportPage() {
   const moneyCols = useMemo(() => visibleMoneyColumns(displayRows), [displayRows]);
 
   /**
+   * THE UNIT COMPARISON THE MATCHER CANNOT MAKE.
+   *
+   * `preview_fuel_import` raises a unit disagreement only when BOTH sides carry
+   * a value, so an absent unit was never compared at all. This read supplies
+   * the other half: for every driver the file resolved to, both unit columns,
+   * resolved by the one resolver the matcher itself now calls.
+   *
+   * ONE READ FOR THE WHOLE FILE, not one per row — the flag has to be visible
+   * in the table without expanding sixty-nine rows to find it.
+   */
+  const gapOperatorIds = useMemo(
+    () => [...new Set(displayRows.map((r) => r.operator_id).filter(Boolean) as string[])],
+    [displayRows],
+  );
+  const operatorUnits = useQuery({
+    queryKey: ['fuel-preview-operator-units', gapOperatorIds],
+    queryFn: () => fetchOperatorUnits(gapOperatorIds),
+    enabled: gapOperatorIds.length > 0,
+  });
+  const unitGaps = useMemo(() => {
+    const map = new Map<string, UnitGap>();
+    for (const r of displayRows) {
+      const values = r.operator_id ? operatorUnits.data?.get(r.operator_id) ?? null : null;
+      // An unmatched row resolved to no driver, so there is no "ours" to
+      // compare against — its own reason already explains the row.
+      map.set(r.key, r.operator_id
+        ? diagnoseUnitGap(r.unit_no, resolveOperatorUnit(values))
+        : { kind: 'none' });
+    }
+    return map;
+  }, [displayRows, operatorUnits.data]);
+  const unitGapCounts = useMemo(() => {
+    let ours = 0; let theirs = 0;
+    for (const g of unitGaps.values()) {
+      if (g.kind === 'ours') ours += 1;
+      else if (g.kind === 'theirs') theirs += 1;
+    }
+    return { ours, theirs };
+  }, [unitGaps]);
+
+  /**
    * SORT THEN PAGINATE, never the other way round. The whole filtered result
    * set is ordered first, so page 1 shows the global first row.
    */
@@ -358,6 +486,29 @@ export default function FuelImportPage() {
     onError: (e) => {
       logDbError('assign fuel transaction', e, {});
       toast({ variant: 'destructive', description: getDbErrorMessage(e, 'Could not assign that row.') });
+    },
+  });
+
+  /**
+   * ONE DRIVER, ONE CONFIRMATION, ONE CALL. No bulk path exists here or in the
+   * RPC. On success the operator units are re-read so the badge clears without
+   * touching the file — the row's own imported values are unchanged, because
+   * nothing about the transaction was written.
+   */
+  const fillUnit = useMutation({
+    mutationFn: (v: { operatorId: string; unit: string; note: string }) =>
+      setOperatorUnitFromFuelReview(v.operatorId, v.unit, v.note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['fuel-preview-operator-units'] });
+      void qc.invalidateQueries({ queryKey: ['fuel-operator-options'] });
+      toast({ description: 'Unit recorded on the driver.' });
+    },
+    onError: (e) => {
+      logDbError('set operator unit from fuel review', e, {});
+      toast({
+        variant: 'destructive',
+        description: getDbErrorMessage(e, 'Could not record that unit.'),
+      });
     },
   });
 
@@ -414,6 +565,33 @@ export default function FuelImportPage() {
         logDbError('preview fuel import', e, {});
         setParseError(getDbErrorMessage(e, 'Could not read that file.'));
       }
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * RE-CHECK WITHOUT RE-UPLOADING.
+   *
+   * The parsed rows are already in memory, so the file is NOT read again — the
+   * bytes cannot change between the upload and the re-check, and re-parsing
+   * would only invite the two to differ. What CAN change is the database: a
+   * unit filled in, a card assignment corrected. So this re-runs the preview
+   * RPC over the same rows and re-reads the unit columns, and nothing else.
+   */
+  async function onRecheck() {
+    if (!rows) return;
+    setBusy(true);
+    try {
+      setPreview(await previewFuelImport(rows));
+      await qc.invalidateQueries({ queryKey: ['fuel-preview-operator-units'] });
+      toast({ description: 'Re-checked against SUPERDRIVE.' });
+    } catch (e) {
+      logDbError('recheck fuel preview', e, {});
+      toast({
+        variant: 'destructive',
+        description: getDbErrorMessage(e, 'Could not re-check that file.'),
+      });
     } finally {
       setBusy(false);
     }
@@ -498,8 +676,39 @@ export default function FuelImportPage() {
 
           {preview && (
             <Card>
-              <CardHeader><CardTitle className="text-base">Preview — nothing has been saved yet</CardTitle></CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between gap-2 space-y-0">
+                <CardTitle className="text-base">Preview — nothing has been saved yet</CardTitle>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  data-testid="preview-recheck"
+                  disabled={busy}
+                  onClick={() => void onRecheck()}
+                >
+                  Re-check
+                </Button>
+              </CardHeader>
               <CardContent className="space-y-4">
+                {(unitGapCounts.ours > 0 || unitGapCounts.theirs > 0) && (
+                  <div
+                    className="rounded-md border border-border bg-[#E8F0FF] p-2 text-xs"
+                    data-testid="unit-gap-summary"
+                  >
+                    {unitGapCounts.ours > 0 && (
+                      <div>
+                        {unitGapCounts.ours} row(s): the file has a unit and SUPERDRIVE does not.
+                        Open the row to record it on the driver, then Re-check.
+                      </div>
+                    )}
+                    {unitGapCounts.theirs > 0 && (
+                      <div>
+                        {unitGapCounts.theirs} row(s): SUPERDRIVE has a unit and the file does not.
+                        That one is fixed in the MultiService portal.
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   <Stat label="Rows in file" value={preview.row_count} />
                   <Stat
@@ -600,7 +809,16 @@ export default function FuelImportPage() {
                     </thead>
 
                     <tbody>
-                      {visibleRows.map((r) => <PreviewRow key={r.key} row={r} cols={moneyCols} />)}
+                      {visibleRows.map((r) => (
+                        <PreviewRow
+                          key={r.key}
+                          row={r}
+                          cols={moneyCols}
+                          unitGap={unitGaps.get(r.key) ?? { kind: 'none' }}
+                          onFillUnit={(v) => fillUnit.mutate(v)}
+                          fillBusy={fillUnit.isPending}
+                        />
+                      ))}
                       {visibleRows.length === 0 && (
                         <tr>
                           <td colSpan={7 + moneyCols.size} className="p-3 text-muted-foreground">

@@ -8855,3 +8855,140 @@ full `src/lib/fuel` + `operator-fuel-isolation` (11 files, 153 tests), `tsgo`
 clean.
 
 **CONTRADICTIONS:** none found.
+
+## Module 6 Pass 12 — ONE ANSWER FOR THE UNIT NUMBER, AND THE MISSING-VALUE COMPARISON (2026-09-10)
+
+### The premise of the brief was wrong, and the real defect was worse
+
+The known-debt entry "Missing unit number and the gap it reveals" says Ali Mohamed has no
+unit number in SUPERDRIVE, that MultiService prints 260 on all his transactions, and that
+the import matched them with zero disagreements — concluding that an ABSENT value is not
+compared while a WRONG one flags.
+
+The live check contradicted the first half. `operators.unit_number` is NULL for Ali, but
+`onboarding_status.unit_number` is `260`. `fuel_resolve_card` resolved onboarding-first, so
+it compared 260 against 260 and correctly reported no disagreement. The matcher was never
+wrong about Ali.
+
+What was wrong was that the readers disagreed with the matcher. `fuel_resolve_card` read
+onboarding-then-operator; the management driver detail screen, the driver PDF and the fuel
+operator picker read `operators.unit_number` ALONE. Both were right about what each one
+read, and nothing in the codebase could notice they had read different things. The blank
+PDF header was the only symptom, and it surfaced by accident.
+
+Scope of the divergence, verified live across 60 active operators:
+- 48 have a unit in onboarding only — every one of them a blank header on the old readers.
+- 12 have no unit in either record.
+- 0 have both recorded and different, so unifying the readers changed no displayed value
+  other than filling in blanks.
+
+The second half of the debt entry stands and is addressed below: an absent unit was
+genuinely not compared.
+
+### The resolver is extracted, not duplicated
+
+One rule, two places that are the same rule:
+- `public.operator_unit_number(_onboarding_unit text, _operator_unit text)` — IMMUTABLE SQL,
+  trims, treats blank as absent, onboarding first. `fuel_resolve_card` now CALLS it; its
+  card-serial matching, date window, ordering and LIMIT are byte-for-byte unchanged.
+- `src/lib/fuel/operatorUnit.ts` — `resolveOperatorUnit` / `resolveOperatorUnitSource`,
+  mirroring the SQL exactly.
+
+Callers now resolving through it: `fuel_resolve_card` (database), `fuelOperators.ts` (the
+picker, feeding the management driver detail screen and its PDF), and `OperatorPortal.tsx`
+where it supplies My Fuel's unit and therefore the operator-side PDF header. The PDF itself
+resolves nothing — it receives a resolved value, and the guard asserts it never reads a
+unit column.
+
+`src/lib/fuel/__tests__/fuelUnitSourceGuard.test.ts` refuses a third answer: fuel consumers
+must import the shared module, the picker must not map `unit: o.unit_number`, and the PDF
+must not mention `unit_number`. A unit test cannot catch this class of defect, because each
+reader passes its own test.
+
+ORDER PRESERVED, NOT ENDORSED — see the open question below.
+
+### Absent and wrong are different, and now both are detected
+
+`preview_fuel_import` raises a `unit_no` disagreement only when BOTH sides carry a value.
+`diagnoseUnitGap(fileUnit, systemUnit)` supplies the other half, and names WHICH SYSTEM is
+missing it, because the two directions need different fixes in different places:
+
+- `ours` — "File says unit 260, SUPERDRIVE has no unit for this driver."
+- `theirs` — "SUPERDRIVE says unit 263, the file has no unit. The unit is missing in the
+  MultiService portal, not here. Correcting it there does NOT change an export you have
+  already downloaded — MultiService will not retroactively alter it, so a fresh export is
+  needed for the file to show it."
+- neither side has a unit — `none`, DELIBERATELY. There is nothing to fill from the file and
+  nothing to correct in the portal, so a flag would be a row the reviewer cannot act on. A
+  driver with no unit anywhere is a roster problem; it is counted, never flagged per row.
+
+Both directions show as a badge on the preview row without expanding it, with a count of
+each above the table. The matcher, the dedupe key, the bucket mapping and match semantics
+are untouched — this is a comparison, not a match.
+
+### A person fills it in; the file never does
+
+The standing decision that a fuel FILE must not write to equipment or operator records is
+intact. It exists so a third party's report cannot become authoritative over SUPERTRANSPORT's
+own data. A named human typing a value after reading it is a different act: the file
+prompted the question, the person answered it.
+
+`public.set_operator_unit_from_fuel_review(uuid, text, text)`, four protections quoted from
+the live definition:
+
+1. `IF NOT (public.has_role(auth.uid(), 'management') OR public.has_role(auth.uid(), 'owner')) THEN RAISE EXCEPTION 'Not authorized'; END IF;`
+2. `v_existing := public.operator_unit_number(v_onb_unit, v_op.unit_number); IF v_existing IS NOT NULL THEN RAISE EXCEPTION 'This driver already has unit % on file; this action only fills a missing unit', v_existing; END IF;` — and note that the existence check goes through the SHARED resolver, so a unit recorded in EITHER record blocks the fill. The 48 onboarding-only drivers are not fillable, and are not offered a fill; only the 12 with nothing anywhere are.
+3. `UPDATE public.operators SET unit_number = v_unit, updated_at = now() WHERE id = v_op.id;` — the unit and the timestamp, nothing else the file happens to carry.
+4. `revoke all on function public.set_operator_unit_from_fuel_review(uuid, text, text) from public, anon;`
+
+Also: the actor comes from `current_profile_id()`, never an argument; the note is required
+and rejected when blank; ONE operator per call, with no bulk path in the RPC, the client
+wrapper or the UI; every call inserts an `audit_log` row carrying the actor, the operator,
+the value and the note. Live ACL verified: `authenticated` and `service_role` only, no
+PUBLIC, no anon, `search_path=public, extensions` pinned. The definer catalog guard caught
+the new function before it was allowlisted, which is the guard working; ceiling 122 -> 123
+with the reasoning recorded beside the entry.
+
+### Re-check without re-uploading
+
+The parsed rows are already in memory, so the file is NOT read again — the bytes cannot
+change between upload and re-check, and re-parsing would only invite the two to differ.
+What CAN change is the database. Re-check re-runs `preview_fuel_import` over the same rows
+and re-reads the two unit columns. Nothing else.
+
+### Live verification (2026-09-10)
+
+- 60 active operators; 48 onboarding-only units; 12 with no unit in either record; 0 conflicting.
+- Ali Mohamed (`dbe31d0d-…`) resolves to unit `260` through the shared rule, so the PDF
+  header now reads `Unit 260` on both the management and operator sides.
+- No fuel file is currently imported, so the 12 missing drivers are a roster count, not a
+  count of flagged rows in a preview.
+
+### Suites
+
+`src/lib/fuel/__tests__` 12 files / 159 tests passed, including the new
+`operatorUnit.test.ts` (9) and `fuelUnitSourceGuard.test.ts` (4).
+`definer-live-catalog`, `caller-evaluated-functions`, `definer-search-path`,
+`operator-fuel-isolation`, `policy-grant-parity` passed. `tsgo` clean.
+
+### CONTRADICTIONS FOUND
+
+One, reported above and not reconciled silently: the known-debt entry's claim that Ali has
+no unit in SUPERDRIVE is wrong — the value is in onboarding, and the matcher used it.
+
+## OPEN QUESTION — onboarding-first precedence shadows the durable record (2026-09-10)
+
+`operator_unit_number` prefers `onboarding_status.unit_number` over
+`operators.unit_number`. Onboarding is a LIFECYCLE-STAGE record: it describes what was true
+while a driver was being brought on. `operators` is the durable driver record. Preferring
+the stage record over the durable one is backwards from how the two are used everywhere
+else, and it is exactly how a stale onboarding value would SHADOW a corrected operator
+value — the correction would be written, saved, and never displayed.
+
+It is not changed here because 48 active drivers depend on that order today, and flipping it
+would blank their unit numbers in one commit. It is a risk, not a defect: no driver
+currently has both values recorded and different, so nothing is being shadowed right now.
+
+TRIGGER: before anything writes `onboarding_status.unit_number`, or the first time a driver
+has a unit in both records that disagree. Either event turns this from a risk into a live
+defect.

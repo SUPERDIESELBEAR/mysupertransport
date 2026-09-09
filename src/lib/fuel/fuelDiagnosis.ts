@@ -1,7 +1,9 @@
 import { supabase } from '@/integrations/supabase/client';
 import { formatFuelDate } from './fuelBuckets';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import type { OperatorUnitValues } from './operatorUnit';
 import type { FuelDisagreement } from './fuelImport';
+
 
 /**
  * WHY A ROW COULD NOT BE MATCHED, AND WHY A MATCH DISAGREED.
@@ -115,10 +117,13 @@ export const DISAGREEMENT_SOURCE_LABELS: Record<DisagreementSource, string> = {
   unknown:    'source unknown',
 };
 
-export interface OperatorSourceValues {
-  onboardingUnit: string | null;
-  operatorUnit: string | null;
-}
+/**
+ * The two unit columns, one shape. Aliased to `OperatorUnitValues` rather than
+ * redeclared so the disagreement source and the unit resolver can never drift
+ * into describing different things.
+ */
+export type OperatorSourceValues = OperatorUnitValues;
+
 
 export function sourceOfDisagreement(
   field: FuelDisagreement['field'],

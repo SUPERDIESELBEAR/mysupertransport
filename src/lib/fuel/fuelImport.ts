@@ -118,6 +118,36 @@ export async function acceptFuelDisagreement(
   if (error) throw error;
 }
 
+/**
+ * A HUMAN FILLS IN A MISSING UNIT. THE FILE DOES NOT.
+ *
+ * The standing decision — a fuel FILE must never write to equipment or
+ * operator records — is untouched by this. It exists because letting a third
+ * party's report edit SUPERTRANSPORT's own records makes MultiService
+ * authoritative over them. A person typing a value after seeing it is a
+ * different act: the file prompted the question, the person answered it. That
+ * is judgement, not a sync.
+ *
+ * So there is no bulk path and no automatic path, in this file or anywhere:
+ * one operator, one explicit confirmation, one call. The RPC writes
+ * `operators.unit_number` and nothing else — not the card, not the driver name,
+ * nothing else the file happens to carry — and refuses outright if the driver
+ * already has a unit on file, because filling an absence and overwriting a
+ * value are different decisions.
+ */
+export async function setOperatorUnitFromFuelReview(
+  operatorId: string,
+  unitNo: string,
+  note: string,
+): Promise<void> {
+  const { error } = await supabase.rpc('set_operator_unit_from_fuel_review', {
+    _operator_id: operatorId,
+    _unit_no: unitNo,
+    _note: note,
+  });
+  if (error) throw error;
+}
+
 export interface FuelAcceptanceRecord {
   id: string;
   transaction_id: string;
