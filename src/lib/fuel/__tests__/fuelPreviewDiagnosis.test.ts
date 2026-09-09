@@ -16,7 +16,7 @@ import type { FuelPreviewRow } from '../fuelImport';
 
 const previewRow = (patch: Partial<FuelPreviewRow>): FuelPreviewRow => ({
   invoice_no: 'INV-1', invoice_date: '2026-09-01', card_no: '224',
-  unit_no: '260', driver_name: 'Ali Mohamed', total_amount: 100,
+  unit_no: '260', driver_name: 'Ali Mohamed', merchant_name: null, total_amount: 100,
   duplicate: false, operator_id: null, match_status: 'matched',
   disagreement_fields: [], reconciliation_ok: true, reconciliation_delta: 0,
   ...patch,
