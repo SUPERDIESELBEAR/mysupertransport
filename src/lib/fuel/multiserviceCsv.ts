@@ -496,6 +496,7 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       unit_no: cell(c, 'Unit No'),
       card_no: cell(c, 'Card No'),
       driver_name: cell(c, 'Driver Name'),
+      merchant_name: cell(c, 'Merchant Name'),
       city: cell(c, 'City'),
       state: cell(c, 'State'),
       invoice_no: cell(c, 'Invoice No'),
