@@ -1441,6 +1441,13 @@ cascades to `fuel_transaction_lines`. `fuel_transactions.operator_id` is
 tables.
 *Why first:* The fuel tables are independent of every later step. Doing them
 first keeps a late-discovered test fuel row from becoming a surprise blocker.
+*`merchant_name` IS NULL ON ALL 69 ROWS, AND THAT IS NOT A GAP TO FIX.* The
+column was added 2026-09-09, after those rows were imported, and the parser had
+discarded the value at import. **DO NOT BACKFILL AND DO NOT RE-IMPORT THEM.**
+They are the rows this step deletes: filling a field on data that is about to be
+deleted is work with no product, and a re-import would also rewrite
+`created_at`, `created_by` and the batch lineage of rows kept only as evidence.
+The first real import carries the merchant name from the file.
 *Verify:*
 ```sql
 SELECT count(*) FROM public.fuel_import_batches;
@@ -8237,3 +8244,59 @@ assignment date has to decide:
   and no history row, so a corrected date is indistinguishable from an original
   one;
 - WHO may perform it, and with what recorded reason.
+
+---
+
+## Module 6 Pass 11 — `Merchant Name`, captured (2026-09-09)
+
+### The Pass 3 decision is SUPERSEDED, not reversed quietly
+
+Pass 3 (2026-09-05) left `Merchant Name` unrecognised, and the 2026-09-06 bucket
+record rejected adding it: storing a text column means a column on
+`fuel_transactions` and a change to `commit_fuel_import`, the single writer —
+"a schema change dressed as a parser tweak", for a label carrying no money.
+
+**That reasoning was correct at the time and no longer decides the question.**
+On 2026-09-09 the owner confirmed **cost per gallon BY LOCATION** as wanted
+reporting scope (Module 9). Without the merchant name, "location" can only be
+answered as a city and a state — which town he fuelled in, not which truck stop.
+The seller is the unit of that report. The schema change is now the point of the
+change, not a cost smuggled in behind a parser tweak.
+
+### What was built
+
+- **`fuel_transactions.merchant_name text`, nullable.** Null on every existing
+  row and on any provider that does not supply it. `company_id` is stamped by
+  the existing trigger, **unchanged** — no trigger, policy or grant was touched.
+- **Parser:** `Merchant Name` moved from unrecognised to `TEXT_COLUMNS`. It is
+  TEXT: it is not in `CATEGORY_SPECS`, so it cannot reach a bucket, a line item
+  or the reconciliation sum, and it can never appear in the unrecognised-MONEY
+  notice. It is OPTIONAL — a file without it parses, reports the column under
+  `missing_optional`, and stores null.
+- **`commit_fuel_import`:** carries `merchant_name` through, `NULLIF(btrim(…))`
+  so a blank cell is null rather than an empty string. **Every other respect
+  unchanged**, and in particular the dedupe key `(invoice_no, invoice_date,
+  card_no)` is untouched. `preview_fuel_import` returns it so the screen can
+  show it before commit.
+- **Where it renders:** the import preview's **expandable row only**, beside
+  Invoice and Card. **Deliberately NOT a table column** — the table already
+  carries eleven and the owner has just had to page and hide columns to read it.
+- **No reporting in this pass.** The reports are Module 9.
+
+### The 69 committed rows keep a null merchant name
+
+Recorded at **Step 1 of the cutover purge**, where they are deleted. They are
+test data; backfilling a field on rows scheduled for deletion is work with no
+product, and re-importing them would rewrite their timestamps and batch lineage.
+
+### Suites run
+
+`multiserviceCsv.test.ts` (41), `fuelImportView.test.ts` (30),
+`fuelDiagnosis.test.ts` (8), `fuelPreviewDiagnosis.test.ts` (4),
+`fuelBuckets.test.ts` (16), `settlementEngine` / `settlementRun` /
+`settlementClaimHold` (70), `fuel-import-live.test.ts` (18, two new live checks:
+the column is `text`/nullable and the writer carries it while the dedupe key
+predicate is unchanged), plus the structural guards — this pass altered two
+SECURITY DEFINER functions.
+
+**Contradictions with the record: none found.**

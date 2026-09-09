@@ -23,7 +23,7 @@ import type { FuelPreviewRow } from '../fuelImport';
  */
 
 const EMPTY: Omit<ParsedFuelRow, 'lines'> = {
-  unit_no: '', card_no: '', driver_name: '', city: '', state: '',
+  unit_no: '', card_no: '', driver_name: '', merchant_name: '', city: '', state: '',
   invoice_no: '', invoice_date: '2026-09-01', daycode: '',
   diesel_amount: 0, diesel_gallons: 0, reefer_amount: 0, additive_amount: 0,
   minor_repairs_amount: 0, misc_amount: 0, tires_amount: 0,
@@ -51,6 +51,7 @@ function preview(r: ParsedFuelRow, patch: Partial<FuelPreviewRow> = {}): FuelPre
     card_no: r.card_no,
     unit_no: r.unit_no || null,
     driver_name: r.driver_name || null,
+    merchant_name: r.merchant_name || null,
     total_amount: r.total_amount,
     duplicate: false,
     operator_id: 'op-1',

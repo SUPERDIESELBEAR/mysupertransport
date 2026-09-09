@@ -45,6 +45,12 @@ export interface FuelDisplayRow {
   card_no: string;
   unit_no: string | null;
   driver_name: string | null;
+  /**
+   * The truck stop. Null on any file that did not carry `Merchant Name`, and on
+   * every row imported before 2026-09-09. Shown in the expandable row only —
+   * the table already carries eleven columns.
+   */
+  merchant_name: string | null;
   total_amount: number;
   duplicate: boolean;
   match_status: FuelPreviewRow['match_status'];
@@ -134,6 +140,9 @@ export function buildDisplayRows(
       card_no: r.card_no,
       unit_no: r.unit_no,
       driver_name: r.driver_name,
+      // The preview verdict carries it; the parsed row is the fallback for a
+      // row the RPC could not pair. Empty string is "column absent", i.e. null.
+      merchant_name: r.merchant_name || parsed?.merchant_name || null,
       total_amount: round2(r.total_amount),
       duplicate: r.duplicate,
       match_status: r.match_status,

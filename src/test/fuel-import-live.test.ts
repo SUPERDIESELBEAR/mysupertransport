@@ -67,6 +67,38 @@ describe("fuel import structure", () => {
     expect(def).toMatch(/card_no/);
   });
 
+  itLive("merchant_name is a nullable text column the writer carries through", () => {
+    // 2026-09-09: captured so cost per gallon can be reported BY TRUCK STOP.
+    // Nullable because every row imported before that date has none, and
+    // another provider will never supply it.
+    const [col] = psql(`
+      select data_type || '/' || is_nullable
+        from information_schema.columns
+       where table_schema = 'public' and table_name = 'fuel_transactions'
+         and column_name = 'merchant_name'
+    `);
+    expect(col).toBe("text/YES");
+
+    const body = psql(`
+      select pg_get_functiondef(p.oid)
+        from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+       where n.nspname = 'public' and p.proname = 'commit_fuel_import'
+    `).join("\n");
+    expect(body).toMatch(/merchant_name/);
+    // The single writer, and the dedupe key it writes against, are unchanged.
+    expect(body).toMatch(/t\.invoice_no = \(r->>'invoice_no'\)/);
+    expect(body).toMatch(/t\.invoice_date = \(r->>'invoice_date'\)::date/);
+    expect(body).toMatch(/t\.card_no = \(r->>'card_no'\)/);
+  });
+
+  itLive("the merchant name is never money — no fuel line type is named for it", () => {
+    const offenders = psql(`
+      select e.enumlabel from pg_enum e join pg_type t on t.oid = e.enumtypid
+       where t.typname = 'fuel_line_type' and e.enumlabel ilike '%merchant%'
+    `);
+    expect(offenders).toEqual([]);
+  });
+
   itLive("card resolution reads the assignment window, not just the card", () => {
     // psql -At splits the definition across lines; rejoin before matching.
     const body = psql(`

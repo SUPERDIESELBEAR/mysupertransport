@@ -271,6 +271,7 @@ function PreviewRow({ row, cols }: { row: FuelDisplayRow; cols: Set<FuelMoneyCol
             <dl className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs sm:grid-cols-4">
               <div><dt className="text-muted-foreground">Invoice</dt><dd className="font-mono">{row.invoice_no}</dd></div>
               <div><dt className="text-muted-foreground">Card</dt><dd className="font-mono">{row.card_no}</dd></div>
+              <div><dt className="text-muted-foreground">Merchant</dt><dd>{row.merchant_name ?? '—'}</dd></div>
               <div><dt className="text-muted-foreground">Date</dt><dd>{formatFuelDate(row.invoice_date)}</dd></div>
               <div>
                 <dt className="text-muted-foreground">Reconciliation</dt>

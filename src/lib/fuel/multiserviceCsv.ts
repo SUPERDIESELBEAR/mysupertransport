@@ -41,6 +41,8 @@ export interface ParsedFuelRow {
   unit_no: string;
   card_no: string;
   driver_name: string;
+  /** The truck stop. Empty string when the provider did not export the column. */
+  merchant_name: string;
   city: string;
   state: string;
   invoice_no: string;
@@ -118,8 +120,20 @@ export const REQUIRED_COLUMNS = [
   'Card No', 'Invoice No', 'Invoice Date', 'Total Amount',
 ] as const;
 
-/** Descriptive columns: parsed when present, empty string when absent. */
-const TEXT_COLUMNS = ['Unit No', 'Driver Name', 'City', 'State', 'Daycode'] as const;
+/**
+ * Descriptive columns: parsed when present, empty string when absent.
+ *
+ * `Merchant Name` WAS deliberately left unrecognised (Pass 3, 2026-09-05):
+ * storing a text column means a column on `fuel_transactions` and a change to
+ * the single writer, which is not a parser tweak. That decision is SUPERSEDED
+ * on 2026-09-09 by the owner's confirmed reporting scope — cost per gallon BY
+ * LOCATION. City and state answer "which town", not "which truck stop", and the
+ * merchant name is the only field that names the seller. It is TEXT: it must
+ * never reach `CATEGORY_SPECS`, a bucket, or the reconciliation sum.
+ */
+const TEXT_COLUMNS = [
+  'Unit No', 'Driver Name', 'Merchant Name', 'City', 'State', 'Daycode',
+] as const;
 
 /**
  * Every money category the report screen can emit. `field` names the flat
@@ -482,6 +496,7 @@ export function parseMultiserviceCsv(text: string): ParsedFuelFile {
       unit_no: cell(c, 'Unit No'),
       card_no: cell(c, 'Card No'),
       driver_name: cell(c, 'Driver Name'),
+      merchant_name: cell(c, 'Merchant Name'),
       city: cell(c, 'City'),
       state: cell(c, 'State'),
       invoice_no: cell(c, 'Invoice No'),

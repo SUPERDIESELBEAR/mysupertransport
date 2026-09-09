@@ -4994,6 +4994,7 @@ export type Database = {
           invoice_no: string
           match_status: Database["public"]["Enums"]["fuel_match_status"]
           matched_equipment_id: string | null
+          merchant_name: string | null
           minor_repairs_amount: number
           misc_amount: number
           operator_id: string | null
@@ -5034,6 +5035,7 @@ export type Database = {
           invoice_no: string
           match_status?: Database["public"]["Enums"]["fuel_match_status"]
           matched_equipment_id?: string | null
+          merchant_name?: string | null
           minor_repairs_amount?: number
           misc_amount?: number
           operator_id?: string | null
@@ -5074,6 +5076,7 @@ export type Database = {
           invoice_no?: string
           match_status?: Database["public"]["Enums"]["fuel_match_status"]
           matched_equipment_id?: string | null
+          merchant_name?: string | null
           minor_repairs_amount?: number
           misc_amount?: number
           operator_id?: string | null
