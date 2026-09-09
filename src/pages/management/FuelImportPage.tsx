@@ -489,6 +489,29 @@ export default function FuelImportPage() {
     },
   });
 
+  /**
+   * ONE DRIVER, ONE CONFIRMATION, ONE CALL. No bulk path exists here or in the
+   * RPC. On success the operator units are re-read so the badge clears without
+   * touching the file — the row's own imported values are unchanged, because
+   * nothing about the transaction was written.
+   */
+  const fillUnit = useMutation({
+    mutationFn: (v: { operatorId: string; unit: string; note: string }) =>
+      setOperatorUnitFromFuelReview(v.operatorId, v.unit, v.note),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ['fuel-preview-operator-units'] });
+      void qc.invalidateQueries({ queryKey: ['fuel-operator-options'] });
+      toast({ description: 'Unit recorded on the driver.' });
+    },
+    onError: (e) => {
+      logDbError('set operator unit from fuel review', e, {});
+      toast({
+        variant: 'destructive',
+        description: getDbErrorMessage(e, 'Could not record that unit.'),
+      });
+    },
+  });
+
   const acceptances = useQuery({
     queryKey: ['fuel-disagreement-acceptances'],
     queryFn: fetchFuelAcceptances,
