@@ -8071,9 +8071,19 @@ The rule that hides it is stated on `visibleMoneyColumns` in
 `src/lib/fuel/fuelImportView.ts`, next to the code that would have to be changed to
 remove it.
 
-Suites: `fuelImportView.test.ts` (29), `fuelBuckets.test.ts`, `fuelDiagnosis.test.ts`,
-`fuelPreviewDiagnosis.test.ts`, `multiserviceCsv.test.ts` — 95 tests across the five
-fuel files — and `npm run test:guards` (9 files, 87/87). `tsgo` clean.
+Suites: `fuelImportView.test.ts` (29, now 30), `fuelBuckets.test.ts`,
+`fuelDiagnosis.test.ts`, `fuelPreviewDiagnosis.test.ts`, `multiserviceCsv.test.ts`
+— 95 tests across the five fuel files, 96 after the correction — and
+`npm run test:guards` (9 files, 87/87). `tsgo` clean.
+
+**THE THIRTIETH TEST, added 2026-09-09 with the correction above.** Every other
+fixture in `fuelImportView.test.ts` carries positive money, and `discount` is the
+only always-negative money column, so the suite could not have distinguished a
+`!== 0` check from a `> 0` one. `RENDERS A COLUMN WHOSE ONLY VALUES ARE NEGATIVE`
+builds four rows whose sole non-zero non-fuel value is a negative discount
+(-$38.88 in total), asserts the column renders, and asserts the visible columns
+still read down to `Total` with the negative column among them.
+
 
 CONTRADICTIONS: none found.
 
