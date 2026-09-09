@@ -418,7 +418,7 @@ describe('empty money columns are hidden', () => {
       diesel_amount: 400, diesel_gallons: 100,
       fuel_discount_amount: d, total_amount: r2(400 + d),
     }));
-    const rows = buildDisplayRows(negativeOnly.map(preview), negativeOnly);
+    const rows = buildDisplayRows(negativeOnly.map((r) => preview(r)), negativeOnly);
 
     // every discount value is strictly negative — nothing here is > 0
     expect(rows.every((r) => r.split.discount < 0)).toBe(true);
