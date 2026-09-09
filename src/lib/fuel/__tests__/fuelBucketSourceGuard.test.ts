@@ -17,6 +17,7 @@ import { readFileSync, existsSync } from 'node:fs';
 const CONSUMERS = [
   'src/lib/fuel/fuelImportView.ts',
   'src/lib/fuel/fuelDriverDetail.ts',
+  'src/lib/fuel/fuelLocationReport.ts',
   'src/lib/settlementRun.ts',
 ];
 
