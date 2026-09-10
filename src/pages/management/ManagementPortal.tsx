@@ -461,6 +461,12 @@ export default function ManagementPortal() {
     if (view === 'load-edit' && !selectedLoadId) setView('loads');
   }, [view, selectedLoadId]);
 
+  // Same guard for the driver profile: asked for with no driver, show the
+  // Driver Hub list rather than an empty page.
+  useEffect(() => {
+    if (view === 'operator-detail' && !selectedOperatorId) setView('drivers');
+  }, [view, selectedOperatorId]);
+
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
       .from('active_dispatch')
