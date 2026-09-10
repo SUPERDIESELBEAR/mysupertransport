@@ -107,3 +107,75 @@ describe('the five writers are reachable from a screen', () => {
     expect(lib).toContain('NOT STATED BY THE OWNER');
   });
 });
+
+/**
+ * Module 5 Pass 6 — what the ROW says. Six findings came from looking at a
+ * rendered screen; these hold the display honest.
+ */
+describe('what an adjustment row tells the reader', () => {
+  const read = (p: string) => readFileSync(p, 'utf8');
+  const card = read('src/components/dispatch/loadDetail/LateAccessorialsCard.tsx');
+
+  const base = {
+    id: 'a', load_id: 'l', reference: 'ST-TEST-005-A1', sequence: 1,
+    charge_type: 'detention', description: null, amount: 275, funding_source: null,
+    actual_cost: null, proof_document_id: null, proof_kind: null,
+    status: 'draft', reason: null, billing_state: 'not_required',
+    approved_at: null, approved_by: null, settlement_id: null, invoice_id: null,
+    created_at: '2026-09-04T00:00:00Z', created_by: null, updated_at: null,
+  } as const;
+
+  it('an approved row without proof is grandfathered, never told what it needs', () => {
+    expect(proofState({ ...base, status: 'approved', proof_document_id: null })).toBe('grandfathered');
+    expect(card).toContain('Approved before backup documentation was required');
+  });
+
+  it('a draft without proof is told what it needs, and cannot be sent', () => {
+    expect(proofState({ ...base, status: 'draft', proof_document_id: null })).toBe('required');
+    expect(submitBlockedReason({ ...base } as never)).toContain('Attach');
+  });
+
+  it('a draft with proof can be sent', () => {
+    expect(proofState({ ...base, proof_document_id: 'd' })).toBe('attached');
+    expect(submitBlockedReason({ ...base, proof_document_id: 'd' } as never)).toBeNull();
+  });
+
+  it('the blocked action is disabled on the row rather than offered and refused', () => {
+    expect(card).toContain('disabled={!!blocked}');
+    expect(card).toContain('adjustment-blocked-');
+  });
+
+  it('the row names who recorded it and who approved it', () => {
+    expect(card).toContain('by ${row.created_by_name}');
+    expect(card).toContain('by ${row.approved_by_name}');
+  });
+
+  it('the row says where the money is, in both directions', () => {
+    expect(card).toContain('Not on a settlement yet');
+    expect(card).toContain('Due to the driver on the settlement');
+    expect(card).toContain('BILLING_STATE_LABELS[row.billing_state]');
+  });
+
+  it('the document can be attached from inside both dialogs, through the load path', () => {
+    const picker = read('src/components/accessorials/ProofPicker.tsx');
+    expect(picker).toContain('uploadLoadDocument');
+    expect(read('src/components/accessorials/RecordAdjustmentDialog.tsx')).toContain('<ProofPicker');
+    expect(read('src/components/accessorials/AdjustmentActionDialog.tsx')).toContain('<ProofPicker');
+    expect(read('src/lib/accessorialAdjustments.ts')).toContain('attach_accessorial_adjustment_proof');
+  });
+
+  it('no placeholder in these dialogs is long enough to be cut mid-word', () => {
+    const files = [
+      'src/components/accessorials/RecordAdjustmentDialog.tsx',
+      'src/components/accessorials/AdjustmentActionDialog.tsx',
+      'src/components/accessorials/ProofPicker.tsx',
+    ];
+    for (const f of files) {
+      const src = read(f);
+      for (const m of src.matchAll(/placeholder="([^"]+)"/g)) {
+        // Single-line inputs cannot scroll a placeholder; keep them short.
+        expect(m[1].length, `${f}: ${m[1]}`).toBeLessThanOrEqual(34);
+      }
+    }
+  });
+});
