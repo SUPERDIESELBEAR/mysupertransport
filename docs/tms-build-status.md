@@ -8773,29 +8773,47 @@ EVIDENCE — CORRECTED:
   Not yet deducted: **$1,960.56, 3 purchases**.
   Filename `fuel-ali-mohamed-2026-08-29-to-2026-09-01.pdf`.
 
-### Driver-side parity is partially proven — KNOWN DEBT (updated 2026-09-10)
+### Driver-side parity — RESOLVED (2026-09-10)
 
-**PROVEN — real-data evidence from a genuine driver session.** On 2026-09-10 the
-owner signed in as Ali Mohamed on his own phone via the QR mobile-preview handoff,
-opened My Fuel, and downloaded the PDF from within that driver session.
-`auth.uid()` was the driver's, the same `my_fuel_transactions()` RPC and the
-same RLS ran. Every figure matched the management view:
+**WHAT WAS UNPROVEN AND WHY.** `my_fuel_transactions()` takes no argument and
+resolves the operator from `auth.uid()`, so there is no parameter a client could
+substitute. The build sandbox cannot mint a genuine driver session, so the
+operator screen's figures and isolation were argued **structurally** and never
+demonstrated. One driver session proves a driver sees his own fuel correctly; it
+does not, by itself, prove he cannot see another driver's fuel.
 
-- **$1,960.56 not yet deducted across 3 purchases; $0.00 deducted**
-- **Fuel $1,465.72 · Cash advance $505.00 · Discount -$10.16 · Gallons 233.68**
-- **Flying J #733 Lubbock TX $505.96 · Pilot Travel Center #1033 Midland TX $625.26 · Loves #822 Clarksville AR $829.34**
-- **Header reads "Ali Mohamed · Unit 260"** — the unit resolution fix confirmed on the driver side.
+**PROVEN — real-data evidence from two genuine driver sessions.**
 
-This is **not** a structural argument; it is a live demonstration that a driver
-sees his own fuel correctly and that the operator view, the management view, and
-the PDF agree to the cent.
+- **Ali Mohamed (2026-09-10).** The owner signed in as Ali on his own phone via
+the QR mobile-preview handoff, opened My Fuel, and downloaded the PDF from within
+that driver session. `auth.uid()` was the driver's, the same
+`my_fuel_transactions()` RPC and the same RLS ran. Every figure matched the
+management view:
+  - **$1,960.56 not yet deducted across 3 purchases; $0.00 deducted**
+  - **Fuel $1,465.72 · Cash advance $505.00 · Discount -$10.16 · Gallons 233.68**
+  - **Flying J #733 Lubbock TX $505.96 · Pilot Travel Center #1033 Midland TX $625.26 · Loves #822 Clarksville AR $829.34**
+  - **Header reads "Ali Mohamed · Unit 260"** — the unit resolution fix confirmed on the driver side.
 
-**NOT PROVEN — that a driver CANNOT see another driver's fuel.** One driver
-demonstrates the figures; it takes a second driver to demonstrate isolation.
+- **Deneric Guidry (2026-09-10).** The owner signed in as Deneric via the same
+QR mobile-preview handoff and downloaded his My Fuel PDF from within that
+driver session:
+  - **5 purchases, $2,430.23 not yet deducted, $0.00 deducted**
+  - **Fuel $2,441.71 · Discount -$11.48 · Gallons 438.76**
+  - **Loves #671 Blytheville AR $533.00 · Loves #875 Opelousas LA $632.99 · Tiger Truck Stop Grosse Tete LA $263.84 · Pilot Travel Ctr #377 Laredo TX $631.39 · Loves #401 Baytown TX $369.01**
+  - **Header reads "Deneric Guidry · Unit 256"**
 
-TRIGGER (narrowed): before any driver other than the owner is told to use My
-Fuel, run a signed-in session check for a second driver and confirm the returned
-rows contain only that driver's transactions.
+**ISOLATION CONFIRMED.** None of Ali Mohamed's three transactions appeared in
+Deneric's session — no Flying J #733 Lubbock, no Pilot #1033 Midland, no Loves
+#822 Clarksville. The merchants, states, and totals are completely disjoint. The
+five Deneric purchases sum to **$2,430.23** and the gallons to **438.76**, both
+to the cent, matching the import preview shown for Deneric on 2026-09-08.
+
+**HOW IT WAS FINALLY PROVEN — REUSABLE ROUTE.** The QR mobile-preview handoff
+mints a genuine single-use driver session, so `auth.uid()` is the driver's and
+the same RPCs and RLS apply. That is the route for demonstrating any
+operator-facing surface, and it is the only one available — psql cannot produce
+an `auth.uid()`, and the in-app read-only preview leaves `auth.uid()` as the
+owner's, which is why it renders My Fuel empty and proves nothing.
 
 ### Driver App Preview picker shows wrong unit state (2026-09-10)
 
