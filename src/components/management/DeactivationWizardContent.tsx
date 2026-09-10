@@ -351,7 +351,11 @@ export function DeactivationWizardContent({
 
 
 
-      if (icaRes.data) setIca(icaRes.data as IcaContract);
+      if (icaRes.data) {
+        setIca(icaRes.data as IcaContract);
+        // A contract already stamped void stays void — the step is history.
+        if ((icaRes.data as any).voided_at) setIcaVoided(true);
+      }
       if (carrierRes.data) {
         const c = carrierRes.data as any;
         setCarrierSettings({ typed_name: c.typed_name || '', title: c.title || '', signature_url: c.signature_url || null });
@@ -399,16 +403,24 @@ export function DeactivationWizardContent({
         .select('step_key, completed, skipped, skipped_reason')
         .eq('operator_id', operatorId);
       if (savedSteps?.length) {
+        const done = new Set<string>();
         setSteps(prev => {
           const next = { ...prev };
           for (const row of savedSteps as any[]) {
             const key = row.step_key as OffboardingStepKey;
             if (!next[key]) continue;
-            if (row.completed) next[key] = { ...next[key], status: 'completed', skippedReason: undefined };
-            else if (row.skipped) next[key] = { ...next[key], status: 'skipped', skippedReason: row.skipped_reason || undefined };
+            // Already on file — never re-write it on this run.
+            persistedStatus.current[key] = row.completed
+              ? 'completed|'
+              : row.skipped ? `skipped|${row.skipped_reason ?? ''}` : '';
+            if (row.completed) { next[key] = { ...next[key], status: 'completed', skippedReason: undefined }; done.add(key); }
+            else if (row.skipped) { next[key] = { ...next[key], status: 'skipped', skippedReason: row.skipped_reason || undefined }; done.add(key); }
           }
           return next;
         });
+        // Pick up where the last run stopped rather than at step one.
+        const resumeAt = orderedSteps.find(k => !done.has(k));
+        if (resumeAt && resumeAt !== 'reason') setCurrentStep(resumeAt);
       }
     } catch (err) {
       console.error('Failed to load offboarding data', err);
