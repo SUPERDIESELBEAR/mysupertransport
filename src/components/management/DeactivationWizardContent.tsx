@@ -474,46 +474,49 @@ export function DeactivationWizardContent({
     fetchAllData();
   }, [operatorId, session?.user?.email, fetchAllData]);
 
-  // Auto-complete steps that have no work to do
+  // Auto-complete steps that have no work to do. Screen-only: nothing here is
+  // saved (see persistStep) — the steps a person really performs are saved by
+  // their own handlers, and the full picture is written at Finish.
   useEffect(() => {
     if (loading) return;
+    const auto = { auto: true } as const;
     if (!sheets.length && !receiptsUploaded) {
-      updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets');
+      updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets', auto);
     } else if (sheets.every(s => s.return_completed_at && s.decal_photo_driver_side_url && s.decal_photo_passenger_side_url)) {
-      updateStepStatus('equipment_return', 'completed');
+      updateStepStatus('equipment_return', 'completed', undefined, auto);
     } else {
-      updateStepStatus('equipment_return', 'pending');
+      updateStepStatus('equipment_return', 'pending', undefined, auto);
     }
 
     if (fuelCardError) {
-      updateStepStatus('fuel_card', 'pending');
+      updateStepStatus('fuel_card', 'pending', undefined, auto);
     } else if (!fuelCards.length) {
-      updateStepStatus('fuel_card', 'skipped', 'No fuel cards assigned to this driver');
+      updateStepStatus('fuel_card', 'skipped', 'No fuel cards assigned to this driver', auto);
     } else if (fuelCards.every(c => c.status === 'deactivated')) {
-      updateStepStatus('fuel_card', 'completed');
+      updateStepStatus('fuel_card', 'completed', undefined, auto);
     } else {
-      updateStepStatus('fuel_card', 'pending');
+      updateStepStatus('fuel_card', 'pending', undefined, auto);
     }
 
     if (!plateAssignments.length) {
-      updateStepStatus('mo_plate', 'skipped', 'No MO plates assigned to this driver');
+      updateStepStatus('mo_plate', 'skipped', 'No MO plates assigned to this driver', auto);
     } else {
-      updateStepStatus('mo_plate', 'pending');
+      updateStepStatus('mo_plate', 'pending', undefined, auto);
     }
 
     if (!ica) {
-      updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file');
-      updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file');
+      updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file', auto);
+      updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file', auto);
     } else {
       if (terminationCreated || existingTerminationId) {
-        updateStepStatus('lease_termination', 'completed');
+        updateStepStatus('lease_termination', 'completed', undefined, auto);
       } else {
-        updateStepStatus('lease_termination', 'pending');
+        updateStepStatus('lease_termination', 'pending', undefined, auto);
       }
       if (icaVoided) {
-        updateStepStatus('ica_void', 'completed');
+        updateStepStatus('ica_void', 'completed', undefined, auto);
       } else {
-        updateStepStatus('ica_void', 'pending');
+        updateStepStatus('ica_void', 'pending', undefined, auto);
       }
     }
   }, [loading, sheets, fuelCards, fuelCardError, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, updateStepStatus]);
