@@ -5,6 +5,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import StaffLayout from '@/components/layouts/StaffLayout';
 import { DeactivationWizardContent } from '@/components/management/DeactivationWizardContent';
+import OffboardingGuidePanel from '@/components/management/OffboardingGuidePanel';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import {
