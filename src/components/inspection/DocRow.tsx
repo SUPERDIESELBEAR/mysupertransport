@@ -21,27 +21,19 @@ import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
+import { resolveBinderStorage, resolvePathOnly } from '@/lib/binderStorage';
+
 
 /**
- * Derives the correct storage bucket for an inspection-binder document based on its file_path.
- * Application-sourced docs (CDL, Medical Cert, etc. copied from applications) live in
- * 'application-documents'; everything else lives in 'inspection-documents'.
+ * Derives the correct storage bucket for an inspection-binder document from its file_path.
+ * Delegates to the shared resolver so every surface agrees. Prefer
+ * resolveBinderStorage(file_url, file_path) where the saved URL is available — it is
+ * authoritative, while a path alone can only be guessed at.
  */
 export function bucketForBinderDoc(filePath: string | null | undefined): string {
-  // Legacy rows were synced with the bucket name baked into the path
-  if (filePath?.startsWith('fleet-documents/')) return 'fleet-documents';
-  if (filePath?.startsWith('applications/')) return 'application-documents';
-  // Vehicle Hub DOT inspection certificates live in the fleet-documents bucket
-  // (Path shape: "<operator_uuid>/dot/<filename>")
-  if (filePath && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dot\//i.test(filePath)) {
-    return 'fleet-documents';
-  }
-  // Operator-uploaded docs are stored under "{operator_uuid}/..." in the operator-documents bucket
-  if (filePath && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(filePath)) {
-    return 'operator-documents';
-  }
-  return 'inspection-documents';
+  return resolvePathOnly(filePath)?.bucket ?? 'inspection-documents';
 }
+
 
 interface DocRowProps {
   doc: InspectionDocument | null;
@@ -375,48 +367,15 @@ function useSignedUrl(rawUrl: string) {
 
 /**
  * Infers the storage bucket and object path from a raw URL or bare path.
- * Returns null if the URL doesn't match any known storage pattern.
+ * Delegates to the shared binder resolver.
  */
-function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | null {
+export function inferStorageInfo(rawUrl: string): { bucket: string; path: string } | null {
   if (!rawUrl) return null;
-
-  // Bare path: "applications/..." → application-documents bucket
-  if (/^applications\//i.test(rawUrl)) {
-    return { bucket: 'application-documents', path: rawUrl };
-  }
-
-  // Bare path: "inspection-documents/..." → inspection-documents bucket
-  if (/^inspection-documents\//i.test(rawUrl)) {
-    return { bucket: 'inspection-documents', path: rawUrl.replace(/^inspection-documents\//i, '') };
-  }
-
-  // Bare path: "{operator-uuid}/dot/..." → fleet-documents bucket
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\/dot\//i.test(rawUrl)) {
-    return { bucket: 'fleet-documents', path: rawUrl };
-  }
-
-  // Bare path: "{operator-uuid}/..." → operator-documents bucket
-  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\//i.test(rawUrl)) {
-    return { bucket: 'operator-documents', path: rawUrl };
-  }
-
-  // Signed/public URL containing bucket name in path
-  const bucketPatterns = [
-    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/inspection-documents\/(.+?)(?:\?|$)/i, bucket: 'inspection-documents' },
-    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/application-documents\/(.+?)(?:\?|$)/i, bucket: 'application-documents' },
-    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/operator-documents\/(.+?)(?:\?|$)/i, bucket: 'operator-documents' },
-    { regex: /\/(?:object\/(?:sign|public)|storage\/v1\/object\/(?:sign|public))\/driver-uploads\/(.+?)(?:\?|$)/i, bucket: 'driver-uploads' },
-  ];
-
-  for (const { regex, bucket } of bucketPatterns) {
-    const match = rawUrl.match(regex);
-    if (match) {
-      return { bucket, path: decodeURIComponent(match[1]) };
-    }
-  }
-
-  return null;
+  if (/^https?:\/\//i.test(rawUrl)) return resolveBinderStorage(rawUrl, null);
+  return resolvePathOnly(rawUrl);
 }
+
+
 
 /** Generic in-app file preview modal — no new tab required */
 export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, filePath, onSaved, onPrev, onNext, counter, index, total }: {
@@ -454,10 +413,12 @@ export function FilePreviewModal({ url, name, onClose, onEdit, bucketName, fileP
   const { signedUrl, signing } = useSignedUrl(activeUrl);
   const resolvedUrl = signedUrl || syncResolvedUrl;
 
-  // Auto-infer bucket/path from URL when not explicitly provided
-  const inferred = (!bucketName || !filePath) ? inferStorageInfo(url) : null;
-  const effectiveBucket = bucketName || inferred?.bucket;
-  const effectivePath = filePath || inferred?.path;
+  // The saved URL names its bucket explicitly, so it wins over a caller-supplied
+  // bucket guessed from the path (legacy rows carry a misleading "fleet-documents/" prefix).
+  const resolvedRef = resolveBinderStorage(url, filePath ?? null);
+  const effectiveBucket = resolvedRef?.bucket ?? bucketName;
+  const effectivePath = resolvedRef?.path ?? filePath;
+
 
   const typePath = fileTypePath(activeUrl);
   const isPdf = /\.pdf$/i.test(typePath);

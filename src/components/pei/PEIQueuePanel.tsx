@@ -39,6 +39,7 @@ import { ArchiveApplicantDialog } from './ArchiveApplicantDialog';
 import { ChangeArchiveCategoryDialog } from './ChangeArchiveCategoryDialog';
 import { StaffNotesPopover } from './StaffNotesPopover';
 import { BulkArchiveDialog, BulkSendDateDialog } from './PEIBulkDialogs';
+import { PEICadenceSettingsCard } from './PEICadenceSettingsCard';
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -514,6 +515,9 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
               View email templates
             </Button>
           </div>
+        </div>
+        <div className="mt-4">
+          <PEICadenceSettingsCard />
         </div>
       </header>
 

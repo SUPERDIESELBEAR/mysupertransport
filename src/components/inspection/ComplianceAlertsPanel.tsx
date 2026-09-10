@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { ShieldAlert, Send, CheckCheck, RotateCcw, Loader2, ShieldCheck, ArrowUpDown, ArrowDown, ArrowUp, CheckCircle2, Eye, Upload } from 'lucide-react';
 import { FilePreviewModal, bucketForBinderDoc } from './DocRow';
+import { resolveBinderStorage } from '@/lib/binderStorage';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
@@ -311,8 +313,10 @@ export default function ComplianceAlertsPanel({ onOpenOperator, defaultNoActionO
         setPreview({ url: path, name: `${alert.operator_name} — ${alert.doc_type}` });
         return;
       }
-      const bucket = bucketForBinderDoc(path);
-      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 60);
+      const ref = resolveBinderStorage(null, path);
+      if (!ref) throw new Error('Could not open the document');
+      const { data, error } = await supabase.storage.from(ref.bucket).createSignedUrl(ref.path, 60 * 60);
+
       if (error || !data?.signedUrl) throw error ?? new Error('Could not open the document');
       setPreview({ url: data.signedUrl, name: `${alert.operator_name} — ${alert.doc_type}` });
     } catch (e: any) {

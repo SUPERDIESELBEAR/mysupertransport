@@ -13,6 +13,7 @@ import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 import LogUpdateModal from './LogUpdateModal';
 import TruckPhotoViewerModal from '@/components/fleet/TruckPhotoViewerModal';
 import DecalPhotoViewerModal from './DecalPhotoViewerModal';
+import DeactivatedWatermark from './DeactivatedWatermark';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
 import { operatorDisplayName } from '@/lib/profileNames';
@@ -32,6 +33,7 @@ import {
 import { toast } from '@/hooks/use-toast';
 
 import { useAuth } from '@/hooks/useAuth';
+import { groupSharedPlates, sharedPlateNote as sharedPlateNoteFor } from '@/lib/duplicatePlates';
 
 type DotFilter = 'all' | 'overdue' | 'due_soon' | 'no_record';
 type DotSort = 'unit' | 'due_asc' | 'due_desc';
@@ -63,6 +65,13 @@ interface FleetRow {
   decalPhotoDsUrl: string | null;
   decalPhotoPsUrl: string | null;
   decalPhotosExtra: Array<{ url: string; label?: string }>;
+  /**
+   * Whether the driver is on the active roster. This — NOT `deactivatedAt` —
+   * decides every "off the roster" treatment: most deactivated records carry
+   * no deactivation date, so a date-based test silently showed them as active.
+   */
+  isActive: boolean;
+  /** When he came off the roster. Display only; often unrecorded. */
   deactivatedAt: string | null;
   insuranceAddedDate: string | null;
   statePermits: StatePermit[];
@@ -128,6 +137,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [confirmReactivate, setConfirmReactivate] = useState<FleetRow | null>(null);
   const [reactivating, setReactivating] = useState(false);
   const [postReactivate, setPostReactivate] = useState<FleetRow | null>(null);
+  // Recording a missing off-roster date: one driver at a time, a date and a
+  // reason typed by a person, and never over a date already on file.
+  const [dateTarget, setDateTarget] = useState<FleetRow | null>(null);
+  const [dateValue, setDateValue] = useState('');
+  const [dateNote, setDateNote] = useState('');
+  const [savingDate, setSavingDate] = useState(false);
   const [viewMode, setViewMode] = useViewMode('vehicle_hub_view', 'mode', 'cards');
   const [dotFilter, setDotFilter] = useState<DotFilter>(() => {
     return (localStorage.getItem('vehicle_hub_dot_filter') as DotFilter) || 'all';
@@ -278,6 +293,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         decalPhotoDsUrl: os?.decal_photo_ds_url ?? null,
         decalPhotoPsUrl: os?.decal_photo_ps_url ?? null,
         decalPhotosExtra,
+        isActive,
         deactivatedAt: op.deactivated_at ?? null,
         insuranceAddedDate: os?.insurance_added_date ?? null,
         statePermits: permitMap.get(op.id) ?? [],
@@ -376,6 +392,69 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
     setReactivating(false);
   };
 
+  const openDateDialog = (row: FleetRow) => {
+    setDateTarget(row);
+    setDateValue('');
+    setDateNote('');
+  };
+
+  /**
+   * Record when a unit came off the roster. It FILLS AN ABSENCE and never
+   * overwrites: the `.is('deactivated_at', null)` guard means a date written by
+   * someone else in the meantime wins, and the write is refused here too.
+   */
+  const handleSaveDeactivationDate = async () => {
+    if (!dateTarget) return;
+    const note = dateNote.trim();
+    if (!dateValue) {
+      toast({ title: 'Pick the date this unit came off the roster', variant: 'destructive' });
+      return;
+    }
+    if (!note) {
+      toast({ title: 'Say where this date came from', description: 'A short note is required.', variant: 'destructive' });
+      return;
+    }
+    if (dateTarget.deactivatedAt) {
+      toast({ title: 'This unit already has a date on file', variant: 'destructive' });
+      return;
+    }
+    setSavingDate(true);
+    // Noon-anchored so the calendar day never shifts across time zones.
+    const iso = new Date(`${dateValue}T12:00:00`).toISOString();
+    const { data: updated, error } = await supabase
+      .from('operators')
+      .update({ deactivated_at: iso })
+      .eq('id', dateTarget.operatorId)
+      .is('deactivated_at', null)
+      .select('id');
+
+    if (error) {
+      toast({ title: 'Could not save the date', description: error.message, variant: 'destructive' });
+    } else if (!updated || updated.length === 0) {
+      toast({
+        title: 'Nothing was changed',
+        description: 'This unit already has a date on file, or you do not have permission to set it.',
+        variant: 'destructive',
+      });
+    } else {
+      await supabase.from('audit_log').insert({
+        entity_type: 'operator',
+        entity_id: dateTarget.operatorId,
+        entity_label: `Unit ${dateTarget.unitNumber ?? '—'} · ${dateTarget.driverName}`,
+        action: 'operator_deactivated_date_recorded',
+        metadata: { deactivated_at: iso, note, source: 'Vehicle Hub' },
+      });
+      toast({
+        title: 'Date recorded',
+        description: `${dateTarget.driverName} — off roster ${format(parseISO(iso), 'MM/dd/yyyy')}.`,
+      });
+      setDateTarget(null);
+      fetchFleet();
+    }
+    setSavingDate(false);
+  };
+
+
   const hasQuery = search.trim().length > 0;
   const searching = hasQuery && !scopeSearchToTab;
 
@@ -400,6 +479,31 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
       deactivated: deactivatedRows.filter(r => matchesSearch(r, q)).length,
     };
   }, [activeRows, deactivatedRows, search, hasQuery]);
+
+  /**
+   * Plates carried by more than one unit. A plate legitimately moves from one
+   * truck to another, so two results for one plate is not a duplicate record —
+   * but nothing on the card said so, which is what made the search confusing.
+   */
+  const sharedPlateGroups = useMemo(
+    () => groupSharedPlates(
+      [...activeRows, ...deactivatedRows].map(r => ({
+        operatorId: r.operatorId,
+        driverName: r.driverName,
+        unitNumber: r.unitNumber,
+        truckPlate: r.truckPlate,
+        truckPlateState: r.truckPlateState,
+        isActive: r.isActive,
+      })),
+    ),
+    [activeRows, deactivatedRows],
+  );
+
+  /** The other units sharing this row's plate, phrased for the card. */
+  const sharedPlateNote = useCallback(
+    (row: FleetRow): string | null => sharedPlateNoteFor(row, sharedPlateGroups),
+    [sharedPlateGroups],
+  );
 
   const counts = useMemo(() => {
     const c = { all: filtered.length, overdue: 0, due_soon: 0, no_record: 0 };
@@ -540,6 +644,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           size="sm"
           variant="outline"
           className="text-xs gap-1.5 h-8"
+          
           onClick={() => setIntervalDialogOpen(true)}
           title="Set the fleet-wide default DOT reminder interval"
         >
@@ -547,6 +652,16 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           Fleet Reminder Interval
         </Button>
       </div>
+
+      {/* Where the search landed — a match in the other tab is easy to miss */}
+      {searchMatchCounts && (searchMatchCounts.active + searchMatchCounts.deactivated) > 0 && (
+        <div className="text-xs text-muted-foreground">
+          {searchMatchCounts.active + searchMatchCounts.deactivated} match
+          {searchMatchCounts.active + searchMatchCounts.deactivated === 1 ? '' : 'es'}
+          {' — '}
+          {searchMatchCounts.active} active, {searchMatchCounts.deactivated} deactivated
+        </div>
+      )}
 
       {/* DOT status filter chips + sort */}
       <div className="flex flex-wrap gap-1.5 items-center justify-between">
@@ -646,7 +761,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </div>
       ) : viewMode === 'cards' ? (
         <>
-        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
+        {(showDeactivated || filteredAndSorted.some(r => !r.isActive)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
@@ -654,7 +769,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         )}
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filteredAndSorted.map(row => {
-            const isDeactivated = !!row.deactivatedAt;
+            const isDeactivated = !row.isActive;
+            const plateNote = sharedPlateNote(row);
             return (
             <div
               key={row.operatorId}
@@ -672,8 +788,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   onSelectOperator(row.operatorId);
                 }
               }}
-              className={`group bg-white border border-border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer select-none p-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${isDeactivated ? 'opacity-75' : ''}`}
+              className={`group relative border rounded-xl shadow-sm hover:shadow-md hover:border-primary/40 transition-all cursor-pointer select-none p-4 flex flex-col gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 ${
+                isDeactivated ? 'bg-muted/50 border-muted-foreground/30' : 'bg-white border-border'
+              }`}
             >
+              {isDeactivated && <DeactivatedWatermark />}
+
 
               {/* Header: Unit # + DOT status */}
               <div className="flex items-start justify-between gap-2">
@@ -690,11 +810,43 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                 </div>
                 <div className="shrink-0 flex items-center gap-1.5">
                   {isDeactivated && (
-                    <Badge variant="outline" className="text-[10px] border-primary/40 text-primary">Deactivated</Badge>
+                    <Badge className="text-[10px] bg-muted-foreground text-background border-transparent">Deactivated</Badge>
                   )}
                   {dotStatusBadge(row.dotNextDue)}
                 </div>
               </div>
+
+              {/* Off-roster date — most deactivated records have none on file */}
+              {isDeactivated && (
+                <div className="flex items-center justify-between gap-2 text-xs -mt-1">
+                  <span className="text-muted-foreground">
+                    {row.deactivatedAt
+                      ? `Off roster ${format(parseISO(row.deactivatedAt), 'MM/dd/yyyy')}`
+                      : 'Off roster · date not recorded'}
+                  </span>
+                  {!row.deactivatedAt && (isManagement || isOwner) && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 px-2 text-[11px]"
+                      data-no-card-nav
+                      onClick={e => { e.stopPropagation(); openDateDialog(row); }}
+                      title="Record the date this unit came off the roster"
+                    >
+                      Set date
+                    </Button>
+                  )}
+                </div>
+              )}
+
+              {/* The same plate on another unit is a reassignment, not a duplicate */}
+              {plateNote && (
+                <div className="rounded-md border border-amber-300 bg-amber-50 px-2 py-1.5 text-[11px] text-amber-900 flex items-start gap-1.5">
+                  <AlertTriangle className="h-3.5 w-3.5 shrink-0 mt-px" />
+                  <span>{plateNote}</span>
+                </div>
+              )}
+
 
               {/* Driver + Owner */}
               <div className="space-y-0.5 text-sm">
@@ -853,7 +1005,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         </>
       ) : (
         <>
-        {(showDeactivated || filteredAndSorted.some(r => !!r.deactivatedAt)) && (
+        {(showDeactivated || filteredAndSorted.some(r => !r.isActive)) && (
           <div className="rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs text-foreground flex items-center gap-2">
             <Archive className="h-3.5 w-3.5 text-primary shrink-0" />
             These units are off the roster. Use <strong>Reactivate Unit</strong> to put one back on the active roster.
@@ -878,11 +1030,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
               </TableHeader>
               <TableBody>
                 {filteredAndSorted.map(row => {
-                  const isDeactivated = !!row.deactivatedAt;
+                  const isDeactivated = !row.isActive;
+                  const plateNote = sharedPlateNote(row);
                   return (
                   <TableRow
                     key={row.operatorId}
-                    className={`cursor-pointer select-none hover:bg-muted/30 transition-colors ${isDeactivated ? 'opacity-75' : ''}`}
+                    className={`cursor-pointer select-none hover:bg-muted/30 transition-colors ${isDeactivated ? 'bg-muted/40 text-muted-foreground' : ''}`}
                     onClick={e => {
                       const el = e.target as HTMLElement | null;
                       if (el?.closest('a[href], input, select, textarea, [role="dialog"], [data-no-card-nav]')) return;
@@ -894,7 +1047,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       <div className="flex flex-col gap-0.5">
                         <span>{row.unitNumber || '—'}</span>
                         {isDeactivated && (
-                          <Badge variant="outline" className="text-[9px] border-primary/40 text-primary w-fit">Deactivated</Badge>
+                          <Badge className="text-[9px] bg-muted-foreground text-background border-transparent w-fit">Deactivated</Badge>
                         )}
                       </div>
                     </TableCell>
@@ -907,6 +1060,12 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                       {row.truckPlate
                         ? <span className="font-mono">{row.truckPlate}{row.truckPlateState ? ` (${row.truckPlateState})` : ''}</span>
                         : '—'}
+                      {plateNote && (
+                        <div className="text-[10px] text-amber-700 flex items-start gap-1 mt-0.5">
+                          <AlertTriangle className="h-3 w-3 shrink-0 mt-px" />
+                          <span>{plateNote}</span>
+                        </div>
+                      )}
                     </TableCell>
                     <TableCell className="text-sm text-muted-foreground hidden lg:table-cell font-mono">
                       {row.truckVin || '—'}
@@ -1043,6 +1202,52 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           decalPhotosExtra={decalPhotoTarget.decalPhotosExtra}
         />
       )}
+
+      {/* Record a missing off-roster date — one unit at a time, never an overwrite */}
+      <AlertDialog open={!!dateTarget} onOpenChange={open => { if (!open && !savingDate) setDateTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <Archive className="h-4 w-4 text-primary" />
+              When did Unit {dateTarget?.unitNumber || '—'} come off the roster?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {dateTarget?.driverName}. Nothing on file records this date. Enter the real date —
+              leave it unset rather than guess.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground" htmlFor="deactivated-date">Date off roster</label>
+              <Input
+                id="deactivated-date"
+                type="date"
+                value={dateValue}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={e => setDateValue(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs font-medium text-foreground" htmlFor="deactivated-note">Where this date came from</label>
+              <Input
+                id="deactivated-note"
+                placeholder="e.g. Lease termination letter dated 3/14"
+                value={dateNote}
+                onChange={e => setDateNote(e.target.value)}
+              />
+            </div>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={savingDate}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={savingDate || !dateValue || !dateNote.trim()}
+              onClick={e => { e.preventDefault(); handleSaveDeactivationDate(); }}
+            >
+              {savingDate ? 'Saving…' : 'Record date'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Reactivate unit confirmation */}
       <AlertDialog open={!!confirmReactivate} onOpenChange={open => { if (!open && !reactivating) setConfirmReactivate(null); }}>

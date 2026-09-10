@@ -4,6 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Button } from '@/components/ui/button';
 import { Loader2, FileText, Eye } from 'lucide-react';
 import { FilePreviewModal, bucketForBinderDoc } from './DocRow';
+import { resolveBinderStorage } from '@/lib/binderStorage';
+
 import { parseLocalDate } from './InspectionBinderTypes';
 
 export interface BinderDocVersion {
@@ -21,19 +23,13 @@ export interface BinderDocVersion {
 /** Sign (or reuse) a view URL for a binder file pair. */
 export async function signBinderFileUrl(file: { file_url: string | null; file_path: string | null }): Promise<string | null> {
   if (file.file_url) return file.file_url;
-  if (!file.file_path) return null;
-  let path = file.file_path;
-  let bucket: string;
-  if (path.startsWith('fleet-documents/')) {
-    bucket = 'fleet-documents';
-    path = path.slice('fleet-documents/'.length);
-  } else {
-    bucket = bucketForBinderDoc(path);
-  }
-  const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 3600);
+  const ref = resolveBinderStorage(null, file.file_path);
+  if (!ref) return null;
+  const { data, error } = await supabase.storage.from(ref.bucket).createSignedUrl(ref.path, 3600);
   if (error) return null;
   return data?.signedUrl ?? null;
 }
+
 
 /** Fetch prior versions for a binder document. */
 export async function fetchBinderDocVersions(documentId: string): Promise<BinderDocVersion[]> {

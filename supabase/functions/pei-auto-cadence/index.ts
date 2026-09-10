@@ -12,8 +12,18 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { buildAppUrl } from '../_shared/app-url.ts';
 
-const MILESTONES = [5, 10, 15, 20, 25];
-const GFE_DAY = 30;
+// Company-configurable cadence (public.pei_cadence_settings). These are the
+// historical defaults, used when the settings row cannot be read.
+const DEFAULT_INTERVAL = 5;
+const DEFAULT_GFE_DAY = 30;
+
+function milestonesFor(interval: number, gfeDay: number): number[] {
+  if (!Number.isFinite(interval) || !Number.isFinite(gfeDay)) return [];
+  if (interval < 1 || gfeDay <= interval) return [];
+  const out: number[] = [];
+  for (let d = interval; d < gfeDay; d += interval) out.push(d);
+  return out;
+}
 
 function fmtDate(value: string | null | undefined): string {
   if (!value) return '—';
@@ -39,6 +49,22 @@ Deno.serve(async (req) => {
   const supabase = createClient(supabaseUrl, serviceKey);
 
   const now = new Date();
+
+  // Company-wide cadence settings
+  const { data: settings } = await supabase
+    .from('pei_cadence_settings')
+    .select('auto_follow_ups_enabled, follow_up_interval_days, gfe_after_days')
+    .maybeSingle();
+
+  if (settings && settings.auto_follow_ups_enabled === false) {
+    return new Response(JSON.stringify({ skipped: 'disabled' }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
+
+  const INTERVAL = (settings?.follow_up_interval_days as number) ?? DEFAULT_INTERVAL;
+  const GFE_DAY = (settings?.gfe_after_days as number) ?? DEFAULT_GFE_DAY;
+  const MILESTONES = milestonesFor(INTERVAL, GFE_DAY);
 
   // Candidates: still awaiting a response
   const { data: rows, error } = await supabase

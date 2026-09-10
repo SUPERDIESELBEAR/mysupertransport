@@ -240,11 +240,12 @@ describe("fuel disagreement flags require both sides to hold a value", () => {
 
   itLive("card resolution reads the unit number the Driver Status board reads", () => {
     // The board reads onboarding_status.unit_number and falls back to
-    // operators.unit_number. The import must read the same place rather than
-    // ask anyone to maintain a second copy.
+    // operators.unit_number — via the shared operator_unit_number resolver
+    // introduced when unit resolution was centralised. The import must read
+    // the same place rather than ask anyone to maintain a second copy.
     const body = fnBody("fuel_resolve_card");
     expect(body).toMatch(/onboarding_status/);
-    expect(body).toMatch(/COALESCE\(NULLIF\(btrim\(os\.unit_number\), ''\), NULLIF\(btrim\(o\.unit_number\), ''\)\)/);
+    expect(body).toMatch(/public\.operator_unit_number\(os\.unit_number, o\.unit_number\)/);
   });
 });
 
