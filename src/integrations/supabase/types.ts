@@ -9107,6 +9107,33 @@ export type Database = {
           },
         ]
       }
+      pei_cadence_settings: {
+        Row: {
+          auto_follow_ups_enabled: boolean
+          follow_up_interval_days: number
+          gfe_after_days: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_follow_ups_enabled?: boolean
+          follow_up_interval_days?: number
+          gfe_after_days?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_follow_ups_enabled?: boolean
+          follow_up_interval_days?: number
+          gfe_after_days?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       pei_request_events: {
         Row: {
           event_type: string
@@ -13229,6 +13256,32 @@ export type Database = {
       set_operator_unit_from_fuel_review: {
         Args: { _note: string; _operator_id: string; _unit_no: string }
         Returns: Json
+      }
+      set_pei_cadence_settings: {
+        Args: {
+          p_enabled: boolean
+          p_gfe_after_days: number
+          p_interval_days: number
+          p_note: string
+        }
+        Returns: {
+          auto_follow_ups_enabled: boolean
+          follow_up_interval_days: number
+          gfe_after_days: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pei_cadence_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_pei_request_auto_pause: {
+        Args: { p_note: string; p_paused: boolean; p_request_id: string }
+        Returns: undefined
       }
       settlement_writer_active: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
