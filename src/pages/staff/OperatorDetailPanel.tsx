@@ -624,6 +624,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   // Deactivation state
   const [isActive, setIsActive] = useState(true);
   const [deactivating, setDeactivating] = useState(false);
+  // Offboarding progress: a run that was started and left unfinished has to be
+  // visible here, or the next person starts it again from the top.
+  const [offboardingDone, setOffboardingDone] = useState(0);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [deactivateReason, setDeactivateReason] = useState<string>('');
   const [deactivateNotes, setDeactivateNotes] = useState<string>('');
