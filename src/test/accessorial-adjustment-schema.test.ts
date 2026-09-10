@@ -128,6 +128,9 @@ describe('accessorial_adjustments — the shape', () => {
       'invoice_id:uuid:YES',
       'load_id:uuid:NO',
       'proof_document_id:uuid:YES',
+      // Pass 5: stamped at submission from the charge type, so what counted as
+      // proof at the time is recorded rather than re-derived later.
+      'proof_kind:text:YES',
       'reason:text:NO',
       'reference:text:NO',
       'sequence:integer:NO',
@@ -169,11 +172,15 @@ describe('accessorial_adjustments — the shape', () => {
   });
 
   itLive('admits exactly the six statuses and the three billing states', () => {
+    // Both definitions read ONCE: re-reading per value cost nine round trips
+    // and pushed the test past its timeout without asserting anything more.
+    const statusDef = constraintDef('accessorial_adjustments_status_check');
+    const billingDef = constraintDef('accessorial_adjustments_billing_state_check');
     for (const s of ['draft', 'pending_approval', 'approved', 'settled', 'rejected', 'void']) {
-      expect(constraintDef('accessorial_adjustments_status_check')).toContain(`'${s}'`);
+      expect(statusDef).toContain(`'${s}'`);
     }
     for (const b of ['not_required', 'pending_supplemental', 'billed']) {
-      expect(constraintDef('accessorial_adjustments_billing_state_check')).toContain(`'${b}'`);
+      expect(billingDef).toContain(`'${b}'`);
     }
   });
 
