@@ -9446,6 +9446,42 @@ superseded predecessor: those are exactly what get missed, because the author's
 attention is on the function being hardened, not on the shim standing next to
 it. Enumerate the family from `pg_proc`, not from memory.
 
+### CORRECTION: PUBLIC GRANTS AND ANON EXECUTABLES OVERLAP
+
+The previous statement that "37 non-extension functions still carry a PUBLIC
+EXECUTE grant" and that the 26 SECURITY DEFINER functions among them were "worth
+a future pass" was worded as if a PUBLIC grant were a separate, un-audited
+exposure. It is not.
+
+A PUBLIC grant implicitly covers `anon`. The 26 SECURITY DEFINER functions are
+not a new set — they are the **same anon-executable surface audited on
+2026-09-03**, registered in `KNOWN_ANON_EXECUTABLE_ENTRIES` in
+`src/test/definer-live-catalog.test.ts`. Each carries a written justification:
+most are token-gated or short-link-gated, and the staff operations are
+gated inside the body with `is_staff(auth.uid())`.
+
+So the correct count is: **26 of the 32 anon-executable SECURITY DEFINER
+functions reach `anon` through a PUBLIC grant rather than through an explicit
+`anon` grant.** Same functions, same audit, different mechanism.
+
+### THE NARROWED FINDING THAT STANDS — KNOWN DEBT, NOT EXPOSURE
+
+The staff operations (`add_pei_staff_note`, `archive_applicant_pei`,
+`restore_applicant_pei`, `move_revisions_to_pending`, and `is_staff`) are
+guarded **inside the body** and are also reachable by an unauthenticated caller,
+who is then refused. Defence in depth would be both — the body guard **and** no
+grant — which is exactly what the `get_pei_requests_needing_action`
+remediation did on 2026-09-03: in-body `is_staff` gate **plus** revoke from
+PUBLIC and `anon`.
+
+This is correctly sized as **missing second layer**, not a live exposure. The
+current behaviour is safe because the body gate is present; the debt is that a
+future change could remove or weaken the body gate and the grant would already
+be open.
+
+**Trigger:** revisit alongside any pass touching the PEI or
+application-correction surface.
+
 ### EVERY REMAINING PUBLIC-GRANTED FUNCTION IN `public` (live, 2026-09-10)
 
 37 non-extension functions still carry a PUBLIC EXECUTE grant. Extension-owned
@@ -9473,13 +9509,12 @@ attacker nothing because the trigger fires as the table owner:
 `search_staff_faqs`, `set_osas_updated_at`, `set_pei_deadline`,
 `update_updated_at_column`, `validate_public_application_insert`.
 
-This list is recorded, not remediated. The definer half is the one worth a
-future pass: several of those are signed-in-only operations
-(`add_pei_staff_note`, `mark_thread_read`, `archive_applicant_pei`,
-`restore_applicant_pei`, `move_revisions_to_pending`) that have no business
-being PUBLIC-executable, and each relies on its in-body role gate rather than
-on the grant. Not changed in this pass, because the ask was to answer the
-question, not to widen the blast radius of a deletion.
+This list is recorded, not remediated. The definer half is the audited
+anon-executable surface described above; the invoker half is harmless. A raw
+count of PUBLIC grants is not a count of new exposures, because PUBLIC and
+`anon` overlap. A future reader seeing "37 functions hold PUBLIC" must be able
+to tell immediately that these were audited, and how — which is why this
+correction is recorded here.
 
 ### ONE OF THE FOUR UNCLASSIFIABLE FUNCTIONS: settled by not being one
 
