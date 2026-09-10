@@ -282,13 +282,15 @@ function explain(row: FnRow, cronOk: boolean, cron: number | null): string {
 describe("function reachability — nothing privileged goes uncalled", () => {
   it("every allowlist entry carries a written reason", () => {
     const bad = KNOWN_NO_CALLER_ENTRIES.filter(
-      (e) => !/^(AWAITING|INTERNAL) \S/.test(e.reason),
+      (e) => !/^(AWAITING|INTERNAL|SUPERSEDED) \S/.test(e.reason),
     );
     expect(
       bad.map((e) => e.name),
       `Every KNOWN_NO_CALLER_ENTRIES entry must explain itself. A reason must ` +
-        `start with 'AWAITING ' (built ahead of a NAMED consumer) or 'INTERNAL ' ` +
-        `(called by something this guard cannot see — say what). A bare list of ` +
+        `start with 'AWAITING ' (built ahead of a NAMED consumer), 'INTERNAL ' ` +
+        `(called by something this guard cannot see — say what), or 'SUPERSEDED ' ` +
+        `(the capability is live through a DIFFERENT named mechanism — name it). ` +
+        `A bare list of ` +
         `names is a place to hide things, which is why the 2026-09-03 anon audit ` +
         `could prove only that a set had not grown, and not that any member of it ` +
         `was safe.`,
