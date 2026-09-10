@@ -12481,15 +12481,6 @@ export type Database = {
         }[]
       }
       get_ica_review_link: { Args: { _token: string }; Returns: Json }
-      get_inspection_doc_by_token: {
-        Args: { p_token: string }
-        Returns: {
-          expires_at: string
-          file_url: string
-          id: string
-          name: string
-        }[]
-      }
       get_load_linked_messages: {
         Args: { p_load_id: string }
         Returns: {

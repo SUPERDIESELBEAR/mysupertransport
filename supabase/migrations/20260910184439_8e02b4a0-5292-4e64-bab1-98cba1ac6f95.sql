@@ -1,0 +1,1 @@
+DROP FUNCTION IF EXISTS public.get_inspection_doc_by_token(uuid);
