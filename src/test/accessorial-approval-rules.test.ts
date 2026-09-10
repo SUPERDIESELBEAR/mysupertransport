@@ -1,4 +1,5 @@
-import { describe, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { proofState, submitBlockedReason } from '@/lib/accessorialAdjustments';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
