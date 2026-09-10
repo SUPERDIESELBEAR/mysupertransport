@@ -10,7 +10,7 @@
  */
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Fuel, Info } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronsUpDown, Fuel, Info } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
