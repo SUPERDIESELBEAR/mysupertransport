@@ -155,6 +155,7 @@ function loadCatalog(): FnRow[] {
       views: Number(view),
     };
   });
+  return catalogCache;
 }
 
 /**
