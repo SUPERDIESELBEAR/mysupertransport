@@ -7,12 +7,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/loadFormat';
 import { formatDateMDY } from '@/lib/dateDisplay';
-import { fetchLoadDocuments } from '@/lib/loadDocuments';
 import { CLASSIFICATION_LABELS } from '@/lib/revisedRateCon';
 import {
   ADJUSTMENT_STATUS_LABELS, BILLING_STATE_LABELS, availableActions,
   fetchDispatcherApprovalLimit, fetchLoadAdjustments, isOverdue, PROOF_KIND_LABELS,
-  proofKindFor, type AdjustmentAction, type AdjustmentRecord, type AdjustmentStatus,
+  proofKindFor, proofState, submitBlockedReason,
+  type AdjustmentAction, type AdjustmentRecord, type AdjustmentStatus,
 } from '@/lib/accessorialAdjustments';
 import AdjustmentActionDialog from '@/components/accessorials/AdjustmentActionDialog';
 import RecordAdjustmentDialog from '@/components/accessorials/RecordAdjustmentDialog';
@@ -41,11 +41,6 @@ export default function LateAccessorialsCard({
   const { data: rows, isLoading } = useQuery({
     queryKey: ['load-adjustments', loadId],
     queryFn: () => fetchLoadAdjustments(loadId),
-  });
-
-  const { data: documents } = useQuery({
-    queryKey: ['load-documents', loadId],
-    queryFn: () => fetchLoadDocuments(loadId),
   });
 
   const { data: limit } = useQuery({
@@ -114,7 +109,6 @@ export default function LateAccessorialsCard({
 
       <RecordAdjustmentDialog
         loadId={loadId}
-        documents={(documents ?? []).map(d => ({ id: d.id, document_name: d.document_name }))}
         open={recordOpen}
         onOpenChange={setRecordOpen}
         onSaved={refresh}
@@ -139,6 +133,19 @@ const STATUS_TONE: Record<AdjustmentStatus, string> = {
   void: 'border-border bg-[#F9F9F9] text-[#555555]',
 };
 
+/** Where an approved adjustment's money currently sits, in both directions. */
+function moneyLine(row: AdjustmentRecord): string {
+  const billing = BILLING_STATE_LABELS[row.billing_state] ?? row.billing_state;
+  if (row.settlement_id) {
+    const period = row.settlement_period_start && row.settlement_period_end
+      ? `${formatDateMDY(row.settlement_period_start)}–${formatDateMDY(row.settlement_period_end)}`
+      : null;
+    const state = row.settlement_status ? ` (${row.settlement_status})` : '';
+    return `Due to the driver on the settlement${period ? ` for ${period}` : ''}${state} · ${billing}`;
+  }
+  return `Not on a settlement yet · ${billing}`;
+}
+
 export function AdjustmentRow({
   row, limit, isDispatcher, isManagement, onAct, loadLabel,
 }: {
@@ -153,6 +160,8 @@ export function AdjustmentRow({
   const overdue = isOverdue(row);
   const proofKind = (row.proof_kind as keyof typeof PROOF_KIND_LABELS | null)
     ?? proofKindFor(row.charge_type);
+  const proof = proofState(row);
+  const blockedSubmit = submitBlockedReason(row);
 
   return (
     <li className="py-3" data-testid={`adjustment-${row.reference}`}>
@@ -173,32 +182,58 @@ export function AdjustmentRow({
             Waiting over a day
           </Badge>
         ) : null}
-        <div className="ml-auto flex gap-1.5">
-          {actions.map(a => (
-            <Button
-              key={a}
-              size="sm"
-              variant={a === 'reject' || a === 'void' ? 'outline' : 'default'}
-              data-testid={`adjustment-action-${a}`}
-              onClick={() => onAct(a)}
-            >
-              {a === 'submit' ? 'Send for approval'
-                : a === 'approve' ? 'Approve'
-                : a === 'reject' ? 'Reject' : 'Void'}
-            </Button>
-          ))}
+        <div className="ml-auto flex items-center gap-1.5">
+          {/* An action that cannot succeed is not offered as though it can: the
+              button carries its own refusal instead of the dialog doing it. */}
+          {actions.map(a => {
+            const blocked = a === 'submit' ? blockedSubmit : null;
+            return (
+              <span key={a} className="flex items-center gap-1.5">
+                {blocked ? (
+                  <span className="text-xs text-[#555555]" data-testid={`adjustment-blocked-${a}`}>
+                    {blocked}
+                  </span>
+                ) : null}
+                <Button
+                  size="sm"
+                  disabled={!!blocked}
+                  variant={a === 'reject' || a === 'void' ? 'outline' : 'default'}
+                  data-testid={`adjustment-action-${a}`}
+                  onClick={() => onAct(a)}
+                >
+                  {a === 'submit' ? 'Send for approval'
+                    : a === 'approve' ? 'Approve'
+                    : a === 'reject' ? 'Reject' : 'Void'}
+                </Button>
+              </span>
+            );
+          })}
         </div>
       </div>
 
       <p className="mt-1 text-xs text-[#555555]">
         Recorded {formatDateMDY(row.created_at)}
+        {row.created_by_name ? ` by ${row.created_by_name}` : ''}
         {row.description ? ` · ${row.description}` : ''}
-        {' · '}{BILLING_STATE_LABELS[row.billing_state] ?? row.billing_state}
       </p>
-      <p className="text-xs text-[#555555]">
-        {row.proof_document_id
+      {row.approved_at ? (
+        <p className="text-xs text-[#555555]" data-testid={`adjustment-approver-${row.reference}`}>
+          Approved {formatDateMDY(row.approved_at)}
+          {row.approved_by_name ? ` by ${row.approved_by_name}` : ''}
+        </p>
+      ) : null}
+      <p className="text-xs text-[#555555]" data-testid={`adjustment-money-${row.reference}`}>
+        {moneyLine(row)}
+      </p>
+      <p className="text-xs text-[#555555]" data-testid={`adjustment-proof-state-${row.reference}`}>
+        {proof === 'attached'
           ? `Backed by ${PROOF_KIND_LABELS[proofKind]}, attached to the load.`
-          : `No backup documentation yet — ${PROOF_KIND_LABELS[proofKind]} is needed before this can be sent for approval.`}
+          : proof === 'required'
+            ? `No backup documentation yet — ${PROOF_KIND_LABELS[proofKind]} is needed before this can be sent for approval.`
+            /* Grandfathered: proof became mandatory at submit on 2026-09-10 and
+               this row is already past submit. Telling it what it needs first
+               would describe a rule it cannot obey. */
+            : 'Approved before backup documentation was required, and no document is on file.'}
       </p>
       {row.status === 'approved' ? (
         <p className="text-xs text-[#555555]">

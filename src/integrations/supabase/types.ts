@@ -12224,6 +12224,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      attach_accessorial_adjustment_proof: {
+        Args: { p_id: string; p_proof_document_id: string }
+        Returns: undefined
+      }
       authorize_below_threshold_payment: {
         Args: { _reason: string; _settlement_id: string }
         Returns: string

@@ -68,6 +68,12 @@ export const BILLING_STATE_LABELS: Record<string, string> = {
 };
 
 export interface AdjustmentRecord {
+  /** Filled by the readers below — never by the table. */
+  created_by_name?: string | null;
+  approved_by_name?: string | null;
+  settlement_period_start?: string | null;
+  settlement_period_end?: string | null;
+  settlement_status?: string | null;
   id: string;
   load_id: string;
   reference: string;
@@ -100,6 +106,47 @@ function rows(data: unknown): AdjustmentRecord[] {
   return ((data ?? []) as AdjustmentRecord[]).map(r => ({ ...r, amount: Number(r.amount) }));
 }
 
+/**
+ * Names and settlement state, resolved in two batched reads.
+ *
+ * Money surfaces in this app name the person who acted; these two columns hold
+ * profile ids, so the row cannot say who without this.
+ */
+async function enrich<T extends AdjustmentRecord>(list: T[]): Promise<T[]> {
+  const profileIds = Array.from(new Set(
+    list.flatMap(r => [r.created_by, r.approved_by]).filter(Boolean) as string[],
+  ));
+  const settlementIds = Array.from(new Set(list.map(r => r.settlement_id).filter(Boolean) as string[]));
+
+  const [names, settlements] = await Promise.all([
+    profileIds.length
+      ? supabase.from('profiles').select('id, first_name, last_name').in('id', profileIds)
+      : Promise.resolve({ data: [] as { id: string; first_name: string | null; last_name: string | null }[] }),
+    settlementIds.length
+      ? supabase.from('settlements').select('id, period_start, period_end, status').in('id', settlementIds)
+      : Promise.resolve({ data: [] as { id: string; period_start: string; period_end: string; status: string }[] }),
+  ]);
+
+  const nameById = new Map<string, string | null>();
+  ((names.data ?? []) as { id: string; first_name: string | null; last_name: string | null }[])
+    .forEach(p => nameById.set(p.id, [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || null));
+  const settlementById = new Map<string, { period_start: string; period_end: string; status: string }>();
+  ((settlements.data ?? []) as { id: string; period_start: string; period_end: string; status: string }[])
+    .forEach(s => settlementById.set(s.id, s));
+
+  return list.map(r => {
+    const s = r.settlement_id ? settlementById.get(r.settlement_id) : undefined;
+    return {
+      ...r,
+      created_by_name: r.created_by ? nameById.get(r.created_by) ?? null : null,
+      approved_by_name: r.approved_by ? nameById.get(r.approved_by) ?? null : null,
+      settlement_period_start: s?.period_start ?? null,
+      settlement_period_end: s?.period_end ?? null,
+      settlement_status: s?.status ?? null,
+    };
+  });
+}
+
 /** Every adjustment on one load, oldest reference first. */
 export async function fetchLoadAdjustments(loadId: string): Promise<AdjustmentRecord[]> {
   const { data, error } = await supabase
@@ -108,7 +155,7 @@ export async function fetchLoadAdjustments(loadId: string): Promise<AdjustmentRe
     .eq('load_id', loadId)
     .order('sequence', { ascending: true });
   if (error) throw new Error(error.message);
-  return rows(data);
+  return enrich(rows(data));
 }
 
 export interface AdjustmentListRow extends AdjustmentRecord {
@@ -124,10 +171,11 @@ export async function fetchAdjustments(status?: AdjustmentStatus): Promise<Adjus
   if (status) q = q.eq('status', status);
   const { data, error } = await q;
   if (error) throw new Error(error.message);
-  return ((data ?? []) as unknown[]).map(r => {
+  const list = ((data ?? []) as unknown[]).map(r => {
     const row = r as AdjustmentRecord & { loads?: { load_number: string | null } | null };
     return { ...row, amount: Number(row.amount), load_number: row.loads?.load_number ?? null };
   });
+  return enrich(list);
 }
 
 /** How many are waiting on somebody. Drives the sidebar count. */
@@ -264,4 +312,50 @@ export function hoursWaiting(row: AdjustmentRecord, now: Date = new Date()): num
 
 export function isOverdue(row: AdjustmentRecord, now: Date = new Date()): boolean {
   return row.status === 'pending_approval' && hoursWaiting(row, now) > 24;
+}
+
+/**
+ * Points a DRAFT adjustment at a load document that already exists.
+ *
+ * The upload itself goes through the ordinary load-document path; this only
+ * records which of those documents is the backup for this adjustment. The
+ * database refuses anything that is not a draft and anything belonging to
+ * another load.
+ */
+export async function attachAdjustmentProof(id: string, documentId: string): Promise<void> {
+  const { error } = await supabase.rpc('attach_accessorial_adjustment_proof', {
+    p_id: id,
+    p_proof_document_id: documentId,
+  });
+  if (error) throw new Error(error.message);
+}
+
+/* ------------------------------------------------------------------ */
+/* Backup documentation — what is true of THIS row, not what a rule says */
+/* ------------------------------------------------------------------ */
+
+export type ProofState = 'attached' | 'required' | 'grandfathered';
+
+/**
+ * Proof was made mandatory at SUBMIT on 2026-09-10. Rows approved before that
+ * exist and are legitimate: they were approved under the rule of the day. Such
+ * a row must never be told what it needs before it can be sent for approval —
+ * it cannot be sent for approval, it is already past that point. Saying so is
+ * how a future reader tells a grandfathered row from a broken rule.
+ */
+export function proofState(row: Pick<AdjustmentRecord, 'proof_document_id' | 'status'>): ProofState {
+  if (row.proof_document_id) return 'attached';
+  return row.status === 'draft' || row.status === 'pending_approval' ? 'required' : 'grandfathered';
+}
+
+/** Why the row cannot be sent for approval, or null when it can. */
+export function submitBlockedReason(row: AdjustmentRecord): string | null {
+  if (row.status !== 'draft') return null;
+  if (row.proof_document_id) return null;
+  const kind = (row.proof_kind as ProofKind | null) ?? proofKindFor(row.charge_type);
+  return `Attach ${PROOF_KIND_LABELS[kind]} first.`;
+}
+
+export function actionBlockedReason(row: AdjustmentRecord, action: AdjustmentAction): string | null {
+  return action === 'submit' ? submitBlockedReason(row) : null;
 }

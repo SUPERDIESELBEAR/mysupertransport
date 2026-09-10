@@ -561,11 +561,18 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     'reject_accessorial_adjustment',
     'void_accessorial_adjustment',
     'store_settlement_run',
+    // Module 5 Pass 6. NOT a state change: it writes proof_document_id on a
+    // DRAFT row only and leaves status untouched, so the person with the
+    // broker's email open can attach it without leaving the dialog.
+    'attach_accessorial_adjustment_proof',
   ]);
 
-  /** The five a client can call. `store_settlement_run` takes no reason and
-   *  belongs to no role — it is the server's own transition. */
-  const CLIENT_WRITERS = [...WRITERS].filter(w => w !== 'store_settlement_run');
+  /** The five a client can call for a transition. `store_settlement_run` takes
+   *  no reason and belongs to no role — it is the server's own transition —
+   *  and the attach writer changes no state. */
+  const CLIENT_WRITERS = [...WRITERS].filter(
+    w => w !== 'store_settlement_run' && w !== 'attach_accessorial_adjustment_proof',
+  );
 
   itLive('the only functions that write the table are the five transitions', () => {
     const writers = psql(`SELECT proname FROM pg_proc

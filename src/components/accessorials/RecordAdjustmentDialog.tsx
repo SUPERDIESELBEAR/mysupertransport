@@ -12,8 +12,9 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import {
-  createAdjustment, proofKindFor, PROOF_KIND_LABELS, type AdjustmentDraftInput,
+  createAdjustment, proofKindFor, type AdjustmentDraftInput,
 } from '@/lib/accessorialAdjustments';
+import ProofPicker from '@/components/accessorials/ProofPicker';
 import { CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS } from '@/lib/revisedRateCon';
 
 /**
@@ -23,10 +24,9 @@ import { CLASSIFICATION_LABELS, CLASSIFICATION_OPTIONS } from '@/lib/revisedRate
  * the create function and only exists once the row does.
  */
 export default function RecordAdjustmentDialog({
-  loadId, documents, open, onOpenChange, onSaved,
+  loadId, open, onOpenChange, onSaved,
 }: {
   loadId: string;
-  documents: { id: string; document_name: string | null }[];
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSaved: () => void;
@@ -112,34 +112,22 @@ export default function RecordAdjustmentDialog({
               id="adjustment-description"
               value={form.description}
               onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-              placeholder="Detention at the receiver, agreed by the broker on the 8th"
+              placeholder="What it is for"
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>Backup documentation</Label>
-            <Select
-              value={form.proof_document_id || undefined}
-              onValueChange={v => setForm(f => ({ ...f, proof_document_id: v }))}
-            >
-              <SelectTrigger data-testid="adjustment-proof">
-                <SelectValue placeholder="Not attached yet" />
-              </SelectTrigger>
-              <SelectContent>
-                {documents.length === 0 ? (
-                  <SelectItem value="__none" disabled>No documents on this load yet</SelectItem>
-                ) : documents.map(d => (
-                  <SelectItem key={d.id} value={d.id}>{d.document_name || 'Document'}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-[11px] text-muted-foreground" data-testid="adjustment-proof-hint">
-              A {CLASSIFICATION_LABELS[form.chargeType as keyof typeof CLASSIFICATION_LABELS]
-                 ?? form.chargeType} charge needs {PROOF_KIND_LABELS[proofKind]}. It can be
-              attached later, but nothing can be sent for approval without it — upload it to
-              the load first.
+            {/* The example lives here, where it can wrap. A placeholder cannot be
+                scrolled, so anything longer than the field is unreadable. */}
+            <p className="text-[11px] text-muted-foreground">
+              For example: Detention at the receiver, agreed by the broker on the 8th.
             </p>
           </div>
+
+          <ProofPicker
+            loadId={loadId}
+            chargeType={form.chargeType}
+            proofKind={proofKind}
+            value={form.proof_document_id}
+            onChange={v => setForm(f => ({ ...f, proof_document_id: v }))}
+          />
 
           <div className="space-y-1.5">
             <Label htmlFor="adjustment-reason-new">Reason</Label>
@@ -148,7 +136,7 @@ export default function RecordAdjustmentDialog({
               data-testid="adjustment-new-reason"
               value={form.reason}
               onChange={e => setForm(f => ({ ...f, reason: e.target.value }))}
-              placeholder="Who agreed it, and when."
+              placeholder="Who agreed it, and when"
             />
           </div>
         </div>
