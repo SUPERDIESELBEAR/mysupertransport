@@ -218,6 +218,7 @@ describe('configuration', () => {
       rm_deposit_target: 2000,
       rm_weekly_deduction: 200,
       work_week_start_dow: 3,
+      dispatcher_accessorial_approval_limit: null,
     });
   });
 
