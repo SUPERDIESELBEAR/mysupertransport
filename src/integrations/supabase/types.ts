@@ -12296,10 +12296,6 @@ export type Database = {
         }
         Returns: Json
       }
-      compliance_status: {
-        Args: { days: number; window_days: number }
-        Returns: string
-      }
       compute_dispatch_settlement: {
         Args: { p_mode?: string; p_month: string; p_result: Json }
         Returns: Json
@@ -12357,20 +12353,6 @@ export type Database = {
         Returns: {
           amount: number
           incomplete: boolean
-        }[]
-      }
-      eld_cron_status: {
-        Args: never
-        Returns: {
-          active: boolean
-          end_time: string
-          jobid: number
-          jobname: string
-          return_message: string
-          runid: number
-          schedule: string
-          start_time: string
-          status: string
         }[]
       }
       email_queue_dispatch: { Args: never; Returns: undefined }
@@ -12517,24 +12499,6 @@ export type Database = {
           status: Database["public"]["Enums"]["application_correction_status"]
         }[]
       }
-      get_application_pei_summary: {
-        Args: { p_application_id: string }
-        Returns: {
-          date_sent: string
-          days_remaining: number
-          deadline_date: string
-          employer_city: string
-          employer_name: string
-          employer_state: string
-          employment_end_date: string
-          employment_start_date: string
-          gfe_reason: Database["public"]["Enums"]["pei_gfe_reason"]
-          has_response: boolean
-          is_dot_regulated: boolean
-          request_id: string
-          status: Database["public"]["Enums"]["pei_request_status"]
-        }[]
-      }
       get_eld_compliance_timeline: {
         Args: { _event_id: string }
         Returns: {
@@ -12649,22 +12613,6 @@ export type Database = {
           employer_state: string
           employment_end_date: string
           employment_start_date: string
-          request_id: string
-          status: Database["public"]["Enums"]["pei_request_status"]
-        }[]
-      }
-      get_pei_requests_needing_action: {
-        Args: never
-        Returns: {
-          action_needed: string
-          applicant_first_name: string
-          applicant_last_name: string
-          application_id: string
-          date_sent: string
-          days_since_sent: number
-          deadline_date: string
-          employer_contact_email: string
-          employer_name: string
           request_id: string
           status: Database["public"]["Enums"]["pei_request_status"]
         }[]

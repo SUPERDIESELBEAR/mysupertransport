@@ -9879,3 +9879,91 @@ Revisit this decision on the **fourth occurrence**, or **before any pass that cr
 ### Report
 
 Only `docs/tms-build-status.md` was edited. No file outside `docs/` was modified.
+
+---
+
+## SETTLING THE REMAINING SIX UNCALLED FUNCTIONS (2026-09-10)
+
+### THE PREDICTION, STATED BEFORE THE RUN — AND BEATEN THE OTHER WAY
+
+Predicted: function reachability **6 -> 2** after four drops, then **2 -> 0**
+after allowlisting the two kept role writers.
+
+**Actual: 6 -> 3, then 3 -> 1.** Accounted for in full: the six sent for
+investigation named `eld_cron_status`, which was never a reachability finding
+because only `service_role` could execute it. The guard's own six named
+`get_user_roles(uuid)` in its place. Dropping four functions therefore removed
+only THREE findings, and `get_user_roles` remains RED and uninvestigated. The
+prediction was not adjusted to match the result; the difference is recorded
+because it shows the working list and the guard's list had drifted apart.
+
+### PER FUNCTION
+
+- `compliance_status(integer,integer)` — **DROPPED**. Immutable scalar returning
+  missing/expired/critical/warning/valid, created by `20260622153201` for the
+  compliance binder. The live `v_compliance_items` view inlines the same CASE
+  expression instead of calling it. (live: definition + view body; repo: no
+  literal)
+- `eld_cron_status()` — **DROPPED**. Definer cron-observability reader from
+  `20260801221136`. The screen that would have used it,
+  `ELDEscalationJobHealth.tsx`, reads the `eld_cron_runs` table directly.
+  (live: definition, `service_role`-only grant; repo: no literal)
+- `get_pei_requests_needing_action()` — **DROPPED**. Remediated 2026-09-03 with
+  an in-body `is_staff` gate after four months of anonymous exposure, and still
+  had no caller. Guarded is not the same as needed. The PEI Queue uses
+  `get_pei_queue()`.
+- `get_application_pei_summary(uuid)` — **DROPPED**. Staff-gated per-application
+  PEI rows, still carrying PUBLIC and anon EXECUTE despite the body gate — the
+  same shape as the incident above. `ApplicationPEITab.tsx` reads `pei_requests`
+  directly.
+- `assign_user_role(uuid, app_role)` and `remove_user_role(uuid, app_role)` —
+  **KEPT**, repinned to `public, extensions`, allowlisted SUPERSEDED. Roles are
+  assigned today by service_role edge functions using the admin client:
+  `invite-staff`, `invite-operator`, `invite-truck-owner`, `get-staff-list`,
+  `bootstrap-admin`, `provision-test-driver`, `provision-demo-driver`; removal by
+  `get-staff-list` and `delete-user-account`. No browser code writes
+  `user_roles` — it only reads it. So the third possibility (roles assigned by
+  hand in the database, no supported onboarding path) is ruled out: there IS a
+  supported path, it simply is not these two functions.
+
+A new allowlist reason prefix, `SUPERSEDED`, was added for exactly this case: the
+capability is live through a different NAMED mechanism. It is not a softer word
+for ORPHANED — an entry qualifies only once the replacement path has been found
+and written down, which is why the two role writers qualify and `get_user_roles`
+does not.
+
+### OPEN QUESTION — WHO CAN BECOME `owner`
+
+`assign_user_role` and `remove_user_role` refuse to assign or remove `owner`.
+That refusal now exists ONLY inside two functions nothing calls. The live path —
+seven service_role edge functions — bypasses it entirely, and `bootstrap-admin`
+can assign `owner` gated by a shared secret rather than by a role check.
+
+Options, none chosen:
+
+- A `user_roles` trigger enforcing the refusal. Covers the service_role path too,
+  which is the point. Cost: it would also block `bootstrap-admin`, which needs to
+  assign `owner` legitimately, so it needs an exception mechanism — and an
+  exception mechanism on an ownership invariant is itself a thing to get right.
+- Leave it in the edge functions, checked per function, as today. Cost: the
+  invariant is asserted in seven places and enforced in none of them centrally;
+  the eighth writer will not know it exists.
+- Something else.
+
+This is the owner's decision because it touches who can become owner.
+
+**TRIGGER:** before any new path writes `user_roles`, or before
+`bootstrap-admin` is exposed beyond its current gating.
+
+### BOOKKEEPING
+
+`LEGACY_MAX` 78 -> 75 (one drop, two repins). `KNOWN_ANON_EXECUTABLE_MAX`
+32 -> 31. `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 127 -> 125.
+`KNOWN_NO_CALLER_MAX` 0 -> 2, both entries carrying their mechanism.
+Generated types contain no reference to any dropped function.
+
+Suites run by name: `src/test/function-reachability.test.ts` (1 failed as
+expected — `get_user_roles` — 3 passed), `src/test/definer-live-catalog.test.ts`
+(passed), `src/test/definer-search-path.test.ts` (passed). `tsgo` clean.
+Contradictions: one, reported above and not reconciled — the investigated six and
+the guard's six were not the same six.

@@ -115,11 +115,6 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
       "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
   },
   {
-    signature: "public.get_application_pei_summary(uuid)",
-    reason:
-      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
-  },
-  {
     signature: "public.cancel_application_correction(uuid)",
     reason:
       "GUARD IF NOT public.is_staff(v_actor) THEN RAISE EXCEPTION 'forbidden'; END IF; -- v_actor := auth.uid()",
@@ -268,7 +263,10 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // 48 - 2 (get_pei_requests_needing_action, email_queue_dispatch, revoked
 // 2026-09-03) = 46, - 13 class-(c) helpers revoked 2026-09-03 = 33.
 // 33 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 32.
-const KNOWN_ANON_EXECUTABLE_MAX = 32;
+// 32 - 1 (get_application_pei_summary, DROPPED 2026-09-10 by the uncalled-
+// function sweep: no caller in any schema; the application PEI tab reads
+// `pei_requests` directly) = 31.
+const KNOWN_ANON_EXECUTABLE_MAX = 31;
 
 
 
@@ -314,12 +312,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.discard_rods_amendment(uuid)",
   "public.get_application_by_draft_token(uuid)",
   "public.get_application_correction_by_token(text)",
-  "public.get_application_pei_summary(uuid)",
+  
   "public.get_equipment_shipping_for_operator(uuid)",
   "public.get_or_create_short_link(text)",
   "public.get_pei_queue()",
   "public.get_pei_request_for_response(uuid)",
-  "public.get_pei_requests_needing_action()",
+  
   "public.get_staff_contact_info(uuid[])",
   "public.get_thread_participants(uuid)",
   "public.get_user_roles(uuid)",
@@ -760,7 +758,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   5's in-dialog attachment: the three entry roles checked in the body, draft
 //   only, the document verified to belong to the same load, audited, and it
 //   accepts a document id rather than a file: 126 -> 127.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 127;
+// 2026-09-10 (uncalled-function sweep): 127 - 2 = 125. Both
+//   get_application_pei_summary(uuid) and get_pei_requests_needing_action()
+//   were DROPPED — no caller in any schema; the PEI Queue uses get_pei_queue()
+//   and the application PEI tab reads `pei_requests` directly.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 125;
 
 
 

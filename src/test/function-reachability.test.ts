@@ -67,6 +67,11 @@ function psql(sql: string): string[] {
  *   INTERNAL — called by something this guard cannot see, and say what:
  *              a cron job in a schema the harness role cannot read, an
  *              external webhook, a migration-time backfill.
+ *   SUPERSEDED — the capability is live, but through a DIFFERENT named
+ *              mechanism, so this function is unreachable BY DESIGN. NAME the
+ *              mechanism. Added 2026-09-10 for the two role writers; it is not
+ *              a softer synonym for ORPHANED, because an entry only qualifies
+ *              once the replacement path has been found and written down.
  *
  * "UNREACHABLE BUT WANTED" and "ORPHANED" are NOT valid reasons. Those are the
  * findings. A guard that ships green by allowlisting its own findings is
@@ -83,14 +88,35 @@ function psql(sql: string): string[] {
 type NoCallerEntry = {
   /** Bare function name as pg_proc renders `proname`. */
   readonly name: string;
-  /** Starts with `AWAITING ` or `INTERNAL ` — enforced below. */
+  /** Starts with `AWAITING `, `INTERNAL ` or `SUPERSEDED ` — enforced below. */
   readonly reason: string;
 };
 
-const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [];
+const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
+  {
+    name: "assign_user_role",
+    reason:
+      "SUPERSEDED — role assignment is live, but runs through service_role edge " +
+      "functions using the admin client, not through this client-side writer: " +
+      "invite-staff (index.ts:243), invite-operator (:133), invite-truck-owner " +
+      "(:109), get-staff-list (:426), bootstrap-admin (:85), provision-test-driver, " +
+      "provision-demo-driver. Verified 2026-09-10 by the uncalled-function sweep. " +
+      "KEPT rather than dropped because it is the only place the 'owner role " +
+      "cannot be assigned through the application' refusal is written down; see " +
+      "the owner-invariant OPEN QUESTION in docs/tms-build-status.md.",
+  },
+  {
+    name: "remove_user_role",
+    reason:
+      "SUPERSEDED — role removal is live via service_role edge functions " +
+      "get-staff-list (index.ts:432, :180) and delete-user-account (:96), not " +
+      "through this client-side writer. Verified 2026-09-10. KEPT for the same " +
+      "reason as assign_user_role: it holds the owner-removal refusal.",
+  },
+];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
-const KNOWN_NO_CALLER_MAX = 0;
+const KNOWN_NO_CALLER_MAX = 2;
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
 
@@ -256,13 +282,15 @@ function explain(row: FnRow, cronOk: boolean, cron: number | null): string {
 describe("function reachability — nothing privileged goes uncalled", () => {
   it("every allowlist entry carries a written reason", () => {
     const bad = KNOWN_NO_CALLER_ENTRIES.filter(
-      (e) => !/^(AWAITING|INTERNAL) \S/.test(e.reason),
+      (e) => !/^(AWAITING|INTERNAL|SUPERSEDED) \S/.test(e.reason),
     );
     expect(
       bad.map((e) => e.name),
       `Every KNOWN_NO_CALLER_ENTRIES entry must explain itself. A reason must ` +
-        `start with 'AWAITING ' (built ahead of a NAMED consumer) or 'INTERNAL ' ` +
-        `(called by something this guard cannot see — say what). A bare list of ` +
+        `start with 'AWAITING ' (built ahead of a NAMED consumer), 'INTERNAL ' ` +
+        `(called by something this guard cannot see — say what), or 'SUPERSEDED ' ` +
+        `(the capability is live through a DIFFERENT named mechanism — name it). ` +
+        `A bare list of ` +
         `names is a place to hide things, which is why the 2026-09-03 anon audit ` +
         `could prove only that a set had not grown, and not that any member of it ` +
         `was safe.`,
@@ -313,14 +341,21 @@ describe("function reachability — nothing privileged goes uncalled", () => {
       offenders.map((o) => o.signature),
       `${offenders.length} client-executable function(s) have no caller anywhere.\n` +
         `EXPECTED RED: this guard shipped on 2026-09-10 with 14 known findings ` +
-        `already in it; 6 remain (14 -> 13 get_inspection_doc_by_token dropped, ` +
+        `already in it; 1 remains (14 -> 13 get_inspection_doc_by_token dropped, ` +
         `13 -> 12 search scope widened to every schema, 12 -> 11 ` +
         `can_driver_message_staff dropped, 11 -> 6 the five accessorial ` +
         `adjustment writers got a screen in Module 5 Pass 5 — predicted 6 ` +
-        `before the run, got 6). A FINDING IS A CANDIDATE, NOT A ` +
-        `VERDICT: one of the 14 turned out to be called by a storage.objects ` +
-        `policy this guard could not see. Investigate before you act, and do ` +
-        `not make this pass by allowlisting.\n${detail}`,
+        `before the run, got 6; 6 -> 3 the uncalled-function sweep dropped ` +
+        `compliance_status, get_pei_requests_needing_action and ` +
+        `get_application_pei_summary — predicted 2 before the run, got 3, the ` +
+        `difference being get_user_roles, which was in this guard's six but not ` +
+        `in the six sent for investigation; 3 -> 1 assign_user_role and ` +
+        `remove_user_role allowlisted SUPERSEDED, naming the service_role ` +
+        `edge-function path that really assigns roles). THE ONE REMAINING ` +
+        `FINDING IS get_user_roles, uninvestigated. A FINDING IS A CANDIDATE, ` +
+        `NOT A VERDICT: one of the 14 turned out to be called by a ` +
+        `storage.objects policy this guard could not see. Investigate before ` +
+        `you act, and do not make this pass by allowlisting.\n${detail}`,
     ).toEqual([]);
   });
 
