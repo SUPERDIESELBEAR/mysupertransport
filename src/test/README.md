@@ -30,13 +30,18 @@ Both behave the same way:
 Read this before anything else if you are looking at a red suite.
 
 `function-reachability`, `view-reachability` and `nav-target` **ship failing on
-purpose**, with **16 findings** in total:
+purpose**. They shipped with **16 findings**; **13** remain:
 
-| Guard | Findings | What it means |
+| Guard | Findings (shipped -> now) | What it means |
 |---|---|---|
-| `src/test/function-reachability.test.ts` | 14 | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
+| `src/test/function-reachability.test.ts` | 14 -> 11 | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
 | `src/test/view-reachability.test.ts` | 1 | Management `app-errors`: declared in the view union and in `ALLOWED_VIEWS`, but no render branch and no way in. |
 | `src/test/nav-target.test.ts` | 1 | `FleetRoster.tsx:617` navigates to `/management/drivers`; Management parses only `?view=`, so the click silently lands on the overview. |
+
+The function guard moved 14 -> 13 (`get_inspection_doc_by_token` dropped),
+13 -> 12 (search scope corrected, below) and 12 -> 11
+(`can_driver_message_staff` dropped). Every step was a deletion or a guard fix;
+none was an allowlist entry.
 
 These are a **backlog made visible**, not broken tests. Every finding is a real
 gap; each will go green when the gap is closed.
@@ -50,6 +55,27 @@ finding, not fixing it.
 
 Each failure message names what was searched, which categories came back empty,
 and the three ways out. Read the message; it was written for you.
+
+### A FINDING IS A CANDIDATE, NOT A VERDICT — and state the search scope
+
+`function-reachability` originally searched policies, function bodies and views
+with `schemaname = 'public'`. `is_valid_application_draft_token` is called by
+two RLS policies on **`storage.objects`**, a different schema, so the guard
+reported it uncalled and its finding recommended dropping the function that
+gates applicant document and signature uploads.
+
+A guard that searches too narrowly does not miss answers — it produces
+**confident wrong ones**, and nothing in the guard reveals it. This was caught
+only because the finding was investigated instead of acted on.
+
+Two standing rules follow:
+
+1. **A reachability guard must state its search scope in the failure message** —
+   which schemas, which categories — so a narrowing is visible in the output
+   rather than invisible in the query. The function guard now searches every
+   schema and says so on every finding.
+2. **A guard's output is a candidate, not a verdict.** Every remaining finding
+   gets the same treatment: read the live body, expand the callers, then act.
 
 ## Expected baselines (measured 2026-08-31, after the FacilitySelect quarantine)
 

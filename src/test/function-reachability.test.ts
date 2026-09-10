@@ -110,6 +110,20 @@ interface FnRow {
  * A guard that flagged those would be flagging legitimate code, and would be
  * switched off within a week.
  *
+ * SEARCH SCOPE IS PART OF THE ANSWER (widened 2026-09-10)
+ * -------------------------------------------------------
+ * The policy, function-body and view searches used to be filtered to
+ * `schemaname = 'public'`. `is_valid_application_draft_token` is called by two
+ * RLS policies on **storage.objects** — a different schema — so the guard
+ * reported it uncalled and its finding recommended dropping the function that
+ * gates applicant document and signature uploads. A guard that searches too
+ * narrowly does not miss answers; it produces CONFIDENT WRONG ones. Only the
+ * fact that the finding was investigated rather than acted on caught it.
+ *
+ * All three in-database name searches are now ACROSS EVERY SCHEMA. The scope is
+ * restated in every failure message, so a future narrowing is visible in the
+ * output instead of hidden in this query.
+ *
  * Word-boundary name matching (`\m name \M`) against trigger bindings, policy
  * expressions, column defaults, other function bodies and view definitions.
  */
@@ -126,15 +140,15 @@ WITH f AS (
 )
 SELECT f.sig, f.proname,
   (SELECT count(*) FROM pg_trigger t WHERE t.tgfoid = f.oid AND NOT t.tgisinternal),
-  (SELECT count(*) FROM pg_policies pl WHERE pl.schemaname = 'public'
-     AND (coalesce(pl.qual, '') || coalesce(pl.with_check, '')) ~ ('\\m' || f.proname || '\\M')),
+  (SELECT count(*) FROM pg_policies pl
+     WHERE (coalesce(pl.qual, '') || coalesce(pl.with_check, '')) ~ ('\\m' || f.proname || '\\M')),
   (SELECT count(*) FROM pg_attrdef ad
      WHERE pg_get_expr(ad.adbin, ad.adrelid) ~ ('\\m' || f.proname || '\\M')),
-  (SELECT count(*) FROM pg_proc p2 JOIN pg_namespace n2 ON n2.oid = p2.pronamespace
-     WHERE n2.nspname = 'public' AND p2.oid <> f.oid
+  (SELECT count(*) FROM pg_proc p2
+     WHERE p2.oid <> f.oid
        AND p2.prosrc ~ ('\\m' || f.proname || '\\M')),
-  (SELECT count(*) FROM pg_views v WHERE v.schemaname = 'public'
-     AND v.definition ~ ('\\m' || f.proname || '\\M'))
+  (SELECT count(*) FROM pg_views v
+     WHERE v.definition ~ ('\\m' || f.proname || '\\M'))
 FROM f
 ORDER BY 1;
 `;
@@ -208,8 +222,12 @@ function explain(row: FnRow, cronOk: boolean, cron: number | null): string {
     `${row.signature} is EXECUTABLE by a client role but nothing calls it.`,
     ``,
     `Searched, and found nothing:`,
-    `  in-database  triggers (${row.triggers})  RLS policies (${row.policies})  column defaults (${row.defaults})`,
-    `               other function bodies (${row.functions})  views (${row.views})`,
+    `  SCOPE        the in-database searches below cover EVERY SCHEMA, not just`,
+    `               public. They were public-only until 2026-09-10, which made`,
+    `               this guard report a function called by two storage.objects`,
+    `               policies as uncalled. If you narrow the scope, say so here.`,
+    `  in-database  triggers (${row.triggers})  RLS policies, all schemas (${row.policies})  column defaults (${row.defaults})`,
+    `               other function bodies, all schemas (${row.functions})  views, all schemas (${row.views})`,
     cronLine,
     `  repository   the string '${row.name}' as a quoted literal in any non-test`,
     `               file under src/ or supabase/functions/ (0 files)`,
@@ -295,7 +313,12 @@ describe("function reachability — nothing privileged goes uncalled", () => {
       offenders.map((o) => o.signature),
       `${offenders.length} client-executable function(s) have no caller anywhere.\n` +
         `EXPECTED RED: this guard shipped on 2026-09-10 with 14 known findings ` +
-        `already in it. Do not make it pass by allowlisting them.\n${detail}`,
+        `already in it; 11 remain (14 -> 13 get_inspection_doc_by_token dropped, ` +
+        `13 -> 12 search scope widened to every schema, 12 -> 11 ` +
+        `can_driver_message_staff dropped). A FINDING IS A CANDIDATE, NOT A ` +
+        `VERDICT: one of the 14 turned out to be called by a storage.objects ` +
+        `policy this guard could not see. Investigate before you act, and do ` +
+        `not make this pass by allowlisting.\n${detail}`,
     ).toEqual([]);
   });
 

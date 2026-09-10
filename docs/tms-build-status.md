@@ -9525,3 +9525,86 @@ list** — the guard finds its caller literal in
 that page named, which is correct and unchanged. Nothing to move, nothing to
 remove. The four genuinely unclassifiable functions are unchanged, minus
 `get_inspection_doc_by_token`, which is now settled by deletion — three remain.
+
+## The guard searched the wrong schema — a false NEGATIVE, and the lesson (2026-09-10)
+
+**What happened.** `src/test/function-reachability.test.ts` scanned
+`pg_policies WHERE schemaname = 'public'`. `is_valid_application_draft_token(text)`
+is called by **two RLS policies on `storage.objects`** — a different schema —
+"Applicants upload docs under their own draft token" and "Applicants upload
+signatures under their own draft token", both created in the same migration
+(`20260721181336`) that defines the function. The guard therefore reported it
+uncalled, and its finding recommended **dropping the function that gates applicant
+document and signature upload.**
+
+Acting on that finding would have broken the application form for every applicant.
+
+**THE LESSON — a guard is only as good as the scope it searches.** A guard that
+searches too narrowly does not produce missing answers, it produces **CONFIDENT
+WRONG ONES**, and there is nothing in the output to show it. Two rules now stand:
+
+1. **A reachability guard must state its search scope explicitly in the failure
+   message** — which schemas, which categories. A false negative then shows up in
+   the text a reader sees, instead of hiding in a `WHERE` clause nobody rereads.
+   The function guard now prints a `SCOPE` block on every finding.
+2. **A guard's output is a CANDIDATE, not a VERDICT.** Nothing caught this except
+   the decision to investigate the finding rather than act on it. The same
+   standard applies to the eleven that remain: read the live body, expand the
+   callers, then act.
+
+**The fix.** The policy, function-body and view searches now cover **every
+schema** (the `prosrc` scan across all schemas is also what closes the indirect
+case: a policy can only reach a function through a function).
+
+**Count, with every change accounted for:**
+
+| step | count | why |
+| --- | --- | --- |
+| shipped 2026-09-10 | 14 | |
+| after `get_inspection_doc_by_token` drop | 13 | deletion |
+| **after the schema-scope fix** | **12** | `is_valid_application_draft_token` proved CALLED — the only one that left, exactly the predicted minimum of one |
+| after `can_driver_message_staff` drop | **11** | deletion |
+
+No finding was allowlisted at any step. Prediction was "falls by at least one";
+it fell by exactly one, and the one that left is the one the investigation named.
+
+### `is_valid_application_draft_token(text)` — KEPT, PUBLIC revoked
+
+Not superseded by `get_application_by_draft_token`, and the supersession recorded
+earlier had been inferred from the names. Read live: this one takes **text** and
+returns **boolean**; the other takes **uuid** and returns **SETOF applications**.
+Neither is a delegator, and a storage policy cannot use the other — the folder
+segment is text and a policy needs a boolean.
+
+It no longer appears as a finding, by the guard fix and not by an allowlist entry.
+
+`proacl` showed PUBLIC holding EXECUTE — the same grant-hygiene defect as the
+dropped delegator, from the same class of family-wide revoke. Migration:
+`REVOKE EXECUTE ... FROM PUBLIC`, `anon` grant kept, because the uploader is
+unauthenticated.
+
+**Applicant upload confirmed still working, end to end, after the revoke:**
+
+- `proacl` now `{postgres, anon, authenticated, service_role}` — no PUBLIC entry;
+  `has_function_privilege('anon', ...)` = true; both `storage.objects` policies
+  still present.
+- Anonymous REST `rpc/is_valid_application_draft_token` with the publishable key
+  returned `false` for a bogus token — evaluated, not a permission error.
+- **A real anonymous upload** of a PDF to
+  `application-documents/applications/<live draft token>/…` with only the
+  publishable key returned **200**; the same upload under a non-existent draft
+  token returned **403 "new row violates row-level security policy"**. The test
+  object was then deleted and its absence confirmed.
+
+### `can_driver_message_staff(uuid, uuid)` — DROPPED
+
+Uncalled: triggers, RLS policies (all schemas), column defaults, other function
+bodies (`prosrc`, **all** schemas), views, cron, and the repository including
+edge functions and dynamic RPC sites — all empty. The product calls
+`list_driver_contacts(uuid)`, defined in the same migration, which re-implements
+the same eligibility rules independently, so nothing the app depends on was
+removed. `LEGACY_MAX` 79 -> 78; `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 124 -> 123;
+types regenerated with zero remaining references.
+
+Of the four originally unclassifiable functions, `get_application_pei_summary`
+alone remains open.

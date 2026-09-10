@@ -56,3 +56,12 @@
   shrink `LEGACY_MAX` 80->79 and both definer-live-catalog ceilings; reachability
   guard 14 -> 13 findings. Recorded the family-revoke lesson and the full inventory
   of PUBLIC-granted `public` functions in `docs/tms-build-status.md`.
+
+## Done (2026-09-10, later)
+- Widen the function-reachability guard's in-database searches to EVERY schema
+  (policies/function bodies/views) and print the scope in every failure message;
+  revoke PUBLIC on `is_valid_application_draft_token` (anon kept, applicant upload
+  reverified end to end); drop `can_driver_message_staff(uuid,uuid)`.
+  Findings 13 -> 12 (guard fix) -> 11 (drop). Guard-scope lesson recorded:
+  a guard that searches too narrowly gives confident wrong answers; its output is
+  a candidate, not a verdict.
