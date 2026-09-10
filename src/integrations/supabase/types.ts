@@ -5598,6 +5598,7 @@ export type Database = {
       }
       inspection_documents: {
         Row: {
+          content_hash: string | null
           driver_id: string | null
           expires_at: string | null
           file_path: string | null
@@ -5617,6 +5618,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
           file_path?: string | null
@@ -5636,6 +5638,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
           file_path?: string | null
@@ -9104,6 +9107,33 @@ export type Database = {
           },
         ]
       }
+      pei_cadence_settings: {
+        Row: {
+          auto_follow_ups_enabled: boolean
+          follow_up_interval_days: number
+          gfe_after_days: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          auto_follow_ups_enabled?: boolean
+          follow_up_interval_days?: number
+          gfe_after_days?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          auto_follow_ups_enabled?: boolean
+          follow_up_interval_days?: number
+          gfe_after_days?: number
+          id?: boolean
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       pei_request_events: {
         Row: {
           event_type: string
@@ -11787,6 +11817,66 @@ export type Database = {
           },
         ]
       }
+      truck_plate_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          id: string
+          operator_id: string
+          plate_number: string
+          plate_state: string | null
+          reason: string
+          replaced_by_plate: string | null
+          replaced_by_state: string | null
+          unit_number: string | null
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          operator_id: string
+          plate_number: string
+          plate_state?: string | null
+          reason: string
+          replaced_by_plate?: string | null
+          replaced_by_state?: string | null
+          unit_number?: string | null
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          operator_id?: string
+          plate_number?: string
+          plate_state?: string | null
+          reason?: string
+          replaced_by_plate?: string | null
+          replaced_by_state?: string | null
+          unit_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_plate_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "truck_plate_history_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_state_permits: {
         Row: {
           created_at: string
@@ -13007,6 +13097,15 @@ export type Database = {
           outcome: string
         }[]
       }
+      resolve_shared_truck_plate: {
+        Args: {
+          _new_plate: string
+          _new_state: string
+          _operator_id: string
+          _reason: string
+        }
+        Returns: Json
+      }
       resolve_short_link: { Args: { _code: string }; Returns: string }
       restore_applicant_pei: {
         Args: { _application_id: string }
@@ -13157,6 +13256,32 @@ export type Database = {
       set_operator_unit_from_fuel_review: {
         Args: { _note: string; _operator_id: string; _unit_no: string }
         Returns: Json
+      }
+      set_pei_cadence_settings: {
+        Args: {
+          p_enabled: boolean
+          p_gfe_after_days: number
+          p_interval_days: number
+          p_note: string
+        }
+        Returns: {
+          auto_follow_ups_enabled: boolean
+          follow_up_interval_days: number
+          gfe_after_days: number
+          id: boolean
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "pei_cadence_settings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      set_pei_request_auto_pause: {
+        Args: { p_note: string; p_paused: boolean; p_request_id: string }
+        Returns: undefined
       }
       settlement_writer_active: { Args: never; Returns: boolean }
       show_limit: { Args: never; Returns: number }
