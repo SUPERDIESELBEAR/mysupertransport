@@ -91,7 +91,11 @@ function resolve(rawPath: string, routes: string[]): Verdict {
     if (rest.length === 0) return { ok: true, why: `matched /${portal}/*` };
     // /management/deactivate/:operatorId and friends are declared routes that
     // win over the wildcard — check the explicit route table first.
-    if (matchesExplicit(segs, routes)) return { ok: true, why: "matched an explicit route" };
+    // The portal's own wildcard is excluded here: it matches EVERYTHING under
+    // the prefix, which is exactly the trap — /management/drivers "matches"
+    // /management/* and still renders the wrong page.
+    const explicit = routes.filter((r) => r !== `/${portal}/*`);
+    if (matchesExplicit(segs, explicit)) return { ok: true, why: "matched an explicit route" };
     const parsed = PORTAL_PATH_SEGMENTS[portal];
     if (parsed === "none") {
       return {
