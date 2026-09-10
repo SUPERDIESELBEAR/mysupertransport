@@ -8773,22 +8773,42 @@ EVIDENCE — CORRECTED:
   Not yet deducted: **$1,960.56, 3 purchases**.
   Filename `fuel-ali-mohamed-2026-08-29-to-2026-09-01.pdf`.
 
-### Driver-side parity is unproven — KNOWN DEBT
+### Driver-side parity is partially proven — KNOWN DEBT (updated 2026-09-10)
 
-`my_fuel_transactions()` resolves the driver from the signed-in session
-(`operators.user_id = auth.uid()`), and the build sandbox cannot sign in as a
-driver. So the operator screen's figures and its isolation are argued
-**structurally** — same table, same columns, same joins, no parameter the client
-can supply — and have **never been demonstrated with a driver's session**.
+**PROVEN — real-data evidence from a genuine driver session.** On 2026-09-10 the
+owner signed in as Ali Mohamed on his own phone via the QR mobile-preview handoff,
+opened My Fuel, and downloaded the PDF from within that driver session.
+`auth.uid()` was the driver's, the same `my_fuel_transactions()` RPC and the
+same RLS ran. Every figure matched the management view:
 
-This is recorded as known debt, not a defect: the argument is sound, the
-demonstration is missing. This is the one surface where an error exposes one
-driver's data to another.
+- **$1,960.56 not yet deducted across 3 purchases; $0.00 deducted**
+- **Fuel $1,465.72 · Cash advance $505.00 · Discount -$10.16 · Gallons 233.68**
+- **Flying J #733 Lubbock TX $505.96 · Pilot Travel Center #1033 Midland TX $625.26 · Loves #822 Clarksville AR $829.34**
+- **Header reads "Ali Mohamed · Unit 260"** — the unit resolution fix confirmed on the driver side.
 
-TRIGGER: before any driver is told to use the My Fuel screen, run a signed-in
-session check (e.g. preview-as-operator or a browser test with an injected
-session) and confirm the returned rows match the management view for that same
-driver.
+This is **not** a structural argument; it is a live demonstration that a driver
+sees his own fuel correctly and that the operator view, the management view, and
+the PDF agree to the cent.
+
+**NOT PROVEN — that a driver CANNOT see another driver's fuel.** One driver
+demonstrates the figures; it takes a second driver to demonstrate isolation.
+
+TRIGGER (narrowed): before any driver other than the owner is told to use My
+Fuel, run a signed-in session check for a second driver and confirm the returned
+rows contain only that driver's transactions.
+
+### Driver App Preview picker shows wrong unit state (2026-09-10)
+
+The Driver App Preview picker shows "No unit assigned" for most drivers and
+"Unit 000" for one, while 48 of 60 active operators have their unit on the
+`onboarding_status` record rather than the `operators` record. The fuel screens
+were fixed on 2026-09-09 to resolve both sources via `src/lib/fuel/operatorUnit.ts`;
+this picker reads only one place and shows the same gap the fuel screens had
+before that fix.
+
+Not urgent, and not a fuel defect — it is the same reader inconsistency in a
+different screen. TRIGGER: alongside any pass touching the operator picker, or the
+next time a unit displays blank where one exists.
 
 ### Missing unit number and the gap it reveals
 
