@@ -20,8 +20,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
   INDEPENDENT_CHAIN, UNRECOGNISED_CHAIN, buildFuelLocationReport, defaultDateRange,
+  locationSortValue,
   type FuelLocationGroup, type FuelLocationTransaction,
 } from '@/lib/fuel/fuelLocationReport';
+import { formatFuelDate } from '@/lib/fuel/fuelBuckets';
+import { compareValues, nextSortState, type SortState } from '@/lib/listSorting';
 
 const TXN_SELECT =
   'id, invoice_no, invoice_date, merchant_name, city, state, total_amount, '
