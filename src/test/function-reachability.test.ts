@@ -67,6 +67,11 @@ function psql(sql: string): string[] {
  *   INTERNAL — called by something this guard cannot see, and say what:
  *              a cron job in a schema the harness role cannot read, an
  *              external webhook, a migration-time backfill.
+ *   SUPERSEDED — the capability is live, but through a DIFFERENT named
+ *              mechanism, so this function is unreachable BY DESIGN. NAME the
+ *              mechanism. Added 2026-09-10 for the two role writers; it is not
+ *              a softer synonym for ORPHANED, because an entry only qualifies
+ *              once the replacement path has been found and written down.
  *
  * "UNREACHABLE BUT WANTED" and "ORPHANED" are NOT valid reasons. Those are the
  * findings. A guard that ships green by allowlisting its own findings is
@@ -83,14 +88,35 @@ function psql(sql: string): string[] {
 type NoCallerEntry = {
   /** Bare function name as pg_proc renders `proname`. */
   readonly name: string;
-  /** Starts with `AWAITING ` or `INTERNAL ` — enforced below. */
+  /** Starts with `AWAITING `, `INTERNAL ` or `SUPERSEDED ` — enforced below. */
   readonly reason: string;
 };
 
-const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [];
+const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
+  {
+    name: "assign_user_role",
+    reason:
+      "SUPERSEDED — role assignment is live, but runs through service_role edge " +
+      "functions using the admin client, not through this client-side writer: " +
+      "invite-staff (index.ts:243), invite-operator (:133), invite-truck-owner " +
+      "(:109), get-staff-list (:426), bootstrap-admin (:85), provision-test-driver, " +
+      "provision-demo-driver. Verified 2026-09-10 by the uncalled-function sweep. " +
+      "KEPT rather than dropped because it is the only place the 'owner role " +
+      "cannot be assigned through the application' refusal is written down; see " +
+      "the owner-invariant OPEN QUESTION in docs/tms-build-status.md.",
+  },
+  {
+    name: "remove_user_role",
+    reason:
+      "SUPERSEDED — role removal is live via service_role edge functions " +
+      "get-staff-list (index.ts:432, :180) and delete-user-account (:96), not " +
+      "through this client-side writer. Verified 2026-09-10. KEPT for the same " +
+      "reason as assign_user_role: it holds the owner-removal refusal.",
+  },
+];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
-const KNOWN_NO_CALLER_MAX = 0;
+const KNOWN_NO_CALLER_MAX = 2;
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
 
