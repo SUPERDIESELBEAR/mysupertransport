@@ -1,0 +1,1 @@
+ALTER FUNCTION public.attach_accessorial_adjustment_proof(uuid, uuid) SET search_path = public, extensions;
