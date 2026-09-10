@@ -248,6 +248,16 @@ export interface SettlementComputeInput {
   carryForwardIn?: number;
   /** Departing flag — the only condition under which the hold formula applies. */
   isDeparting?: boolean;
+  /**
+   * Per-driver fuel discount pass-through SETTING
+   * (`operators.fuel_discount_passthrough_override`). Three states:
+   * `null`/undefined inherits `fuel_discount_passthrough` from the policy in
+   * force, `true` passes the discount through for this driver even when the
+   * company setting is off, `false` suppresses it even when the company
+   * setting is on. It adds or removes a CREDIT line only — the fuel DEDUCTION
+   * is the same gross in all three states.
+   */
+  fuelDiscountPassthroughOverride?: boolean | null;
   /** Derived fact from `equipment_outstanding(operator_id)`. */
   /**
    * REQUIRED. This releases or applies an equipment hold, so an omitted field
@@ -429,6 +439,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     loads = [], fuel = [], deductions = [], advances = [], adjustments = [],
     rmDeposit = null, carryForwardIn = 0,
     isDeparting = false, equipmentOutstanding,
+    fuelDiscountPassthroughOverride = null,
   } = input;
 
   const period = workPeriodForDate(periodAnchorDate, settings.work_week_start_dow);
@@ -577,9 +588,12 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   // netted into the fuel deduction: a driver who earned it must be able to see
   // what it is worth. When pass-through is off he sees nothing about it at all
   // and the fuel deduction is the same gross figure either way.
-  const passthrough = Boolean(
-    (driverPolicy ?? companyPolicy)?.fuel_discount_passthrough,
-  );
+  // The per-driver setting is read FIRST and the policy is the fallback, so
+  // "not set" and "deliberately off" stay different facts: only the first
+  // follows a later company-wide change.
+  const passthrough = fuelDiscountPassthroughOverride == null
+    ? Boolean((driverPolicy ?? companyPolicy)?.fuel_discount_passthrough)
+    : fuelDiscountPassthroughOverride;
   for (const tx of fuel) {
     const gross = round2(num(tx.grossAmount));
     // The buckets are a RE-LABELLING of the same gross. `fuelBucketLines`
