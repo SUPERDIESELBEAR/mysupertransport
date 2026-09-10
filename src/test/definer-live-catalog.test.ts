@@ -201,11 +201,9 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
     reason:
       "ROUTE /inspect/:token (src/pages/InspectionSharePage.tsx). GUARD delegates to public._share_token_gate(p_token) and returns 'throttled' or nothing unless the gate returns 'ok'.",
   },
-  {
-    signature: "public.get_inspection_doc_by_token(uuid)",
-    reason:
-      "ROUTE /inspect/:token, legacy delegator kept for stale cached bundles (§8). GUARD it is a thin SELECT over public.resolve_share_token(p_token), so the same gate applies.",
-  },
+  // get_inspection_doc_by_token(uuid) was DROPPED 2026-09-10. Legacy delegator
+  // over resolve_share_token, uncalled by anything; entry removed, not moved.
+
   {
     signature: "public.save_application_draft(uuid,jsonb)",
     reason:
@@ -318,7 +316,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.get_application_correction_by_token(text)",
   "public.get_application_pei_summary(uuid)",
   "public.get_equipment_shipping_for_operator(uuid)",
-  "public.get_inspection_doc_by_token(uuid)",
+  
   "public.get_or_create_short_link(text)",
   "public.get_pei_queue()",
   "public.get_pei_request_for_response(uuid)",
