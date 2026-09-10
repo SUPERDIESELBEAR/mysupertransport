@@ -9406,3 +9406,87 @@ guard that finds nothing is indistinguishable from a guard that works.
 
 **Never adjust the prediction to match the result.** Adjust the guard, or record
 why the prediction was wrong.
+
+## Security — `get_inspection_doc_by_token` DROPPED, and the family-revoke lesson (2026-09-10)
+
+**GREEN BY DELETION.** Migration `DROP FUNCTION IF EXISTS
+public.get_inspection_doc_by_token(uuid);` applied 2026-09-10. Nothing was
+allowlisted to achieve it.
+
+Removed in the same pass:
+
+- `src/test/helpers/legacyPublicOnlyPins.ts` — entry deleted, `LEGACY_MAX`
+  80 -> 79. A legitimate shrink: the function is gone, not excused.
+- `src/test/definer-live-catalog.test.ts` — the `KNOWN_ANON_EXECUTABLE` entry
+  (33 -> 32) and the `KNOWN_AUTHENTICATED_EXECUTABLE` entry (125 -> 124).
+- Supabase types regenerated; zero references remain in
+  `src/integrations/supabase/types.ts`.
+
+**Function-reachability guard: 14 findings BEFORE, 13 AFTER.** Verified by
+running the suite, not inferred. The remaining 13 are the same set minus this
+one.
+
+### THE GRANT FINDING — IT OUTLIVES THE FUNCTION
+
+Migration `20260730164628` ran `REVOKE ALL ... FROM PUBLIC` on
+`resolve_share_token` and issued **no REVOKE for the delegator**, which
+therefore kept its default PUBLIC grant from the March migration. PUBLIC held
+`=X/postgres` on that one function while every sibling in the share-token
+family had been revoked.
+
+Here that was grant hygiene rather than a leak, because `anon` was granted
+anyway and the body enforced the same token gate. It matters because a
+hardening pass revoking `anon` across the board would have left this door open
+through PUBLIC — and nobody would have been looking at the delegator.
+
+**STANDING LESSON. When a migration revokes PUBLIC across a family of
+functions, every member of that family must be checked in the same migration —
+including the ones nobody is thinking about.** A delegator, a wrapper, a
+superseded predecessor: those are exactly what get missed, because the author's
+attention is on the function being hardened, not on the shim standing next to
+it. Enumerate the family from `pg_proc`, not from memory.
+
+### EVERY REMAINING PUBLIC-GRANTED FUNCTION IN `public` (live, 2026-09-10)
+
+37 non-extension functions still carry a PUBLIC EXECUTE grant. Extension-owned
+functions (pgvector, pg_trgm, pg_net and friends) are excluded — they are
+supabase_admin-owned and not ours to re-grant.
+
+SECURITY DEFINER (26) — the public/token-gated application, correction, PEI and
+short-link surface, plus three signed-in helpers:
+`add_pei_staff_note`, `approve_application_correction`,
+`archive_applicant_pei` (both overloads), `cancel_application_correction`,
+`get_application_by_draft_token`, `get_application_correction_by_token`,
+`get_application_pei_summary`, `get_equipment_shipping_for_operator`,
+`get_or_create_short_link`, `get_pei_request_for_response`, `is_staff`,
+`is_valid_application_draft_token`, `list_my_group_threads`,
+`log_pei_manual_send`, `log_pei_phone_attempt`, `mark_thread_read`,
+`move_revisions_to_pending`, `reject_application_correction`,
+`resolve_short_link`, `restore_applicant_pei`, `save_application_draft`,
+`submit_application_correction`, `submit_pei_response` (both overloads).
+
+SECURITY INVOKER (11) — mostly trigger functions, where a PUBLIC grant buys an
+attacker nothing because the trigger fires as the table owner:
+`_app_correction_editable_columns`, `_gen_correction_token`,
+`compute_dot_next_due_date`, `enforce_eld_suppression_rules`,
+`enforce_public_share_token_readonly`, `faq_update_search_vector`,
+`search_staff_faqs`, `set_osas_updated_at`, `set_pei_deadline`,
+`update_updated_at_column`, `validate_public_application_insert`.
+
+This list is recorded, not remediated. The definer half is the one worth a
+future pass: several of those are signed-in-only operations
+(`add_pei_staff_note`, `mark_thread_read`, `archive_applicant_pei`,
+`restore_applicant_pei`, `move_revisions_to_pending`) that have no business
+being PUBLIC-executable, and each relies on its in-body role gate rather than
+on the grant. Not changed in this pass, because the ask was to answer the
+question, not to widen the blast radius of a deletion.
+
+### ONE OF THE FOUR UNCLASSIFIABLE FUNCTIONS: settled by not being one
+
+`get_share_bundle_meta(uuid)` was **never on the function-reachability findings
+list** — the guard finds its caller literal in
+`src/pages/BinderShareBundlePage.tsx:39` and does not flag it. It appears in
+`definer-live-catalog.test.ts` as a registered anon-executable endpoint with
+that page named, which is correct and unchanged. Nothing to move, nothing to
+remove. The four genuinely unclassifiable functions are unchanged, minus
+`get_inspection_doc_by_token`, which is now settled by deletion — three remain.
