@@ -2704,6 +2704,32 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   return (
     <div className="flex flex-col gap-6 animate-fade-in max-w-4xl w-full">
 
+      {/* Offboarding in progress — resume instead of starting over */}
+      {isManagement && isActive && offboardingDone > 0 && (
+        <div
+          className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 flex flex-wrap items-center justify-between gap-3"
+          style={{ order: isQuickView ? 0 : 2 }}
+          data-testid="offboarding-progress-banner"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground">
+              Offboarding in progress — {offboardingDone} of 10 done
+            </p>
+            <p className="text-xs text-muted-foreground">
+              This driver is still active. Resume to finish the remaining steps.
+            </p>
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2 shrink-0"
+            onClick={() => navigate(`/management/deactivate/${operatorId}`)}
+          >
+            <UserX className="h-3.5 w-3.5" /> Resume offboarding
+          </Button>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-3" style={{ order: isQuickView ? 0 : 2 }}>
         <div className="flex items-center gap-3 min-w-0">
