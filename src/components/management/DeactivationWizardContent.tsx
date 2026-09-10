@@ -290,7 +290,7 @@ export function DeactivationWizardContent({
     setLoading(true);
     try {
       const [icaRes, carrierRes, sheetsRes, equipmentRes, platesRes, terminationRes] = await Promise.all([
-        supabase.from('ica_contracts').select('id, status, truck_year, truck_make, truck_model, truck_vin, lease_effective_date').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
+        supabase.from('ica_contracts').select('id, status, truck_year, truck_make, truck_model, truck_vin, lease_effective_date, voided_at').eq('operator_id', operatorId).order('created_at', { ascending: false }).limit(1).maybeSingle(),
         supabase.from('carrier_signature_settings').select('typed_name, title, signature_url').maybeSingle(),
         (supabase as any).from('onboard_assignment_sheets').select('id, unit_number, status, return_requested_at, return_completed_at, decal_photo_driver_side_url, decal_photo_passenger_side_url, items:onboard_assignment_sheet_items(device_type, serial_snapshot)').eq('operator_id', operatorId).order('created_at', { ascending: false }),
         supabase
@@ -311,9 +311,15 @@ export function DeactivationWizardContent({
         .maybeSingle();
       const opRes = await supabase
         .from('operators')
-        .select('excluded_from_dispatch, user_id')
+        .select('excluded_from_dispatch, user_id, safety_advisor_notified_at')
         .eq('id', operatorId)
         .maybeSingle();
+      // Work already done outside this run counts as done. The notice really
+      // went to the consultant, so the step must not ask for it a second time.
+      if ((opRes.data as any)?.safety_advisor_notified_at) {
+        setSafetySent(true);
+        updateStepStatus('safety_advisor', 'completed');
+      }
       setOperatorUserId((opRes.data as any)?.user_id ?? null);
       setDispatchSignals({
         excludedFromDispatch: Boolean((opRes.data as any)?.excluded_from_dispatch),
