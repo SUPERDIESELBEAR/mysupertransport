@@ -1,154 +1,200 @@
-# `get_inspection_doc_by_token` — read-only investigation
+# Two of the three unclassifiable functions — settled
 
-No code, migration, or data was changed. Every claim below is labelled **[live]**
-(catalog / `pg_get_functiondef` / `pg_proc.proacl` / `cron.job`) or **[repo]**
-(text search of the working tree).
+Read-only. Nothing changed. Every claim labelled **[live]** (`pg_get_functiondef`,
+`pg_proc.proacl`, `pg_policies`, `pg_proc.prosrc`, `pg_views`,
+`information_schema.columns`, `cron.job`) or **[repo]** (text search of the tree).
 
-## 1. What it returns, and to whom
+---
 
-**[live]** Newest definition (from `pg_get_functiondef`, oid 27742):
+## 1. `is_valid_application_draft_token(text)` — **CALLED. Not superseded. False positive.**
 
-```text
-get_inspection_doc_by_token(p_token uuid)
-  RETURNS TABLE(id uuid, name text, file_url text, expires_at date)
-  LANGUAGE sql  SECURITY DEFINER  SET search_path TO 'public'
-  -- LEGACY DELEGATOR (§8). Kept for one release ...
-  SELECT r.id, r.name, r.file_url, r.expires_at
-  FROM public.resolve_share_token(p_token) r;
+### Live bodies of both functions
+
+**[live]** `is_valid_application_draft_token(_token text)` — oid 68467, `sql`,
+`STABLE SECURITY DEFINER`, `SET search_path TO 'public'`:
+
+```sql
+SELECT EXISTS (
+  SELECT 1 FROM public.applications a
+  WHERE a.is_draft = true AND a.draft_token IS NOT NULL
+    AND a.draft_token::text = _token
+);
 ```
 
-**[repo]** Two migrations define it: `20260317005145_...sql:124` (original) and
-`20260730164628_...sql:149` (current). The newer one rewrote it into a thin
-delegate and left the comment: *"Kept for one release so stale cached client
-bundles keep resolving... DROP in the release following the one that ships §8."*
+**[live]** `get_application_by_draft_token(p_token uuid)` — oid 40076, `sql`,
+`STABLE SECURITY DEFINER`, `SET search_path TO 'public'`:
 
-It performs **no checks of its own**. All validation happens inside
-`resolve_share_token` → `_share_token_gate`, which **[live]**:
+```sql
+SELECT * FROM public.applications
+WHERE draft_token = p_token::text AND is_draft = true
+LIMIT 1;
+```
 
-- looks the token up in `share_tokens`; unknown → `not_found`
-- `revoked_at IS NOT NULL` → `revoked`
-- `expires_at IS NOT NULL AND expires_at <= now()` → `expired`
-- counts served (`outcome = 'ok'`) opens in the last hour, ceiling 60 → `throttled`,
-  failing closed if the counter cannot be read
-- writes a row to `share_token_access_log` on **every** outcome, with salted IP
-  hash and user agent
-- only for `scope = 'inspection_document'` returns the row from `inspection_documents`
+**[repo]** Migrations defining each: `is_valid_...` — exactly one,
+`20260721181336_aa440d86...sql:3` (newest = only). `get_application_by_draft_token`
+— exactly one, `20260327151550_6d2637b6...sql:8`.
 
-**Not single-use. Expiry is optional.** **[live]** `share_tokens` columns are
-`token, scope, resource_id, expires_at, revoked_at, created_by, created_at` —
-there is no `used_at`/`use_count` column, and `expires_at` is nullable and treated
-as "never expires" (this is deliberate: the printed QR stickers have NULL expiry).
+They are **not the same function with different names**. One returns a **boolean**
+and takes **text**; the other returns **`SETOF applications`** — the entire
+application row — and takes **uuid**. Neither is a delegator; each reads the table
+directly.
 
-So an anon caller **with a valid token** gets one binder document's `id`, `name`,
-`file_url` and `expires_at` — the same payload the QR-sticker page serves.
-An anon caller with **no token** cannot call it (argument is required, and a
-non-UUID string is a type error). With a **wrong/random UUID** they get **zero
-rows** — indistinguishable from revoked or expired — plus a logged attempt.
+### What calls it
 
-**Grant asymmetry, and this is the one real defect.** **[live]** `proacl`:
+**[live]** Two RLS policies on **`storage.objects`** call it in their `WITH CHECK`:
 
-| function | PUBLIC | anon |
+| policy | bucket | check |
 | --- | --- | --- |
-| `resolve_share_token` | revoked | EXECUTE |
-| `resolve_share_bundle` | revoked | EXECUTE |
-| `_share_token_gate` | revoked | **no grant** |
-| `get_inspection_doc_by_token` | **`=X/postgres` — PUBLIC holds EXECUTE** | EXECUTE |
+| `Applicants upload docs under their own draft token` | `application-documents` | `is_valid_application_draft_token((storage.foldername(name))[2])` + 20 MB cap + image/pdf mimetype |
+| `Applicants upload signatures under their own draft token` | `signatures` | same call + 2 MB cap + image mimetype |
 
-The `20260730164628` migration ran `REVOKE ALL ... FROM PUBLIC` on
-`resolve_share_token` but issued **no REVOKE for the delegator**, so it kept the
-default PUBLIC grant from the March migration.
+**[repo]** Both are created in the same migration that defines the function,
+`20260721181336_...sql:32` and `:61`. This is its whole purpose: the storage policy
+cannot call `get_application_by_draft_token` in its place — that one takes `uuid`
+and returns rows, not a boolean, and the folder segment is text.
 
-## 2. Does anything call it
+**Why the guard missed it.** **[repo]** `src/test/function-reachability.test.ts:129`
+scans `pg_policies pl WHERE pl.schemaname = 'public'`. The callers are in the
+**`storage`** schema. The guard did not search where the caller lives.
 
-Searched, and found:
+Other categories, all **[live]** unless noted: other function bodies (`prosrc`,
+**all** schemas) — none; views — none; column defaults — none; `cron.job` — none;
+triggers — n/a (not a trigger function). **[repo]** whole tree, all quoting styles:
+7 hits, all non-callers (its own migration ×3, generated `types.ts`,
+`definer-live-catalog.test.ts` ×2, `legacyPublicOnlyPins.ts`). **[repo]** dynamic /
+variable-held RPC sites read individually — none resolves to it.
 
-| where searched | result |
+So: **no client caller, two live policy callers.** The supersession recorded from
+the names is wrong.
+
+### Exposure, stated plainly
+
+**[live]** `proacl` = `{=X/postgres, postgres, anon, authenticated, service_role}` —
+PUBLIC **and** `anon` hold EXECUTE, same as `get_application_by_draft_token`.
+
+- Anon **with** a valid draft token: `true`. Nothing else — no name, no email, no
+  row. And the token they hold already unlocks the full row through
+  `get_application_by_draft_token`, so the boolean discloses nothing new.
+- Anon **without** a token, or with a wrong one: `false`, and nothing else.
+
+It is a **confirmation oracle** over `applications.draft_token`. The tokens are
+UUIDs and the function is unthrottled and unlogged, so an attacker could in
+principle enumerate — but a hit on a v4 UUID is not reachable by brute force, and
+the same oracle already exists implicitly in `get_application_by_draft_token`
+(rows vs no rows). It is **not** the 2026-09-03 shape: that function required no
+secret at all.
+
+### Recommendation — **keep, with a registered justification**
+
+Register it in the reachability allowlist with the reason
+`CALLED BY storage.objects RLS: 'Applicants upload docs/signatures under their own
+draft token' (migration 20260721181336)`. Dropping it would silently break applicant
+document and signature upload.
+
+Two follow-ups, neither part of this pass:
+
+1. **Fix the guard, not the finding.** Drop `schemaname = 'public'` from the policy
+   subquery so `storage`, `realtime` and any other schema count as callers. Predict
+   before rerunning: the finding count should fall by **at least one** (this
+   function); if it falls by more, each extra is another false positive of the same
+   kind and must be read individually.
+2. `anon` needs EXECUTE (the uploader is unauthenticated) — but **PUBLIC does not**,
+   and it holds it. Same grant-hygiene defect as the dropped delegator, same
+   remedy: `REVOKE EXECUTE ... FROM PUBLIC` while keeping the `anon` grant.
+
+---
+
+## 2. `can_driver_message_staff(uuid, uuid)` — **UNCALLED. No indirect policy call.**
+
+### Live body
+
+**[live]** oid 72193, `plpgsql`, `STABLE SECURITY DEFINER`, `search_path 'public'`.
+It returns whether a driver may open a conversation with a staff member, in order:
+suppression row → `FALSE`; assigned onboarding staff → `TRUE`; dispatcher on the
+driver's most recent `active_dispatch` → `TRUE`; then
+`staff_messaging_settings.availability_mode`: NULL/`none` → `FALSE`, `all_drivers`
+→ `TRUE`, otherwise an explicit `driver_staff_contacts` row.
+
+**[repo]** Two migrations define it: `20260729154047_...sql:117` and
+`20260729164130_...sql:119` (newest; bodies identical). A third,
+`20260903193033_...sql:19,34`, revoked PUBLIC and `anon` and granted
+`authenticated, service_role` — **[live]** `proacl` confirms:
+`{postgres, authenticated, service_role}`. No PUBLIC, no `anon`.
+
+### The indirect-call question — answered, and the answer is no
+
+**[live]** The `prosrc` scan was run across **every schema, every function**, not
+just `public`: **zero** function bodies mention it. That covers the indirect case
+completely — a policy can only reach it *through* a function, and no function
+contains it.
+
+**[live]** Policy expressions on `messages`, `message_threads` and
+`thread_participants` were expanded in full. They resolve through
+`is_thread_participant(...)`, `has_role(...)`, `auth.uid()` equality and inline
+`EXISTS` subqueries on `message_threads` — **[live]** and `is_thread_participant`'s
+own body does not call it either. The messaging permission tables
+(`driver_staff_contacts`, `driver_staff_contact_suppressions`,
+`staff_messaging_settings`) are policed by plain `auth.uid()` / `has_role`
+predicates.
+
+Remaining categories, **[live]**: views — none; column defaults — none; `cron.job`
+— none; triggers — n/a. **[repo]** whole tree: 6 hits, all non-callers (two defining
+migrations, the revoke migration, generated `types.ts`,
+`definer-live-catalog.test.ts`, `legacyPublicOnlyPins.ts`). **[repo]** edge
+functions — zero. **[repo]** dynamic RPC sites — none resolves to it.
+
+**Nothing calls it.**
+
+### What the app uses instead
+
+**[repo]** The driver UI asks a different question: `list_driver_contacts(_driver)`
+— `NewChatChooser.tsx:60`, `NewGroupModal.tsx:57`, `DriverContactsPanel.tsx:48`.
+That function, defined in the **same migration**, returns the whole eligible-staff
+list applying the same rules (auto-assignment, availability mode, suppression
+exclusion). `can_driver_message_staff` is the single-pair form of a question the
+product only ever asks in list form. It was written alongside its sibling and never
+wired up.
+
+### Exposure
+
+**[live]** No PUBLIC, no `anon`. An authenticated caller can pass **any** two UUIDs
+— it does not check that `_driver = auth.uid()`. What they learn is one boolean
+about a driver/staff pair: whether messaging is permitted. No names, no message
+content, no contact details. That is a weak inference channel, not a leak, and it
+is closed to the unauthenticated.
+
+### Recommendation — **drop it**
+
+`DROP FUNCTION public.can_driver_message_staff(uuid, uuid);`, remove its entries
+from `legacyPublicOnlyPins.ts` and `definer-live-catalog.test.ts` (lowering each
+ceiling by one), regenerate types.
+
+Named defence: nothing calls it — ten categories empty, including the
+all-schema `prosrc` scan that is the only way a policy could reach it indirectly.
+Its sibling `list_driver_contacts` is what the product actually calls, and it
+re-implements the same rules independently, so deleting this one removes no logic
+the app depends on.
+
+Weaker alternative if a single-pair check is wanted later: keep it and register the
+justification as `INTENDED SERVER-SIDE GUARD, NOT YET WIRED` with a dated review.
+Not recommended — a dead function with an allowlist entry is the state that let the
+2026-09-03 incident sit for four months. Re-adding it later is one migration.
+
+---
+
+## Should the guard learn to follow the chain
+
+It already does for functions: the `prosrc` subquery catches a function called by a
+function called by a policy. The gap this pass found is **schema scope, not depth** —
+`pg_policies` filtered to `public` while the real callers sat in `storage`. That is
+the change worth making, and it is a one-line change.
+
+---
+
+## Status of the three
+
+| function | verdict |
 | --- | --- |
-| **[repo]** whole tree, all quoting styles | 7 hits, **no call site** |
-| **[repo]** `src/pages/InspectionSharePage.tsx` | calls `resolve_share_token` (line 34) |
-| **[repo]** `src/pages/BinderShareBundlePage.tsx` | calls `resolve_share_bundle` + `get_share_bundle_meta` (lines 38-39) |
-| **[repo]** `supabase/functions/**` | zero references; `officer-packet-download` names `resolve_share_token` in a comment only |
-| **[repo]** dynamic / variable-held RPC names | the handful of non-literal `supabase.rpc(` sites were read; none resolves to this name |
-| **[live]** other function bodies (`prosrc`) | none |
-| **[live]** RLS policy `USING` / `WITH CHECK` | none |
-| **[live]** views, column defaults | none |
-| **[live]** `cron.job` commands | none |
-
-The 7 repo hits are: the two migrations, `src/integrations/supabase/types.ts`
-(generated), `definer-live-catalog.test.ts` (×2), `legacyPublicOnlyPins.ts`, and
-the docs. **Nothing calls it.** No trigger exists for it (it is not a trigger
-function).
-
-## 3. What serves the share pages today
-
-**[repo]** `/inspect/:token` → `resolve_share_token(p_token)` called directly from
-the browser. `/inspect/all/:token` → `resolve_share_bundle(p_token)`, which loops
-the bundle's `doc_tokens` through `resolve_share_token`. The officer packet scope
-goes through the `officer-packet-download` edge function →
-`resolve_officer_packet_token`.
-
-So yes: **a different function serves the live pages, and
-`get_inspection_doc_by_token` is a superseded predecessor left behind with its
-anon grant** — structurally the `get_pei_requests_needing_action` shape. Its own
-migration comment scheduled it for deletion "the release following §8"; §8
-shipped 2026-07-30 and it is still here.
-
-## 4. The exposure — smaller than the incident, and I will not inflate it
-
-What an unauthenticated caller can obtain: **nothing they could not already obtain
-by calling `resolve_share_token` with the same token.** The delegator adds no data
-and removes no check — it is the same gate, the same throttle, the same access log,
-minus the `outcome` column.
-
-To get anything they need a **v4 UUID that exists in `share_tokens`**. Guessing is
-not a threat; the realistic acquisition paths are the ones that already apply to
-the live path: a photograph of a printed QR sticker, or a forwarded binder-share
-email.
-
-Comparison with the recorded incident, honestly:
-
-| | `get_pei_requests_needing_action` | `get_inspection_doc_by_token` |
-| --- | --- | --- |
-| authorization | **none** — any anon caller got applicant names and prior-employer emails | requires a valid, non-revoked, non-expired token |
-| rate limit | none | 60 served opens/token/hour, fails closed |
-| audit | none | every attempt logged with salted IP hash + UA |
-| data reachable without a secret | **all of it** | none |
-
-**Materially better protected — not the same.** The token is unguessable and
-revocable; it is **not** single-use, and expiry is optional by design.
-
-The genuine finding is narrower: **PUBLIC still holds EXECUTE on this one
-function** where its own migration revoked PUBLIC on every sibling. On this
-project that is a grant-hygiene defect, not a data leak, because `anon` is granted
-anyway. It matters because a hardening pass that revokes `anon` across the board
-would leave this door open through PUBLIC.
-
-## 5. Recommendation — **drop it**, not allowlist, not merely revoke
-
-1. `DROP FUNCTION public.get_inspection_doc_by_token(uuid);`
-2. Remove its entry from `src/test/helpers/legacyPublicOnlyPins.ts` and the two
-   `definer-live-catalog.test.ts` registrations, and regenerate types.
-3. The function-reachability guard then drops from 14 findings to 13 — green by
-   deletion, which is the sanctioned route.
-
-Defence, and what breaks. **Nothing in this repository calls it** (section 2, ten
-search categories, all empty). The one population the comment was written for —
-stale browser bundles still holding the March client — is 6 weeks past the
-one-release window the author gave it, and those bundles fetch a QR-sticker
-document that a reload resolves through `resolve_share_token` anyway. A client
-running code that old is already broken against the rest of the schema.
-
-Weaker fallbacks, if dropping now feels premature: `REVOKE EXECUTE ... FROM
-PUBLIC` alone closes the actual defect and leaves the dead delegator in place —
-but then it must go into the allowlist with a dated `AWAITING` reason and a stated
-drop date, and a dead function carrying an allowlist entry is exactly the state
-that let the incident sit for four months. I do not recommend it.
-
-**Not recommended in any form:** allowlisting it as-is. It is not unclassifiable
-any more — it is confirmed uncalled and confirmed superseded.
-
-### Also surfaced, out of scope here
-
-`get_share_bundle_meta` is called by `BinderShareBundlePage.tsx` **[repo]** — if it
-sits on the unclassified list, that settles it. The other three unclassifiable
-functions were not investigated in this pass.
+| `is_valid_application_draft_token(text)` | **called** by 2 `storage.objects` policies — keep, register, fix the guard, revoke PUBLIC |
+| `can_driver_message_staff(uuid,uuid)` | **uncalled**, superseded in practice by `list_driver_contacts` — drop |
+| `get_application_pei_summary(uuid)` | not investigated, as instructed |
