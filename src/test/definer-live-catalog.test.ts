@@ -267,7 +267,8 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // seven entries no longer anon-executable, removed in the same pass = 48.
 // 48 - 2 (get_pei_requests_needing_action, email_queue_dispatch, revoked
 // 2026-09-03) = 46, - 13 class-(c) helpers revoked 2026-09-03 = 33.
-const KNOWN_ANON_EXECUTABLE_MAX = 33;
+// 33 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 32.
+const KNOWN_ANON_EXECUTABLE_MAX = 32;
 
 
 
@@ -725,7 +726,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   ownership predicate used INSIDE the roadside-stop RLS policies. A policy
 //   expression evaluates as the caller, so authenticated EXECUTE is required
 //   for those policies to work at all: 124 -> 125.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 125;
+// 125 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 124.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
 
 
 

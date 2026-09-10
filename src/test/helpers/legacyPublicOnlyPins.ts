@@ -123,4 +123,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
  */
 // 2026-09-03: 82 -> 81. `consume_application_resume_token` was re-authored by
 // the resume-link pass and is now pinned to `public, extensions`.
-export const LEGACY_MAX = 80;
+// 2026-09-10: 80 -> 79. `get_inspection_doc_by_token(uuid)` was DROPPED; the
+// list shrinks because the function is gone, not because it was excused.
+export const LEGACY_MAX = 79;
