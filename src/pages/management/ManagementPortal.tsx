@@ -376,7 +376,8 @@ export default function ManagementPortal() {
     // straight from a staff notification — so an explicit `?view=` wins and the
     // operator id is left for that screen to consume. Without this guard every
     // eld-logs deep link that named a driver landed on the profile instead.
-    if (op && !hasExplicitView) {
+    // The one explicit view that DOES own `op` is the profile itself.
+    if (op && (!hasExplicitView || urlView === 'operator-detail')) {
       openOperatorDetail(op);
     }
     // Notification deep-link: ?view=applications&app=<id> opens the review drawer
