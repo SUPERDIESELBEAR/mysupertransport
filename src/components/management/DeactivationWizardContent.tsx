@@ -248,14 +248,22 @@ export function DeactivationWizardContent({
 
 
   /**
-   * SAVE AS YOU GO. Offboarding used to be written only at Finish, so a run
-   * abandoned halfway left no trace at all — the letters had really gone out
-   * and the app still showed the driver as untouched. Every completed or
-   * skipped step is now written the moment it happens.
+   * SAVE AS YOU GO — BUT ONLY WHAT A PERSON DID. Offboarding used to be
+   * written only at Finish, so a run abandoned halfway left no trace at all —
+   * the letters had really gone out and the app still showed the driver as
+   * untouched. Every completed or skipped step a person performs is written
+   * the moment it happens.
+   *
+   * What is NOT written is the automatic "nothing to do here" verdict the
+   * derive effect reaches on open (no fuel card, no plates, no ICA). Saving
+   * those made the driver page's "X of 10 done" ribbon climb — 3 to 5 — purely
+   * from opening the wizard and pressing Back. They are still shown as handled
+   * on screen, and they are written for real at Finish along with everything
+   * else.
    *
    * Writes are deduped against the last persisted value per step, because the
-   * auto-derive effect re-asserts statuses on every data change and must not
-   * turn into a write loop.
+   * derive effect re-asserts statuses on every data change and must not turn
+   * into a write loop.
    */
   const persistedStatus = useRef<Record<string, string>>({});
   const persistStep = useCallback(async (
@@ -281,8 +289,15 @@ export function DeactivationWizardContent({
     }
   }, [operatorId, user?.id]);
 
-  const updateStepStatus = useCallback((key: OffboardingStepKey, status: StepStatus, skippedReason?: string) => {
+  const updateStepStatus = useCallback((
+    key: OffboardingStepKey,
+    status: StepStatus,
+    skippedReason?: string,
+    options?: { auto?: boolean },
+  ) => {
     setSteps(prev => ({ ...prev, [key]: { ...prev[key], status, skippedReason } }));
+    // Derived-on-open verdicts stay on screen only; they are recorded at Finish.
+    if (options?.auto) return;
     void persistStep(key, status, skippedReason);
   }, [persistStep]);
 
