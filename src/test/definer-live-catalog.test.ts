@@ -115,11 +115,6 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
       "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
   },
   {
-    signature: "public.get_application_pei_summary(uuid)",
-    reason:
-      "GUARD IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION 'Not authorized'; END IF;",
-  },
-  {
     signature: "public.cancel_application_correction(uuid)",
     reason:
       "GUARD IF NOT public.is_staff(v_actor) THEN RAISE EXCEPTION 'forbidden'; END IF; -- v_actor := auth.uid()",
@@ -268,7 +263,10 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // 48 - 2 (get_pei_requests_needing_action, email_queue_dispatch, revoked
 // 2026-09-03) = 46, - 13 class-(c) helpers revoked 2026-09-03 = 33.
 // 33 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 32.
-const KNOWN_ANON_EXECUTABLE_MAX = 32;
+// 32 - 1 (get_application_pei_summary, DROPPED 2026-09-10 by the uncalled-
+// function sweep: no caller in any schema; the application PEI tab reads
+// `pei_requests` directly) = 31.
+const KNOWN_ANON_EXECUTABLE_MAX = 31;
 
 
 

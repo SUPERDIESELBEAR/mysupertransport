@@ -36,7 +36,7 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260727202654_18fa0162-7ac2-4bd1-9c05-80afbbbbabbf.sql::public.archive_applicant_pei(uuid, text, text)",
   "20260727191658_491568bc-4bab-4670-903f-b7f05c17708b.sql::public.archive_applicant_pei(uuid, text)",
   "20260720153657_d81fc002-e4c6-4f66-804e-ede3bee9da67.sql::public.assign_ica_amendment_number()",
-  "20260327200930_def071a4-28fb-4c91-bb65-f07eab4a8730.sql::public.assign_user_role(uuid, app_role)",
+  
   "20260725144744_575a722a-c591-4c40-9db7-69505977eee7.sql::public.audit_osas_signed()",
   "20260728175402_7d26f2c4-2587-4004-804c-0b7a509c185a.sql::public.bump_staff_help_thread_updated_at()",
   "20260729154047_b1e9b99a-91e9-434e-99b8-89211bff5804.sql::public.bump_thread_last_message()",
@@ -57,7 +57,7 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260710194318_f3cd6736-d810-4fb1-b0c6-361d11288e16.sql::public.flag_faqs_for_reverification()",
   "20260327151550_6d2637b6-91e9-456b-b705-45253a789b93.sql::public.get_application_by_draft_token(uuid)",
   "20260515183610_31d9c6cc-8a17-4ba1-adf6-c0daab0222b6.sql::public.get_application_correction_by_token(text)",
-  "20260513151918_1701f4a4-1d3f-4686-918d-2b6bbe53841c.sql::public.get_application_pei_summary(uuid)",
+  
   "20260416211554_45d4b817-c95f-480b-afbf-fdaacf793399.sql::public.get_equipment_shipping_for_operator(uuid)",
   
   "20260727195451_f65f922b-e025-4ed4-86e4-b609458f05a3.sql::public.get_pei_queue()",
@@ -92,7 +92,7 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260706164608_632bbeb7-598d-4fc3-84e2-d24dde593621.sql::public.operator_awaiting_return(uuid)",
   "20260726123808_c98a98b7-b03e-4331-8779-b785e9b799b6.sql::public.operator_return_requested(uuid)",
   "20260714125956_29f3e624-04c3-40f0-b121-e69d53033015.sql::public.prevent_recipient_message_tampering()",
-  "20260327200930_def071a4-28fb-4c91-bb65-f07eab4a8730.sql::public.remove_user_role(uuid, app_role)",
+  
   "20260729175715_cfce4671-7913-4ee4-9b2b-ba7b99c8e14c.sql::public.resolve_short_link(text)",
   "20260727194914_a485ef85-e1ec-4d73-a895-01e33553f8b0.sql::public.restore_applicant_pei(uuid)",
   "20260611142920_26a9cd7d-56d0-409f-9ac3-d447b1dd9b88.sql::public.save_application_draft(uuid, jsonb)",
@@ -124,4 +124,9 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
 // the resume-link pass and is now pinned to `public, extensions`.
 // 2026-09-10: 80 -> 79. `get_inspection_doc_by_token(uuid)` was DROPPED; the
 // list shrinks because the function is gone, not because it was excused.
-export const LEGACY_MAX = 78;
+// 2026-09-10 (uncalled-function sweep): 78 -> 75.
+//   - `get_application_pei_summary(uuid)` DROPPED (no caller; the application
+//     PEI tab reads `pei_requests` directly).
+//   - `assign_user_role(uuid, app_role)` and `remove_user_role(uuid, app_role)`
+//     were REPINNED to `public, extensions`, so they are no longer offenders.
+export const LEGACY_MAX = 75;
