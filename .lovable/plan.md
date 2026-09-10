@@ -1,107 +1,154 @@
-# Three reachability guards
+# `get_inspection_doc_by_token` — read-only investigation
 
-A sweep runs once. These run every pass. Eleven instances of "correct code nothing calls" were found by accident over six weeks; none by a test. These three guards close the classes that a test can close.
+No code, migration, or data was changed. Every claim below is labelled **[live]**
+(catalog / `pg_get_functiondef` / `pg_proc.proacl` / `cron.job`) or **[repo]**
+(text search of the working tree).
 
-Non-negotiable across all three, per your four conditions:
+## 1. What it returns, and to whom
 
-1. **Every allowlist entry carries a written reason**, in the shape of `KNOWN_ANON_EXECUTABLE_ENTRIES`: an object with `id` and `reason`, not a bare string list. A guard whose allowlist takes bare names is a place to hide things.
-2. **Called means called from anywhere** — trigger, RLS policy, column default, view, cron, another function body, an edge function, or `src/`. Each guard reports *how* a thing is called, so a legitimate trigger function is never flagged.
-3. **The allowlist is seeded only from LEGITIMATE and AWAITING A MODULE.** Everything the sweep called ORPHANED or UNREACHABLE BUT WANTED stays out and stays failing. These guards are expected to be RED on first run.
-4. **Ceiling rule.** Each guard has a `_MAX` that may fall freely and rise only for a new entry carrying its justification, asserted the same way `LEGACY_MAX` is today.
-5. **The failure message is the product.** These guards stay red for weeks while the backlog is worked. A message that only says "unreachable" teaches people to skim. Every failure names three things, written for someone who did not build the guard: what was searched, which categories came back empty, and what would make it pass — a caller, a revoke, or an allowlist entry with a reason. Shape:
+**[live]** Newest definition (from `pg_get_functiondef`, oid 27742):
 
 ```text
-public.assign_user_role(uuid, app_role) is EXECUTABLE by `authenticated`
-but nothing calls it.
-
-Searched and found nothing:
-  in-database  triggers (0)  RLS policies (0)  column defaults (0)
-               other function bodies (0)  views (0)  cron jobs (0)
-  repository   supabase.rpc('assign_user_role') under src/ (0)
-               and supabase/functions/ (0)
-               [tests and src/integrations/supabase/types.ts do not count]
-
-To make this pass, do ONE of:
-  1. Call it. Add the screen or edge function that uses it.
-  2. Revoke it. If nothing should call it, REVOKE EXECUTE in a migration —
-     an uncalled privileged function is the shape that leaked applicant
-     data for four months.
-  3. Allowlist it, with a reason. Add to KNOWN_NO_CALLER_ENTRIES in
-     src/test/function-reachability.test.ts as
-     { id: '...', reason: 'awaiting Module N — <what will call it>' }
-     and raise KNOWN_NO_CALLER_MAX by exactly one. A bare name is
-     rejected; the reason is what a future reader will need.
+get_inspection_doc_by_token(p_token uuid)
+  RETURNS TABLE(id uuid, name text, file_url text, expires_at date)
+  LANGUAGE sql  SECURITY DEFINER  SET search_path TO 'public'
+  -- LEGACY DELEGATOR (§8). Kept for one release ...
+  SELECT r.id, r.name, r.file_url, r.expires_at
+  FROM public.resolve_share_token(p_token) r;
 ```
 
-Guards 2 and 3 use the same three-part shape, naming the portal files and nav arrays searched, and offering render-branch / nav-entry / allowlist as the three exits.
+**[repo]** Two migrations define it: `20260317005145_...sql:124` (original) and
+`20260730164628_...sql:149` (current). The newer one rewrote it into a thin
+delegate and left the comment: *"Kept for one release so stale cached client
+bundles keep resolving... DROP in the release following the one that ships §8."*
 
----
+It performs **no checks of its own**. All validation happens inside
+`resolve_share_token` → `_share_token_gate`, which **[live]**:
 
-## Guard 1 — function reachability (`src/test/function-reachability.test.ts`)
+- looks the token up in `share_tokens`; unknown → `not_found`
+- `revoked_at IS NOT NULL` → `revoked`
+- `expires_at IS NOT NULL AND expires_at <= now()` → `expired`
+- counts served (`outcome = 'ok'`) opens in the last hour, ceiling 60 → `throttled`,
+  failing closed if the counter cannot be read
+- writes a row to `share_token_access_log` on **every** outcome, with salted IP
+  hash and user agent
+- only for `scope = 'inspection_document'` returns the row from `inspection_documents`
 
-**Asserts:** every non-extension function in `public` that any client role holds EXECUTE on is called from somewhere, or is allowlisted with a reason.
+**Not single-use. Expiry is optional.** **[live]** `share_tokens` columns are
+`token, scope, resource_id, expires_at, revoked_at, created_by, created_at` —
+there is no `used_at`/`use_count` column, and `expires_at` is nullable and treated
+as "never expires" (this is deliberate: the printed QR stickers have NULL expiry).
 
-**Counts as called:** a live query resolves in-database callers — `pg_trigger.tgfoid`, `pg_policies` qual/with_check, `pg_attrdef` defaults, other `pg_proc.prosrc` bodies, `pg_views.definition`, `cron.job.command`. A repository scan resolves out-of-database callers — any `supabase.rpc('<name>')` literal under `src/` or `supabase/functions/`, excluding `__tests__`, `src/test/`, `*.test.*` and `src/integrations/supabase/types.ts`. The failure message names which categories were searched and found empty.
+So an anon caller **with a valid token** gets one binder document's `id`, `name`,
+`file_url` and `expires_at` — the same payload the QR-sticker page serves.
+An anon caller with **no token** cannot call it (argument is required, and a
+non-UUID string is a type error). With a **wrong/random UUID** they get **zero
+rows** — indistinguishable from revoked or expired — plus a logged attempt.
 
-**Seeds (LEGITIMATE / AWAITING A MODULE only):** `grant_parity_report` (called by the `grant-parity-live` guard, test infrastructure by design). That is the only entry the sweep's classification permits.
+**Grant asymmetry, and this is the one real defect.** **[live]** `proacl`:
 
-**Expected failures after seeding: 14.** The two with literally no reference (`compliance_status`, `eld_cron_status`), the five accessorial writers, `assign_user_role`, `remove_user_role`, `get_pei_requests_needing_action`, and the four I could not classify (`get_application_pei_summary`, `can_driver_message_staff`, `get_inspection_doc_by_token`, `is_valid_application_draft_token`).
+| function | PUBLIC | anon |
+| --- | --- | --- |
+| `resolve_share_token` | revoked | EXECUTE |
+| `resolve_share_bundle` | revoked | EXECUTE |
+| `_share_token_gate` | revoked | **no grant** |
+| `get_inspection_doc_by_token` | **`=X/postgres` — PUBLIC holds EXECUTE** | EXECUTE |
 
-Live-DB dependent, so it uses the same `PGHOST` gate and loud skip banner as `definer-live-catalog`.
+The `20260730164628` migration ran `REVOKE ALL ... FROM PUBLIC` on
+`resolve_share_token` but issued **no REVOKE for the delegator**, so it kept the
+default PUBLIC grant from the March migration.
 
-### Recorded finding — four functions could not be established as called or uncalled
+## 2. Does anything call it
 
-"I could not tell" is a finding, not a gap in the report. These four stay out of the allowlist and stay failing. They are recorded in `docs/tms-build-status.md` as an open finding in their own right, each with what would settle it:
+Searched, and found:
 
-| Function | Why it could not be settled | What would settle it |
-|---|---|---|
-| `get_inspection_doc_by_token` | **anon-executable and token-gated.** No `supabase.rpc` literal found, but a token flow may reach it from an emailed link or an edge function by another name. | Read the `/inspect/:token` and `/inspect/all/:token` page code and the inspection-share edge functions end to end. If nothing calls it, this is the exact shape of `get_pei_requests_needing_action` — anon-reachable, unreviewed, no caller — and it should be revoked, not allowlisted. **Highest priority of the four.** |
-| `is_valid_application_draft_token` | Appears superseded by `get_application_by_draft_token`, but supersession was inferred from the names, not read. | Read both function bodies and the application-resume flow; confirm which one the resume path actually calls. |
-| `can_driver_message_staff` | Plausibly intended as an RLS helper; the policy scan did not find it, but a policy could call it indirectly through another function. | Expand the policy expressions on `messages`, `message_threads` and `thread_participants` and check for an indirect call. |
-| `get_application_pei_summary` | No caller found; may belong to the PEI screens that were built around the same time as the leaked function. | Read the PEI request and response screens for an equivalent inline query that replaced it. |
+| where searched | result |
+| --- | --- |
+| **[repo]** whole tree, all quoting styles | 7 hits, **no call site** |
+| **[repo]** `src/pages/InspectionSharePage.tsx` | calls `resolve_share_token` (line 34) |
+| **[repo]** `src/pages/BinderShareBundlePage.tsx` | calls `resolve_share_bundle` + `get_share_bundle_meta` (lines 38-39) |
+| **[repo]** `supabase/functions/**` | zero references; `officer-packet-download` names `resolve_share_token` in a comment only |
+| **[repo]** dynamic / variable-held RPC names | the handful of non-literal `supabase.rpc(` sites were read; none resolves to this name |
+| **[live]** other function bodies (`prosrc`) | none |
+| **[live]** RLS policy `USING` / `WITH CHECK` | none |
+| **[live]** views, column defaults | none |
+| **[live]** `cron.job` commands | none |
 
-## Guard 2 — portal view reachability (`src/test/view-reachability.test.ts`)
+The 7 repo hits are: the two migrations, `src/integrations/supabase/types.ts`
+(generated), `definer-live-catalog.test.ts` (×2), `legacyPublicOnlyPins.ts`, and
+the docs. **Nothing calls it.** No trigger exists for it (it is not a trigger
+function).
 
-**Asserts:** for each portal, every value of its view union has *both* a render branch and a way in — a nav-array entry, a `setView(...)`/`navigateToView(...)`/`setCurrentView(...)` call, or an allowlist entry saying it is deep-link-only.
+## 3. What serves the share pages today
 
-**Counts as reachable:** source scan of `ManagementPortal.tsx`, `StaffPortal.tsx`, `DispatchPortal.tsx`, `OperatorPortal.tsx` and `src/lib/operatorRoutes.ts`, extracting the union members, the nav arrays, and every programmatic setter call.
+**[repo]** `/inspect/:token` → `resolve_share_token(p_token)` called directly from
+the browser. `/inspect/all/:token` → `resolve_share_bundle(p_token)`, which loops
+the bundle's `doc_tokens` through `resolve_share_token`. The officer packet scope
+goes through the `officer-packet-download` edge function →
+`resolve_officer_packet_token`.
 
-**Seeds:** the legitimate drill-downs, each with its reason — Staff `operator-detail`, `vehicle-detail`; Management `operator-detail`, `load-detail`, `load-create`, `load-edit`, `vehicle-detail`, `email-catalog`; Operator `ica-amendment` (inbound link from an ICA amendment notification). **9 entries.**
+So yes: **a different function serves the live pages, and
+`get_inspection_doc_by_token` is a superseded predecessor left behind with its
+anon grant** — structurally the `get_pei_requests_needing_action` shape. Its own
+migration comment scheduled it for deletion "the release following §8"; §8
+shipped 2026-07-30 and it is still here.
 
-**Expected failures after seeding: 1** — Management `app-errors`, declared in the type and `ALLOWED_VIEWS` with no render branch and no caller.
+## 4. The exposure — smaller than the incident, and I will not inflate it
 
-Pure file reads, so it runs with no database.
+What an unauthenticated caller can obtain: **nothing they could not already obtain
+by calling `resolve_share_token` with the same token.** The delegator adds no data
+and removes no check — it is the same gate, the same throttle, the same access log,
+minus the `outcome` column.
 
-## Guard 3 — nav target validity (`src/test/nav-target.test.ts`)
+To get anything they need a **v4 UUID that exists in `share_tokens`**. Guessing is
+not a threat; the realistic acquisition paths are the ones that already apply to
+the live path: a photograph of a printed QR sticker, or a forwarded binder-share
+email.
 
-**Asserts:** every literal path passed to `navigate(...)` or a `<Link to=...>` resolves to something that actually renders that destination — either a real route in `App.tsx`, or, for portal-internal paths, a segment the target portal parses.
+Comparison with the recorded incident, honestly:
 
-**Counts as valid:** routes declared in `App.tsx`; the path segments `DispatchPortal` parses; `VIEW_TO_ROUTE` in `operatorRoutes.ts`; and `?view=` query forms for Management, which parses the query and not the path.
+| | `get_pei_requests_needing_action` | `get_inspection_doc_by_token` |
+| --- | --- | --- |
+| authorization | **none** — any anon caller got applicant names and prior-employer emails | requires a valid, non-revoked, non-expired token |
+| rate limit | none | 60 served opens/token/hour, fails closed |
+| audit | none | every attempt logged with salted IP hash + UA |
+| data reachable without a secret | **all of it** | none |
 
-**Seeds:** none expected — no current nav target is knowingly broken-but-acceptable.
+**Materially better protected — not the same.** The token is unguessable and
+revocable; it is **not** single-use, and expiry is optional by design.
 
-**Expected failures after seeding: 1** — `FleetRoster.tsx:617` navigating to `/management/drivers`, a path Management never parses.
+The genuine finding is narrower: **PUBLIC still holds EXECUTE on this one
+function** where its own migration revoked PUBLIC on every sibling. On this
+project that is a grant-hygiene defect, not a data leak, because `anon` is granted
+anyway. It matters because a hardening pass that revokes `anon` across the board
+would leave this door open through PUBLIC.
 
----
+## 5. Recommendation — **drop it**, not allowlist, not merely revoke
 
-## Demonstrating each guard fails
+1. `DROP FUNCTION public.get_inspection_doc_by_token(uuid);`
+2. Remove its entry from `src/test/helpers/legacyPublicOnlyPins.ts` and the two
+   `definer-live-catalog.test.ts` registrations, and regenerate types.
+3. The function-reachability guard then drops from 14 findings to 13 — green by
+   deletion, which is the sanctioned route.
 
-Assertion is not evidence. For each guard, in order: run it and capture the verbatim red output with its real findings; then prove it detects a *regression* rather than only a backlog, by removing a known-good caller, re-running, confirming the newly flagged item, and restoring the caller byte-identically before moving on.
+Defence, and what breaks. **Nothing in this repository calls it** (section 2, ten
+search categories, all empty). The one population the comment was written for —
+stale browser bundles still holding the March client — is 6 weeks past the
+one-release window the author gave it, and those bundles fetch a QR-sticker
+document that a reload resolves through `resolve_share_token` anyway. A client
+running code that old is already broken against the rest of the schema.
 
-- Guard 1: temporarily remove the `supabase.rpc('preview_fuel_import')` call site, confirm `preview_fuel_import` joins the offender list, restore.
-- Guard 2: temporarily delete the Staff `Driver App Preview` nav entry, confirm `operator-preview` is flagged, restore. This is the exact defect that shipped three times.
-- Guard 3: temporarily change a working `navigate('/dispatch/loads')` to `/dispatch/load`, confirm it is flagged, restore.
+Weaker fallbacks, if dropping now feels premature: `REVOKE EXECUTE ... FROM
+PUBLIC` alone closes the actual defect and leaves the dead delegator in place —
+but then it must go into the allowlist with a dated `AWAITING` reason and a stated
+drop date, and a dead function carrying an allowlist entry is exactly the state
+that let the incident sit for four months. I do not recommend it.
 
-`git diff` is shown clean after each restore.
+**Not recommended in any form:** allowlisting it as-is. It is not unclassifiable
+any more — it is confirmed uncalled and confirmed superseded.
 
-## What is out of scope, and why — recorded, not merely omitted
+### Also surfaced, out of scope here
 
-Section 2 (columns nothing writes) and section 4 (table read/write balance) get **no guard**, and the reason is written into `docs/tms-build-status.md` alongside the pass, because a future reader will ask why columns were left out:
-
-> A name match cannot distinguish a read from a write. `rg 'issued_on'` returns the same hit whether the line stores the value or displays it, so a column guard would flag live columns as dead and dead columns as live. A guard that cries wolf gets switched off — the 2026-09-04 census failure. Columns and table read/write balance stay a periodic sweep; the sweep's findings are recorded as debt.
-
-No production code is changed by this pass. The three guards are added to the vitest `include` glob and to the `test:guards` subset (taking it from nine files to twelve — the recorded subset size is updated in `src/test/README.md`), and the pass is recorded in `docs/tms-build-status.md` with the exact seed counts and remaining failure counts.
-
-## Report on completion
-
-Per guard: what it asserts, what it counts as called, how many entries it allowlists, how many real failures remain, one verbatim failure message in full, and the verbatim before/after of the removal-and-restore demonstration. Plus the four-unclassifiable finding as recorded.
+`get_share_bundle_meta` is called by `BinderShareBundlePage.tsx` **[repo]** — if it
+sits on the unclassified list, that settles it. The other three unclassifiable
+functions were not investigated in this pass.
