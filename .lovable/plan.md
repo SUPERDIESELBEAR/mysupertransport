@@ -1,47 +1,30 @@
-# Driver-side fuel parity: can it be demonstrated today?
+# How to open Ali Mohamed's driver view on your phone
 
-Read-only investigation. Nothing was changed. Every claim below is from current source (file paths given) unless marked as a live query.
+Read-only. Nothing was changed. Everything below is from the current source, plus live checks where noted.
 
-## 1. Does such a feature exist?
+## Why you can't find it
 
-Yes — **two different things**, and only one of them is a real driver session.
+It is **not in the Management/Owner portal at all**. The Operator Preview screen is only built into the **Staff portal** (`StaffPortal`); the management portal has no such menu item — verified by searching it. Since you are signed in with Owner as your active role, your dashboard renders the management portal, so the item is simply not on your menu.
 
-**A. Operator Preview (in-app, on the owner's screen)**
-- `src/components/operator/OperatorPreviewPicker.tsx`, reached from the staff portal (`src/pages/staff/StaffPortal.tsx`).
-- Pick a driver, and `OperatorPortal` is rendered with a `previewUserId` prop (`src/pages/operator/OperatorPortal.tsx:104`). Read-only, labelled "Change Operator".
+You do have access: the `/staff` area admits anyone with management (which includes owner), and you also hold the Onboarding Staff role outright (live check on your account: owner, management, onboarding_staff, dispatcher, operator).
 
-**B. Mobile Preview (QR handoff — a genuine driver sign-in)**
-- Phone icon on each card in the same picker, management/owner only, opens `src/components/staff/MobilePreviewQRModal.tsx`.
-- `supabase/functions/create-preview-session` checks the caller is management/owner, checks the target holds the `operator` role and is not an owner, revokes older unused codes, stores a SHA-256 hash of a 32-byte code with a 3-minute expiry, and audits `preview_session_created`.
-- Scanning opens `/preview-login` (`src/App.tsx:187` → `src/pages/PreviewLogin.tsx`), which calls `redeem-preview-session`. That function burns the code single-use, then mints a magic-link `token_hash` for the driver's own email and the browser calls `verifyOtp`. Redemption is audited too.
+## The directions, in order
 
-## 2. How each one works — what identity the database sees
+1. Switch your active role to **Onboarding Staff** using the role switcher, or type `/staff` at the end of the app address. Either lands you in the Staff portal.
+2. In the left menu, look under the **Tools** heading — below Messages, Resource Center, FAQ Manager and Equipment. The item is called **Operator Preview**, with an eye icon. (This is the heading mismatch: "previewing a driver" is filed under Tools, after a run of unrelated admin items.)
+3. The page header reads **Operator Preview**, with the line "Select an operator to see their portal exactly as they see it — read-only. Use the phone icon to open a live session on your own device."
+4. In the search box ("Search by name or unit number…") type **Ali**. Note there are two Mohameds on the list; the other is Salman Mohamed, who is inactive.
+5. On Ali's card, the **phone icon sits at the far right**, separated from the rest of the card. It is a small unlabelled icon-only button, always visible — no hover needed. Hovering shows the tooltip "Open on my phone as this driver". The other icon on the card, an eye at the right edge of the name block, is part of the card's main clickable area and opens the read-only in-app preview instead — the two are close together, which is the second reason this is easy to miss.
+6. Clicking the phone icon opens a dialog titled **Open on my phone**, with the line "Scan this code to sign in on your phone as Ali Mohamed. Actions you take are real."
 
-**A. In-app Operator Preview — proves nothing about isolation.**
-`auth.uid()` stays the **owner's**. The preview works by passing a driver's user id down as a prop and reading through the owner's own management-privileged access. Worse for this specific question: `MyFuel` (`src/components/operator/MyFuel/index.tsx`) takes **no** user id at all — it calls `fetchMyFuel()` → `my_fuel_transactions()`, which resolves the operator from `auth.uid()`. Rendered inside the preview, that call runs as the owner, so it returns the owner's rows (the owner is not an operator, so: nothing). This screen can answer "does the layout look right", and not even that for My Fuel. It cannot answer "is a driver's session correctly scoped".
+## Will Ali appear?
 
-**B. QR Mobile Preview — this is a real, correctly scoped driver session.**
-After `verifyOtp`, the browser holds the driver's own access token. `auth.uid()` **is the driver's**. Same RPCs, same RLS, same `my_fuel_transactions()` — no management path anywhere in it. The only marker is a local UI flag (`src/lib/previewSession.ts`) for the banner and 60-minute auto sign-out; it grants nothing. Actions taken are real, as the modal itself warns.
+Yes. The picker applies **no filter at all** — it lists every operator, newest first, and only the search box narrows it. Live check: Ali Mohamed's operator row is active, not a demo account, and holds the `operator` role, which is the one condition the code-issuing function requires. His unit shows as 260 (read from his onboarding record, since the operator record's unit is blank).
 
-So the demonstration the known-debt entry asks for is already possible today — it just has never been run.
+## The alternative to scanning
 
-## 3. What would actually prove it
+Inside the same dialog, below the QR image, there are two buttons: **Copy link** and **New code**. Copy link puts the sign-in URL on your clipboard and confirms with "Preview link copied". Paste it into a private/incognito window — do not use your normal window, or you will be signed out of your own account in it.
 
-Lightest, by a distance: **run the QR preview against Ali Mohamed and compare.** No build, no new account, no credentials. Open the picker, tap the phone icon on Ali, scan (or copy the link into a private browser window — same flow), open My Fuel, and check the figures against the management screen: 3 purchases, $1,960.56 not yet deducted, $0.00 deducted, Unit 260. Then repeat on a second driver to show he sees only his own rows.
+The code is valid for **3 minutes** (a live countdown shows under the QR, e.g. "Expires in 2:41 · single use") and can be used **once**. If it lapses, press New code. Issuing a new code silently cancels any earlier unused one for that driver.
 
-Alternatives, weaker or heavier:
-- **A permanent test operator with a known password** — `provision-demo-driver` already creates real operator accounts flagged `is_demo`, but with a random password nobody keeps. A password reset on a demo account would give a reusable login. Heavier than the QR, useful only if this check becomes routine.
-- **An automated browser test authenticating as an operator** — the strongest, because it re-runs on every change and would catch a regression. Real work, and the sandbox has no driver password to start from; the sensible sequencing is to prove it by hand first, then decide.
-- **psql-based checks** — cannot help. They cannot produce an `auth.uid()`, which is the whole question.
-
-## 4. The credentials question
-
-Drivers normally get access by invite: `invite-operator` creates the auth user and sends a set-password link, and `resend-invite` issues a recovery link that functions as "set password". `LoginPage` offers a self-service password reset. All of those go to the **driver's own inbox** — an owner cannot use them without either taking over the driver's mailbox or forcing a password change the driver would then be locked out by. Neither is legitimate.
-
-The QR preview exists precisely to avoid that: it mints a fresh single-use session server-side, for a management/owner caller only, without touching the driver's password, expiring in 3 minutes and audited on both creation and redemption. It is the legitimate route to a working driver session for testing.
-
-One caution worth stating: it is a **real** session, so anything tapped in it is a real action by that driver. For a read-only screen like My Fuel that is fine. Doing it on a demo driver instead of Ali would be safer still, but a demo driver has no fuel rows, so it would not settle the parity question.
-
-## Contradictions with the record
-
-None found. The known-debt entry's own trigger names "preview-as-operator" as an acceptable proof — the QR handoff is that, and it works; the in-app preview, which is what the name most naturally suggests, is not.
+Once redeemed, that browser is genuinely signed in as Ali — so open **My Fuel** and read; don't tap anything that changes data. The session marks itself and signs out after 60 minutes.
