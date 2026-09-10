@@ -139,8 +139,11 @@ FROM f
 ORDER BY 1;
 `;
 
+let catalogCache: FnRow[] | null = null;
+
 function loadCatalog(): FnRow[] {
-  return psql(CATALOG_SQL).map((line) => {
+  if (catalogCache) return catalogCache;
+  catalogCache = psql(CATALOG_SQL).map((line) => {
     const [signature, name, t, pol, def, fn, view] = line.split("|");
     return {
       signature,
