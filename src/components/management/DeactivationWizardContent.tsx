@@ -331,9 +331,10 @@ export function DeactivationWizardContent({
         .maybeSingle();
       // Work already done outside this run counts as done. The notice really
       // went to the consultant, so the step must not ask for it a second time.
+      // Read on open, so screen-only — the run that sent the notice recorded it.
       if ((opRes.data as any)?.safety_advisor_notified_at) {
         setSafetySent(true);
-        updateStepStatus('safety_advisor', 'completed');
+        updateStepStatus('safety_advisor', 'completed', undefined, { auto: true });
       }
       setOperatorUserId((opRes.data as any)?.user_id ?? null);
       setDispatchSignals({
