@@ -14,6 +14,8 @@ import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCar
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
 import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
 import LoadChargesCard from '@/components/dispatch/loadDetail/LoadChargesCard';
+import LateAccessorialsCard from '@/components/dispatch/loadDetail/LateAccessorialsCard';
+import { isMoneyFixed } from '@/lib/loadCharges';
 import { FlagsBlock, LoadoutBlock, ReeferBlock } from '@/components/dispatch/loadDetail/ConditionalBlocks';
 import StopsTimeline from '@/components/dispatch/loadDetail/StopsTimeline';
 import DeliveryInstantCard from '@/components/dispatch/loadDetail/DeliveryInstantCard';
@@ -202,6 +204,15 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
           onChanged={() => { void refetch(); }}
         />
 
+      </SectionErrorBoundary>
+      {/* The adjustment path the charge card points at once money is fixed. */}
+      <SectionErrorBoundary name="Late accessorials">
+        <LateAccessorialsCard
+          loadId={load.id}
+          moneyFixed={isMoneyFixed(load.status)}
+          isDispatcher={!!isDispatcher}
+          isManagement={!!isManagement}
+        />
       </SectionErrorBoundary>
       <SectionErrorBoundary name="Reefer requirements">
         <ReeferBlock load={load} />

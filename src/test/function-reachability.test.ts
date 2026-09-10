@@ -313,9 +313,11 @@ describe("function reachability — nothing privileged goes uncalled", () => {
       offenders.map((o) => o.signature),
       `${offenders.length} client-executable function(s) have no caller anywhere.\n` +
         `EXPECTED RED: this guard shipped on 2026-09-10 with 14 known findings ` +
-        `already in it; 11 remain (14 -> 13 get_inspection_doc_by_token dropped, ` +
+        `already in it; 6 remain (14 -> 13 get_inspection_doc_by_token dropped, ` +
         `13 -> 12 search scope widened to every schema, 12 -> 11 ` +
-        `can_driver_message_staff dropped). A FINDING IS A CANDIDATE, NOT A ` +
+        `can_driver_message_staff dropped, 11 -> 6 the five accessorial ` +
+        `adjustment writers got a screen in Module 5 Pass 5 — predicted 6 ` +
+        `before the run, got 6). A FINDING IS A CANDIDATE, NOT A ` +
         `VERDICT: one of the 14 turned out to be called by a storage.objects ` +
         `policy this guard could not see. Investigate before you act, and do ` +
         `not make this pass by allowlisting.\n${detail}`,

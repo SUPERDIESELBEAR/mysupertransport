@@ -141,6 +141,12 @@ export async function loadSettlementSettings(sb: Client): Promise<SettlementSett
     rm_deposit_target: num(data.rm_deposit_target),
     rm_weekly_deduction: num(data.rm_weekly_deduction),
     work_week_start_dow: num(data.work_week_start_dow),
+    // Nullable by design: unset means dispatchers approve nothing. The
+    // settlement run only carries it; approval is enforced in the database.
+    dispatcher_accessorial_approval_limit:
+      data.dispatcher_accessorial_approval_limit === null
+      || data.dispatcher_accessorial_approval_limit === undefined
+        ? null : num(data.dispatcher_accessorial_approval_limit),
   };
 }
 

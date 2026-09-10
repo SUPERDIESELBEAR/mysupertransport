@@ -16,6 +16,14 @@ export interface SettlementSettings {
   rm_weekly_deduction: number;
   /** Postgres dow numbering. 3 = Wednesday. */
   work_week_start_dow: number;
+  /**
+   * Dollar ceiling under which a dispatcher may approve a late accessorial.
+   * NULL means dispatchers approve nothing — the rule that applied before the
+   * setting existed. Displayed here; ENFORCED inside
+   * approve_accessorial_adjustment, which reads it itself and never accepts it
+   * as an argument.
+   */
+  dispatcher_accessorial_approval_limit: number | null;
 }
 
 /** Shipping defaults, matching the database column defaults exactly. */
@@ -26,6 +34,7 @@ export const SETTLEMENT_SETTINGS_DEFAULTS: SettlementSettings = {
   rm_deposit_target: 2000,
   rm_weekly_deduction: 200,
   work_week_start_dow: 3,
+  dispatcher_accessorial_approval_limit: null,
 };
 
 export const SETTLEMENT_SETTING_KEYS = [
@@ -35,6 +44,7 @@ export const SETTLEMENT_SETTING_KEYS = [
   'rm_deposit_target',
   'rm_weekly_deduction',
   'work_week_start_dow',
+  'dispatcher_accessorial_approval_limit',
 ] as const;
 
 export type SettlementSettingKey = (typeof SETTLEMENT_SETTING_KEYS)[number];
@@ -46,6 +56,7 @@ export const SETTLEMENT_SETTING_LABELS: Record<SettlementSettingKey, string> = {
   rm_deposit_target: 'Repair & Maintenance Deposit target',
   rm_weekly_deduction: 'Repair & Maintenance weekly deduction',
   work_week_start_dow: 'Work week starts',
+  dispatcher_accessorial_approval_limit: 'Dispatcher approval limit — late accessorials',
 };
 
 export const SETTLEMENT_SETTING_HELP: Record<SettlementSettingKey, string> = {
@@ -59,6 +70,8 @@ export const SETTLEMENT_SETTING_HELP: Record<SettlementSettingKey, string> = {
     'The Repair & Maintenance Deposit stops building at this balance and resumes after a withdrawal.',
   rm_weekly_deduction: 'Taken each week until the deposit reaches its target.',
   work_week_start_dow: 'The work week runs from this day 00:00 through the following week, ending 23:59.',
+  dispatcher_accessorial_approval_limit:
+    'A dispatcher may approve a late accessorial below this amount. At or above it, management or the owner must. Leave it empty and dispatchers approve nothing.',
 };
 
 export const DOW_NAMES = [

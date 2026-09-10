@@ -35,7 +35,8 @@ type PathParsing = readonly string[] | "none" | "operator-routes";
 
 const PORTAL_PATH_SEGMENTS: Record<string, PathParsing> = {
   // DispatchPortal.tsx reads location.pathname for exactly these sections.
-  dispatch: ["board", "loads", "facilities", "brokers", "parser-diagnostics", "rate-con-inbox"],
+  dispatch: ["board", "loads", "facilities", "brokers", "parser-diagnostics", "rate-con-inbox",
+             "late-accessorials"],
   // ManagementPortal.tsx reads ONLY searchParams `view`. No path segment is parsed.
   management: "none",
   // StaffPortal.tsx has no location.pathname read at all.

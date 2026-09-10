@@ -55,7 +55,26 @@ const T = 'accessorial_adjustments';
 
 /** prosrc as written, with alignment padding collapsed. */
 const bodyCache = new Map<string, string>();
+/**
+ * One round trip for every body this file reads. Each body cost roughly a
+ * second through the pooler, so tests that read five or six of them were
+ * timing out on connection latency rather than on anything they asserted.
+ */
+function prefetchBodies(): void {
+  if (!HAS_DB || bodyCache.size > 0) return;
+  const rows = psql(`SELECT proname || E'\t' || replace(replace(prosrc, E'\n', ' '), E'\t', ' ')
+    FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND (proname LIKE '%accessorial%' OR proname LIKE '%settlement_writer_active%'
+           OR proname LIKE '%invoice_writer_active%' OR proname = 'enforce_invoice_immutability')`);
+  for (const row of rows) {
+    const tab = row.indexOf('\t');
+    if (tab < 0) continue;
+    bodyCache.set(row.slice(0, tab), row.slice(tab + 1).replace(/\s+/g, ' '));
+  }
+}
+
 function bodyOf(name: string): string {
+  prefetchBodies();
   const hit = bodyCache.get(name);
   if (hit !== undefined) return hit;
   const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
@@ -128,6 +147,9 @@ describe('accessorial_adjustments — the shape', () => {
       'invoice_id:uuid:YES',
       'load_id:uuid:NO',
       'proof_document_id:uuid:YES',
+      // Pass 5: stamped at submission from the charge type, so what counted as
+      // proof at the time is recorded rather than re-derived later.
+      'proof_kind:text:YES',
       'reason:text:NO',
       'reference:text:NO',
       'sequence:integer:NO',
@@ -169,11 +191,15 @@ describe('accessorial_adjustments — the shape', () => {
   });
 
   itLive('admits exactly the six statuses and the three billing states', () => {
+    // Both definitions read ONCE: re-reading per value cost nine round trips
+    // and pushed the test past its timeout without asserting anything more.
+    const statusDef = constraintDef('accessorial_adjustments_status_check');
+    const billingDef = constraintDef('accessorial_adjustments_billing_state_check');
     for (const s of ['draft', 'pending_approval', 'approved', 'settled', 'rejected', 'void']) {
-      expect(constraintDef('accessorial_adjustments_status_check')).toContain(`'${s}'`);
+      expect(statusDef).toContain(`'${s}'`);
     }
     for (const b of ['not_required', 'pending_supplemental', 'billed']) {
-      expect(constraintDef('accessorial_adjustments_billing_state_check')).toContain(`'${b}'`);
+      expect(billingDef).toContain(`'${b}'`);
     }
   });
 
@@ -616,14 +642,36 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     expect(args).not.toContain('billing');
   });
 
-  itLive('only management or owner may approve, reject or void', () => {
-    for (const fn of ['approve_accessorial_adjustment', 'reject_accessorial_adjustment',
-                      'void_accessorial_adjustment']) {
+  itLive('only management or owner may reject or void', () => {
+    for (const fn of ['reject_accessorial_adjustment', 'void_accessorial_adjustment']) {
       const src = bodyOf(fn);
       expect(src, fn).toContain("public.has_role(v_uid, 'management'::app_role)");
       expect(src, fn).toContain("public.has_role(v_uid, 'owner'::app_role)");
       expect(src, fn).not.toContain("'dispatcher'::app_role");
     }
+  });
+
+  /**
+   * PASS 5 CHANGED THIS. Approval used to be management or owner only. A
+   * dispatcher may now approve, but ONLY below a limit the function reads out
+   * of settlement_settings itself — never a limit the caller supplies. With no
+   * limit set, a dispatcher approves nothing, which is the rule that applied
+   * before the setting existed.
+   */
+  itLive('a dispatcher may approve only below a limit the function reads itself', () => {
+    const src = bodyOf('approve_accessorial_adjustment');
+    expect(src).toContain("public.has_role(v_uid, 'management'::app_role)");
+    expect(src).toContain("public.has_role(v_uid, 'owner'::app_role)");
+    expect(src).toContain("public.has_role(v_uid, 'dispatcher'::app_role)");
+    expect(src).toContain('SELECT dispatcher_accessorial_approval_limit');
+    expect(src).toContain('FROM public.settlement_settings');
+    expect(src).toContain('IF v_limit IS NULL THEN');
+    expect(src).toContain('IF v_amount >= v_limit THEN');
+    // The limit can only come from the settings row.
+    const args = psql(`SELECT pg_get_function_identity_arguments(oid) FROM pg_proc
+      WHERE pronamespace='public'::regnamespace AND proname='approve_accessorial_adjustment'`)
+      .join(' ');
+    expect(args).toBe('p_id uuid, p_reason text');
   });
 
   itLive('dispatcher, management and owner may create and submit — the entry three', () => {
@@ -694,11 +742,15 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
   });
 
   itLive('every writer pins search_path and is SECURITY DEFINER', () => {
-    for (const fn of [...WRITERS, 'enforce_accessorial_adjustment_transition']) {
-      const [def] = psql(`SELECT prosecdef::text || '|' || coalesce(array_to_string(proconfig, ' '), '')
-        FROM pg_proc WHERE pronamespace='public'::regnamespace AND proname='${fn}'`);
-      expect(def, fn).toContain('true|');
-      expect(def, fn).toContain('search_path=public, extensions');
+    // One round trip, for the same reason the bodies are prefetched.
+    const names = [...WRITERS, 'enforce_accessorial_adjustment_transition'];
+    const rows = psql(`SELECT proname || '=' || prosecdef::text || '|' || coalesce(array_to_string(proconfig, ' '), '')
+      FROM pg_proc WHERE pronamespace='public'::regnamespace
+        AND proname IN (${names.map(n => `'${n}'`).join(',')})`);
+    expect(rows).toHaveLength(names.length);
+    for (const row of rows) {
+      expect(row).toContain('=true|');
+      expect(row).toContain('search_path=public, extensions');
     }
   });
 
