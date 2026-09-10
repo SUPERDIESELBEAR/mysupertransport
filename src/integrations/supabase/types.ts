@@ -11787,6 +11787,66 @@ export type Database = {
           },
         ]
       }
+      truck_plate_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          changed_by_name: string | null
+          created_at: string
+          id: string
+          operator_id: string
+          plate_number: string
+          plate_state: string | null
+          reason: string
+          replaced_by_plate: string | null
+          replaced_by_state: string | null
+          unit_number: string | null
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          operator_id: string
+          plate_number: string
+          plate_state?: string | null
+          reason: string
+          replaced_by_plate?: string | null
+          replaced_by_state?: string | null
+          unit_number?: string | null
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          changed_by_name?: string | null
+          created_at?: string
+          id?: string
+          operator_id?: string
+          plate_number?: string
+          plate_state?: string | null
+          reason?: string
+          replaced_by_plate?: string | null
+          replaced_by_state?: string | null
+          unit_number?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "truck_plate_history_changed_by_fkey"
+            columns: ["changed_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "truck_plate_history_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       truck_state_permits: {
         Row: {
           created_at: string
@@ -13006,6 +13066,15 @@ export type Database = {
           name: string
           outcome: string
         }[]
+      }
+      resolve_shared_truck_plate: {
+        Args: {
+          _new_plate: string
+          _new_state: string
+          _operator_id: string
+          _reason: string
+        }
+        Returns: Json
       }
       resolve_short_link: { Args: { _code: string }; Returns: string }
       restore_applicant_pei: {
