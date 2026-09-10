@@ -8,6 +8,32 @@ Non-negotiable across all three, per your four conditions:
 2. **Called means called from anywhere** — trigger, RLS policy, column default, view, cron, another function body, an edge function, or `src/`. Each guard reports *how* a thing is called, so a legitimate trigger function is never flagged.
 3. **The allowlist is seeded only from LEGITIMATE and AWAITING A MODULE.** Everything the sweep called ORPHANED or UNREACHABLE BUT WANTED stays out and stays failing. These guards are expected to be RED on first run.
 4. **Ceiling rule.** Each guard has a `_MAX` that may fall freely and rise only for a new entry carrying its justification, asserted the same way `LEGACY_MAX` is today.
+5. **The failure message is the product.** These guards stay red for weeks while the backlog is worked. A message that only says "unreachable" teaches people to skim. Every failure names three things, written for someone who did not build the guard: what was searched, which categories came back empty, and what would make it pass — a caller, a revoke, or an allowlist entry with a reason. Shape:
+
+```text
+public.assign_user_role(uuid, app_role) is EXECUTABLE by `authenticated`
+but nothing calls it.
+
+Searched and found nothing:
+  in-database  triggers (0)  RLS policies (0)  column defaults (0)
+               other function bodies (0)  views (0)  cron jobs (0)
+  repository   supabase.rpc('assign_user_role') under src/ (0)
+               and supabase/functions/ (0)
+               [tests and src/integrations/supabase/types.ts do not count]
+
+To make this pass, do ONE of:
+  1. Call it. Add the screen or edge function that uses it.
+  2. Revoke it. If nothing should call it, REVOKE EXECUTE in a migration —
+     an uncalled privileged function is the shape that leaked applicant
+     data for four months.
+  3. Allowlist it, with a reason. Add to KNOWN_NO_CALLER_ENTRIES in
+     src/test/function-reachability.test.ts as
+     { id: '...', reason: 'awaiting Module N — <what will call it>' }
+     and raise KNOWN_NO_CALLER_MAX by exactly one. A bare name is
+     rejected; the reason is what a future reader will need.
+```
+
+Guards 2 and 3 use the same three-part shape, naming the portal files and nav arrays searched, and offering render-branch / nav-entry / allowlist as the three exits.
 
 ---
 
