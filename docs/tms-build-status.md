@@ -9781,3 +9781,67 @@ crop handles, rotate, undo and Save. The former error does not appear.
   but attribution and atomicity would be stronger as an RPC.
 - A failed insert after a successful storage upload leaves an orphaned object. DEBT: no
   storage cleanup on the failure path.
+
+---
+
+## Module 5 — Pass 6: the late-accessorial ROW, from a rendered screen (2026-09-10)
+
+Six findings, all from looking at ST-TEST-005 on screen. None came from a test.
+
+### CONTRADICTION FOUND — grandfathered rows: ONE, not two
+The owner expected two approved-without-proof rows. Live count over the WHOLE table:
+
+```
+ST-TEST-005-A1|approved|no proof   <- grandfathered
+ST-TEST-005-A2|draft   |no proof   <- a draft, not grandfathered
+```
+
+Exactly one grandfathered row exists anywhere. A2 is a draft that has simply never been
+sent. Reported rather than reconciled. No adjustment DATA was changed in this pass.
+
+### 1. Display, not data
+`proofState(row)` returns `attached | required | grandfathered`. A row past submit with no
+proof reads "Approved before backup documentation was required, and no document is on file."
+It is never told what it needs before it can be sent — it cannot be sent, it is past that
+point. A future reader can tell a grandfathered row from a broken rule.
+
+### 2. Attaching from inside the dialog — DONE
+`ProofPicker` uploads through the ORDINARY load-document path (`uploadLoadDocument`,
+`load-documents` bucket) and then points the adjustment at the row that path created. No
+second document store. On an existing draft the pointer is set by a new protected writer,
+`attach_accessorial_adjustment_proof(uuid,uuid)` — DRAFT ONLY (evidence behind an approval
+decision is frozen once the row leaves draft), same-load validated, audited, and it accepts
+a document id, never a file. Needed because `accessorial_adjustments` has no client UPDATE
+policy and `submit_accessorial_adjustment` takes only `(p_id, p_reason)`.
+
+### 3. No action offered that cannot succeed
+`submitBlockedReason()` disables Send-for-approval ON THE ROW with the reason beside it.
+
+### 4. An approved row now says where its money is
+Settlement period and status when settled, "Not on a settlement yet" when not, plus
+`billing_state`. The fields already existed; the row now reads them.
+
+### 5. Actors
+Who recorded it, and who approved it, resolved from `profiles` in one batched read.
+
+### 6. Placeholder cut mid-word — SECOND TEXT-OVERFLOW FINDING FOUND BY EYE
+The Description placeholder was truncated mid-word at the input width. A placeholder cannot
+be scrolled, so an example meant to teach the format was demonstrating a broken sentence.
+The example moved to helper text below the field, where it wraps. A test now caps every
+placeholder in these three dialogs at 34 characters.
+
+RECORDED: this is the SECOND time text overflowing its container was found by looking at a
+rendered screen rather than by a test — the fuel PDF was the first. Rendered-width failures
+are invisible to the suites in this repo.
+
+### Suites run by name
+- `src/test/accessorial-approval-rules.test.ts` — 16 passed (9 new)
+- `src/test/accessorial-adjustment-schema.test.ts` — 56 passed; the writer allowlist now
+  admits the attach writer, annotated as NOT a state change
+- `src/test/definer-live-catalog.test.ts` — 13 passed, after repinning the new function to
+  `public, extensions`; authenticated ceiling 126 -> 127
+- `tsgo` — clean
+
+### Known state
+- Linter total 167, up one authenticated SECURITY DEFINER entry: the new attach writer.
+- Proof-kind mapping remains PROPOSED BY THE BUILD, still awaiting owner confirmation.
