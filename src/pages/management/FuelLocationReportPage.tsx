@@ -43,7 +43,43 @@ async function fetchFuelTransactions(): Promise<FuelLocationTransaction[]> {
 
 const cpg = (n: number | null) => (n === null ? '—' : `$${n.toFixed(3)}`);
 
+/** Cycles a column header and keeps nulls last, via the shared list helpers. */
+function SortHead({
+  column, label, sort, onSort, className,
+}: {
+  column: string; label: string; sort: SortState | null;
+  onSort: (c: string) => void; className?: string;
+}) {
+  const active = sort?.column === column;
+  const Icon = !active ? ChevronsUpDown : sort?.direction === 'asc' ? ArrowUp : ArrowDown;
+  return (
+    <th className={`font-medium px-3 py-2 ${className ?? 'text-left'}`}>
+      <button
+        type="button"
+        onClick={() => onSort(column)}
+        aria-label={`Sort by ${label}`}
+        className={`inline-flex items-center gap-1 ${active ? 'text-foreground' : 'text-muted-foreground'}`}
+      >
+        <span>{label}</span>
+        <Icon className={`h-3 w-3 shrink-0 ${active ? '' : 'opacity-40'}`} />
+      </button>
+    </th>
+  );
+}
+
+/**
+ * One grouping, sorted over ALL of its rows — there is no pagination here, so
+ * a sort can never mean "sorted within the page you can see".
+ */
 function GroupTable({ groups, showSublabel }: { groups: FuelLocationGroup[]; showSublabel?: boolean }) {
+  const [sort, setSort] = useState<SortState | null>(null);
+  const onSort = (c: string) => setSort((s) => nextSortState(s, c));
+  const rows = useMemo(() => {
+    if (!sort) return groups; // page default: gallons descending, as grouped.
+    return [...groups].sort((a, b) =>
+      compareValues(locationSortValue(a, sort.column), locationSortValue(b, sort.column), sort.direction));
+  }, [groups, sort]);
+
   if (groups.length === 0) {
     return <p className="text-sm text-muted-foreground py-6">No purchases in this date range.</p>;
   }
@@ -52,11 +88,11 @@ function GroupTable({ groups, showSublabel }: { groups: FuelLocationGroup[]; sho
       <table className="w-full text-sm">
         <thead className="bg-muted/50 text-xs uppercase text-muted-foreground">
           <tr>
-            <th className="text-left font-medium px-3 py-2">Location</th>
-            <th className="text-right font-medium px-3 py-2">Purchases</th>
-            <th className="text-right font-medium px-3 py-2">Gallons</th>
-            <th className="text-right font-medium px-3 py-2">Fuel spend</th>
-            <th className="text-right font-medium px-3 py-2">Avg cost / gal</th>
+            <SortHead column="location" label="Location" sort={sort} onSort={onSort} />
+            <SortHead column="purchases" label="Purchases" sort={sort} onSort={onSort} className="text-right" />
+            <SortHead column="gallons" label="Gallons" sort={sort} onSort={onSort} className="text-right" />
+            <SortHead column="fuelSpend" label="Fuel spend" sort={sort} onSort={onSort} className="text-right" />
+            <SortHead column="costPerGallon" label="Avg cost / gal" sort={sort} onSort={onSort} className="text-right" />
           </tr>
         </thead>
         <tbody>
