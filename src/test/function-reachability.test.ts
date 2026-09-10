@@ -110,6 +110,20 @@ interface FnRow {
  * A guard that flagged those would be flagging legitimate code, and would be
  * switched off within a week.
  *
+ * SEARCH SCOPE IS PART OF THE ANSWER (widened 2026-09-10)
+ * -------------------------------------------------------
+ * The policy, function-body and view searches used to be filtered to
+ * `schemaname = 'public'`. `is_valid_application_draft_token` is called by two
+ * RLS policies on **storage.objects** — a different schema — so the guard
+ * reported it uncalled and its finding recommended dropping the function that
+ * gates applicant document and signature uploads. A guard that searches too
+ * narrowly does not miss answers; it produces CONFIDENT WRONG ones. Only the
+ * fact that the finding was investigated rather than acted on caught it.
+ *
+ * All three in-database name searches are now ACROSS EVERY SCHEMA. The scope is
+ * restated in every failure message, so a future narrowing is visible in the
+ * output instead of hidden in this query.
+ *
  * Word-boundary name matching (`\m name \M`) against trigger bindings, policy
  * expressions, column defaults, other function bodies and view definitions.
  */
@@ -126,15 +140,15 @@ WITH f AS (
 )
 SELECT f.sig, f.proname,
   (SELECT count(*) FROM pg_trigger t WHERE t.tgfoid = f.oid AND NOT t.tgisinternal),
-  (SELECT count(*) FROM pg_policies pl WHERE pl.schemaname = 'public'
-     AND (coalesce(pl.qual, '') || coalesce(pl.with_check, '')) ~ ('\\m' || f.proname || '\\M')),
+  (SELECT count(*) FROM pg_policies pl
+     WHERE (coalesce(pl.qual, '') || coalesce(pl.with_check, '')) ~ ('\\m' || f.proname || '\\M')),
   (SELECT count(*) FROM pg_attrdef ad
      WHERE pg_get_expr(ad.adbin, ad.adrelid) ~ ('\\m' || f.proname || '\\M')),
-  (SELECT count(*) FROM pg_proc p2 JOIN pg_namespace n2 ON n2.oid = p2.pronamespace
-     WHERE n2.nspname = 'public' AND p2.oid <> f.oid
+  (SELECT count(*) FROM pg_proc p2
+     WHERE p2.oid <> f.oid
        AND p2.prosrc ~ ('\\m' || f.proname || '\\M')),
-  (SELECT count(*) FROM pg_views v WHERE v.schemaname = 'public'
-     AND v.definition ~ ('\\m' || f.proname || '\\M'))
+  (SELECT count(*) FROM pg_views v
+     WHERE v.definition ~ ('\\m' || f.proname || '\\M'))
 FROM f
 ORDER BY 1;
 `;
