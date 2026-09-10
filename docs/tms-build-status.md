@@ -9284,3 +9284,99 @@ Suites run by name: `definer-search-path`, `definer-live-catalog`, and the full
 `npm run test:guards` set — 9 files, 87 tests, all passing — plus `tsgo`.
 
 CONTRADICTIONS: none found.
+
+## Reachability guards — THREE GUARDS THAT SHIP RED, ON PURPOSE (2026-09-11)
+
+**READ THIS FIRST. These guards are EXPECTED TO FAIL. There are 16 findings.**
+
+| Guard | Findings | Expected |
+|---|---|---|
+| `src/test/function-reachability.test.ts` | 14 | 14 |
+| `src/test/view-reachability.test.ts` | 1 | 1 |
+| `src/test/nav-target.test.ts` | 1 | 1 |
+
+Sixteen red assertions is a lot to inherit, and the first instinct on finding
+them will be to make them pass. **Green is reached by adding a caller, revoking
+EXECUTE, wiring the page, or fixing the destination — NEVER by allowlisting a
+finding.** Every one of the 16 is a real gap. Allowlisting one deletes the
+finding and leaves the gap.
+
+Why each is out of the allowlist: the allowlists cover only things that are
+legitimately uncalled *from source* — a drill-down view, an emailed deep link, a
+default-else render branch. None of the 16 is any of those. They are: five
+accessorial state-machine writers with no screen (`create_`, `submit_`,
+`approve_`, `reject_`, `void_accessorial_adjustment`), role management with no
+screen (`assign_user_role`, `remove_user_role`), `get_pei_requests_needing_action`,
+`get_user_roles` (its only mention in the tree is a backtick comment in
+`supabase/functions/_shared/email/auth.ts`, and a comment is not a caller),
+`compliance_status`, the four unclassifiable functions below, one unreachable
+Management view, and one broken destination.
+
+`grant_parity_report` and `eld_cron_status` are NOT among the 16: both are
+service-role-only, and this guard's scope is functions a signed-in client may
+EXECUTE.
+
+### THE FAILURE MESSAGES ARE THE PRODUCT
+
+These will be read for weeks before they go green, by people who did not build
+them. Each failure therefore names three things: **what was searched** (triggers,
+RLS policies, column defaults, other function bodies, views, cron, quoted
+literals in non-test source — with cron reported as UNREADABLE, not zero, when
+the harness lacks `cron` schema USAGE), **which categories came back empty**, and
+**what would make it pass**: add a caller, revoke EXECUTE / drop the function, or
+add an allowlist entry *with a written reason*. Allowlist reasons must start
+`AWAITING`/`INTERNAL` (functions), `DRILLDOWN`/`DEEPLINK`/`FALLBACK` (views); the
+tests reject a bare name.
+
+### FOUR FUNCTIONS COULD NOT BE ESTABLISHED AS CALLED OR UNCALLED
+
+These are findings in their own right. They stay OUT of the allowlist and stay
+failing. What would settle each:
+
+1. `get_inspection_doc_by_token(uuid)` — HIGHEST PRIORITY. Anon/token-gated
+   shape. Settle by reading `/inspect/:token` and `/inspect/all/:token` and the
+   edge functions that serve share bundles: if one of them fetches the document
+   another way, this is dead surface that still answers to a token.
+2. `is_valid_application_draft_token(text)` — settle by comparing it against
+   `get_application_by_draft_token`, which the resume flow does call. If the
+   resume path validates by fetching, this one is a superseded twin.
+3. `can_driver_message_staff(uuid,uuid)` — settle by reading the message and
+   thread RLS policy expressions in full. A policy may call it by a form the
+   catalog scan does not attribute.
+4. `get_application_pei_summary(uuid)` — settle by reading the PEI screens for
+   an inline query that replaced it.
+
+### DELIBERATELY NOT GUARDED, AND WHY
+
+The sweep also found unwritten business columns and read/write asymmetry between
+tables. **Neither is guarded, on purpose: a name match cannot distinguish a read
+from a write.** `.from('invoices')` appears identically whether the code selects
+or inserts, and a column name in source may be a form field, a type key, or a
+display label. A guard built on that would produce confident wrong answers, which
+is worse than no guard. Those two sections stay periodic manual sweeps.
+
+### VERIFICATION — actual against expected
+
+- Function guard: **14 findings, expected 14.** Exact list recorded above.
+- View guard: **first run returned 2, expected 1** — reported rather than
+  quietly absorbed. The second was `dispatch::dispatch`, a false positive: it
+  renders as the final `: board` else-branch of the `activePage` ternary
+  (`DispatchPortal.tsx:2593`) and has a nav item (`path: 'dispatch'`, Driver
+  Status), so no `activePage === 'dispatch'` comparison exists to find. Verified
+  by reading the source, then recorded as the `FALLBACK` allowlist entry that
+  prefix was added for. Baseline is now **1, as expected**.
+- Nav guard: **first run returned 0, expected 1** — also reported. Cause: the
+  catch-all `<Route path="*">` was being counted as a match, so every broken
+  destination "resolved" — to the 404 page. Excluded it. Baseline is now **1, as
+  expected**. A guard that comes back green on its first run is a guard that is
+  not searching what it claims to.
+- Regression demonstrations, each restored byte-identically (`git status`
+  clean): removing the `preview_fuel_import` literal from its three callers took
+  the function guard 14 → 15; renaming the Management `Driver App Preview` nav
+  path took the view guard 1 → 2 with `NO WAY IN`; pointing FleetRoster at
+  `/dispatch/nowhere` produced a finding naming the six segments dispatch parses,
+  and pointing it at the correct `/dispatch/loads` took the nav guard to 0 —
+  proving the expected finding is detected, not hardcoded.
+- `bun run test:guards` is now a **twelve-file** subset; `src/test/README.md`
+  leads with the expected-red table so a red run is not misread as a regression.
+- `tsgo --noEmit -p tsconfig.app.json` clean.
