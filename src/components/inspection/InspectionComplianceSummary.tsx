@@ -4,6 +4,8 @@ import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
 import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload, History, Eye } from 'lucide-react';
 import { FilePreviewModal, bucketForBinderDoc } from './DocRow';
+import { resolveBinderStorage } from '@/lib/binderStorage';
+
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -1034,9 +1036,12 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         setPreview({ url: path, name });
         return;
       }
+      const ref = resolveBinderStorage(null, path);
+      if (!ref) throw new Error('Could not open the document');
       const { data, error } = await supabase.storage
-        .from(bucketForBinderDoc(path))
-        .createSignedUrl(path, 60 * 60);
+        .from(ref.bucket)
+        .createSignedUrl(ref.path, 60 * 60);
+
       if (error || !data?.signedUrl) throw error ?? new Error('Could not open the document');
       setPreview({ url: data.signedUrl, name });
     } catch (e: any) {

@@ -34,6 +34,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, parseLocalDate, filterOptionalDocs, isBinderUploadCategory, binderDocNameForCategory } from './InspectionBinderTypes';
 import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { signBinderFileUrl } from './BinderDocHistoryDialog';
 import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import type { Database } from '@/integrations/supabase/types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -347,30 +348,37 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const DocRow = ({ docName, hasExpiry }: { docName: string; hasExpiry: boolean }) => {
     const doc = perDriverDocs.find(d => d.name === docName);
     const key = `per_driver-${docName}`;
+    // A file exists when either a saved link or a file location is stored;
+    // Vehicle Hub DOT uploads store the location only. Sign on demand.
+    const hasFile = !!(doc?.file_url || doc?.file_path);
+    const openPreview = async () => {
+      const url = await signBinderFileUrl({ file_url: doc?.file_url ?? null, file_path: doc?.file_path ?? null });
+      if (url) { setPreviewUrl(url); setPreviewName(docName); setPreviewFilePath(doc?.file_path ?? null); setPreviewBucket(bucketForBinderDoc(doc?.file_path ?? null)); }
+    };
     return (
       <div className="bg-card border border-border rounded-xl p-4 space-y-3">
         <div className="flex items-start gap-3">
-          <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${doc?.file_url ? 'bg-gold/10' : 'bg-secondary'}`}>
-            <FileText className={`h-4 w-4 ${doc?.file_url ? 'text-gold-muted' : 'text-muted-foreground'}`} />
+          <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${hasFile ? 'bg-gold/10' : 'bg-secondary'}`}>
+            <FileText className={`h-4 w-4 ${hasFile ? 'text-gold-muted' : 'text-muted-foreground'}`} />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-medium text-foreground">{docName}</span>
-                {!doc?.file_url && <Badge variant="secondary" className="text-[10px]">No file</Badge>}
-                {doc?.file_url && hasExpiry && (
+                {!hasFile && <Badge variant="secondary" className="text-[10px]">No file</Badge>}
+                {hasFile && hasExpiry && (
                   isInspectionDateDoc(docName)
-                    ? <InspectedBadge inspectionDate={doc.expires_at} />
-                    : <ExpiryBadge expiresAt={doc.expires_at} />
+                    ? <InspectedBadge inspectionDate={doc?.expires_at ?? null} />
+                    : <ExpiryBadge expiresAt={doc?.expires_at ?? null} />
                 )}
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
-                {doc?.file_url && (
+                {hasFile && (
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); setPreviewBucket(bucketForBinderDoc(doc.file_path)); }}
+                    onClick={openPreview}
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
@@ -392,11 +400,11 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                         <Button
                           size="sm"
                           className="h-8 gap-1.5 text-xs opacity-40 pointer-events-none"
-                          variant={doc?.file_url ? 'outline' : 'default'}
+                          variant={hasFile ? 'outline' : 'default'}
                           disabled
                         >
                           <Upload className="h-3 w-3" />
-                          {doc?.file_url ? 'Replace' : 'Upload'}
+                          {hasFile ? 'Replace' : 'Upload'}
                         </Button>
                       </span>
                     </TooltipTrigger>
@@ -407,13 +415,13 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                 ) : (
                   <Button
                     size="sm"
-                    className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                    variant={doc?.file_url ? 'outline' : 'default'}
+                    className={`h-8 gap-1.5 text-xs ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                    variant={hasFile ? 'outline' : 'default'}
                     disabled={uploading === docName}
                     onClick={() => fileRefs.current[key]?.click()}
                   >
                     {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                    {doc?.file_url ? 'Replace' : 'Upload'}
+                    {hasFile ? 'Replace' : 'Upload'}
                   </Button>
                 )}
               </div>

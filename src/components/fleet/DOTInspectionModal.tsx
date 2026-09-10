@@ -107,6 +107,7 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
     try {
       let certFilePath: string | null = null;
       let certFileName: string | null = null;
+      let certFileUrl: string | null = null;
 
       if (certFile) {
         const validation = validateFile(certFile);
@@ -122,6 +123,12 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
           .upload(certFilePath, certFile, { upsert: true });
         if (uploadErr) throw uploadErr;
         certFileName = certFile.name;
+        // Persist a view link alongside the location so the binder row synced
+        // from this record has a link (the binder gates display on file_url).
+        const { data: urlData } = await supabase.storage
+          .from('fleet-documents')
+          .createSignedUrl(certFilePath, 60 * 60 * 24 * 365 * 5);
+        certFileUrl = urlData?.signedUrl ?? null;
       }
 
       if (isEdit && existingInspection) {
@@ -137,6 +144,7 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
         if (certFile) {
           updates.certificate_file_path = certFilePath;
           updates.certificate_file_name = certFileName;
+          updates.certificate_file_url = certFileUrl;
         }
         const { error } = await supabase
           .from('truck_dot_inspections')
@@ -154,6 +162,7 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
           result,
           certificate_file_path: certFilePath,
           certificate_file_name: certFileName,
+          certificate_file_url: certFileUrl,
           notes: notes.trim() || null,
           created_by: user?.id ?? null,
         });

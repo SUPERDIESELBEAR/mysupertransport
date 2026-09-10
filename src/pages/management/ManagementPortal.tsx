@@ -51,10 +51,11 @@ import {
   Search, RefreshCcw, Eye, ScrollText, TriangleAlert, Settings2, SlidersHorizontal, BellRing, Library, Shield, Users2, AlertCircle, FileX,
   Building2, MailPlus, Send, Trash2, RotateCcw, Phone, Mail, Loader2, FileText,
   MessageSquare, ShieldCheck, XCircle, BellOff, HardDrive, GraduationCap, FlaskConical, Car, LayoutTemplate, Megaphone, Container, Pen, FileSignature, Smartphone, Briefcase, Lock, LifeBuoy, Handshake, Inbox, LayoutGrid,
-  Fuel, Wallet, FileWarning,
+  Fuel, Wallet, FileWarning, Copy,
 } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
+import DuplicatePlatesPanel from '@/components/management/DuplicatePlatesPanel';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
 import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPanel';
 import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
@@ -114,7 +115,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -187,7 +188,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','duplicate-plates','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1043,7 +1044,7 @@ export default function ManagementPortal() {
       items: [
         { label: 'Applications',              icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
         { label: 'Onboarding Pipeline',       icon: <Users className="h-4 w-4" />,         path: 'pipeline', badge: criticalExpiryCount || undefined },
-        { label: 'Previous Employer Checks',  icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
+        { label: 'PEI',                       icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
       ],
     },
     {
@@ -1087,6 +1088,7 @@ export default function ManagementPortal() {
       label: 'Equipment',
       items: [
         { label: 'Vehicle Hub',            icon: <Truck className="h-4 w-4" />,     path: 'vehicle-hub' },
+        { label: 'Duplicate Plates',       icon: <Copy className="h-4 w-4" />,      path: 'duplicate-plates' },
         { label: 'Onboard Systems',        icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
         { label: 'License Plate Registry', icon: <Car className="h-4 w-4" />,       path: 'mo-plates' },
       ],
@@ -2314,6 +2316,10 @@ export default function ManagementPortal() {
         )}
         {view === 'vehicle-detail' && selectedOperatorId && (
           <FleetDetailDrawer operatorId={selectedOperatorId} onBack={() => setView('vehicle-hub' as ManagementView)} />
+        )}
+
+        {view === 'duplicate-plates' && (
+          <DuplicatePlatesPanel />
         )}
 
         {view === 'mo-plates' && (

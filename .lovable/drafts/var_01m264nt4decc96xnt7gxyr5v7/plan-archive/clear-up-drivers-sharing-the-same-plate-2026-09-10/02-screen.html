@@ -1,0 +1,47 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans)">
+  <style>
+    .lbl { font-size: 14px; font-weight: 480; fill: hsl(var(--foreground)); }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .mono { font-size: 12px; font-family: var(--font-mono); fill: hsl(var(--foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .rail { stroke: hsl(var(--border)); stroke-width: 1; }
+    .q { fill: hsl(var(--muted)); }
+  </style>
+
+  <text x="0" y="14" class="lbl">Duplicate Plates</text>
+  <text x="0" y="32" class="sm">17 plates on more than one driver</text>
+
+  <!-- group card 1 -->
+  <rect x="0" y="46" width="640" height="112" rx="8" class="bx"/>
+  <text x="16" y="70" class="mono">05KT2W (MO)</text>
+  <rect x="120" y="57" width="118" height="18" rx="9" fill="hsl(var(--accent))"/>
+  <text x="132" y="70" style="font-size:12px" fill="hsl(var(--accent-foreground))">needs a decision</text>
+
+  <line x1="16" y1="82" x2="624" y2="82" class="rail"/>
+
+  <text x="16" y="102" class="lbl">Matthew Clovis</text>
+  <text x="16" y="120" class="sm">Unit 193 · active · keeps this plate</text>
+
+  <text x="330" y="102" class="lbl">Edward Williams</text>
+  <text x="330" y="120" class="sm">Unit 197 · deactivated</text>
+
+  <rect x="330" y="128" width="126" height="22" rx="8" class="bx"/>
+  <text x="342" y="143" style="font-size:12px" fill="hsl(var(--foreground))">Clear the plate</text>
+  <rect x="464" y="128" width="160" height="22" rx="8" class="bx"/>
+  <text x="476" y="143" style="font-size:12px" fill="hsl(var(--foreground))">Enter the right plate</text>
+
+  <!-- group card 2 -->
+  <rect x="0" y="170" width="640" height="60" rx="8" class="bx"/>
+  <text x="16" y="194" class="mono">72KU6D (MO)</text>
+  <rect x="120" y="181" width="112" height="18" rx="9" class="q"/>
+  <text x="132" y="194" class="sm">both active</text>
+  <text x="16" y="216" class="sm">Jonathan Grant · Unit 268 &#160;&#160;|&#160;&#160; Steven Moore · Unit 268</text>
+
+  <!-- ledger -->
+  <circle cx="10" cy="256" r="9" fill="hsl(var(--accent))"/>
+  <text x="10" y="260" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">1</text>
+  <text x="28" y="260" class="sm">Every change asks for a short reason and is saved to the plate's history.</text>
+  <circle cx="10" cy="282" r="9" fill="hsl(var(--accent))"/>
+  <text x="10" y="286" text-anchor="middle" style="font-size:12px" fill="hsl(var(--accent-foreground))">2</text>
+  <text x="28" y="286" class="sm">Nothing is changed automatically — you decide each plate, one at a time.</text>
+</svg>

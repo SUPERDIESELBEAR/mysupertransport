@@ -40,6 +40,9 @@ import {
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
+import { hashFile, findDuplicateByHash, replaceBinderDocumentFile, describeDuplicate, StaleBinderDocumentError, type DuplicateMatch } from '@/lib/binderUpload';
+
+import { signBinderFileUrl } from './BinderDocHistoryDialog';
 import DriverCombobox from './DriverCombobox';
 
 /** Returns true if a reminder was sent within the last 24 hours */
@@ -153,6 +156,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   const visibleCompanyOrder = filterOptionalDocs(companyOrder, enabledOptional);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState<string | null>(null);
+  const [pendingUpload, setPendingUpload] = useState<{
+    docName: string;
+    scope: 'company_wide' | 'per_driver';
+    file: File;
+    existingId?: string;
+    match: DuplicateMatch;
+  } | null>(null);
+
   const [deleteTarget, setDeleteTarget] = useState<InspectionDocument | null>(null);
   const [activeTab, setActiveTab] = useState<'company' | 'driver' | 'uploads' | 'staging'>(
     urlTab && ['company', 'driver', 'uploads', 'staging'].includes(urlTab) ? urlTab : 'company'
@@ -396,7 +407,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     })();
   }, [selectedDriverId]);
 
-  const handleUpload = async (docName: string, scope: 'company_wide' | 'per_driver', file: File, existingId?: string) => {
+  const handleUpload = async (
+    docName: string,
+    scope: 'company_wide' | 'per_driver',
+    file: File,
+    existingId?: string,
+    opts?: { skipDuplicateCheck?: boolean },
+  ) => {
     if (!user) return;
     if (guardDemo()) return;
     const driverId = scope === 'per_driver' ? selectedDriverId : null;
@@ -406,6 +423,17 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
     }
     setUploading(docName);
     try {
+      // Layer 1 — recognise the file by its contents, before anything is stored
+      const contentHash = await hashFile(file);
+      if (!opts?.skipDuplicateCheck) {
+        const match = await findDuplicateByHash({ contentHash, scope, driverId, name: docName });
+        if (match) {
+          setPendingUpload({ docName, scope, file, existingId, match });
+          setUploading(null);
+          return;
+        }
+      }
+
       const ext = file.name.split('.').pop();
       const folder = scope === 'company_wide' ? 'company' : `driver/${driverId}`;
       const path = `${folder}/${docName.replace(/\s+/g, '-').toLowerCase()}/${Date.now()}.${ext}`;
@@ -416,28 +444,41 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const fileUrl = urlData?.signedUrl ?? null;
 
       if (existingId) {
-        await supabase.from('inspection_documents').update({ file_url: fileUrl, file_path: path, uploaded_at: new Date().toISOString(), uploaded_by: user.id }).eq('id', existingId);
-      } else {
-        await supabase.from('inspection_documents').insert({
-          name: docName, scope, driver_id: driverId, file_url: fileUrl, file_path: path, uploaded_by: user.id,
+        // Layer 3 — refuse if the slot changed while this screen was open.
+        // Layer 2 — the replacement archives the outgoing file into History.
+        const loaded = [...companyDocs, ...perDriverDocs].find(d => d.id === existingId) ?? null;
+        await replaceBinderDocumentFile({
+          documentId: existingId,
+          expectedUploadedAt: loaded?.uploaded_at ?? null,
+          fileUrl,
+          filePath: path,
+          contentHash,
+          userId: user.id,
         });
+      } else {
+        const { error: insertErr } = await supabase.from('inspection_documents').insert({
+          name: docName, scope, driver_id: driverId, file_url: fileUrl, file_path: path, uploaded_by: user.id, content_hash: contentHash,
+        } as any);
+        if (insertErr) throw new Error(insertErr.message);
       }
 
       toast({ title: 'Uploaded!', description: `${docName} has been uploaded.` });
       fetchDocs();
     } catch (err: any) {
       toast({
-        title: 'Upload failed',
+        title: err instanceof StaleBinderDocumentError ? 'Someone else changed this' : 'Upload failed',
         description:
           (err && typeof err.message === 'string' && err.message)
             ? err.message
             : "We couldn't upload that document. Please check your connection and try again.",
         variant: 'destructive',
       });
+      if (err instanceof StaleBinderDocumentError) fetchDocs();
     } finally {
       setUploading(null);
     }
   };
+
 
   const handleDelete = async (doc: InspectionDocument) => {
     if (guardDemo()) return;
@@ -734,7 +775,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
   const missingOrExpiredDriverDocs = PER_DRIVER_DOCS.filter(({ key, hasExpiry }) => {
     const doc = perDriverDocs.find(d => d.name === key);
-    if (!doc?.file_url) return true;
+    if (!(doc?.file_url || doc?.file_path)) return true;
     if (hasExpiry && doc.expires_at) {
       const days = Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000);
       if (days < 0) return true;
@@ -787,7 +828,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             : `Action required: ${docsToRemind.length} binder documents`,
           body: isSingle
             ? `Your ${docsToRemind[0]} in the Inspection Binder is ${
-                perDriverDocs.find(d => d.name === docsToRemind[0])?.file_url ? 'expired or needs renewal' : 'missing'
+                (() => { const d = perDriverDocs.find(x => x.name === docsToRemind[0]); return (d?.file_url || d?.file_path) ? 'expired or needs renewal' : 'missing'; })()
               }. Please upload an updated copy.`
             : `The following documents in your Inspection Binder need attention: ${docList}. Please upload updated copies.`,
           type: 'document_update',
@@ -888,9 +929,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       : perDriverDocs.find(d => d.name === docName);
     const rowKey = `${scope}-${docName}`;
 
+    // A document exists when either a saved link or a file location is stored.
+    // Vehicle Hub DOT uploads save the location only, so a file_url-only check
+    // wrongly shows "No file". Sign a fresh link from the location on demand.
+    // (No hooks here — this row is defined inline and remounts on each render.)
+    const hasFile = !!(doc?.file_url || doc?.file_path);
+    const openPreview = async () => {
+      const url = await signBinderFileUrl({ file_url: doc?.file_url ?? null, file_path: doc?.file_path ?? null });
+      if (url) { setPreviewUrl(url); setPreviewName(docName); setPreviewFilePath(doc?.file_path ?? null); }
+    };
+
     // Badge: per-driver docs whose file was copied from a company doc are managed at the company level
-    const isSharedFromCompany = scope === 'per_driver' && doc?.file_url
-      && companyDocs.some(c => c.name === docName && c.file_url);
+    const isSharedFromCompany = scope === 'per_driver' && hasFile
+      && companyDocs.some(c => c.name === docName && (c.file_url || c.file_path));
     const isShareOpen = shareToDriverOpen === (doc?.id ?? `new-${docName}`);
     const isSelected = doc?.id ? bulkSelected.has(doc.id) : false;
     const [linkCopied, setLinkCopied] = useState(false);
@@ -908,7 +959,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       <div className={`bg-card border rounded-xl p-4 space-y-3 transition-colors ${isSelected ? 'border-info/60 bg-info/5' : 'border-border'}`}>
         <div className="flex items-start gap-3">
           {/* Bulk-select checkbox — only for company docs that have a file */}
-          {scope === 'company_wide' && doc?.id && doc?.file_url && (
+          {scope === 'company_wide' && doc?.id && hasFile && (
             <Checkbox
               checked={isSelected}
               onCheckedChange={(checked) => {
@@ -922,26 +973,26 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
             />
           )}
           {/* Spacer to keep alignment for rows without checkbox */}
-          {scope === 'company_wide' && doc?.id && !doc?.file_url && (
+          {scope === 'company_wide' && doc?.id && !hasFile && (
             <div className="w-4 shrink-0 mt-1" />
           )}
-          <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${doc?.file_url ? 'bg-gold/10' : 'bg-secondary'}`}>
-            <FileText className={`h-4 w-4 ${doc?.file_url ? 'text-gold-muted' : 'text-muted-foreground'}`} />
+          <div className={`h-9 w-9 rounded-lg shrink-0 flex items-center justify-center ${hasFile ? 'bg-gold/10' : 'bg-secondary'}`}>
+            <FileText className={`h-4 w-4 ${hasFile ? 'text-gold-muted' : 'text-muted-foreground'}`} />
           </div>
           <div className="flex-1 min-w-0">
             {/* Title row */}
             <div className="flex items-start justify-between gap-2">
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="text-sm font-medium text-foreground">{docName}</span>
-                {!doc?.file_url && (
+                {!hasFile && (
                   <Badge variant="secondary" className="text-[10px]">No file</Badge>
                 )}
-                {doc?.file_url && hasExpiry && (
+                {hasFile && hasExpiry && (
                   isInspectionDateDoc(docName)
-                    ? <InspectedBadge inspectionDate={doc.expires_at} />
-                    : <ExpiryBadge expiresAt={doc.expires_at} />
+                    ? <InspectedBadge inspectionDate={doc?.expires_at ?? null} />
+                    : <ExpiryBadge expiresAt={doc?.expires_at ?? null} />
                 )}
-                {doc?.file_url && !hasExpiry && <OnFileBadge />}
+                {hasFile && !hasExpiry && <OnFileBadge />}
                 {doc?.shared_with_fleet && (
                   <span className="inline-flex items-center gap-1 text-[10px] bg-info/10 text-info border border-info/30 rounded-full px-2 py-0.5 font-semibold">
                     <Users className="h-3 w-3" />Fleet
@@ -1001,18 +1052,18 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     )}
                   </Tooltip>
                 )}
-                {doc?.file_url && (
+                {hasFile && (
                   <Button
                     size="sm"
                     variant="ghost"
                     className="h-8 w-8 p-0"
-                    onClick={() => { setPreviewUrl(doc.file_url!); setPreviewName(docName); setPreviewFilePath(doc.file_path ?? null); }}
+                    onClick={openPreview}
                     title="Preview"
                   >
                     <Eye className="h-3.5 w-3.5" />
                   </Button>
                 )}
-                {doc?.file_url && doc?.public_share_token && (
+                {hasFile && doc?.public_share_token && (
                   <Tooltip delayDuration={150}>
                     <TooltipTrigger asChild>
                       <Button
@@ -1060,11 +1111,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         <Button
                           size="sm"
                           className="h-8 gap-1.5 text-xs opacity-40 pointer-events-none"
-                          variant={doc?.file_url ? 'outline' : 'default'}
+                          variant={hasFile ? 'outline' : 'default'}
                           disabled
                         >
                           <Upload className="h-3 w-3" />
-                          {doc?.file_url ? 'Replace' : 'Upload'}
+                          {hasFile ? 'Replace' : 'Upload'}
                         </Button>
                       </span>
                     </TooltipTrigger>
@@ -1079,11 +1130,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                         <Button
                           size="sm"
                           className="h-8 gap-1.5 text-xs opacity-40 pointer-events-none"
-                          variant={doc?.file_url ? 'outline' : 'default'}
+                          variant={hasFile ? 'outline' : 'default'}
                           disabled
                         >
                           <Upload className="h-3 w-3" />
-                          {doc?.file_url ? 'Replace' : 'Upload'}
+                          {hasFile ? 'Replace' : 'Upload'}
                         </Button>
                       </span>
                     </TooltipTrigger>
@@ -1094,20 +1145,20 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 ) : (
                   <Button
                     size="sm"
-                    className={`h-8 gap-1.5 text-xs ${!doc?.file_url ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
-                    variant={doc?.file_url ? 'outline' : 'default'}
+                    className={`h-8 gap-1.5 text-xs ${!hasFile ? 'bg-gold text-surface-dark hover:bg-gold-light' : ''}`}
+                    variant={hasFile ? 'outline' : 'default'}
                     disabled={uploading === docName}
                     onClick={() => fileRefs.current[rowKey]?.click()}
                   >
                     {uploading === docName ? <Loader2 className="h-3 w-3 animate-spin" /> : <Upload className="h-3 w-3" />}
-                    {doc?.file_url ? 'Replace' : 'Upload'}
+                    {hasFile ? 'Replace' : 'Upload'}
                   </Button>
                 )}
               </div>
             </div>
 
             {/* Fleet share toggle — company-wide docs with a file only */}
-            {scope === 'company_wide' && doc?.file_url && (
+            {scope === 'company_wide' && hasFile && doc && (
               <>
                 <div className="flex items-center justify-between pt-2 border-t border-border/50 mt-2">
                   <div className="flex items-center gap-1.5">
@@ -1243,7 +1294,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   // Count per-driver docs that were shared from company docs for the selected driver
   const companyDocNames = new Set(COMPANY_WIDE_DOCS.map(d => d.key));
   const sharedFromCompanyDocs = selectedDriverId
-    ? perDriverDocs.filter(d => companyDocNames.has(d.name as any) && d.file_url)
+    ? perDriverDocs.filter(d => companyDocNames.has(d.name as any) && (d.file_url || d.file_path))
     : [];
   const sharedFromCompanyCount = sharedFromCompanyDocs.length;
 
@@ -1644,7 +1695,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                             const spec = PER_DRIVER_DOCS.find(d => d.key === key);
                             if (!spec) return null;
                             const doc = perDriverDocs.find(d => d.name === key);
-                            const isMissing = !doc?.file_url;
+                            const isMissing = !(doc?.file_url || doc?.file_path);
                             const isExpired = spec.hasExpiry && doc?.expires_at
                               ? Math.ceil((parseLocalDate(doc.expires_at).getTime() - Date.now()) / 86400000) < 0
                               : false;
@@ -2163,7 +2214,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 {/* Single-doc detail */}
                 {reminderDialogDoc && reminderDialogDoc !== 'all' && (() => {
                   const singleDoc = perDriverDocs.find(pd => pd.name === reminderDialogDoc);
-                  const isMissing = !singleDoc?.file_url;
+                  const isMissing = !(singleDoc?.file_url || singleDoc?.file_path);
                   const expiresAt = singleDoc?.expires_at ?? null;
                   const daysLeft = expiresAt
                     ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
@@ -2201,7 +2252,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   <div className="rounded-lg border border-border bg-muted/40 divide-y divide-border overflow-hidden">
                     {missingOrExpiredDriverDocs.map(d => {
                       const doc = perDriverDocs.find(pd => pd.name === d.key);
-                      const isMissing = !doc?.file_url;
+                      const isMissing = !(doc?.file_url || doc?.file_path);
                       const expiresAt = doc?.expires_at ?? null;
                       const daysLeft = expiresAt
                         ? Math.ceil((parseLocalDate(expiresAt).getTime() - Date.now()) / 86400000)
@@ -2388,6 +2439,31 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={!!pendingUpload} onOpenChange={(o) => { if (!o) setPendingUpload(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>This file is already on file</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingUpload ? describeDuplicate(pendingUpload.match) : ''}
+              {' '}The file name does not matter — the contents are identical.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setPendingUpload(null)}>Keep the one on file</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                const p = pendingUpload;
+                setPendingUpload(null);
+                if (p) handleUpload(p.docName, p.scope, p.file, p.existingId, { skipDuplicateCheck: true });
+              }}
+            >
+              Upload anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+
       {previewUrl && (
         <FilePreviewModal
           url={previewUrl}
@@ -2418,11 +2494,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               title: key,
               subtitle: 'Driver Document',
               fileUrl: doc?.file_url ?? null,
-              fileName: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? doc?.file_path ?? null,
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
               filePath: doc?.file_path ?? null,
-              bucket: 'inspection-documents',
+              bucket: bucketForBinderDoc(doc?.file_path ?? null),
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],
@@ -2435,11 +2511,11 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
               title: key,
               subtitle: 'Company Document',
               fileUrl: doc?.file_url ?? null,
-              fileName: doc?.file_url ?? null,
+              fileName: doc?.file_url ?? doc?.file_path ?? null,
               shareToken: doc?.public_share_token ?? null,
               expiresAt: doc?.expires_at ?? null,
               filePath: doc?.file_path ?? null,
-              bucket: 'inspection-documents',
+              bucket: bucketForBinderDoc(doc?.file_path ?? null),
               kind: 'doc' as const,
             };
           }).filter(Boolean) as FlipbookPage[],

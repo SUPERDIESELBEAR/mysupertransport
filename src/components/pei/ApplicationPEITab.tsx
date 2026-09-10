@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2, Sparkles, Printer } from 'lucide-react';
+import { Loader2, RefreshCw, Send, FileWarning, Eye, Copy, ShieldCheck, Plus, Pencil, X, Check, Trash2, Sparkles, Printer, Pause, Play } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -27,6 +27,8 @@ import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
 import { PEIResponseViewer } from './PEIResponseViewer';
 import { AddPreviousEmployerModal } from './AddPreviousEmployerModal';
+import { useAuth } from '@/hooks/useAuth';
+import { DEFAULT_PEI_CADENCE, nextCadenceEvent, type PEICadenceSettings } from '@/lib/pei/peiCadence';
 
 interface Props {
   applicationId: string;
@@ -56,6 +58,34 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [candidatesWebsite, setCandidatesWebsite] = useState<string | undefined>(undefined);
   const [addOpen, setAddOpen] = useState(false);
   const [printingAll, setPrintingAll] = useState(false);
+  const { isManagement } = useAuth();
+  const [cadence, setCadence] = useState<PEICadenceSettings>(DEFAULT_PEI_CADENCE);
+  const [pausingId, setPausingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await (supabase as any)
+        .from('pei_cadence_settings')
+        .select('auto_follow_ups_enabled, follow_up_interval_days, gfe_after_days')
+        .maybeSingle();
+      if (!cancelled && data) setCadence(data as PEICadenceSettings);
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  async function togglePause(r: PEIRequest, paused: boolean) {
+    setPausingId(r.id);
+    const { error } = await (supabase as any).rpc('set_pei_request_auto_pause', {
+      p_request_id: r.id,
+      p_paused: paused,
+      p_note: paused ? 'Paused from the PEI panel' : 'Resumed from the PEI panel',
+    });
+    setPausingId(null);
+    if (error) { toast.error(error.message); return; }
+    toast.success(paused ? 'Automatic follow-ups paused' : 'Automatic follow-ups resumed');
+    reload();
+  }
 
   async function handlePrintAll() {
     setPrintingAll(true);
@@ -338,17 +368,20 @@ export function ApplicationPEITab({ applicationId }: Props) {
                         if (r.auto_paused_reason) {
                           return (
                             <span className="text-[10px] uppercase tracking-wide text-amber-700 bg-amber-100 dark:bg-amber-950/40 dark:text-amber-300 px-1.5 py-0.5 rounded" title="Automatic follow-ups paused">
-                              Auto-paused: {r.auto_paused_reason}
+                              {r.auto_paused_reason === 'staff_paused'
+                                ? 'Paused by staff'
+                                : `Auto-paused: ${r.auto_paused_reason}`}
                             </span>
                           );
                         }
                         if (!r.date_sent) return null;
                         const sent = new Date(r.date_sent).getTime();
                         const days = Math.floor((Date.now() - sent) / 86_400_000);
-                        const milestones = [5, 10, 15, 20, 25, 30];
-                        const next = milestones.find((m) => m > days);
+                        const next = nextCadenceEvent(days, cadence);
                         if (!next) return null;
-                        const label = next === 30 ? `Auto-GFE in ${next - days}d` : `Auto follow-up in ${next - days}d`;
+                        const label = next.kind === 'gfe'
+                          ? `Auto-GFE in ${next.day - days}d`
+                          : `Auto follow-up in ${next.day - days}d`;
                         return (
                           <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded" title="Scheduled by PEI auto-cadence">
                             {label}
@@ -399,6 +432,23 @@ export function ApplicationPEITab({ applicationId }: Props) {
                     {(r.status === 'sent' || r.status === 'follow_up_sent' || r.status === 'final_notice_sent') && (
                       <Button size="sm" variant="outline" onClick={() => copyLink(r.response_token)}>
                         <Copy className="h-3 w-3 mr-1" />Link
+                      </Button>
+                    )}
+                    {isManagement && (r.status === 'sent' || r.status === 'follow_up_sent') &&
+                      (!r.auto_paused_reason || r.auto_paused_reason === 'staff_paused') && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        disabled={pausingId === r.id}
+                        onClick={() => togglePause(r, r.auto_paused_reason !== 'staff_paused')}
+                        title="Pause or resume automatic follow-ups for this employer"
+                      >
+                        {pausingId === r.id
+                          ? <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                          : r.auto_paused_reason === 'staff_paused'
+                            ? <Play className="h-3 w-3 mr-1" />
+                            : <Pause className="h-3 w-3 mr-1" />}
+                        {r.auto_paused_reason === 'staff_paused' ? 'Resume' : 'Pause'}
                       </Button>
                     )}
                     {r.status !== 'completed' && r.status !== 'gfe_documented' && (

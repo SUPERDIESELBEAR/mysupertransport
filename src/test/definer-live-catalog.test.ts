@@ -316,7 +316,6 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.get_application_correction_by_token(text)",
   "public.get_application_pei_summary(uuid)",
   "public.get_equipment_shipping_for_operator(uuid)",
-  
   "public.get_or_create_short_link(text)",
   "public.get_pei_queue()",
   "public.get_pei_request_for_response(uuid)",
@@ -356,6 +355,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
+  // PEI follow-up cadence controls (2026-09-10): the Management/Staff PEI
+  // queue and the applicant PEI tab call these as the signed-in staff user;
+  // both re-check management/owner via has_role inside the function.
+  "public.set_pei_cadence_settings(boolean,integer,integer,text)",
+  "public.set_pei_request_auto_pause(uuid,boolean,text)",
   "public.revoke_share_token(uuid)",
   "public.save_application_draft(uuid,jsonb)",
   "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer,uuid,uuid)",
@@ -487,6 +491,20 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // rate, no pay policy. Every call is audited with the previous and new
   // value. authenticated only; PUBLIC and anon are revoked in the migration.
   "public.set_operator_fuel_discount_passthrough(uuid,boolean,text)",
+
+  // resolve_shared_truck_plate (2026-09-10), the correction for a licence plate
+  // sitting on two drivers at once. Definer because it writes
+  // onboarding_status, which operators may only touch through a narrow
+  // whitelist. Management/owner is checked IN THE BODY so definer rights buy no
+  // escalation, the actor comes from current_profile_id() rather than an
+  // argument, a reason is REQUIRED, ONE operator per call with no bulk path, it
+  // writes truck_plate and truck_plate_state and nothing else, and it refuses a
+  // replacement plate that would collide with another driver -- moving a
+  // duplicate is not resolving it. Every call writes a truck_plate_history row
+  // and an audit entry. authenticated only; PUBLIC and anon are revoked in the
+  // migration that creates it.
+  "public.resolve_shared_truck_plate(uuid,text,text,text)",
+
 
   // is_own_operator (2026-09-09), the ownership predicate behind the driver
   // half of the roadside-stop RLS. authenticated EXECUTE is REQUIRED, not
@@ -725,8 +743,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   ownership predicate used INSIDE the roadside-stop RLS policies. A policy
 //   expression evaluates as the caller, so authenticated EXECUTE is required
 //   for those policies to work at all: 124 -> 125.
-// 125 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 124.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 123;
+// + resolve_shared_truck_plate() (2026-09-10), the duplicate-plate correction:
+//   management/owner checked in the body, actor from current_profile_id(), a
+//   reason required, one operator per call, writes the two plate columns only,
+//   refuses a colliding replacement, history row + audit entry: 125 -> 126.
+// - can_driver_message_staff and get_inspection_doc_by_token were DROPPED
+//   2026-09-10: 128 - 2 = 126.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 126;
 
 
 

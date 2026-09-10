@@ -9724,3 +9724,60 @@ Suites: 107 passed across the four accessorial/settlement files. `tsgo` clean.
 - No limit is set, so today only management and the owner can approve anything.
 - Intake is still manual: a dispatcher records what a broker agreed. Nothing
   watches email or the detention claim table for it.
+
+
+## Inspection Binder — CROP FIX AND DUPLICATE PROTECTION (2026-09-11)
+
+### The reported fault
+Delease Carter's Periodic DOT Inspections opened fine in the viewer but the pencil
+(edit) gave "Could not load this document for editing." The viewer used the saved
+`file_url`; the editor guessed a bucket from `file_path`, and treated the legacy
+`fleet-documents/...` prefix as the bucket name. The real object lives in
+`inspection-documents` at
+`driver/da4baf8e-82ac-4bde-a450-ad432298b706/periodic-dot-inspections/1783980146633.jpeg`.
+87 inspection rows carry a prefixed path: 78 resolve to `inspection-documents`, 9 to
+`operator-documents`.
+
+### The fix
+`src/lib/binderStorage.ts` — one shared resolver, URL first. `resolveBinderStorage(url, path)`
+parses a saved storage URL for the authoritative bucket+path and only falls back to path
+inference, stripping legacy bucket prefixes and preserving Vehicle Hub `<uuid>/dot/...`.
+Callers moved onto it: `DocRow.tsx` (preview + editor), `BinderDocHistoryDialog.tsx`,
+`ComplianceAlertsPanel.tsx`, `InspectionComplianceSummary.tsx`.
+No data was rewritten and no row was deleted.
+
+### Duplicate protection (three layers)
+1. Contents, not file names — `hashFile()` takes a SHA-256 of the bytes before upload;
+   `findDuplicateByHash()` looks for the same contents in the same slot/driver. A match
+   raises "This file is already on file" with "Keep the one on file" / "Upload anyway".
+2. One live document per slot — staged migration adds nullable
+   `inspection_documents.content_hash`, an index on `(driver_id, name, content_hash)`, and
+   `enforce_single_live_binder_document()` (BEFORE INSERT, definer, pinned search path,
+   PUBLIC/anon/authenticated revoked) rejecting a NEW second row for the same
+   `(scope, driver_id, name)`. Replacements go through UPDATE, which archives the outgoing
+   file via the existing `archive_inspection_document_version` trigger.
+3. Stale-view check — `replaceBinderDocumentFile()` scopes the update to the `uploaded_at`
+   the client loaded and throws `StaleBinderDocumentError` when a colleague replaced the
+   file first.
+
+### Live verification
+Signed-in owner session, Staff -> Inspection Binder -> Delease Carter -> Driver Docs ->
+Periodic DOT Inspections -> pencil: the crop editor opens the actual inspection scan with
+crop handles, rotate, undo and Save. The former error does not appear.
+
+### Suites run
+`src/lib/__tests__/binderStorage.test.ts` (9 passed), `src/lib/__tests__/binderUpload.test.ts`
+(6 passed), `npm run test:guards` (9 files, 87 passed), `tsgo` clean.
+
+### Known state
+- The duplicate-protection migration is STAGED in the draft, not applied. Hash capture,
+  the one-live-slot guard and the warning cannot be exercised against live data until the
+  draft is accepted.
+- Existing duplicate rows are untouched by design: Delease Carter (Periodic DOT Inspections,
+  Lease Agreement), Justin Herr (CDL Back), Johnathan Pratt (IRP Registration),
+  Wendell James (Periodic DOT Inspections). They need a human decision, not a sweep.
+- `replaceBinderDocumentFile()` is a client-side compare-and-update, not a protected DB
+  writer. DEBT: if two staff race inside the same millisecond window the loser is refused,
+  but attribution and atomicity would be stronger as an RPC.
+- A failed insert after a successful storage upload leaves an orphaned object. DEBT: no
+  storage cleanup on the failure path.

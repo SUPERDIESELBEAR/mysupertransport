@@ -1,0 +1,51 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .bx { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; rx: 8; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; rx: 8; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="zone" x="8" y="8" width="624" height="120"/>
+  <text class="sm" x="20" y="28">checks before each automatic reminder</text>
+
+  <rect class="bx" x="24" y="44" width="130" height="52"/>
+  <text class="lbl" x="89" y="68" text-anchor="middle">Hourly run</text>
+  <text class="sm" x="89" y="86" text-anchor="middle">scheduled job</text>
+
+  <rect class="bx" x="186" y="44" width="130" height="52" fill="hsl(var(--accent))" stroke="hsl(var(--accent))"/>
+  <text class="lbl" x="251" y="68" text-anchor="middle" fill="hsl(var(--accent-foreground))">Company switch</text>
+  <text x="251" y="86" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))">on / off</text>
+
+  <rect class="bx" x="348" y="44" width="130" height="52"/>
+  <text class="lbl" x="413" y="68" text-anchor="middle">Employer paused?</text>
+  <text class="sm" x="413" y="86" text-anchor="middle">per request</text>
+
+  <rect class="bx" x="510" y="44" width="106" height="52"/>
+  <text class="lbl" x="563" y="68" text-anchor="middle">Due yet?</text>
+  <text class="sm" x="563" y="86" text-anchor="middle">every N days</text>
+
+  <path class="wire" d="M154 70 H184" marker-end="url(#a)"/>
+  <path class="wire" d="M316 70 H346" marker-end="url(#a)"/>
+  <path class="wire" d="M478 70 H508" marker-end="url(#a)"/>
+
+  <rect class="bx" x="150" y="180" width="150" height="52"/>
+  <text class="lbl" x="225" y="204" text-anchor="middle">Send reminder</text>
+  <text class="sm" x="225" y="222" text-anchor="middle">email to employer</text>
+
+  <rect class="bx" x="350" y="180" width="190" height="52"/>
+  <text class="lbl" x="445" y="204" text-anchor="middle">File Good Faith Effort</text>
+  <text class="sm" x="445" y="222" text-anchor="middle">after the deadline day</text>
+
+  <path class="wire" d="M563 96 V150 H225 V178" marker-end="url(#a)"/>
+  <path class="wire" d="M445 150 V178" marker-end="url(#a)"/>
+
+  <text class="sm" x="24" y="270">Any check failing stops the run for that employer — nothing is sent, nothing is filed.</text>
+</svg>
