@@ -482,6 +482,38 @@ two card actions were also relabelled in words — a read-only render versus a
 real signed-in session as that driver — because two small unlabelled icons sat
 side by side doing very different things.
 
+### Third instance: the same feature, unreachable a third time (2026-09-10)
+
+The 2026-09-10 fix above was reported as two placements. It was one. The
+Management edit landed as a bare import at `ManagementPortal.tsx:18`, carrying a
+comment that asserted "one Operator Preview, two placements" — with no entry in
+`ManagementView`, no entry in `ALLOWED_VIEWS`, no nav item and no render. The
+owner republished and the item was not there, because nothing called it.
+
+Three failures on one feature: built only into Staff; moved within Staff while
+the written directions still pointed at its old heading; imported into
+Management without being rendered.
+
+**AN IMPORT IS NOT A PLACEMENT.** The standing rule says a page is not complete
+until its navigation placement is written down **and implemented**. Implemented
+means *a user can reach it* — nav item, route, render, all three — not that the
+module is referenced in the file, not that the scope was agreed, not that a
+comment says it was done. A comment asserting a placement is worse than no
+placement: it reads as finished and stops anyone from checking.
+
+**And verify against the render, not the source.** Every one of these three was
+reported complete from reading code. The pass is only complete when the item has
+been seen in the sidebar and the route has been seen to resolve.
+
+Actually fixed 2026-09-10: Management → Drivers → **Driver App Preview**, icon
+`Smartphone`, directly after Driver Hub, view `operator-preview` (added to
+`ManagementView` and `ALLOWED_VIEWS`, rendered as `<OperatorPreviewPicker />`).
+Confirmed by loading `/management?view=operator-preview` in a signed-in owner
+browser session: the sidebar item renders under the DRIVERS heading in the
+highlighted/active state and the picker screen renders with its operator cards.
+
+
+
 ### Owner sees every page
 
 **The owner role sees every page.** Owner is the build and oversight role for
