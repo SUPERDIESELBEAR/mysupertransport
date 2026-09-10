@@ -133,7 +133,10 @@ const PORTALS: readonly PortalSpec[] = [
   {
     portal: "dispatch",
     unionFile: "src/pages/dispatch/DispatchPortal.tsx",
-    unionPattern: /type DispatchPage\s*=\s*([^;]+);/,
+    // Dispatch has no named union: the legal values are the inline type
+    // argument on the `activePage` useState. Its path-routed screens
+    // (/dispatch/loads and friends) are covered by the nav-target guard.
+    unionPattern: /const \[activePage, setActivePage\] = useState<([^>]+)>/,
     files: ["src/pages/dispatch/DispatchPortal.tsx"],
     stateVars: ["activePage"],
     setters: ["setActivePage"],
