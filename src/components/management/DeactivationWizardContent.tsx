@@ -431,6 +431,7 @@ export function DeactivationWizardContent({
   }, [operatorId, operatorName, updateStepStatus]);
 
   useEffect(() => {
+    persistedStatus.current = {};
     setCurrentStep('reason');
     setDeactivationDate(new Date().toISOString().slice(0, 10));
     setEffectiveTerminationDate(new Date().toISOString().slice(0, 10));
