@@ -96,7 +96,7 @@ function GroupTable({ groups, showSublabel }: { groups: FuelLocationGroup[]; sho
           </tr>
         </thead>
         <tbody>
-          {groups.map((g) => (
+          {rows.map((g) => (
             <tr key={`${g.key}-${g.sublabel ?? ''}`} className="border-t even:bg-muted/20">
               <td className="px-3 py-2">
                 <span className="font-medium">{g.key}</span>
@@ -175,7 +175,7 @@ export default function FuelLocationReportPage() {
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-sm">
-            {report.purchases} purchase{report.purchases === 1 ? '' : 's'} · {from} to {to}
+            {report.purchases} purchase{report.purchases === 1 ? '' : 's'} · {formatFuelDate(from)} to {formatFuelDate(to)}
           </CardTitle>
         </CardHeader>
         <CardContent className="flex flex-wrap gap-8 text-sm">
