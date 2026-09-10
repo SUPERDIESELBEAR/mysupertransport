@@ -1,0 +1,38 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--foreground)); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: hsl(var(--muted-foreground)); }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="8" y="40" width="150" height="56" rx="8"/>
+  <text class="lbl" x="83" y="66" text-anchor="middle">Deactivation page</text>
+  <text class="note" x="83" y="84" text-anchor="middle">Back / Back to driver</text>
+
+  <line class="wire" x1="158" y1="68" x2="228" y2="68" marker-end="url(#a)"/>
+
+  <rect class="box" x="230" y="40" width="180" height="56" rx="8"/>
+  <text class="lbl" x="320" y="66" text-anchor="middle">Driver profile requested</text>
+  <text class="note" x="320" y="84" text-anchor="middle">destination + driver ID</text>
+
+  <line class="wire" x1="410" y1="68" x2="478" y2="68" marker-end="url(#a)"/>
+
+  <rect class="box" x="480" y="40" width="152" height="56" rx="8" fill="hsl(var(--muted))"/>
+  <text class="lbl" x="556" y="66" text-anchor="middle">Blank page</text>
+  <text class="note" x="556" y="84" text-anchor="middle">today</text>
+
+  <circle cx="248" cy="146" r="11" fill="hsl(var(--accent))"/>
+  <text x="248" y="151" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))" style="font-family: var(--font-sans)">1</text>
+  <text class="note" x="268" y="151">The driver ID is ignored because a destination was also named — so no driver is selected.</text>
+
+  <circle cx="248" cy="192" r="11" fill="hsl(var(--accent))"/>
+  <text x="248" y="197" text-anchor="middle" font-size="12" fill="hsl(var(--accent-foreground))" style="font-family: var(--font-sans)">2</text>
+  <text class="note" x="268" y="192">Fix: when the destination IS the driver profile, read the driver ID and open it.</text>
+</svg>
