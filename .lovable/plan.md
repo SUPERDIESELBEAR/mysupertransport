@@ -1,30 +1,68 @@
-# How to open Ali Mohamed's driver view on your phone
+# Three reachability guards
 
-Read-only. Nothing was changed. Everything below is from the current source, plus live checks where noted.
+A sweep runs once. These run every pass. Eleven instances of "correct code nothing calls" were found by accident over six weeks; none by a test. These three guards close the classes that a test can close.
 
-## Why you can't find it
+Non-negotiable across all three, per your four conditions:
 
-It is **not in the Management/Owner portal at all**. The Operator Preview screen is only built into the **Staff portal** (`StaffPortal`); the management portal has no such menu item — verified by searching it. Since you are signed in with Owner as your active role, your dashboard renders the management portal, so the item is simply not on your menu.
+1. **Every allowlist entry carries a written reason**, in the shape of `KNOWN_ANON_EXECUTABLE_ENTRIES`: an object with `id` and `reason`, not a bare string list. A guard whose allowlist takes bare names is a place to hide things.
+2. **Called means called from anywhere** — trigger, RLS policy, column default, view, cron, another function body, an edge function, or `src/`. Each guard reports *how* a thing is called, so a legitimate trigger function is never flagged.
+3. **The allowlist is seeded only from LEGITIMATE and AWAITING A MODULE.** Everything the sweep called ORPHANED or UNREACHABLE BUT WANTED stays out and stays failing. These guards are expected to be RED on first run.
+4. **Ceiling rule.** Each guard has a `_MAX` that may fall freely and rise only for a new entry carrying its justification, asserted the same way `LEGACY_MAX` is today.
 
-You do have access: the `/staff` area admits anyone with management (which includes owner), and you also hold the Onboarding Staff role outright (live check on your account: owner, management, onboarding_staff, dispatcher, operator).
+---
 
-## The directions, in order
+## Guard 1 — function reachability (`src/test/function-reachability.test.ts`)
 
-1. Switch your active role to **Onboarding Staff** using the role switcher, or type `/staff` at the end of the app address. Either lands you in the Staff portal.
-2. In the left menu, look under the **Tools** heading — below Messages, Resource Center, FAQ Manager and Equipment. The item is called **Operator Preview**, with an eye icon. (This is the heading mismatch: "previewing a driver" is filed under Tools, after a run of unrelated admin items.)
-3. The page header reads **Operator Preview**, with the line "Select an operator to see their portal exactly as they see it — read-only. Use the phone icon to open a live session on your own device."
-4. In the search box ("Search by name or unit number…") type **Ali**. Note there are two Mohameds on the list; the other is Salman Mohamed, who is inactive.
-5. On Ali's card, the **phone icon sits at the far right**, separated from the rest of the card. It is a small unlabelled icon-only button, always visible — no hover needed. Hovering shows the tooltip "Open on my phone as this driver". The other icon on the card, an eye at the right edge of the name block, is part of the card's main clickable area and opens the read-only in-app preview instead — the two are close together, which is the second reason this is easy to miss.
-6. Clicking the phone icon opens a dialog titled **Open on my phone**, with the line "Scan this code to sign in on your phone as Ali Mohamed. Actions you take are real."
+**Asserts:** every non-extension function in `public` that any client role holds EXECUTE on is called from somewhere, or is allowlisted with a reason.
 
-## Will Ali appear?
+**Counts as called:** a live query resolves in-database callers — `pg_trigger.tgfoid`, `pg_policies` qual/with_check, `pg_attrdef` defaults, other `pg_proc.prosrc` bodies, `pg_views.definition`, `cron.job.command`. A repository scan resolves out-of-database callers — any `supabase.rpc('<name>')` literal under `src/` or `supabase/functions/`, excluding `__tests__`, `src/test/`, `*.test.*` and `src/integrations/supabase/types.ts`. The failure message names which categories were searched and found empty.
 
-Yes. The picker applies **no filter at all** — it lists every operator, newest first, and only the search box narrows it. Live check: Ali Mohamed's operator row is active, not a demo account, and holds the `operator` role, which is the one condition the code-issuing function requires. His unit shows as 260 (read from his onboarding record, since the operator record's unit is blank).
+**Seeds (LEGITIMATE / AWAITING A MODULE only):** `grant_parity_report` (called by the `grant-parity-live` guard, test infrastructure by design). That is the only entry the sweep's classification permits.
 
-## The alternative to scanning
+**Expected failures after seeding: 14.** The two with literally no reference (`compliance_status`, `eld_cron_status`), the five accessorial writers, `assign_user_role`, `remove_user_role`, `get_pei_requests_needing_action`, and the four I could not classify (`get_application_pei_summary`, `can_driver_message_staff`, `get_inspection_doc_by_token`, `is_valid_application_draft_token`).
 
-Inside the same dialog, below the QR image, there are two buttons: **Copy link** and **New code**. Copy link puts the sign-in URL on your clipboard and confirms with "Preview link copied". Paste it into a private/incognito window — do not use your normal window, or you will be signed out of your own account in it.
+Live-DB dependent, so it uses the same `PGHOST` gate and loud skip banner as `definer-live-catalog`.
 
-The code is valid for **3 minutes** (a live countdown shows under the QR, e.g. "Expires in 2:41 · single use") and can be used **once**. If it lapses, press New code. Issuing a new code silently cancels any earlier unused one for that driver.
+## Guard 2 — portal view reachability (`src/test/view-reachability.test.ts`)
 
-Once redeemed, that browser is genuinely signed in as Ali — so open **My Fuel** and read; don't tap anything that changes data. The session marks itself and signs out after 60 minutes.
+**Asserts:** for each portal, every value of its view union has *both* a render branch and a way in — a nav-array entry, a `setView(...)`/`navigateToView(...)`/`setCurrentView(...)` call, or an allowlist entry saying it is deep-link-only.
+
+**Counts as reachable:** source scan of `ManagementPortal.tsx`, `StaffPortal.tsx`, `DispatchPortal.tsx`, `OperatorPortal.tsx` and `src/lib/operatorRoutes.ts`, extracting the union members, the nav arrays, and every programmatic setter call.
+
+**Seeds:** the legitimate drill-downs, each with its reason — Staff `operator-detail`, `vehicle-detail`; Management `operator-detail`, `load-detail`, `load-create`, `load-edit`, `vehicle-detail`, `email-catalog`; Operator `ica-amendment` (inbound link from an ICA amendment notification). **9 entries.**
+
+**Expected failures after seeding: 1** — Management `app-errors`, declared in the type and `ALLOWED_VIEWS` with no render branch and no caller.
+
+Pure file reads, so it runs with no database.
+
+## Guard 3 — nav target validity (`src/test/nav-target.test.ts`)
+
+**Asserts:** every literal path passed to `navigate(...)` or a `<Link to=...>` resolves to something that actually renders that destination — either a real route in `App.tsx`, or, for portal-internal paths, a segment the target portal parses.
+
+**Counts as valid:** routes declared in `App.tsx`; the path segments `DispatchPortal` parses; `VIEW_TO_ROUTE` in `operatorRoutes.ts`; and `?view=` query forms for Management, which parses the query and not the path.
+
+**Seeds:** none expected — no current nav target is knowingly broken-but-acceptable.
+
+**Expected failures after seeding: 1** — `FleetRoster.tsx:617` navigating to `/management/drivers`, a path Management never parses.
+
+---
+
+## Demonstrating each guard fails
+
+Assertion is not evidence. For each guard, in order: run it and capture the verbatim red output with its real findings; then prove it detects a *regression* rather than only a backlog, by removing a known-good caller, re-running, confirming the newly flagged item, and restoring the caller byte-identically before moving on.
+
+- Guard 1: temporarily remove the `supabase.rpc('preview_fuel_import')` call site, confirm `preview_fuel_import` joins the offender list, restore.
+- Guard 2: temporarily delete the Staff `Driver App Preview` nav entry, confirm `operator-preview` is flagged, restore. This is the exact defect that shipped three times.
+- Guard 3: temporarily change a working `navigate('/dispatch/loads')` to `/dispatch/load`, confirm it is flagged, restore.
+
+`git diff` is shown clean after each restore.
+
+## What is out of scope
+
+Section 2 (columns nothing writes) and section 4 (table read/write balance) get no guard. A name match cannot tell a read from a write, so a guard there would cry wolf, which is the 2026-09-04 failure mode. Those stay a periodic sweep, and the sweep's findings are recorded as debt rather than automated.
+
+No production code is changed by this pass. The three guards are added to the vitest `include` glob and to the `test:guards` subset, and the pass is recorded in `docs/tms-build-status.md` with the exact seed counts and remaining failure counts.
+
+## Report on completion
+
+Per guard: what it asserts, what it counts as called, how many entries it allowlists, how many real failures remain, and the verbatim before/after of the removal-and-restore demonstration.
