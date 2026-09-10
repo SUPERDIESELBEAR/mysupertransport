@@ -12128,10 +12128,6 @@ export type Database = {
         Args: { _reason: string; _settlement_id: string }
         Returns: string
       }
-      can_driver_message_staff: {
-        Args: { _driver: string; _staff: string }
-        Returns: boolean
-      }
       cancel_application_correction: {
         Args: { p_request_id: string }
         Returns: undefined
