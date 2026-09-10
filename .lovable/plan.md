@@ -81,9 +81,32 @@ Caveat worth stating: the edge-function path runs as `service_role` and therefor
 3. **`get_pei_requests_needing_action`** — guarded, uncalled, sensitive payload. Housekeeping with a memory.
 4. **`compliance_status` / `eld_cron_status`** — pure housekeeping. Both replaced, both harmless.
 
-## Proposed next pass, if approved
+## Next pass — approved scope
 
 - Drop `compliance_status`, `eld_cron_status`, `get_pei_requests_needing_action`, `get_application_pei_summary`; remove their guard registrations and lower the affected ceilings; regenerate types.
-- Keep `assign_user_role` / `remove_user_role` with a registered justification naming the edge-function mechanism; repin both to `public, extensions`.
-- Record as an open question, not a fix: whether the `owner`-assignment refusal should become a `user_roles` trigger so the `service_role` path is covered too.
-- Predict the function-reachability count before running it, and report the actual against the prediction in both directions.
+- Keep `assign_user_role` / `remove_user_role`; repin both to `public, extensions`; allowlist both (see below).
+
+## Addition 1 — the `owner` invariant, recorded as an OPEN QUESTION
+
+To be written into `docs/tms-build-status.md` as a question, not a fix. Nothing is chosen in this pass.
+
+The refusal to assign or remove `owner` exists only inside `assign_user_role` and `remove_user_role`, which nothing calls. The live path is seven `service_role` edge functions, which bypass it entirely; `bootstrap-admin` can assign `owner`, gated by `BOOTSTRAP_SECRET` rather than by a role check.
+
+Options and their costs, stated without a recommendation:
+
+- **A `user_roles` trigger enforcing the refusal.** Covers the `service_role` path too — the only option that does. But it would also block `bootstrap-admin`, which needs to assign `owner` legitimately, so it requires an exception mechanism, and that mechanism becomes the new thing guarding who can become owner.
+- **Leave it in the edge functions, checked per-function, as today.** No new machinery, no exception mechanism to design. The cost is that the invariant is re-implemented per function and holds only as long as each new function remembers it.
+- **Something else** — not enumerated here; the owner may see a route neither option covers.
+
+This is the owner's decision and it touches who can become owner. **Trigger for revisiting:** before any new path writes `user_roles`, or before `bootstrap-admin` is exposed beyond its current gating.
+
+## Addition 2 — predict the count both ways, before running
+
+**Prediction: function-reachability falls from 6 to 0.** Four dropped functions leave the finding set; the two kept ones leave it by allowlist entry in the same pass.
+
+Intermediate prediction, stated so a partial run is still checkable: after the drop migration but before the allowlist edit, the count is **6 → 2** (`assign_user_role`, `remove_user_role`).
+
+Both numbers are reported against the actual, and any difference is accounted for function by function — **in either direction**. Per the standing rule, **fewer findings than predicted is the more dangerous signal**: it means the guard stopped searching something it claims to search, which is exactly the failure that once hid `is_valid_application_draft_token`.
+
+The two kept functions **remain findings unless allowlisted with a reason**. They are allowlisted, and the reason recorded on each entry names the live mechanism: role assignment runs through service_role edge functions (`invite-staff`, `invite-operator`, `invite-truck-owner`, `get-staff-list`, `bootstrap-admin`, `delete-user-account`, and the provisioning functions), so these client-side writers are unreachable by design and that is acceptable. This is the sanctioned route — an entry that states a verified mechanism — and is distinct from allowlisting a finding to turn a guard green.
+
