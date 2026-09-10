@@ -1,3 +1,4 @@
+import { formatDateMDY } from '@/lib/dateDisplay';
 import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -174,7 +175,7 @@ export default function OperatorICAAmendmentSign({ amendmentId, onBack, onComple
         </div>
         <p className="text-xs text-muted-foreground">
           {amend.action === 'add_unit' ? 'Add an additional leased unit' : 'Remove & replace a leased unit'}
-          {amend.effective_date ? ` · Effective ${amend.effective_date}` : ''}
+          {amend.effective_date ? ` · Effective ${formatDateMDY(amend.effective_date)}` : ''}
         </p>
         {amend.notes && (
           <p className="text-xs italic text-foreground/80 border-l-2 border-border pl-2">

@@ -317,3 +317,30 @@ export function buildFuelLocationReport(
       byChain.find((g) => g.key === INDEPENDENT_CHAIN)?.purchases ?? 0,
   };
 }
+
+/* ---------------------------------------------------------------- sorting --
+ * SORTING IS A VIEW OF THE WHOLE GROUPING, never of a visible page. The
+ * comparator is the shared one in `src/lib/listSorting.ts` — the same one the
+ * fuel import table uses — so nulls fall last in both directions and there is
+ * no second ordering rule in the fuel screens.
+ *
+ * DEFAULT (no column chosen): gallons descending, as `groupFuelByLocation`
+ * emits. Volume first — the place we bought the most fuel is the place a price
+ * difference costs the most money, so it is the row worth reading first.
+ */
+export type FuelLocationSortColumn =
+  'location' | 'purchases' | 'gallons' | 'fuelSpend' | 'costPerGallon';
+
+/** The value a column sorts on. `costPerGallon` may be null; nulls sort last. */
+export function locationSortValue(
+  group: FuelLocationGroup, column: string,
+): string | number | null {
+  switch (column as FuelLocationSortColumn) {
+    case 'location': return [group.key, group.sublabel ?? ''].filter(Boolean).join(' ');
+    case 'purchases': return group.purchases;
+    case 'gallons': return group.gallons;
+    case 'fuelSpend': return group.fuelSpend;
+    case 'costPerGallon': return group.costPerGallon;
+    default: return null;
+  }
+}

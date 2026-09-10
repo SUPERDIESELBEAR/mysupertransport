@@ -8992,3 +8992,44 @@ currently has both values recorded and different, so nothing is being shadowed r
 TRIGGER: before anything writes `onboarding_status.unit_number`, or the first time a driver
 has a unit in both records that disagree. Either event turns this from a risk into a live
 defect.
+
+## Module 9 Pass 6 — dates read MM/DD/YYYY, and the location table sorts (2026-09-10)
+
+**A shared formatter now exists.** There was none: `formatFuelDate`,
+`formatTerminationDate`, `formatShortDate`, `formatDepartingDate`,
+`formatShortDay` and others each implemented a format locally, and a screen that
+called none of them printed the raw ISO column. `src/lib/dateDisplay.ts`
+`formatDateMDY` is the one implementation; `formatFuelDate` now delegates to it
+and stays as the fuel-named re-export so the existing call sites read naturally.
+It reads the digits rather than passing a DATE column through `new Date()`,
+which shifts a calendar day west of UTC.
+
+**Fixed (were ISO on screen):**
+
+- Cost per Gallon by Location summary line — `{from} to {to}`.
+- Fuel Import review queue card — `Invoice … · {tx.invoice_date}`.
+- Fuel Import batch history — `date_range_start` / `date_range_end`.
+- Operator ICA amendment — `Effective {amend.effective_date}`.
+
+**Deliberately left ISO, named:** the driver fuel PDF FILENAME
+(`fuel-<name>-<first>-to-<last>.pdf`) — a machine-sortable filename, not a
+rendered date. Employment history in the application review surfaces stays
+MM/YYYY by its own recorded convention.
+
+**Sorting.** `locationSortValue` in `fuelLocationReport.ts` feeds the shared
+`compareValues` / `nextSortState` from `src/lib/listSorting.ts` — the same pair
+the fuel import table uses, not a second implementation. All five columns sort
+on all three tabs, over the whole grouping; the report is not paginated, so a
+sort can never mean "within the visible page".
+
+**Default sort: gallons descending**, as `groupFuelByLocation` already emitted,
+now stated deliberately. Volume first — the place we bought the most fuel is
+where a price difference costs the most money. A third click on a header
+returns to it.
+
+Unchanged: weighted average (spend ÷ gallons), the Pilot Flying J merge, the
+Independent/Unrecognised distinction, and the range defaulting 30 days back from
+the NEWEST purchase.
+
+Suites: `fuelLocationSorting` (new, 9), all of `src/lib/fuel/__tests__`
+(13 files, 168), `tsgo`. No contradictions with the record.

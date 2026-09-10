@@ -964,7 +964,7 @@ export default function FuelImportPage() {
                 <div>
                   <div className="font-medium">{b.file_name}</div>
                   <div className="text-muted-foreground">
-                    {new Date(b.imported_at).toLocaleString()} · {b.date_range_start ?? '—'} to {b.date_range_end ?? '—'}
+                    {new Date(b.imported_at).toLocaleString('en-US')} · {b.date_range_start ? formatFuelDate(b.date_range_start) : '—'} to {b.date_range_end ? formatFuelDate(b.date_range_end) : '—'}
                   </div>
                 </div>
                 <div className="flex flex-wrap gap-2">
@@ -1030,7 +1030,7 @@ function ReviewRow({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <div className="font-medium">
-              Invoice {tx.invoice_no} · {tx.invoice_date} · {formatCurrency(tx.total_amount)}
+              Invoice {tx.invoice_no} · {formatFuelDate(tx.invoice_date)} · {formatCurrency(tx.total_amount)}
             </div>
             <div className="text-muted-foreground">
               Card <span className="font-mono">{tx.card_no}</span>

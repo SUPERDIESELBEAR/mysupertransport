@@ -29,6 +29,7 @@
  * the driver is actually charged. It carries the sentinel `'discount'` so the
  * coverage rule still binds it: it is decided, not forgotten.
  */
+import { formatDateMDY } from '@/lib/dateDisplay';
 import type { FuelLineType } from './multiserviceCsv';
 
 /** The four things a driver can be charged for on a fuel card. */
@@ -144,8 +145,9 @@ const num = (v: unknown): number => {
 
 /** `2026-08-28` → `08/28/2026`. Anything else is printed as it arrived. */
 export function formatFuelDate(iso: string | null | undefined): string {
-  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso ?? ''));
-  return m ? `${m[2]}/${m[3]}/${m[1]}` : String(iso ?? '');
+  // The app-wide formatter. Kept as a fuel-named re-export so the many fuel
+  // call sites read naturally; the format itself lives in one place.
+  return formatDateMDY(iso);
 }
 
 /** The bucket a stored line type falls in. Unknown values are `other`. */
