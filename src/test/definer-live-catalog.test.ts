@@ -480,6 +480,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // authenticated only; PUBLIC and anon are revoked in the migration.
   "public.set_operator_unit_from_fuel_review(uuid,text,text)",
 
+  // set_operator_fuel_discount_passthrough (2026-09-10), the per-driver fuel
+  // discount pass-through SETTING. Definer because it writes operators, which
+  // no client role may write. Management/owner is checked IN THE BODY, the
+  // actor comes from current_profile_id() rather than an argument, a note is
+  // required, ONE operator per call with no bulk path, and it writes
+  // fuel_discount_passthrough_override and updated_at and nothing else -- no
+  // rate, no pay policy. Every call is audited with the previous and new
+  // value. authenticated only; PUBLIC and anon are revoked in the migration.
+  "public.set_operator_fuel_discount_passthrough(uuid,boolean,text)",
+
   // store_settlement_run (2026-09-01), the ONLY writer of a settlement. It is
   // definer because it writes three tables no client role may write, and it
   // gates itself on management/owner in its own body before anything is
@@ -695,7 +705,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   missing unit number: management/owner checked in the body, actor from
 //   current_profile_id(), one operator per call, refuses an existing unit,
 //   writes unit_number only, audited: 122 -> 123.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 123;
+// + set_operator_fuel_discount_passthrough() (2026-09-10), the per-driver fuel
+//   discount pass-through switch: management/owner checked in the body, actor
+//   from current_profile_id(), one operator per call, a note required, writes
+//   that one boolean column only, audited: 123 -> 124.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
 
 
 

@@ -264,7 +264,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .select('operator_id, carry_forward_out, period_start')
       .lt('period_start', period.periodStart)
       .order('period_start', { ascending: false }),
-    sb.from('operators').select('id, is_departing, applications(first_name, last_name)'),
+    sb.from('operators').select('id, is_departing, fuel_discount_passthrough_override, applications(first_name, last_name)'),
     // APPROVED late accessorial adjustments, bounded by the APPROVAL instant.
     // The period bound is INDEPENDENT of the exclusion set on purpose: the
     // recorded fuel defect showed that when an exclusion set is a filter's
@@ -471,6 +471,9 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         rmDeposit,
         carryForwardIn: carryIn,
         isDeparting: operatorRow?.is_departing === true,
+        fuelDiscountPassthroughOverride:
+          (operatorRow as { fuel_discount_passthrough_override?: boolean | null } | undefined)
+            ?.fuel_discount_passthrough_override ?? null,
         equipmentOutstanding,
       },
     });

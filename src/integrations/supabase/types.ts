@@ -8412,6 +8412,7 @@ export type Database = {
           excluded_from_dispatch_at: string | null
           excluded_from_dispatch_by: string | null
           excluded_from_dispatch_reason: string | null
+          fuel_discount_passthrough_override: boolean | null
           home_terminal_timezone: string
           id: string
           is_active: boolean
@@ -8457,6 +8458,7 @@ export type Database = {
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
+          fuel_discount_passthrough_override?: boolean | null
           home_terminal_timezone?: string
           id?: string
           is_active?: boolean
@@ -8502,6 +8504,7 @@ export type Database = {
           excluded_from_dispatch_at?: string | null
           excluded_from_dispatch_by?: string | null
           excluded_from_dispatch_reason?: string | null
+          fuel_discount_passthrough_override?: boolean | null
           home_terminal_timezone?: string
           id?: string
           is_active?: boolean
@@ -13140,6 +13143,10 @@ export type Database = {
       set_operator_departing: {
         Args: { _expected_date?: string; _note?: string; _operator_id: string }
         Returns: string
+      }
+      set_operator_fuel_discount_passthrough: {
+        Args: { _note: string; _operator_id: string; _value: boolean }
+        Returns: Json
       }
       set_operator_parked: {
         Args: {
