@@ -248,14 +248,22 @@ export function DeactivationWizardContent({
 
 
   /**
-   * SAVE AS YOU GO. Offboarding used to be written only at Finish, so a run
-   * abandoned halfway left no trace at all — the letters had really gone out
-   * and the app still showed the driver as untouched. Every completed or
-   * skipped step is now written the moment it happens.
+   * SAVE AS YOU GO — BUT ONLY WHAT A PERSON DID. Offboarding used to be
+   * written only at Finish, so a run abandoned halfway left no trace at all —
+   * the letters had really gone out and the app still showed the driver as
+   * untouched. Every completed or skipped step a person performs is written
+   * the moment it happens.
+   *
+   * What is NOT written is the automatic "nothing to do here" verdict the
+   * derive effect reaches on open (no fuel card, no plates, no ICA). Saving
+   * those made the driver page's "X of 10 done" ribbon climb — 3 to 5 — purely
+   * from opening the wizard and pressing Back. They are still shown as handled
+   * on screen, and they are written for real at Finish along with everything
+   * else.
    *
    * Writes are deduped against the last persisted value per step, because the
-   * auto-derive effect re-asserts statuses on every data change and must not
-   * turn into a write loop.
+   * derive effect re-asserts statuses on every data change and must not turn
+   * into a write loop.
    */
   const persistedStatus = useRef<Record<string, string>>({});
   const persistStep = useCallback(async (
@@ -281,8 +289,15 @@ export function DeactivationWizardContent({
     }
   }, [operatorId, user?.id]);
 
-  const updateStepStatus = useCallback((key: OffboardingStepKey, status: StepStatus, skippedReason?: string) => {
+  const updateStepStatus = useCallback((
+    key: OffboardingStepKey,
+    status: StepStatus,
+    skippedReason?: string,
+    options?: { auto?: boolean },
+  ) => {
     setSteps(prev => ({ ...prev, [key]: { ...prev[key], status, skippedReason } }));
+    // Derived-on-open verdicts stay on screen only; they are recorded at Finish.
+    if (options?.auto) return;
     void persistStep(key, status, skippedReason);
   }, [persistStep]);
 
@@ -316,9 +331,10 @@ export function DeactivationWizardContent({
         .maybeSingle();
       // Work already done outside this run counts as done. The notice really
       // went to the consultant, so the step must not ask for it a second time.
+      // Read on open, so screen-only — the run that sent the notice recorded it.
       if ((opRes.data as any)?.safety_advisor_notified_at) {
         setSafetySent(true);
-        updateStepStatus('safety_advisor', 'completed');
+        updateStepStatus('safety_advisor', 'completed', undefined, { auto: true });
       }
       setOperatorUserId((opRes.data as any)?.user_id ?? null);
       setDispatchSignals({
@@ -459,46 +475,49 @@ export function DeactivationWizardContent({
     fetchAllData();
   }, [operatorId, session?.user?.email, fetchAllData]);
 
-  // Auto-complete steps that have no work to do
+  // Auto-complete steps that have no work to do. Screen-only: nothing here is
+  // saved (see persistStep) — the steps a person really performs are saved by
+  // their own handlers, and the full picture is written at Finish.
   useEffect(() => {
     if (loading) return;
+    const auto = { auto: true } as const;
     if (!sheets.length && !receiptsUploaded) {
-      updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets');
+      updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets', auto);
     } else if (sheets.every(s => s.return_completed_at && s.decal_photo_driver_side_url && s.decal_photo_passenger_side_url)) {
-      updateStepStatus('equipment_return', 'completed');
+      updateStepStatus('equipment_return', 'completed', undefined, auto);
     } else {
-      updateStepStatus('equipment_return', 'pending');
+      updateStepStatus('equipment_return', 'pending', undefined, auto);
     }
 
     if (fuelCardError) {
-      updateStepStatus('fuel_card', 'pending');
+      updateStepStatus('fuel_card', 'pending', undefined, auto);
     } else if (!fuelCards.length) {
-      updateStepStatus('fuel_card', 'skipped', 'No fuel cards assigned to this driver');
+      updateStepStatus('fuel_card', 'skipped', 'No fuel cards assigned to this driver', auto);
     } else if (fuelCards.every(c => c.status === 'deactivated')) {
-      updateStepStatus('fuel_card', 'completed');
+      updateStepStatus('fuel_card', 'completed', undefined, auto);
     } else {
-      updateStepStatus('fuel_card', 'pending');
+      updateStepStatus('fuel_card', 'pending', undefined, auto);
     }
 
     if (!plateAssignments.length) {
-      updateStepStatus('mo_plate', 'skipped', 'No MO plates assigned to this driver');
+      updateStepStatus('mo_plate', 'skipped', 'No MO plates assigned to this driver', auto);
     } else {
-      updateStepStatus('mo_plate', 'pending');
+      updateStepStatus('mo_plate', 'pending', undefined, auto);
     }
 
     if (!ica) {
-      updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file');
-      updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file');
+      updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file', auto);
+      updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file', auto);
     } else {
       if (terminationCreated || existingTerminationId) {
-        updateStepStatus('lease_termination', 'completed');
+        updateStepStatus('lease_termination', 'completed', undefined, auto);
       } else {
-        updateStepStatus('lease_termination', 'pending');
+        updateStepStatus('lease_termination', 'pending', undefined, auto);
       }
       if (icaVoided) {
-        updateStepStatus('ica_void', 'completed');
+        updateStepStatus('ica_void', 'completed', undefined, auto);
       } else {
-        updateStepStatus('ica_void', 'pending');
+        updateStepStatus('ica_void', 'pending', undefined, auto);
       }
     }
   }, [loading, sheets, fuelCards, fuelCardError, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, updateStepStatus]);
