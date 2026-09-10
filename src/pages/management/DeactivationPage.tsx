@@ -213,6 +213,7 @@ export default function DeactivationPage() {
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         </div>
+        <OffboardingGuidePanel />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden border border-border rounded-xl bg-card p-4 lg:p-6 shadow-sm">
           <DeactivationWizardContent
             operatorId={operator.id}
