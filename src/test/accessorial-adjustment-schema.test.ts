@@ -671,7 +671,7 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     const args = psql(`SELECT pg_get_function_identity_arguments(oid) FROM pg_proc
       WHERE pronamespace='public'::regnamespace AND proname='approve_accessorial_adjustment'`)
       .join(' ');
-    expect(args).toBe('uuid, text');
+    expect(args).toBe('p_id uuid, p_reason text');
   });
 
   itLive('dispatcher, management and owner may create and submit — the entry three', () => {
