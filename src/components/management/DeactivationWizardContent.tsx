@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
@@ -247,9 +247,44 @@ export function DeactivationWizardContent({
   ];
 
 
+  /**
+   * SAVE AS YOU GO. Offboarding used to be written only at Finish, so a run
+   * abandoned halfway left no trace at all — the letters had really gone out
+   * and the app still showed the driver as untouched. Every completed or
+   * skipped step is now written the moment it happens.
+   *
+   * Writes are deduped against the last persisted value per step, because the
+   * auto-derive effect re-asserts statuses on every data change and must not
+   * turn into a write loop.
+   */
+  const persistedStatus = useRef<Record<string, string>>({});
+  const persistStep = useCallback(async (
+    key: OffboardingStepKey, status: StepStatus, skippedReason?: string,
+  ) => {
+    if (status !== 'completed' && status !== 'skipped') return;
+    const signature = `${status}|${skippedReason ?? ''}`;
+    if (persistedStatus.current[key] === signature) return;
+    persistedStatus.current[key] = signature;
+    const { error } = await supabase.from('operator_offboarding_steps').upsert({
+      operator_id: operatorId,
+      step_key: key,
+      completed: status === 'completed',
+      skipped: status === 'skipped',
+      skipped_reason: skippedReason || null,
+      completed_by: status === 'completed' ? user?.id ?? null : null,
+      completed_at: status === 'completed' ? new Date().toISOString() : null,
+    }, { onConflict: 'operator_id,step_key' });
+    if (error) {
+      // Let the next attempt retry rather than silently pretending it saved.
+      delete persistedStatus.current[key];
+      console.error('Failed to save offboarding step', key, error);
+    }
+  }, [operatorId, user?.id]);
+
   const updateStepStatus = useCallback((key: OffboardingStepKey, status: StepStatus, skippedReason?: string) => {
     setSteps(prev => ({ ...prev, [key]: { ...prev[key], status, skippedReason } }));
-  }, []);
+    void persistStep(key, status, skippedReason);
+  }, [persistStep]);
 
   const fetchAllData = useCallback(async () => {
     setLoading(true);
