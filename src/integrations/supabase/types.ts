@@ -5598,6 +5598,7 @@ export type Database = {
       }
       inspection_documents: {
         Row: {
+          content_hash: string | null
           driver_id: string | null
           expires_at: string | null
           file_path: string | null
@@ -5617,6 +5618,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
           file_path?: string | null
@@ -5636,6 +5638,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
           file_path?: string | null
