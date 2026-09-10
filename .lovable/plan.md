@@ -49,6 +49,17 @@ Guards 2 and 3 use the same three-part shape, naming the portal files and nav ar
 
 Live-DB dependent, so it uses the same `PGHOST` gate and loud skip banner as `definer-live-catalog`.
 
+### Recorded finding — four functions could not be established as called or uncalled
+
+"I could not tell" is a finding, not a gap in the report. These four stay out of the allowlist and stay failing. They are recorded in `docs/tms-build-status.md` as an open finding in their own right, each with what would settle it:
+
+| Function | Why it could not be settled | What would settle it |
+|---|---|---|
+| `get_inspection_doc_by_token` | **anon-executable and token-gated.** No `supabase.rpc` literal found, but a token flow may reach it from an emailed link or an edge function by another name. | Read the `/inspect/:token` and `/inspect/all/:token` page code and the inspection-share edge functions end to end. If nothing calls it, this is the exact shape of `get_pei_requests_needing_action` — anon-reachable, unreviewed, no caller — and it should be revoked, not allowlisted. **Highest priority of the four.** |
+| `is_valid_application_draft_token` | Appears superseded by `get_application_by_draft_token`, but supersession was inferred from the names, not read. | Read both function bodies and the application-resume flow; confirm which one the resume path actually calls. |
+| `can_driver_message_staff` | Plausibly intended as an RLS helper; the policy scan did not find it, but a policy could call it indirectly through another function. | Expand the policy expressions on `messages`, `message_threads` and `thread_participants` and check for an indirect call. |
+| `get_application_pei_summary` | No caller found; may belong to the PEI screens that were built around the same time as the leaked function. | Read the PEI request and response screens for an equivalent inline query that replaced it. |
+
 ## Guard 2 — portal view reachability (`src/test/view-reachability.test.ts`)
 
 **Asserts:** for each portal, every value of its view union has *both* a render branch and a way in — a nav-array entry, a `setView(...)`/`navigateToView(...)`/`setCurrentView(...)` call, or an allowlist entry saying it is deep-link-only.
