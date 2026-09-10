@@ -202,8 +202,12 @@ describe('the population rule', () => {
 /* ------------------------------------------------------------------ */
 
 describe('configuration', () => {
-  it('carries all six values, and they are fallbacks not rules', () => {
+  it('carries all seven values, and they are fallbacks not rules', () => {
+    // Seven since Module 5 Pass 5: the dispatcher accessorial approval limit
+    // joined them. Unlike the other six it has NO fallback value — null means
+    // dispatchers approve nothing, which is a rule and not a missing number.
     expect([...SETTLEMENT_SETTING_KEYS].sort()).toEqual([
+      'dispatcher_accessorial_approval_limit',
       'equipment_value_per_driver', 'hold_buffer', 'minimum_net_pay_threshold',
       'rm_deposit_target', 'rm_weekly_deduction', 'work_week_start_dow',
     ]);
