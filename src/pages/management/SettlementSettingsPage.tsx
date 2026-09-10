@@ -55,6 +55,10 @@ export default function SettlementSettingsPage() {
         rm_deposit_target: Number(row.rm_deposit_target),
         rm_weekly_deduction: Number(row.rm_weekly_deduction),
         work_week_start_dow: Number(row.work_week_start_dow),
+        dispatcher_accessorial_approval_limit:
+          row.dispatcher_accessorial_approval_limit === null
+          || row.dispatcher_accessorial_approval_limit === undefined
+            ? null : Number(row.dispatcher_accessorial_approval_limit),
       });
     }
     const rows = (hist ?? []) as unknown as HistoryRow[];
@@ -83,6 +87,7 @@ export default function SettlementSettingsPage() {
         rm_deposit_target: values.rm_deposit_target,
         rm_weekly_deduction: values.rm_weekly_deduction,
         work_week_start_dow: values.work_week_start_dow,
+        dispatcher_accessorial_approval_limit: values.dispatcher_accessorial_approval_limit,
       })
       .eq('singleton', true);
     setSaving(false);
@@ -112,7 +117,9 @@ export default function SettlementSettingsPage() {
       ) : (
         <Card className="p-4 space-y-4">
           <div className="grid gap-4 sm:grid-cols-2">
-            {SETTLEMENT_SETTING_KEYS.filter(k => k !== 'work_week_start_dow').map(key => (
+            {SETTLEMENT_SETTING_KEYS
+              .filter(k => k !== 'work_week_start_dow' && k !== 'dispatcher_accessorial_approval_limit')
+              .map(key => (
               <div key={key} className="space-y-1.5">
                 <Label className="text-xs font-semibold text-foreground" htmlFor={`setting-${key}`}>
                   {SETTLEMENT_SETTING_LABELS[key]}
@@ -132,6 +139,34 @@ export default function SettlementSettingsPage() {
                 <p className="text-[11px] text-muted-foreground leading-snug">{SETTLEMENT_SETTING_HELP[key]}</p>
               </div>
             ))}
+
+            {/* Nullable on purpose: empty is a rule, not a missing value. */}
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold text-foreground" htmlFor="setting-dispatcher_accessorial_approval_limit">
+                {SETTLEMENT_SETTING_LABELS.dispatcher_accessorial_approval_limit}
+              </Label>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">$</span>
+                <Input
+                  id="setting-dispatcher_accessorial_approval_limit"
+                  data-testid="setting-dispatcher_accessorial_approval_limit"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  placeholder="Not set — dispatchers approve nothing"
+                  value={values.dispatcher_accessorial_approval_limit === null
+                    ? '' : String(values.dispatcher_accessorial_approval_limit)}
+                  onChange={(e) => setValues(v => ({
+                    ...v,
+                    dispatcher_accessorial_approval_limit:
+                      e.target.value.trim() === '' ? null : Number(e.target.value),
+                  }))}
+                />
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-snug">
+                {SETTLEMENT_SETTING_HELP.dispatcher_accessorial_approval_limit}
+              </p>
+            </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold text-foreground">

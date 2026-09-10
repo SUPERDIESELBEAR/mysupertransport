@@ -31,6 +31,7 @@ export type Database = {
           invoice_id: string | null
           load_id: string
           proof_document_id: string | null
+          proof_kind: string | null
           reason: string
           reference: string
           sequence: number
@@ -57,6 +58,7 @@ export type Database = {
           invoice_id?: string | null
           load_id: string
           proof_document_id?: string | null
+          proof_kind?: string | null
           reason: string
           reference: string
           sequence: number
@@ -83,6 +85,7 @@ export type Database = {
           invoice_id?: string | null
           load_id?: string
           proof_document_id?: string | null
+          proof_kind?: string | null
           reason?: string
           reference?: string
           sequence?: number
@@ -10938,6 +10941,7 @@ export type Database = {
       settlement_settings: {
         Row: {
           created_at: string
+          dispatcher_accessorial_approval_limit: number | null
           equipment_value_per_driver: number
           hold_buffer: number
           minimum_net_pay_threshold: number
@@ -10950,6 +10954,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          dispatcher_accessorial_approval_limit?: number | null
           equipment_value_per_driver?: number
           hold_buffer?: number
           minimum_net_pay_threshold?: number
@@ -10962,6 +10967,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          dispatcher_accessorial_approval_limit?: number | null
           equipment_value_per_driver?: number
           hold_buffer?: number
           minimum_net_pay_threshold?: number
@@ -12045,6 +12051,10 @@ export type Database = {
         Returns: Json
       }
       accessorial_adjustment_writer_active: { Args: never; Returns: boolean }
+      accessorial_proof_kind: {
+        Args: { p_charge_type: string }
+        Returns: string
+      }
       acknowledge_eld_sync_alert: {
         Args: { p_alert_id: string }
         Returns: undefined
