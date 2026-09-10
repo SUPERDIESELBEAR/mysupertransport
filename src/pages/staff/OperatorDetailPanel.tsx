@@ -704,6 +704,22 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const progressBarRef = useRef<HTMLDivElement | null>(null);
   const inspectionBinderRef = useRef<HTMLDivElement | null>(null);
 
+  // How far a started offboarding got. Steps are written as they are done, so
+  // this is the honest count even if the wizard was closed halfway.
+  useEffect(() => {
+    if (!operatorId) return;
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase
+        .from('operator_offboarding_steps')
+        .select('completed, skipped')
+        .eq('operator_id', operatorId);
+      if (cancelled) return;
+      setOffboardingDone((data ?? []).filter((r: any) => r.completed || r.skipped).length);
+    })();
+    return () => { cancelled = true; };
+  }, [operatorId]);
+
   // Show sticky bar when the main progress bar scrolls out of view
   useEffect(() => {
     const el = progressBarRef.current;
