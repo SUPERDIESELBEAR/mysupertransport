@@ -50,3 +50,9 @@
   by migration `20260903214629`, after verifying the whitelist trigger covers it.
 - Rewrite `parked-and-termination-guardrail` census assertions as invariants, and
   record the "a guard asserts an invariant, not a census" standing rule.
+
+## Done (2026-09-10)
+- Drop `public.get_inspection_doc_by_token(uuid)` (legacy delegator, no callers);
+  shrink `LEGACY_MAX` 80->79 and both definer-live-catalog ceilings; reachability
+  guard 14 -> 13 findings. Recorded the family-revoke lesson and the full inventory
+  of PUBLIC-granted `public` functions in `docs/tms-build-status.md`.
