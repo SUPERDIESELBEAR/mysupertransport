@@ -289,7 +289,6 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.archive_applicant_pei(uuid,text,text)",
   "public.archive_applicant_pei(uuid,text)",
   "public.assign_user_role(uuid,app_role)",
-  "public.can_driver_message_staff(uuid,uuid)",
   "public.cancel_application_correction(uuid)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
@@ -727,7 +726,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   expression evaluates as the caller, so authenticated EXECUTE is required
 //   for those policies to work at all: 124 -> 125.
 // 125 - 1 (get_inspection_doc_by_token, DROPPED 2026-09-10) = 124.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 123;
 
 
 
