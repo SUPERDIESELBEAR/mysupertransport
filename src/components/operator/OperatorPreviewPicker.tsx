@@ -107,15 +107,15 @@ export default function OperatorPreviewPicker() {
       ) : (
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map(op => (
+            /* Two actions, two very different things: a read-only render, and a
+               real signed-in session as this driver. Both are now labelled in
+               words, so neither can be mistaken for the other. */
             <div
               key={op.userId}
-              className="flex items-center gap-3 p-4 rounded-xl border border-border bg-card hover:bg-muted/50 hover:border-primary/30 transition-colors group"
+              className="flex flex-col gap-3 p-4 rounded-xl border border-border bg-card"
             >
-              <button
-                onClick={() => setSelectedUserId(op.userId)}
-                className="flex items-center gap-3 min-w-0 flex-1 text-left"
-              >
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0 group-hover:bg-primary/20 transition-colors">
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                   <User className="h-5 w-5 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -125,19 +125,31 @@ export default function OperatorPreviewPicker() {
                     {!op.isActive && ' · Inactive'}
                   </p>
                 </div>
-                <Eye className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors shrink-0" />
-              </button>
-              {isManagement && (
+              </div>
+
+              <div className="flex flex-col gap-2">
                 <Button
+                  variant="outline"
                   size="sm"
-                  variant="ghost"
-                  className="h-8 w-8 p-0 shrink-0"
-                  title="Open on my phone as this driver"
-                  onClick={() => setPreviewTarget(op)}
+                  className="w-full justify-start gap-2"
+                  onClick={() => setSelectedUserId(op.userId)}
                 >
-                  <Smartphone className="h-4 w-4" />
+                  <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="truncate">View his screens — read-only</span>
                 </Button>
-              )}
+
+                {isManagement && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full justify-start gap-2 border-amber-400 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                    onClick={() => setPreviewTarget(op)}
+                  >
+                    <Smartphone className="h-4 w-4 shrink-0" />
+                    <span className="truncate">Sign in as him on my phone — real session</span>
+                  </Button>
+                )}
+              </div>
             </div>
           ))}
         </div>
