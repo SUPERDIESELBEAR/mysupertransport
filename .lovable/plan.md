@@ -94,12 +94,14 @@ Assertion is not evidence. For each guard, in order: run it and capture the verb
 
 `git diff` is shown clean after each restore.
 
-## What is out of scope
+## What is out of scope, and why — recorded, not merely omitted
 
-Section 2 (columns nothing writes) and section 4 (table read/write balance) get no guard. A name match cannot tell a read from a write, so a guard there would cry wolf, which is the 2026-09-04 failure mode. Those stay a periodic sweep, and the sweep's findings are recorded as debt rather than automated.
+Section 2 (columns nothing writes) and section 4 (table read/write balance) get **no guard**, and the reason is written into `docs/tms-build-status.md` alongside the pass, because a future reader will ask why columns were left out:
 
-No production code is changed by this pass. The three guards are added to the vitest `include` glob and to the `test:guards` subset, and the pass is recorded in `docs/tms-build-status.md` with the exact seed counts and remaining failure counts.
+> A name match cannot distinguish a read from a write. `rg 'issued_on'` returns the same hit whether the line stores the value or displays it, so a column guard would flag live columns as dead and dead columns as live. A guard that cries wolf gets switched off — the 2026-09-04 census failure. Columns and table read/write balance stay a periodic sweep; the sweep's findings are recorded as debt.
+
+No production code is changed by this pass. The three guards are added to the vitest `include` glob and to the `test:guards` subset (taking it from nine files to twelve — the recorded subset size is updated in `src/test/README.md`), and the pass is recorded in `docs/tms-build-status.md` with the exact seed counts and remaining failure counts.
 
 ## Report on completion
 
-Per guard: what it asserts, what it counts as called, how many entries it allowlists, how many real failures remain, and the verbatim before/after of the removal-and-restore demonstration.
+Per guard: what it asserts, what it counts as called, how many entries it allowlists, how many real failures remain, one verbatim failure message in full, and the verbatim before/after of the removal-and-restore demonstration. Plus the four-unclassifiable finding as recorded.
