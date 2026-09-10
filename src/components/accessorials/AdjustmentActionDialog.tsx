@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -9,9 +9,11 @@ import { Textarea } from '@/components/ui/textarea';
 import { toast } from '@/hooks/use-toast';
 import { formatCurrency } from '@/lib/loadFormat';
 import {
-  approveAdjustment, rejectAdjustment, submitAdjustment, voidAdjustment,
-  type AdjustmentAction, type AdjustmentRecord,
+  approveAdjustment, attachAdjustmentProof, proofKindFor, rejectAdjustment,
+  submitAdjustment, voidAdjustment,
+  type AdjustmentAction, type AdjustmentRecord, type ProofKind,
 } from '@/lib/accessorialAdjustments';
+import ProofPicker from '@/components/accessorials/ProofPicker';
 
 /**
  * Every one of the four writers refuses a blank reason, so there is no
@@ -54,10 +56,15 @@ export default function AdjustmentActionDialog({
   onOpenChange: (open: boolean) => void;
   onDone: () => void;
 }) {
+  const qc = useQueryClient();
   const [reason, setReason] = useState('');
-  useEffect(() => { if (open) setReason(''); }, [open, row?.id, action]);
+  /** Attached in this dialog, before the row itself has been re-read. */
+  const [attached, setAttached] = useState('');
+  useEffect(() => { if (open) { setReason(''); setAttached(''); } }, [open, row?.id, action]);
 
   const copy = COPY[action];
+  const hasProof = !!row?.proof_document_id || !!attached;
+  const needsProof = action === 'submit' && !hasProof;
 
   const run = useMutation({
     mutationFn: async () => {
@@ -90,6 +97,29 @@ export default function AdjustmentActionDialog({
           </DialogDescription>
         </DialogHeader>
 
+        {action === 'submit' && row ? (
+          <ProofPicker
+            loadId={row.load_id}
+            chargeType={row.charge_type}
+            proofKind={(row.proof_kind as ProofKind | null) ?? proofKindFor(row.charge_type)}
+            value={attached || row.proof_document_id || ''}
+            onChange={async id => {
+              try {
+                await attachAdjustmentProof(row.id, id);
+                setAttached(id);
+                qc.invalidateQueries({ queryKey: ['load-adjustments', row.load_id] });
+                qc.invalidateQueries({ queryKey: ['adjustment-list'] });
+              } catch (e) {
+                toast({
+                  title: 'Could not attach it',
+                  description: e instanceof Error ? e.message : 'Unexpected error',
+                  variant: 'destructive',
+                });
+              }
+            }}
+          />
+        ) : null}
+
         <div className="space-y-1.5">
           <Label htmlFor="adjustment-reason">Reason</Label>
           <Textarea
@@ -108,7 +138,7 @@ export default function AdjustmentActionDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
           <Button
             data-testid="adjustment-action-confirm"
-            disabled={run.isPending || !reason.trim()}
+            disabled={run.isPending || !reason.trim() || needsProof}
             variant={action === 'reject' || action === 'void' ? 'destructive' : 'default'}
             onClick={() => run.mutate()}
           >

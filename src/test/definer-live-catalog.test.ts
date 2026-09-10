@@ -585,6 +585,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.approve_accessorial_adjustment(uuid,text)",
   "public.reject_accessorial_adjustment(uuid,text)",
   "public.void_accessorial_adjustment(uuid,text)",
+  // Module 5 Pass 5 (2026-09-10). Attaches an EXISTING load document as backup
+  // documentation, so the person with the broker's email open does not have to
+  // leave the dialog. It takes a document id and never a file: the upload goes
+  // through the ordinary load-document path first, and this only points at it.
+  // DRAFT ONLY — evidence behind an approval decision is frozen once the row
+  // leaves draft — and the document must belong to the same load.
+  "public.attach_accessorial_adjustment_proof(uuid,uuid)",
 
 
 
@@ -749,7 +756,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   refuses a colliding replacement, history row + audit entry: 125 -> 126.
 // - can_driver_message_staff and get_inspection_doc_by_token were DROPPED
 //   2026-09-10: 128 - 2 = 126.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 126;
+// + attach_accessorial_adjustment_proof(uuid,uuid) (2026-09-10), Module 5 Pass
+//   5's in-dialog attachment: the three entry roles checked in the body, draft
+//   only, the document verified to belong to the same load, audited, and it
+//   accepts a document id rather than a file: 126 -> 127.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 127;
 
 
 
