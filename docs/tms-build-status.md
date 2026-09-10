@@ -9845,3 +9845,37 @@ are invisible to the suites in this repo.
 ### Known state
 - Linter total 167, up one authenticated SECURITY DEFINER entry: the new attach writer.
 - Proof-kind mapping remains PROPOSED BY THE BUILD, still awaiting owner confirmation.
+
+---
+
+## Recurring defect — SECURITY DEFINER `search_path` pinned to `public` alone (2026-09-10)
+
+`public.attach_accessorial_adjustment_proof(uuid, uuid)` was created on 2026-09-10 with
+`SET search_path = public` and required a second migration (`20260910224752`) to re-pin it to
+`public, extensions`.
+
+This is the **third occurrence in ten days**:
+
+1. **`set_load_dispatcher`** — 2026-09-01. Fixed by a follow-up migration.
+2. **`audit_profile_name_change`, `audit_roadside_stop`, `stamp_roadside_stop`, `is_own_operator`** — created by the 2026-09-09 security-finding pass, fixed 2026-09-10.
+3. **`attach_accessorial_adjustment_proof`** — 2026-09-10, fixed the same day.
+
+**Common cause, all three times.** The function was authored from memory instead of copied from §1 of `docs/database-security-conventions.md`, which states the required pin.
+
+**Common catch, all three times.** `definer-search-path.test.ts` fired on the next run. The guard is working — none of these reached production unpinned. What is not working is the authoring.
+
+### Open question, not a fix
+
+Three occurrences in ten days is not a discipline problem; it is a defaulting problem. The correct pin is documented and the guard is green. The gap is between writing a function and running the guard. Nobody has decided how to close it, and the options each have costs:
+
+- **Copyable template.** Add a literal copy-paste block to `docs/database-security-conventions.md` §1 that authors start from. Cost: still voluntary; still relies on memory for whether to use it.
+- **Migration convention.** Apply the pin automatically or by project convention rather than per-function SQL. Cost: changes how migrations are written; may hide the pin from reviewers.
+- **Accept it.** The guard catches the defect within one pass, and the cost is one follow-up migration. This is defensible and should be treated as a real option rather than as failure. A defect caught reliably by a guard, at the cost of a single extra migration, may simply be the equilibrium.
+
+### Trigger
+
+Revisit this decision on the **fourth occurrence**, or **before any pass that creates more than two SECURITY DEFINER functions at once**.
+
+### Report
+
+Only `docs/tms-build-status.md` was edited. No file outside `docs/` was modified.
