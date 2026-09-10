@@ -9136,3 +9136,83 @@ the NEWEST purchase.
 
 Suites: `fuelLocationSorting` (new, 9), all of `src/lib/fuel/__tests__`
 (13 files, 168), `tsgo`. No contradictions with the record.
+
+---
+
+## The per-driver fuel discount pass-through — BUILT (2026-09-10)
+
+The decision recorded on 2026-09-06 is now implemented as recorded. No
+contradictions were found with the record.
+
+**THE COLUMN.** `operators.fuel_discount_passthrough_override boolean`, NULLABLE.
+`NULL` inherits `pay_policies.fuel_discount_passthrough` — every driver today;
+`TRUE` passes the discount through to this driver; `FALSE` explicitly does not,
+even if the company default later changes. The column COMMENT carries the
+distinction: this is a per-driver **SETTING**, not a policy override. Rates
+belong in pay policies; this is a switch. Genuinely different rates per driver
+still require the `pay_policy_assignments` writer, which remains recorded debt
+and is NOT this.
+
+**THE CONTROL — THREE NAMED OPTIONS, NOT A CHECKBOX.**
+`FuelDiscountPassthroughCard`, on the driver's page in the Management/Staff
+detail panel, directly above Settlement Forecast, management/owner only. A
+checkbox carries two states and this setting has three, and a tri-state control
+that reads as a checkbox hides the very distinction the three states exist for:
+an unset driver FOLLOWS a later company-wide change and a deliberately-off
+driver does NOT. So the three are written out as three radio options, with the
+company's current value spelled out inside the inherit option ("company setting:
+not passed through"), and a reason is typed before Save appears.
+
+**THE WRITER** is `set_operator_fuel_discount_passthrough(uuid, boolean, text)`.
+Four protections, quoted:
+
+1. `v_actor uuid := public.current_profile_id();` … `IF v_actor IS NULL THEN
+   RAISE EXCEPTION 'Not authenticated'; END IF;` — the actor is resolved
+   server-side and is never a parameter.
+2. `IF NOT (public.has_role(auth.uid(), 'management') OR
+   public.has_role(auth.uid(), 'owner')) THEN RAISE EXCEPTION 'Not authorized';
+   END IF;` — checked in the body, so SECURITY DEFINER buys no escalation.
+3. `IF v_note IS NULL THEN RAISE EXCEPTION 'A note is required'; END IF;` — with
+   `v_op.id IS NULL` → `'Driver not found'`; a refuse-only contract, one driver
+   per call, no bulk path.
+4. `UPDATE public.operators SET fuel_discount_passthrough_override = _value,
+   updated_at = now() WHERE id = v_op.id;` — ONE column and the timestamp. No
+   rate, no pay policy, no other operator field. Every call writes an
+   `operator_fuel_discount_passthrough_set` audit row carrying
+   `previous_value`, `new_value`, the note and `field_written`.
+   `SET search_path TO 'public', 'extensions'`; `REVOKE ALL … FROM PUBLIC` and
+   `FROM anon`; EXECUTE to `authenticated` and `service_role` only.
+
+**WHAT IT CHANGES IN A SETTLEMENT.** Nothing about the deduction. The engine
+still deducts the GROSS in all three states; the setting adds or removes the
+positive credit line "Fuel discount passed through". `settlementEngine.ts` reads
+`fuelDiscountPassthroughOverride` first and falls back to the policy in force;
+`gatherSettlementRun` selects the column and passes it. The four buckets and the
+unexplained balance are untouched — `fuel_discount` carries the `'discount'`
+sentinel and is not a bucket.
+
+**FIXTURE EVIDENCE, stated plainly.** 69 committed transactions carry $533.63 of
+discount across 39 rows, and `settlement_line_items` holds ZERO rows sourced
+from `fuel_transactions` — no settlement has ever run against fuel, so the
+credit line cannot be observed in a real settlement. Ali Mohamed's live figures
+($1,960.56 gross, -$10.16 discount) are modelled in fixtures: **inherit** —
+company default is `false`, so no credit, fuel deduction $1,960.56;
+**TRUE** — credit line +$10.16, same $1,960.56 deduction; **FALSE** — no credit,
+same $1,960.56 deduction. The deduction is asserted identical in all states.
+The retained Pratt settlement recomputes to $327.94 in all three states; it
+carries no fuel, and `equipmentOutstanding` is supplied explicitly.
+
+Suites: `fuelDiscountPassthroughOverride` (new, 7), `settlementEngine` (29),
+`settlementRun` (33), `sharedPayPct` (15), `perTonScale` (6), and the structural
+guards `definer-live-catalog`, `definer-search-path`,
+`caller-evaluated-functions`, `grant-parity-live`, `actor-stamp-fk`,
+`operator-pay-exposure`, `operator-fuel-isolation`, `settlement-foundation`,
+plus `tsgo`.
+
+**PRE-EXISTING GUARD FAILURES, not this pass.** `definer-search-path` and
+`definer-live-catalog` still fail on four objects created by the 2026-09-09
+security-finding pass — `audit_profile_name_change()`, `audit_roadside_stop()`,
+`stamp_roadside_stop()` and `is_own_operator(uuid)` — which pin `public` alone
+without `extensions` and, for `is_own_operator`, are authenticated-executable
+without a registered justification. TRIGGER: the next pass touching those
+functions, or sooner if a definer guard is needed green.
