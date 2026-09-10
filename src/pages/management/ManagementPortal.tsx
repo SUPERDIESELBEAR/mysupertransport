@@ -14,6 +14,8 @@ import FuelImportPage from '@/pages/management/FuelImportPage';
 import FuelDriverDetailPage from '@/pages/management/FuelDriverDetailPage';
 import FuelLocationReportPage from '@/pages/management/FuelLocationReportPage';
 import SettlementSettingsPage from '@/pages/management/SettlementSettingsPage';
+// Same component the Staff portal renders — one Operator Preview, two placements.
+import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
 import SettlementRunPage from '@/pages/management/SettlementRunPage';
 import DispatchSettlementPage from '@/pages/management/DispatchSettlementPage';
 import BillingQueuePage from '@/pages/management/BillingQueuePage';

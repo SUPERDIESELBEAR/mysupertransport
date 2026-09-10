@@ -449,6 +449,39 @@ order unless there is a reason to deviate:
 A page added under Dispatch, for example, is inserted after **Loads** unless the
 feature naturally belongs before it.
 
+### Second instance: Operator Preview (2026-09-10)
+
+Four months after the Rate Con Inbox, the same failure. **Operator Preview** —
+the driver-portal preview and the QR handoff that mints a real driver session —
+existed only in the Staff portal, under the **Tools** heading, after Messages,
+Resource Center, FAQ Manager and Equipment. The Management portal had no entry
+at all. The owner holds owner, management, onboarding_staff, dispatcher and
+operator, and the route admits him; he works in Management, went looking for the
+feature he had built, could not find it, and it cost a search plus a read-only
+investigation to locate.
+
+Permission was never the problem. Both times the feature was reachable by the
+role and absent from the portal that role works in.
+
+**THE SHARPER TEST.** The question is not "does this role have permission to
+open this page". It is **"would someone doing this job reach for this tool from
+the portal they work in"**. If yes, it is placed there — in addition to
+wherever else it lives, same component, never forked. Operator Preview passes
+that test for Management (the owner previews drivers constantly) and for
+onboarding staff, and the placement reflected only the second.
+
+A grouping heading is part of the placement. "Tools" told nobody that previewing
+a driver lived there; the item now sits in the group named for the thing it acts
+on — **Drivers**, directly after Driver Hub — in both portals, labelled
+**Driver App Preview**.
+
+Fixed 2026-09-10: Management → Drivers → Driver App Preview (after Driver Hub,
+view `operator-preview`); Staff → Operations → Driver App Preview (after Driver
+Hub, out of Tools). One component, `OperatorPreviewPicker`, two placements. The
+two card actions were also relabelled in words — a read-only render versus a
+real signed-in session as that driver — because two small unlabelled icons sat
+side by side doing very different things.
+
 ### Owner sees every page
 
 **The owner role sees every page.** Owner is the build and oversight role for

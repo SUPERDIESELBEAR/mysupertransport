@@ -18,7 +18,7 @@ import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';
-import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, Container, Eye, Briefcase } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, HelpCircle, BookOpen, SlidersHorizontal, Bell, Truck, TriangleAlert, Users, Library, FileClock, Shield, Users2, ShieldCheck, AlertTriangle, XCircle, BellOff, HardDrive, GraduationCap, Container, Briefcase, Smartphone } from 'lucide-react';
 import FleetRoster from '@/components/fleet/FleetRoster';
 import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
@@ -235,6 +235,8 @@ export default function StaffPortal() {
   const navItems = [
     { label: 'Applicant Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', dividerBefore: 'Operations' },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers', badge: driverAlertCount || undefined },
+    // Moved out of "Tools" (2026-09-10): it belongs beside the drivers it previews.
+    { label: 'Driver App Preview', icon: <Smartphone className="h-4 w-4" />, path: 'operator-preview' },
     { label: 'Vehicle Hub', icon: <Truck className="h-4 w-4" />, path: 'vehicle-hub' },
     { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
     { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
@@ -244,7 +246,6 @@ export default function StaffPortal() {
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
     { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
-    { label: 'Operator Preview', icon: <Eye className="h-4 w-4" />, path: 'operator-preview' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount, dividerBefore: 'Admin' },
     { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
   ];

@@ -1,6 +1,7 @@
 # Roadmap
 
 ## In progress
+- [done 2026-09-10] Operator Preview placement: added to Management (Drivers group), moved out of Staff "Tools", and the two card actions labelled.
 - [docs] Correct false "fuel unbounded exposure" entry in `docs/tms-build-status.md` (RESOLVED section, ~line 5757) and record the standing lesson about verifying code claims before they enter the record.
 
 - Module 7 (Billing & Invoicing) — Pass 1 DONE 2026-09-04 (see build status).
