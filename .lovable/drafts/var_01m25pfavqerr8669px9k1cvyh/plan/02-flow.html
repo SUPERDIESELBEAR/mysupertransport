@@ -1,0 +1,49 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Start point and the ten steps of the deactivation wizard">
+  <style>
+    text { font-family: var(--font-sans); fill: hsl(var(--muted-foreground)); font-size: 12px; }
+    .lab { fill: hsl(var(--foreground)); font-size: 14px; font-weight: 480; }
+    .box { fill: none; stroke: hsl(var(--muted-foreground)); stroke-width: 1; }
+    .zone { fill: none; stroke: hsl(var(--border)); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: hsl(var(--muted-foreground)); stroke-width: 1; fill: none; }
+    .acc { fill: hsl(var(--accent)); }
+    .accs { fill: none; stroke: hsl(var(--accent)); stroke-width: 1; }
+    .accT { fill: hsl(var(--accent-foreground)); font-size: 11px; }
+  </style>
+  <defs>
+    <marker id="c" markerWidth="7" markerHeight="7" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" fill="none" stroke="hsl(var(--muted-foreground))" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="8" y="20" width="150" height="52" rx="8"/>
+  <text class="lab" x="20" y="42">Driver profile</text>
+  <text x="20" y="60">Deactivate &amp; Delease</text>
+  <line class="wire" x1="158" y1="46" x2="196" y2="46" marker-end="url(#c)"/>
+
+  <rect class="zone" x="200" y="8" width="432" height="152" rx="8"/>
+  <text x="210" y="24">the wizard · one screen</text>
+
+  <g>
+    <rect class="box" x="212" y="34" width="96" height="34" rx="8"/><text x="222" y="55">1 Reason</text>
+    <rect class="box" x="318" y="34" width="96" height="34" rx="8"/><text x="328" y="55">2 Unit</text>
+    <rect class="box" x="424" y="34" width="96" height="34" rx="8"/><text x="434" y="55">3 DOT notice</text>
+    <rect class="box" x="530" y="34" width="92" height="34" rx="8"/><text x="540" y="55">4 Lease</text>
+    <rect class="box" x="212" y="82" width="96" height="34" rx="8"/><text x="222" y="103">5 Equipment</text>
+    <rect class="box" x="318" y="82" width="96" height="34" rx="8"/><text x="328" y="103">6 Fuel card</text>
+    <rect class="box" x="424" y="82" width="96" height="34" rx="8"/><text x="434" y="103">7 Plate</text>
+    <rect class="box" x="530" y="82" width="92" height="34" rx="8"/><text x="540" y="103">8 End ICA</text>
+    <rect class="box" x="212" y="122" width="96" height="30" rx="8"/><text x="222" y="141">9 Login</text>
+    <rect class="box" x="318" y="122" width="96" height="30" rx="8"/><text x="328" y="141">10 Finish</text>
+  </g>
+
+  <g>
+    <rect class="accs" x="424" y="122" width="198" height="30" rx="8"/>
+    <circle class="acc" cx="442" cy="137" r="9"/><text class="accT" x="439" y="141">1</text>
+    <text x="458" y="141">each step saves as you do it</text>
+  </g>
+
+  <line class="wire" x1="368" y1="160" x2="368" y2="196" marker-end="url(#c)"/>
+  <rect class="box" x="200" y="200" width="336" height="52" rx="8"/>
+  <text class="lab" x="214" y="222">Stop any time</text>
+  <text x="214" y="240">profile shows “6 of 10 done” · Resume opens step 7</text>
+</svg>
