@@ -1,0 +1,44 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text{font-family:var(--font-sans);fill:hsl(var(--foreground))}
+    .s{font-size:12px;fill:hsl(var(--muted-foreground))}
+    .b{font-size:14px;font-weight:480}
+    rect.box{fill:none;stroke:hsl(var(--muted-foreground));stroke-width:1;rx:8}
+    line,path{stroke:hsl(var(--muted-foreground));stroke-width:1;fill:none}
+  </style>
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6" stroke="hsl(var(--muted-foreground))" fill="none"/>
+    </marker>
+  </defs>
+
+  <rect class="box" x="8" y="40" width="140" height="60"/>
+  <text class="b" x="78" y="66" text-anchor="middle">Ribbon: 3 of 10</text>
+  <text class="s" x="78" y="86" text-anchor="middle">before you open it</text>
+
+  <line x1="150" y1="70" x2="196" y2="70" marker-end="url(#a)"/>
+
+  <rect class="box" x="198" y="30" width="170" height="80"/>
+  <text class="b" x="283" y="58" text-anchor="middle">Offboarding opens</text>
+  <text class="s" x="283" y="78" text-anchor="middle">checks the driver for</text>
+  <text class="s" x="283" y="94" text-anchor="middle">steps with no work</text>
+
+  <line x1="370" y1="70" x2="416" y2="70" marker-end="url(#a)"/>
+
+  <rect x="418" y="24" width="214" height="92" rx="8" fill="none"
+        stroke="hsl(var(--accent))" stroke-width="1"/>
+  <text class="b" x="525" y="50" text-anchor="middle" fill="hsl(var(--accent-foreground))">Saved right away</text>
+  <text class="s" x="525" y="72" text-anchor="middle">"No fuel cards assigned"</text>
+  <text class="s" x="525" y="90" text-anchor="middle">"No MO plates assigned"</text>
+  <text class="s" x="525" y="108" text-anchor="middle">nobody clicked anything</text>
+
+  <path d="M525,120 L525,150 L78,150 L78,176" marker-end="url(#a)" stroke-dasharray="4 3"/>
+
+  <rect class="box" x="8" y="178" width="180" height="56"/>
+  <text class="b" x="98" y="203" text-anchor="middle">Ribbon: 5 of 10</text>
+  <text class="s" x="98" y="222" text-anchor="middle">after Back, work unchanged</text>
+
+  <circle cx="222" cy="206" r="9" fill="hsl(var(--accent))"/>
+  <text x="222" y="210" text-anchor="middle" font-size="11" fill="hsl(var(--accent-foreground))">1</text>
+  <text class="s" x="240" y="210">The ribbon counts saved steps, and it cannot tell an automatic one from a real one.</text>
+</svg>
