@@ -23,7 +23,11 @@ import { readSource, sourceFiles } from "@/test/helpers/repoLiterals";
 /** Real routes from src/App.tsx, `:param` and trailing `*` honoured. */
 function appRoutes(): string[] {
   const src = readSource("src/App.tsx");
-  return [...src.matchAll(/<Route\s+path="([^"]+)"/g)].map((m) => m[1]);
+  return [...src.matchAll(/<Route\s+path="([^"]+)"/g)]
+    .map((m) => m[1])
+    // The catch-all `path="*"` renders NotFound. Counting it as a match would
+    // make every broken destination "resolve" — to the 404 page.
+    .filter((p) => p !== "*");
 }
 
 /** Portals mounted as `/x/*`, with what each one actually parses from the path. */
