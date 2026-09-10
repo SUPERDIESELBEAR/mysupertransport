@@ -70,3 +70,18 @@
   Findings 13 -> 12 (guard fix) -> 11 (drop). Guard-scope lesson recorded:
   a guard that searches too narrowly gives confident wrong answers; its output is
   a candidate, not a verdict.
+
+## Done (2026-09-10, uncalled-function sweep — the remaining six)
+- Dropped `compliance_status(int,int)` (inlined into `v_compliance_items`),
+  `eld_cron_status()` (superseded by the `eld_cron_runs` read in
+  `ELDEscalationJobHealth.tsx`), `get_pei_requests_needing_action()` and
+  `get_application_pei_summary(uuid)` (PEI Queue uses `get_pei_queue()`; the
+  application PEI tab reads `pei_requests` directly).
+- Kept and repinned `assign_user_role` / `remove_user_role` to
+  `public, extensions`; allowlisted SUPERSEDED naming the seven service_role
+  edge functions that actually assign and remove roles.
+- Reachability: predicted 6 -> 2, got 6 -> 3, then 3 -> 1 after allowlisting.
+  The difference is `get_user_roles`, which sat in the guard's six but not in the
+  six sent for investigation. It stays RED and uninvestigated.
+- OPEN QUESTION recorded: the `owner` role invariant now lives only in two
+  functions nothing calls.
