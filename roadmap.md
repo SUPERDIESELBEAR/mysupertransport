@@ -1,7 +1,7 @@
 # Roadmap
 
 ## In progress
-- Module 5 Pass 5 — Late Accessorials reachable: dispatcher approval limit as a
+- Module 5 Pass 5 (DONE) — Late Accessorials reachable: dispatcher approval limit as a
   settlement setting (read inside `approve_accessorial_adjustment`, never passed),
   mandatory proof at submit with a charge-type proof map (PROPOSED BY THE BUILD,
   owner to confirm), load-page entry, management/dispatch review list, bell +

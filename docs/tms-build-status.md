@@ -9608,3 +9608,119 @@ types regenerated with zero remaining references.
 
 Of the four originally unclassifiable functions, `get_application_pei_summary`
 alone remains open.
+
+---
+
+## MODULE 5, PASS 5 — the late accessorial gets a screen (2026-09-10)
+
+The five writers built across Passes 1–4 had no caller. `-A1` existed in the
+database and nowhere a person could reach. This pass builds the entry point, the
+review queue and the two rules that make delegated approval safe.
+
+### THE PREDICTION, STATED BEFORE THE RUN
+
+Function-reachability guard: **11 findings before, predicted 6 after** — the five
+writers becoming reachable and nothing else changing.
+
+**Result: 6.** The six remaining are `assign_user_role`, `remove_user_role`,
+`get_user_roles`, `compliance_status`, `get_pei_requests_needing_action` and
+`get_application_pei_summary` — the same six as before, unchanged by this pass.
+No writer is still unreachable. Guard baseline message updated 11 -> 6 with the
+prediction recorded in it.
+
+`accessorial_proof_kind(text)` is new and does NOT appear as a finding: it is an
+internal helper with no client EXECUTE grant, so the guard never considered it.
+That is correct, and worth naming so nobody later reads its absence as a miss.
+
+The nav-target guard found the new dispatch path immediately
+(`/dispatch/late-accessorials` not in the parsed segment list) — the first time
+that guard caught a live defect rather than a seeded one. Fixed by teaching the
+guard the segment the portal now parses. Its one known finding (FleetRoster ->
+`/management/drivers`) is untouched and still red.
+
+### THE APPROVAL LIMIT IS READ, NEVER PASSED
+
+`settlement_settings.dispatcher_accessorial_approval_limit`, nullable. A
+dispatcher may approve an adjustment **strictly below** it. At or above it, only
+management or the owner may. **Null means dispatchers approve nothing** — the
+rule that applied before the setting existed, so an unset value is a rule and not
+a missing number.
+
+`approve_accessorial_adjustment(p_id uuid, p_reason text)` reads the limit out of
+the settings row **itself**, inside the function. It takes two arguments and will
+never take three. Same reasoning as `company_id` being trigger-stamped rather
+than defaulted: a value the caller supplies is a value the caller can change.
+Recorded in the function comment and asserted by test against the live body and
+the live argument list.
+
+The audit row records `approved_as` — `management_or_owner` or
+`dispatcher_under_limit` — and the limit in force at the time.
+
+### PROOF IS REQUIRED AT SUBMISSION, AND THE MAPPING IS A PROPOSAL
+
+Submission refuses an adjustment with no `proof_document_id`, and re-checks that
+the document still belongs to the same load. Approval refuses again rather than
+taking submission's word for it, because approval is where money starts moving.
+
+**PROPOSED BY THE BUILD, NOT STATED BY THE OWNER** — this mapping did not come
+from him and may be wrong. It is a reasonable inference from what each charge
+type is actually agreed by, and he should correct it after seeing a few real
+ones:
+
+| Charge type | What counts as proof | Why |
+| --- | --- | --- |
+| detention, layover, tonu, stopoff | the broker's written agreement | the broker agrees to pay it; there is no receipt |
+| lumper, reimbursement | the receipt | money left the driver's pocket |
+| everything else | any supporting document | no better rule is known |
+
+**An unlisted charge type maps to `any_document`, not to nothing.** The `ELSE`
+branch is deliberate and asserted by test. A category that silently vanished
+because nothing matched it has happened in this project before; a late accessorial
+of an unforeseen kind must still be submittable.
+
+The mapping is stamped onto the row as `proof_kind` at submission, so what counted
+as proof at the time is recorded rather than re-derived later.
+
+### WHAT WAS BUILT
+
+- Load detail: a Late Accessorials card, below Charges, on the same page that says
+  the money is fixed — the adjustment path is where the refusal is.
+- Management -> Accounting -> Late Accessorials, and Dispatch -> Late
+  Accessorials (a real path, `/dispatch/late-accessorials`, so a row can be linked
+  to). Both carry a pending count.
+- Submission writes a bell notification to every management and owner user,
+  from inside the protected writer — a submission that happens cannot be a
+  submission nobody hears about. Dispatchers are not notified: an approval they
+  may not be allowed to give is noise, not an alert.
+- Over-a-day banner on the review queue.
+- Settlement Settings carries the limit, empty by default, with the null rule
+  spelled out in the help text.
+
+**Verified rendering, signed in as the owner:** `/management?view=late-accessorials`
+and `/dispatch/late-accessorials` both render the queue, the filters and the
+"No dispatcher approval limit is set" notice. An import is not a placement; both
+were opened.
+
+### TESTS
+
+New `accessorial-approval-rules.test.ts`: the limit is read not passed, the
+argument list is exactly two, the limit column is nullable, the proof mapping is
+total including its `ELSE`, submission refuses missing proof and notifies, and
+each of the five writers has a call site and a rendered screen.
+
+`accessorial-adjustment-schema.test.ts`: "only management or owner may approve,
+reject or void" **changed** — approve now admits a dispatcher below the read
+limit; reject and void stay senior-only. `proof_kind` added to the column list.
+Several tests were reading five or six function bodies one round trip at a time
+and timing out on pooler latency rather than on anything they asserted; bodies are
+now prefetched in one query. `settlement-foundation.test.ts` moved from six
+settings to seven.
+
+Suites: 107 passed across the four accessorial/settlement files. `tsgo` clean.
+
+### STILL OPEN
+
+- The proof mapping needs the owner's confirmation.
+- No limit is set, so today only management and the owner can approve anything.
+- Intake is still manual: a dispatcher records what a broker agreed. Nothing
+  watches email or the detention claim table for it.
