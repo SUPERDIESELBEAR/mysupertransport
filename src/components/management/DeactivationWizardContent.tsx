@@ -427,7 +427,8 @@ export function DeactivationWizardContent({
     } finally {
       setLoading(false);
     }
-  }, [operatorId, operatorName]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [operatorId, operatorName, updateStepStatus]);
 
   useEffect(() => {
     setCurrentStep('reason');
