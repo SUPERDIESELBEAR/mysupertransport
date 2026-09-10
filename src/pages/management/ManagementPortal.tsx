@@ -215,7 +215,15 @@ export default function ManagementPortal() {
     } catch { /* ignore */ }
     return 'overview';
   });
-  const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(null);
+  // A `?view=operator-detail&op=…` link (the Back buttons on the deactivation
+  // page write exactly that) must render the profile on the FIRST paint. The
+  // mount deep-link effect below skips `op` whenever a view is named, so
+  // without this seed the profile view had no operator and painted blank.
+  const [selectedOperatorId, setSelectedOperatorId] = useState<string | null>(() => {
+    const urlView = (searchParams.get('view') ?? searchParams.get('tab')) as ManagementView | null;
+    if (urlView === 'operator-detail') return searchParams.get('op') ?? searchParams.get('operator');
+    return null;
+  });
   const [selectedLoadId, setSelectedLoadId] = useState<string | null>(
     () => searchParams.get('loadId'),
   );
@@ -368,7 +376,8 @@ export default function ManagementPortal() {
     // straight from a staff notification — so an explicit `?view=` wins and the
     // operator id is left for that screen to consume. Without this guard every
     // eld-logs deep link that named a driver landed on the profile instead.
-    if (op && !hasExplicitView) {
+    // The one explicit view that DOES own `op` is the profile itself.
+    if (op && (!hasExplicitView || urlView === 'operator-detail')) {
       openOperatorDetail(op);
     }
     // Notification deep-link: ?view=applications&app=<id> opens the review drawer
@@ -451,6 +460,12 @@ export default function ManagementPortal() {
   useEffect(() => {
     if (view === 'load-edit' && !selectedLoadId) setView('loads');
   }, [view, selectedLoadId]);
+
+  // Same guard for the driver profile: asked for with no driver, show the
+  // Driver Hub list rather than an empty page.
+  useEffect(() => {
+    if (view === 'operator-detail' && !selectedOperatorId) setView('drivers');
+  }, [view, selectedOperatorId]);
 
   const fetchTruckDownCount = useCallback(async () => {
     const { data } = await supabase
