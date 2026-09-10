@@ -25,16 +25,42 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
+## EXPECTED RED: the three reachability guards (added 2026-09-10)
+
+Read this before anything else if you are looking at a red suite.
+
+`function-reachability`, `view-reachability` and `nav-target` **ship failing on
+purpose**, with **16 findings** in total:
+
+| Guard | Findings | What it means |
+|---|---|---|
+| `src/test/function-reachability.test.ts` | 14 | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
+| `src/test/view-reachability.test.ts` | 1 | Management `app-errors`: declared in the view union and in `ALLOWED_VIEWS`, but no render branch and no way in. |
+| `src/test/nav-target.test.ts` | 1 | `FleetRoster.tsx:617` navigates to `/management/drivers`; Management parses only `?view=`, so the click silently lands on the overview. |
+
+These are a **backlog made visible**, not broken tests. Every finding is a real
+gap; each will go green when the gap is closed.
+
+**Green is reached by fixing or revoking — never by allowlisting a finding.**
+The allowlists exist only for things that are legitimately uncalled-from-source
+(a drill-down view, a deep link, a default-else render branch). Every entry
+carries a written reason and the tests reject a bare name. If you find yourself
+adding a finding to an allowlist to get a green run, you are deleting the
+finding, not fixing it.
+
+Each failure message names what was searched, which categories came back empty,
+and the three ways out. Read the message; it was written for you.
+
 ## Expected baselines (measured 2026-08-31, after the FacilitySelect quarantine)
 
-There are exactly two shapes, and **both are fully green** — there are no
-expected failures. Anything red is real.
+Two shapes. Apart from the 16 reachability findings above, **everything else is
+green** — anything else red is real.
 
 **Both shapes are run with `--maxWorkers=2`.** The flag is part of the recorded
 invocation, not an optimisation: at full parallelism the RTL suites contend and
 time out in either shape, and those failures must not be read as a regression.
 
-Note also that `bun run test:guards` is a nine-file subset. It is not a shape
+Note also that `bun run test:guards` is a twelve-file subset. It is not a shape
 and must never be reported as one.
 
 `FacilitySelect > keeps the add action reachable after typing a query with no
