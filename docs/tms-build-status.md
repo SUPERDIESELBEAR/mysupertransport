@@ -9380,3 +9380,29 @@ is worse than no guard. Those two sections stay periodic manual sweeps.
 - `bun run test:guards` is now a **twelve-file** subset; `src/test/README.md`
   leads with the expected-red table so a red run is not misread as a regression.
 - `tsgo --noEmit -p tsconfig.app.json` clean.
+
+### Standing rule: predict a new guard's first run before running it
+
+**PREDICT A NEW GUARD'S FIRST RUN BEFORE RUNNING IT. A RESULT THAT BEATS THE
+PREDICTION IS A FINDING ABOUT THE GUARD.**
+
+On 2026-09-10 the nav-target guard was predicted to fail once and came back
+GREEN. The cause: the catch-all 404 route counted as a match, so every broken
+link "resolved" — to the error page. The guard would have shipped green, asserted
+nothing, and given false confidence about precisely the defect class it was built
+for. Nothing caught that except the requirement to state an expected count and
+report any deviation. Not the guard, not review.
+
+The view guard the same day was predicted at 1 and returned 2. The extra was a
+false positive — a page rendering as a final else-branch, so there was no
+comparison to find. Read from source, recorded with its reason, baseline
+adjusted to 1.
+
+**The rule:** when a guard is built, state what it is expected to find BEFORE
+running it. If the result differs in EITHER direction, establish why before
+adjusting anything. **FEWER failures than predicted is the more dangerous signal**
+— it usually means the guard is not searching what it claims to search, and a
+guard that finds nothing is indistinguishable from a guard that works.
+
+**Never adjust the prediction to match the result.** Adjust the guard, or record
+why the prediction was wrong.
