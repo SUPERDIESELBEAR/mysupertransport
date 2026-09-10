@@ -723,7 +723,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   discount pass-through switch: management/owner checked in the body, actor
 //   from current_profile_id(), one operator per call, a note required, writes
 //   that one boolean column only, audited: 123 -> 124.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
+// + is_own_operator(uuid) (registered 2026-09-11; created 2026-09-09), the
+//   ownership predicate used INSIDE the roadside-stop RLS policies. A policy
+//   expression evaluates as the caller, so authenticated EXECUTE is required
+//   for those policies to work at all: 124 -> 125.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 125;
+
 
 
 
