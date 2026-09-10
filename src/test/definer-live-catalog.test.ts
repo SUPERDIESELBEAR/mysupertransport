@@ -490,6 +490,20 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // value. authenticated only; PUBLIC and anon are revoked in the migration.
   "public.set_operator_fuel_discount_passthrough(uuid,boolean,text)",
 
+  // is_own_operator (2026-09-09), the ownership predicate behind the driver
+  // half of the roadside-stop RLS. authenticated EXECUTE is REQUIRED, not
+  // surplus: it is called from RLS policy expressions on roadside_stops,
+  // roadside_stop_violations and roadside_stop_documents, all granted TO
+  // authenticated, and a policy expression evaluates in the CALLER's context.
+  // Revoking it would make every driver read and write of those three tables
+  // fail with 42501 -- exactly the shape caller-evaluated-functions.test.ts
+  // exists to catch. It is definer only so it can read public.operators, which
+  // drivers cannot select; it takes one operator id, returns a boolean, and
+  // discloses nothing beyond "is this row mine". PUBLIC and anon are revoked.
+  "public.is_own_operator(uuid)",
+
+
+
   // store_settlement_run (2026-09-01), the ONLY writer of a settlement. It is
   // definer because it writes three tables no client role may write, and it
   // gates itself on management/owner in its own body before anything is
@@ -709,7 +723,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   discount pass-through switch: management/owner checked in the body, actor
 //   from current_profile_id(), one operator per call, a note required, writes
 //   that one boolean column only, audited: 123 -> 124.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
+// + is_own_operator(uuid) (registered 2026-09-11; created 2026-09-09), the
+//   ownership predicate used INSIDE the roadside-stop RLS policies. A policy
+//   expression evaluates as the caller, so authenticated EXECUTE is required
+//   for those policies to work at all: 124 -> 125.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 125;
+
 
 
 

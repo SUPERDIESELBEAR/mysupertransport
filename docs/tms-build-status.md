@@ -9216,3 +9216,71 @@ security-finding pass — `audit_profile_name_change()`, `audit_roadside_stop()`
 without `extensions` and, for `is_own_operator`, are authenticated-executable
 without a registered justification. TRIGGER: the next pass touching those
 functions, or sooner if a definer guard is needed green.
+
+---
+
+## Security — THE FOUR FUNCTIONS THE SECURITY PASS BROKE (2026-09-11)
+
+Closes the "PRE-EXISTING GUARD FAILURES" entry above. That entry's trigger read
+"the next pass touching those functions, or sooner if a definer guard is needed
+green". Nobody was planning to touch `audit_roadside_stop`, so the trigger might
+never have fired. A guard that is permanently red trains people to skim past
+failures, and on this project "pre-existing and unrelated" has twice covered
+something real.
+
+**The irony, recorded deliberately.** All four objects were created by the pass
+that CLOSED a four-month unauthenticated applicant-data exposure. A security fix
+introduced four functions that fail the security guards. Writing a definer
+function from memory instead of from the copy target in
+`docs/database-security-conventions.md` is how, even when the whole point of the
+pass is security.
+
+### The migration
+
+A NEW migration, not an edit of the existing one. It re-pins all four with
+`ALTER FUNCTION ... SET search_path TO 'public', 'extensions'` — no body is
+re-authored, so no logic can drift. The file-based resolver reads
+`ALTER FUNCTION ... SET search_path`, so a repin no longer has to rewrite a body
+to clear the guard.
+
+The three trigger functions (`audit_profile_name_change`, `audit_roadside_stop`,
+`stamp_roadside_stop`) also lose PUBLIC/anon/authenticated EXECUTE and keep
+`service_role` only. Postgres checks EXECUTE at `CREATE TRIGGER` time, so the
+revoke costs nothing and closes the trigger half of the live-catalog assertion.
+
+Nothing was added to `LEGACY_PUBLIC_ONLY_PINS`. That list only shrinks.
+
+### `is_own_operator(uuid)` — authenticated EXECUTE is INTENDED
+
+Established by reading the creating migration, not by inference: the function is
+called from inside the RLS policy expressions on `roadside_stops`,
+`roadside_stop_violations` and `roadside_stop_documents`, all of which are
+`TO authenticated`. A policy expression evaluates in the CALLER's context, so
+revoking would make every driver read and write of those three tables fail with
+42501 — the exact failure `caller-evaluated-functions.test.ts` exists to catch,
+and the reason the "revoke what nothing calls" default did not apply here.
+
+So it is REGISTERED, not revoked, in `KNOWN_AUTHENTICATED_EXECUTABLE`, with a
+comment naming the three tables whose policies call it.
+`KNOWN_AUTHENTICATED_EXECUTABLE_MAX` moves **124 -> 125, upward, caused by
+`is_own_operator(uuid)`**, and by nothing else. No other ceiling moved.
+
+### Before and after — shown, not asserted
+
+BEFORE (`definer-search-path`, `definer-live-catalog`): `Test Files 2 failed
+(2) / Tests 3 failed | 17 passed (20)`, with `definer-search-path` reporting all
+four as `search_path ('public') omits "extensions"` and `definer-live-catalog`
+reporting `public.is_own_operator(uuid)` as authenticated-executable and not in
+the inventory.
+
+AFTER: `Test Files 2 passed (2) / Tests 20 passed (20)`.
+
+The live ACL was read back after the migration rather than trusted from the
+migration text, per the re-grant rule: all four pin `public, extensions`, the
+three trigger functions hold `service_role` only, `is_own_operator` holds
+`authenticated, service_role`, and no `anon` grant reappeared.
+
+Suites run by name: `definer-search-path`, `definer-live-catalog`, and the full
+`npm run test:guards` set — 9 files, 87 tests, all passing — plus `tsgo`.
+
+CONTRADICTIONS: none found.
