@@ -153,8 +153,9 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       ? `Purchases ${formatFuelDate(range.first)} – ${formatFuelDate(range.last)}`
       : 'No purchases in this period',
     generatedLine: `Generated ${formatFuelDate(isoDay(generatedAt))}`,
-    columns: FUEL_PDF_COLUMNS,
-    rows: rows.map((r) => [
+    columns: drop(FUEL_PDF_COLUMNS),
+    widths,
+    rows: rows.map((r) => drop([
       r.dateLabel,
       r.merchantName ?? '—',
       r.location ?? '—',
@@ -169,17 +170,19 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       // Pending says so in words, exactly as the screens say it. There is no
       // blank cell a reader could take for "already deducted".
       r.deducted ? r.periodLabel : NOT_YET_DEDUCTED_LABEL,
-    ]),
+    ])),
     pendingFlags: rows.map((r) => !r.deducted),
     settled: totalsBlock(
       'Taken out of your settlements',
       'Already deducted from a check.',
       summary.settled,
+      showDiscount,
     ),
     pending: totalsBlock(
       NOT_YET_DEDUCTED_LABEL,
       'Bought, but not taken out of any check yet.',
       summary.pending,
+      showDiscount,
     ),
     emptyMessage: rows.length === 0 ? FUEL_PDF_EMPTY_MESSAGE : null,
     filename: range
