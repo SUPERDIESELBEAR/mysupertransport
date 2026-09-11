@@ -10574,3 +10574,11 @@ against the real roster), `discountPassthroughVisibility.test.ts`,
 `fuelStatementReconciles.test.tsx`, `tsgo --noEmit`.
 
 CONTRADICTIONS: none found.
+
+## 2026-09-11 — Inspection bonus settlement + driver grace requests (staged)
+
+- Contradiction found: the accepted inspection-program draft's base migration was never applied — `inspection_cycles`, `inspection_program_settings`, `inspection_program_payments` do not exist live, yet source already references them. Re-staged the 306-line base migration inside this draft (`20260911153000_inspection_program_base.sql`) so acceptance restores it; no production migration was run from the draft.
+- Dependent staged migration `20260911153100_...` admits `inspection_program_payments` to `settlement_line_items_source_table_check`, adds grace-request columns to `inspection_cycles`, adds `request_inspection_grace` / `review_inspection_grace_request` (SECURITY DEFINER, PUBLIC/anon revoked), and replaces `store_settlement_run` to settle/release roadside bonus payments atomically (settle-once: settlement_id stamp + line-item key).
+- Engine: `SettlementBonusInput` + `bonuses` input; a bonus pays 100% as an `adjustment` line, never through the policy map. Gatherer/population: `approvedBonusCount` trigger; a bonus alone brings a driver into the run.
+- UI: driver card on the operator home (status, deadline, request dialog); staff review (approve/decline with reason) on the Vehicle Hub quarterly panel.
+- Verified: inspection-bonus-settlement (4), settlement-foundation, settlement-adjustment-seam — 47 passed; tsgo clean. Live-DB behaviour of the staged SQL is unverifiable until the draft is accepted.
