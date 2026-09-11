@@ -26,6 +26,11 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, Fuel, Loader2 } from 'lucide-react';
 import { fetchOperatorOptions, operatorLabel, type OperatorOption } from '@/lib/fuel/fuelOperators';
+import {
+  fetchDriverSetupStatus,
+  selectExceptionListRows,
+  type DriverSetupStatus,
+} from '@/lib/fuel/setupDriverFilter';
 
 type Choice = 'inherit' | 'on' | 'off';
 
@@ -38,7 +43,7 @@ export function exceptionCount(choices: Record<string, Choice>): number {
   return Object.values(choices).filter(c => c !== 'inherit').length;
 }
 
-interface Row extends OperatorOption { choice: Choice }
+interface Row extends OperatorOption { choice: Choice; offList: boolean }
 
 const CHOICES: { value: Choice; label: string }[] = [
   { value: 'inherit', label: 'Follow company' },
@@ -72,9 +77,20 @@ export default function FuelDiscountPassthroughSettings() {
       ((overrides.data ?? []) as { id: string; fuel_discount_passthrough_override: boolean | null }[])
         .map(o => [o.id, o.fuel_discount_passthrough_override]),
     );
+    let status = new Map<string, DriverSetupStatus>();
+    try {
+      status = await fetchDriverSetupStatus(options.map(o => o.id));
+    } catch {
+      status = new Map();
+    }
+    const listed = selectExceptionListRows(
+      options.map(o => ({ ...o, choice: toChoice(byId.get(o.id)) })),
+      status,
+      id => byId.get(id) != null,
+    );
     setPolicyId(policy.data?.id ?? null);
     setCompanyOn(Boolean(policy.data?.fuel_discount_passthrough));
-    setRows(options.map(o => ({ ...o, choice: toChoice(byId.get(o.id)) })));
+    setRows(listed);
     setLoading(false);
   }, []);
 
@@ -197,6 +213,11 @@ export default function FuelDiscountPassthroughSettings() {
 
             {open && (
               <div className="space-y-3 border-t border-border p-3">
+                <p className="text-[11px] text-muted-foreground" data-testid="fdp-list-scope">
+                  Shows onboarded drivers — active, fully onboarded, with a go-live date and
+                  insurance on file. Applicants and unfinished onboarding records are not listed.
+                  Anyone with a setting of his own is always shown, even if he no longer qualifies.
+                </p>
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -212,7 +233,17 @@ export default function FuelDiscountPassthroughSettings() {
                   return (
                     <div key={r.id} className="space-y-2 rounded-md border border-border p-2.5" data-testid="fdp-driver-row">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-foreground">{operatorLabel(r)}</span>
+                        <span className="text-xs font-medium text-foreground">
+                          {operatorLabel(r)}
+                          {r.offList && (
+                            <span
+                              data-testid="fdp-off-list"
+                              className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground"
+                            >
+                              Not currently onboarded — setting kept
+                            </span>
+                          )}
+                        </span>
                         <div className="flex gap-1">
                           {CHOICES.map(c => (
                             <Button
