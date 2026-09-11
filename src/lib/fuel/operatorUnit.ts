@@ -159,3 +159,52 @@ export function unitGapMessage(gap: UnitGap): string | null {
 export function unitGapOffersFill(gap: UnitGap): boolean {
   return gap.kind === 'ours';
 }
+
+/* ------------------------------------------------------------------ */
+/* The two-record disagreement (2026-09-11)                            */
+/* ------------------------------------------------------------------ */
+
+/**
+ * THE SAME FACT IN TWO PLACES, WITH NOTHING WATCHING THEM.
+ *
+ * A unit number is assigned DURING ONBOARDING — registrations, ELD
+ * provisioning and decals all need it at that point — so
+ * `onboarding_status.unit_number` is where the value legitimately originates
+ * and reading it first is correct. That order is NOT the problem and is not
+ * changed here.
+ *
+ * The problem is that `operators.unit_number` can also hold a value, and until
+ * now nothing noticed when the two disagreed. Robert Francis had a correct
+ * value in one record and a stale one in the other; the stale one won and
+ * produced a fuel disagreement on data that was actually right.
+ *
+ * NO WINNER IS PICKED. Which value is correct depends on which was typed in
+ * error, and only a person knows that. This reports the disagreement and shows
+ * both values plus the one the system is using; the fix happens at the source.
+ */
+export interface UnitConflict {
+  /** Both records hold a value and the values differ. */
+  conflict: boolean;
+  onboardingUnit: string | null;
+  operatorUnit: string | null;
+  /** The value every reader gets today, via `resolveOperatorUnit`. */
+  usedUnit: string | null;
+  usedSource: OperatorUnitSource;
+}
+
+/**
+ * Flags ONLY the both-present-and-different case. One record filled and the
+ * other empty is the normal shape for 48 of 60 active drivers and is never a
+ * flag; neither filled is a roster gap, not a disagreement.
+ */
+export function diagnoseUnitConflict(values: OperatorUnitValues | null): UnitConflict {
+  const onboardingUnit = clean(values?.onboardingUnit);
+  const operatorUnit = clean(values?.operatorUnit);
+  return {
+    conflict: onboardingUnit !== null && operatorUnit !== null && onboardingUnit !== operatorUnit,
+    onboardingUnit,
+    operatorUnit,
+    usedUnit: resolveOperatorUnit(values),
+    usedSource: resolveOperatorUnitSource(values),
+  };
+}

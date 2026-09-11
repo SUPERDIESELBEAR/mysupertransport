@@ -9079,22 +9079,50 @@ and re-reads the two unit columns. Nothing else.
 One, reported above and not reconciled silently: the known-debt entry's claim that Ali has
 no unit in SUPERDRIVE is wrong — the value is in onboarding, and the matcher used it.
 
-## OPEN QUESTION — onboarding-first precedence shadows the durable record (2026-09-10)
+## RESOLVED — onboarding-first precedence is CORRECT (amended 2026-09-11)
 
-`operator_unit_number` prefers `onboarding_status.unit_number` over
-`operators.unit_number`. Onboarding is a LIFECYCLE-STAGE record: it describes what was true
-while a driver was being brought on. `operators` is the durable driver record. Preferring
-the stage record over the durable one is backwards from how the two are used everywhere
-else, and it is exactly how a stale onboarding value would SHADOW a corrected operator
-value — the correction would be written, saved, and never displayed.
+The earlier open question read the onboarding-first order as "backwards", on the grounds
+that `operators` is the durable record and `onboarding_status` describes a stage the driver
+has passed. THAT READING IS WRONG AND THE OWNER HAS CORRECTED IT. A unit number is ASSIGNED
+DURING ONBOARDING — registrations, ELD provisioning and decal assignment all need it at that
+point — so `onboarding_status.unit_number` is where the value legitimately ORIGINATES.
+Reading it first is correct. The resolution order is not reversed and the 48 onboarding-only
+values are not migrated.
 
-It is not changed here because 48 active drivers depend on that order today, and flipping it
-would blank their unit numbers in one commit. It is a risk, not a defect: no driver
-currently has both values recorded and different, so nothing is being shadowed right now.
+The real defect is different: THE SAME FACT LIVES IN TWO PLACES WITH NO RULE ABOUT WHEN THEY
+SHOULD AGREE, AND NOTHING NOTICED WHEN THEY DID NOT. Robert Francis had a correct value in
+one record and a stale value in the other; the stale one won and produced a fuel
+disagreement on data that was actually right.
 
-TRIGGER: before anything writes `onboarding_status.unit_number`, or the first time a driver
-has a unit in both records that disagree. Either event turns this from a risk into a live
-defect.
+## Module 9 Pass 7 — the two unit records are now compared (2026-09-11)
+
+LIVE COUNT before building (60 active non-demo drivers):
+
+| case | active | inactive |
+| --- | --- | --- |
+| both present and AGREEING | 0 | 0 |
+| both present and DIFFERING | 0 | 0 |
+| one record only | 48 | 38 |
+| neither | 12 | 55 |
+
+Zero disagreements exist today, so this is a NOTE, NOT A SCREEN. A Management list would be
+an empty page maintained forever; the flag lives on the driver's own record, in Stage 5
+directly beneath the Assigned Unit Number field, where the person who would create the
+disagreement is already working.
+
+- `diagnoseUnitConflict` in `src/lib/fuel/operatorUnit.ts` — the same module the four fuel
+  consumers resolve through, extended rather than duplicated. It flags ONLY
+  both-present-and-different; one-only is the normal shape for 48 drivers and neither is a
+  roster gap, not a disagreement.
+- `src/components/operator/UnitNumberConflictAlert.tsx` — names BOTH values and which one
+  the system is using, because the resolver reads onboarding first and the value in use may
+  therefore not be the one last typed.
+- NO AUTO-CORRECT, NO ONE-CLICK FIX. Which value is right depends on which was typed in
+  error, and only a person knows that — the same reasoning recorded for the fuel
+  disagreement.
+
+Suites: `unitConflict.test.ts` (6), `operatorUnit.test.ts` (9), `fuelUnitSourceGuard.test.ts`
+(4), `fuelDiagnosis.test.ts` (8), `fuelPreviewDiagnosis.test.ts` (4), `tsgo --noEmit`.
 
 ## Module 9 Pass 6 — dates read MM/DD/YYYY, and the location table sorts (2026-09-10)
 

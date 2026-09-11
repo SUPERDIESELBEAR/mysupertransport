@@ -72,6 +72,7 @@ import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDia
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { getOnboardingProgress } from '@/lib/onboardingProgress';
+import { UnitNumberConflictAlert } from '@/components/operator/UnitNumberConflictAlert';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
@@ -5925,6 +5926,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       placeholder="e.g. 301"
                       className="h-9 text-sm"
                     />
+                    <UnitNumberConflictAlert operatorId={operatorId} onboardingUnit={status.unit_number ?? null} />
                   </div>
 
                   {/* Truck Decals section */}
