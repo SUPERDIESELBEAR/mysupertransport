@@ -143,19 +143,19 @@ export default function OwnershipTransferPage() {
 
   const onInitiate = () =>
     run(
-      () => supabase.rpc('initiate_owner_transfer', { p_to_user_id: selected }),
+      async () => await supabase.rpc('initiate_owner_transfer', { p_to_user_id: selected }),
       'Ownership transfer sent. It expires in 72 hours.',
     );
 
   const onCancel = () =>
     run(
-      () => supabase.rpc('cancel_owner_transfer', { p_transfer_id: pending!.id }),
+      async () => await supabase.rpc('cancel_owner_transfer', { p_transfer_id: pending!.id }),
       'Ownership transfer cancelled.',
     );
 
   const onAccept = () =>
     run(
-      () => supabase.rpc('transfer_owner', { p_transfer_id: pending!.id }),
+      async () => await supabase.rpc('transfer_owner', { p_transfer_id: pending!.id }),
       'You are now the owner of this company.',
     );
 
