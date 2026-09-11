@@ -41,7 +41,7 @@ interface MyFuelRpcRow {
   payday: string | null;
   settlement_status: string | null;
   work_week_start_dow: number | null;
-  discount_passthrough: boolean | null;
+  discount_passthrough?: boolean | null;
 }
 
 export interface MyFuelData {
