@@ -10151,15 +10151,30 @@ delete and the insert inside one transaction**, so the unique index is only
 evaluated at statement end. Two REST calls from an edge function cannot give
 that guarantee. Pass 3 must not start from the obvious two-step implementation.
 
-### KNOWN DEBT — `delete-user-account` can delete the owner row
+### CORRECTION — `delete-user-account` lacks a target-owner check
 
-Found by the proposal, live today, **not fixed in this pass**:
-`delete-user-account` deletes ALL `user_roles` rows for its target and checks
-only that the CALLER holds `owner`, never that the TARGET does not. The owner
-can therefore delete their own owner row — a real path to zero owners, which
-this index does nothing to prevent.
+The original Pass 1 entry correctly recorded that `delete-user-account` checks
+only that the CALLER holds `owner` and never checks whether the TARGET holds
+`owner`. Its next inference — that the owner could therefore delete their own
+owner row, creating a live path to zero owners — was wrong. That false half was
+added when the finding was written into this record; it was not part of the
+investigation that found the missing target check.
 
-**Trigger: fixed in Pass 2**, alongside the trigger that refuses owner writes.
+The source has a self-deletion refusal before any delete runs. Combined with
+the Pass 1 at-most-one-owner index, there is no second owner to target, so the
+gap is genuine but unreachable today. Reading the current source rather than
+trusting this entry caught the contradiction.
+
+The target-owner refusal still belongs in Pass 2 as defence in depth. Pass 3
+will temporarily create a second owner inside the atomic transfer transaction;
+that is the moment this otherwise unreachable hole becomes reachable. A hole
+that becomes reachable under the next feature is worth closing first.
+
+This is the second time in this owner sequence that a source-contradicted claim
+reached a prompt; the first was the unit-ordering question. Both were caught by
+STOP AND REPORT. The standing rule therefore applies to the author and the
+reviewer alike: **a finding about code must be verified against the current
+source before it enters the record, INCLUDING by the reviewer.**
 
 ### Verification
 
