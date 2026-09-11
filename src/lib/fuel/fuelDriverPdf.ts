@@ -280,7 +280,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
     let x = MARGIN + 4;
-    model.columns.forEach((c, i) => { doc.text(c, x, y); x += WIDTHS[i]; });
+    model.columns.forEach((c, i) => { doc.text(c, x, y); x += model.widths[i]; });
     y += 14;
   };
 
@@ -320,7 +320,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
       // driver keeps is exactly the ambiguity this report exists to remove.
       const last = ci === cells.length - 1;
       doc.setFontSize(last ? 7 : 8);
-      const lines = doc.splitTextToSize(cell, WIDTHS[ci] - 6) as string[];
+      const lines = doc.splitTextToSize(cell, model.widths[ci] - 6) as string[];
       if (last) {
         lines.slice(0, 2).forEach((l, li) => doc.text(l, x, y + li * 8));
       } else {
@@ -328,7 +328,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
         // something that reads like a different merchant.
         doc.text(lines.length > 1 ? `${(lines[0] ?? '').trimEnd()}…` : (lines[0] ?? ''), x, y);
       }
-      x += WIDTHS[ci];
+      x += model.widths[ci];
     });
     doc.setFontSize(8);
     doc.setDrawColor(238);
