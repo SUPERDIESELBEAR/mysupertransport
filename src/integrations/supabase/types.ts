@@ -5563,11 +5563,18 @@ export type Database = {
           defects_identified: boolean
           defects_repaired: boolean
           facility: string | null
+          grace_decline_reason: string | null
           grace_granted_at: string | null
           grace_is_override: boolean
           grace_override_by: string | null
           grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
           grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
           grace_until: string | null
           id: string
           inspection_date: string | null
@@ -5597,11 +5604,18 @@ export type Database = {
           defects_identified?: boolean
           defects_repaired?: boolean
           facility?: string | null
+          grace_decline_reason?: string | null
           grace_granted_at?: string | null
           grace_is_override?: boolean
           grace_override_by?: string | null
           grace_reason?: string | null
+          grace_request_days?: number | null
+          grace_request_reason?: string | null
+          grace_request_status?: string | null
+          grace_requested_at?: string | null
           grace_requested_by?: string | null
+          grace_reviewed_at?: string | null
+          grace_reviewed_by?: string | null
           grace_until?: string | null
           id?: string
           inspection_date?: string | null
@@ -5631,11 +5645,18 @@ export type Database = {
           defects_identified?: boolean
           defects_repaired?: boolean
           facility?: string | null
+          grace_decline_reason?: string | null
           grace_granted_at?: string | null
           grace_is_override?: boolean
           grace_override_by?: string | null
           grace_reason?: string | null
+          grace_request_days?: number | null
+          grace_request_reason?: string | null
+          grace_request_status?: string | null
+          grace_requested_at?: string | null
           grace_requested_by?: string | null
+          grace_reviewed_at?: string | null
+          grace_reviewed_by?: string | null
           grace_until?: string | null
           id?: string
           inspection_date?: string | null
@@ -13012,11 +13033,18 @@ export type Database = {
           defects_identified: boolean
           defects_repaired: boolean
           facility: string | null
+          grace_decline_reason: string | null
           grace_granted_at: string | null
           grace_is_override: boolean
           grace_override_by: string | null
           grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
           grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
           grace_until: string | null
           id: string
           inspection_date: string | null
@@ -13415,6 +13443,56 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_inspection_grace: {
+        Args: { _days: number; _reason: string }
+        Returns: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inspection_cycles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_officer_packet_token: {
         Args: { p_token: string }
         Returns: {
@@ -13463,6 +13541,61 @@ export type Database = {
       reverse_equipment_return_confirmation: {
         Args: { _operator_id: string; _reason: string }
         Returns: string
+      }
+      review_inspection_grace_request: {
+        Args: {
+          _approve: boolean
+          _cycle_id: string
+          _decline_reason?: string
+          _override?: boolean
+        }
+        Returns: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inspection_cycles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       revoke_share_token: { Args: { p_token: string }; Returns: boolean }
       save_application_draft: {
