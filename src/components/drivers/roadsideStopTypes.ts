@@ -48,6 +48,46 @@ export const INSPECTION_LEVELS: { value: RoadsideInspectionLevel; label: string 
   { value: 'level_6', label: 'Level VI — Radioactive' },
 ];
 
+/**
+ * Plain descriptions of the three levels that carry a clean-inspection bonus.
+ * One source of wording for staff and drivers alike.
+ */
+export interface InspectionLevelInfo {
+  value: RoadsideInspectionLevel;
+  title: string;
+  summary: string;
+  covers: string;
+  process: string;
+  special: string;
+}
+
+export const INSPECTION_LEVEL_INFO: InspectionLevelInfo[] = [
+  {
+    value: 'level_1',
+    title: 'Level I — North American Standard Inspection',
+    summary: 'The most detailed and most common roadside check.',
+    covers: 'Both the driver and the entire vehicle.',
+    process: 'A 37-step procedure. The officer checks the driver license, medical card and hours-of-service logs, then inspects lights, tires, brakes and cargo securement.',
+    special: 'The officer goes underneath the vehicle to check the frame, suspension and brake components. Passing without critical defects can earn a CVSA decal.',
+  },
+  {
+    value: 'level_2',
+    title: 'Level II — Walk-Around Driver/Vehicle Inspection',
+    summary: 'Faster than Level I because it stays on the outside of the truck.',
+    covers: 'Driver credentials and visible vehicle parts.',
+    process: 'The officer reviews the paperwork and does a full walk-around, looking at tires, lights, fluid leaks and visible safety equipment.',
+    special: 'The officer does not go underneath the vehicle or measure undercarriage brake components.',
+  },
+  {
+    value: 'level_3',
+    title: 'Level III — Driver/Credential/Administrative Inspection',
+    summary: 'A focused review of the person behind the wheel.',
+    covers: 'The driver only.',
+    process: 'The officer checks the driver license, medical examiner\u2019s certificate, hazardous materials endorsement if applicable, and electronic logs or records of duty status.',
+    special: 'No physical inspection of the truck takes place during a Level III review.',
+  },
+];
+
 export const US_STATES = [
   'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA','ME','MD',
   'MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK','OR','PA','RI','SC',

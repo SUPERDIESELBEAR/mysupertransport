@@ -1,0 +1,65 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" style="font-family: var(--font-sans);">
+  <!-- calendar lanes -->
+  <text x="20" y="30" font-size="14" font-weight="480" fill="var(--fg-primary)">Group A — unit ends 1,3,5,7,9</text>
+  <g fill="var(--bg-muted)">
+    <rect x="180" y="16" width="70" height="22" rx="8"/>
+    <rect x="260" y="16" width="70" height="22" rx="8"/>
+    <rect x="340" y="16" width="70" height="22" rx="8"/>
+    <rect x="420" y="16" width="70" height="22" rx="8"/>
+  </g>
+  <g font-size="12" fill="var(--fg-primary)" text-anchor="middle">
+    <text x="215" y="31">Oct</text><text x="295" y="31">Jan</text><text x="375" y="31">Apr</text><text x="455" y="31">Jul</text>
+  </g>
+
+  <text x="20" y="70" font-size="14" font-weight="480" fill="var(--fg-primary)">Group B — unit ends 0,2,4,6,8</text>
+  <g fill="var(--bg-muted)">
+    <rect x="180" y="56" width="70" height="22" rx="8"/>
+    <rect x="260" y="56" width="70" height="22" rx="8"/>
+    <rect x="340" y="56" width="70" height="22" rx="8"/>
+    <rect x="420" y="56" width="70" height="22" rx="8"/>
+  </g>
+  <g font-size="12" fill="var(--fg-primary)" text-anchor="middle">
+    <text x="215" y="71">Dec</text><text x="295" y="71">Mar</text><text x="375" y="71">Jun</text><text x="455" y="71">Sep</text>
+  </g>
+  <text x="500" y="50" font-size="12" fill="var(--fg-secondary)">Feb · May · Aug · Nov = makeup months</text>
+
+  <!-- cycle status flow -->
+  <text x="20" y="130" font-size="12" fill="var(--fg-secondary)">Each unit's cycle:</text>
+  <defs>
+    <marker id="ch" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0,0 L8,4 L0,8" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+  <g font-size="12" text-anchor="middle">
+    <rect x="20" y="150" width="86" height="30" rx="15" fill="none" stroke="var(--fg-secondary)"/>
+    <text x="63" y="169" fill="var(--fg-primary)">Upcoming</text>
+    <line x1="106" y1="165" x2="126" y2="165" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+    <rect x="130" y="150" width="100" height="30" rx="15" fill="var(--bg-accent-translucent)"/>
+    <text x="180" y="169" fill="var(--fg-accent)">Due this month</text>
+    <line x1="230" y1="165" x2="250" y2="165" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+    <rect x="254" y="150" width="86" height="30" rx="15" fill="none" stroke="var(--fg-secondary)"/>
+    <text x="297" y="169" fill="var(--fg-primary)">Submitted</text>
+    <line x1="340" y1="165" x2="360" y2="165" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+    <rect x="364" y="150" width="140" height="30" rx="15" fill="none" stroke="var(--fg-secondary)"/>
+    <text x="434" y="169" fill="var(--fg-primary)">Defects repaired</text>
+    <line x1="504" y1="165" x2="524" y2="165" stroke="var(--fg-secondary)" marker-end="url(#ch)"/>
+
+    <rect x="528" y="150" width="76" height="30" rx="15" fill="none" stroke="var(--fg-secondary)"/>
+    <text x="566" y="169" fill="var(--fg-primary)">Closed</text>
+  </g>
+
+  <g font-size="12" fill="var(--fg-secondary)">
+    <circle cx="27" cy="215" r="9" fill="var(--bg-accent)"/>
+    <text x="27" y="219" text-anchor="middle" fill="var(--fg-emphasis)">1</text>
+    <text x="44" y="219">Reminders at 30 days before, 14 days left, 3 days left</text>
+    <circle cx="27" cy="245" r="9" fill="var(--bg-accent)"/>
+    <text x="27" y="249" text-anchor="middle" fill="var(--fg-emphasis)">2</text>
+    <text x="44" y="249">Month ends with no submission: Overdue badge, "not dispatch-eligible"</text>
+    <circle cx="27" cy="275" r="9" fill="var(--bg-accent)"/>
+    <text x="27" y="279" text-anchor="middle" fill="var(--fg-emphasis)">3</text>
+    <text x="44" y="279">Grace period: up to 15 days, must be requested before month end</text>
+  </g>
+</svg>

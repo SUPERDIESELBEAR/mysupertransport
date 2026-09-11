@@ -17,6 +17,8 @@ import {
   type RoadsideStop, type RoadsideStopType, type RoadsideStopReason,
   type RoadsideStopOutcome, type RoadsideInspectionLevel, type RoadsideStopViolation,
 } from './roadsideStopTypes';
+import InspectionLevelGuide from './InspectionLevelGuide';
+import { evaluateBonus } from '@/lib/inspectionBonus';
 
 const sb = supabase as any;
 
@@ -172,6 +174,39 @@ export default function RoadsideStopModal({ open, onClose, operatorId, defaultUn
         if (vErr) throw vErr;
       }
 
+      // Clean inspection bonus: queued for review, never paid automatically.
+      const bonus = evaluateBonus({
+        stopType,
+        outcome,
+        level: isInspection && level !== 'none' ? level : null,
+        violationCount: cleanViolations.length,
+        oosDriver,
+        oosVehicle,
+        reportNumber,
+        stopAt,
+        reportSubmittedAt: new Date().toISOString(),
+      });
+      if (bonus.eligible) {
+        await sb.from('roadside_stops')
+          .update({ bonus_eligible: true, bonus_amount: bonus.amount, report_submitted_at: new Date().toISOString() })
+          .eq('id', stopId);
+        const { error: bonusErr } = await sb.from('inspection_program_payments').upsert({
+          kind: 'roadside_bonus',
+          roadside_stop_id: stopId,
+          operator_id: operatorId,
+          amount: bonus.amount,
+          description: `Clean roadside inspection ${reportNumber ? `(${reportNumber}) ` : ''}on ${date}`
+            + (bonus.warnings.length ? ` — review: ${bonus.warnings.join(' ')}` : ''),
+          status: 'pending',
+        }, { onConflict: 'roadside_stop_id' });
+        if (!bonusErr) {
+          toast({
+            title: `Clean inspection — $${bonus.amount} bonus queued for review`,
+            description: bonus.warnings.join(' ') || undefined,
+          });
+        }
+      }
+
       for (const file of files) {
         const check = validateFile(file);
         if (!check.valid) {
@@ -291,6 +326,7 @@ export default function RoadsideStopModal({ open, onClose, operatorId, defaultUn
                       {INSPECTION_LEVELS.map(l => <SelectItem key={l.value} value={l.value} className="text-sm">{l.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
+                  <InspectionLevelGuide className="mt-2" />
                 </div>
                 <div>
                   <Label className="text-xs mb-1 block">Inspector</Label>

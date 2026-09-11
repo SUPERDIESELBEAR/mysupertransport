@@ -1,0 +1,71 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 12px; fill: var(--fg-secondary); }
+    .hd { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 11px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .quiet { fill: var(--bg-muted); }
+  </style>
+
+  <text class="hd" x="0" y="14">Inspection Program — Calendar (2026)</text>
+
+  <!-- month columns -->
+  <g>
+    <rect class="box" x="0" y="28" width="150" height="120" rx="8"/>
+    <text class="hd" x="12" y="48">October — Group A</text>
+    <text class="sm" x="12" y="64">8 due · 5 complete · 1 review</text>
+    <rect class="quiet" x="12" y="74" width="60" height="18" rx="9"/>
+    <text class="sm" x="20" y="87">1041 ok</text>
+    <rect class="quiet" x="78" y="74" width="60" height="18" rx="9"/>
+    <text class="sm" x="86" y="87">1063 ok</text>
+    <rect x="12" y="98" width="60" height="18" rx="9" fill="var(--bg-accent-translucent)"/>
+    <text class="sm" x="20" y="111" fill="var(--fg-accent)">1077 due</text>
+    <rect class="quiet" x="78" y="98" width="60" height="18" rx="9"/>
+    <text class="sm" x="86" y="111">1085 rev</text>
+    <text class="sm" x="12" y="136">+ 4 more</text>
+  </g>
+
+  <g>
+    <rect class="box" x="166" y="28" width="150" height="120" rx="8"/>
+    <text class="hd" x="178" y="48">November</text>
+    <text class="sm" x="178" y="64">makeup month</text>
+    <rect class="quiet" x="178" y="78" width="72" height="18" rx="9"/>
+    <text class="sm" x="186" y="91">1052 grace</text>
+  </g>
+
+  <g>
+    <rect class="box" x="332" y="28" width="150" height="120" rx="8"/>
+    <text class="hd" x="344" y="48">December — Group B</text>
+    <text class="sm" x="344" y="64">11 due · 0 complete</text>
+    <rect class="quiet" x="344" y="78" width="60" height="18" rx="9"/>
+    <text class="sm" x="352" y="91">1040</text>
+    <rect class="quiet" x="410" y="78" width="60" height="18" rx="9"/>
+    <text class="sm" x="418" y="91">1058</text>
+    <text class="sm" x="344" y="116">+ 9 more</text>
+  </g>
+
+  <g>
+    <rect class="box" x="498" y="28" width="142" height="120" rx="8"/>
+    <text class="hd" x="510" y="48">January — Group A</text>
+    <text class="sm" x="510" y="64">next cycle</text>
+  </g>
+
+  <!-- reminder timeline -->
+  <text class="hd" x="0" y="186">Reminder schedule for one cycle</text>
+  <line x1="12" y1="228" x2="600" y2="228" stroke="var(--border-translucent)" stroke-width="1"/>
+
+  <circle cx="80" cy="228" r="4" fill="var(--fg-secondary)"/>
+  <text class="lbl" x="60" y="250">30 days</text>
+  <circle cx="240" cy="228" r="4" fill="var(--fg-secondary)"/>
+  <text class="lbl" x="220" y="250">14 days</text>
+  <circle cx="400" cy="228" r="4" fill="var(--fg-secondary)"/>
+  <text class="lbl" x="384" y="250">3 days</text>
+  <circle cx="520" cy="228" r="6" fill="var(--bg-accent)"/>
+  <text class="lbl" x="492" y="250" fill="var(--fg-accent)">deadline</text>
+  <circle cx="600" cy="228" r="4" fill="var(--fg-secondary)"/>
+  <text class="lbl" x="566" y="250">overdue</text>
+
+  <text class="sm" x="12" y="212">app notification + email, once each per truck per cycle</text>
+  <text class="sm" x="12" y="282">runs once a day; deadline is the last day of the assigned month (or the granted grace date)</text>
+</svg>

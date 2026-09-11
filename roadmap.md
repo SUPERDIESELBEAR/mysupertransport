@@ -109,3 +109,28 @@
 - Pass 4: UI + out-of-band email to the current owner with a cancel link.
 - Pass 5: document the break-glass database procedure for an unavailable owner.
 
+
+## Quarterly Inspection Program + Clean Roadside Bonus
+- [done 2026-09-11] Staged migration (applies on draft accept):
+  `inspection_program_settings` (configurable caps, bonus amounts, group months,
+  reminder offsets, grace limits), `inspection_cycles`, `inspection_program_payments`,
+  additive `roadside_stops.bonus_eligible/bonus_amount/report_submitted_at`,
+  `grant_inspection_grace()` and `inspection_grace_used()` (both SECURITY DEFINER,
+  `SET search_path = public, extensions`, PUBLIC/anon revoked). The grace allowance
+  is read INSIDE `grant_inspection_grace` from settings, never passed by the caller.
+- [done] `src/lib/inspectionProgram.ts` (group from unit last digit, cycle status,
+  deadlines, launch + 60-day onboarding credit) and `src/lib/inspectionBonus.ts`
+  (clean = zero violations; case-number and 24h checks are reviewer warnings, not blocks).
+  25 tests across `inspectionProgram.test.ts` and `inspectionBonus.test.ts`.
+- [done] UI: `QuarterlyInspectionPanel` in the Vehicle Hub detail drawer,
+  `InspectionProgramPanel` at Management > Equipment > Inspection Program,
+  collapsible `InspectionLevelGuide` in the roadside form, roadside list and review queue.
+- [done] Fleet-wide inspection calendar tab added to `InspectionProgramPanel`, with
+  year selector, group/status/search filters and one-click jump to the Vehicle Hub.
+- [done] `supabase/functions/cron-inspection-reminders` — 30/14/3-day reminders,
+  one send per driver per cycle per stage. Email lookup corrected to read from the
+  operator's `application_id` -> `applications(email)`. NOT deployed and NOT scheduled:
+  it reads the new tables, so deploy + `cron.schedule` after the draft is accepted.
+- Overdue is an ADVISORY badge ("not dispatch eligible"), not a hard dispatch block.
+- Deferred: CSA percentile and DataQ figures in the monthly summary stay manual —
+  there is no FMCSA feed wired up.

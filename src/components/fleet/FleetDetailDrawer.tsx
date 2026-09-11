@@ -21,6 +21,7 @@ import type { MaintenanceRecordEditable } from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal, { REGISTRATION_DOC_NAME, REGISTRATION_DOC_LABEL } from './Registration2290Modal';
 import RoadsideStopsCard from '@/components/drivers/RoadsideStopsCard';
+import QuarterlyInspectionPanel from './QuarterlyInspectionPanel';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -634,6 +635,9 @@ export default function FleetDetailDrawer({ operatorId, onBack, readOnly = false
             </div>
           )}
         </div>
+
+        {/* Quarterly Inspection Program */}
+        <QuarterlyInspectionPanel operatorId={operatorId} unitNumber={unitNumber} readOnly={readOnly} />
 
         {/* DOT Inspection Section */}
         <div className="bg-white border border-border rounded-xl shadow-sm p-5 space-y-4">

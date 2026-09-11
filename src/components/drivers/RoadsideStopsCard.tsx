@@ -9,6 +9,7 @@ import { useScrollIntoViewOnOpen } from '@/hooks/useScrollIntoViewOnOpen';
 import { ChevronDown, Loader2, Plus, ShieldAlert, FileText, Eye, Pencil, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import RoadsideStopModal from './RoadsideStopModal';
+import InspectionLevelGuide from './InspectionLevelGuide';
 import {
   STOP_TYPES, STOP_REASONS, STOP_OUTCOMES, INSPECTION_LEVELS, labelFor,
   type RoadsideStop,
@@ -170,12 +171,15 @@ export default function RoadsideStopsCard({ operatorId, unitNumber, mode = 'staf
                       {open && (
                         <div className="mt-2 pl-1 space-y-2 text-[11px] text-muted-foreground">
                           {stop.stop_type === 'dot_inspection' && (
-                            <p>
-                              Report {stop.inspection_report_number || '—'} · {labelFor(INSPECTION_LEVELS, stop.inspection_level ?? undefined)}
-                              {stop.inspector_name ? ` · ${stop.inspector_name}` : ''}
-                              {stop.agency ? ` · ${stop.agency}` : ''}
-                              {stop.cvsa_sticker ? ' · CVSA sticker issued' : ''}
-                            </p>
+                            <>
+                              <p>
+                                Report {stop.inspection_report_number || '—'} · {labelFor(INSPECTION_LEVELS, stop.inspection_level ?? undefined)}
+                                {stop.inspector_name ? ` · ${stop.inspector_name}` : ''}
+                                {stop.agency ? ` · ${stop.agency}` : ''}
+                                {stop.cvsa_sticker ? ' · CVSA sticker issued' : ''}
+                              </p>
+                              <InspectionLevelGuide />
+                            </>
                           )}
                           {(stop.citation_issued || stop.fine_amount) && (
                             <p>Citation issued{stop.fine_amount ? ` · $${Number(stop.fine_amount).toFixed(2)}` : ''}</p>
