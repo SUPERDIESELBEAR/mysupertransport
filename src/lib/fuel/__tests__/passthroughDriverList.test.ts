@@ -125,7 +125,7 @@ describe('the live roster', () => {
        where btrim(p.first_name||' '||p.last_name) in ('Daniel Vazquez Gonzalez','Jonathan Grant')
        order by 1`,
     );
-    expect(rows).toEqual(['Daniel Vazquez Gonzalez|f|271', 'Jonathan Grant|f|268']);
+    expect(rows).toEqual(['Daniel Vazquez Gonzalez|false|271', 'Jonathan Grant|false|268']);
   });
 
   itLive('every active driver excluded from dispatch still appears', () => {
