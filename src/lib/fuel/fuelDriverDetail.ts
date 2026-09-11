@@ -83,6 +83,13 @@ export interface FuelDriverRow {
   discrepancy: number;
   /** The net `total_amount` — what the card was charged. */
   total: number;
+  /**
+   * `total − discount`. WHAT THE DRIVER IS DEDUCTED, in every state, and the
+   * figure the four buckets already sum to — they are built from it. The
+   * driver-facing surfaces print THIS as the Total so their columns add up
+   * whether or not the discount line is shown; see `fuelDriverPdf`.
+   */
+  grossTotal: number;
   gallons: number;
   /** Diesel cost ÷ diesel gallons. Null unless both are present. */
   costPerGallon: number | null;
