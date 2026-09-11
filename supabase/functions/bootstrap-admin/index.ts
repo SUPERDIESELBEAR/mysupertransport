@@ -81,11 +81,26 @@ Deno.serve(async (req) => {
       account_status: 'active',
     }, { onConflict: 'user_id' });
 
-    const assignRole = role === 'owner' ? 'owner' : 'management';
-    await supabaseAdmin.from('user_roles').upsert(
-      { user_id: userId, role: assignRole },
-      { onConflict: 'user_id,role' }
-    );
+    if (role === 'owner') {
+      const { error: ownerError } = await supabaseAdmin.rpc('bootstrap_assign_owner', {
+        p_user_id: userId,
+      });
+      if (ownerError) {
+        return new Response(JSON.stringify({ error: ownerError.message }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    } else {
+      const { error: managementError } = await supabaseAdmin.from('user_roles').upsert(
+        { user_id: userId, role: 'management' },
+        { onConflict: 'user_id,role' }
+      );
+      if (managementError) {
+        return new Response(JSON.stringify({ error: managementError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     return new Response(JSON.stringify({ success: true, user_id: userId }), {
       status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },

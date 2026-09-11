@@ -69,6 +69,28 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Defence in depth for ownership transfer: a transfer transaction may
+    // temporarily contain two owners, making a formerly unreachable target
+    // possible. Owner removal must stay inside an approved ownership function.
+    const { data: targetOwnerRole, error: targetOwnerError } = await supabaseAdmin
+      .from('user_roles')
+      .select('id')
+      .eq('user_id', user_id)
+      .eq('role', 'owner')
+      .limit(1);
+
+    if (targetOwnerError) {
+      return new Response(JSON.stringify({ error: targetOwnerError.message }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    if (targetOwnerRole && targetOwnerRole.length > 0) {
+      return new Response(JSON.stringify({ error: 'Owner accounts cannot be deleted through account deletion' }), {
+        status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Get user info for audit log
     const { data: targetProfile } = await supabaseAdmin
       .from('profiles')
