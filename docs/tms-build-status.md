@@ -7970,6 +7970,10 @@ against the NET `Total`. The discount therefore surfaced as an over-itemisation.
 No money was affected. The Unexplained column worked exactly as designed — the
 inconsistency it caught was its own.
 
+> SUPERSEDED for the DRIVER-FACING surfaces by "THE STATEMENT TOTAL IS THE GROSS,
+> IN BOTH STATES (2026-09-11)" at the end of this document. The staff import view
+> below is unchanged.
+
 **The decision: a DISCOUNT COLUMN, `Total` stays net.** Fuel + Advances +
 Repairs + Other + Discount + Unexplained = Total, the discount negative and
 visibly bringing the row down to the printed total.
