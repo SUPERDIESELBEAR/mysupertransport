@@ -51,6 +51,7 @@ const OperatorInspectionBinder = lazyWithRetry(() => import('@/components/inspec
 const ContractorPaySetup = lazyWithRetry(() => import('@/components/operator/ContractorPaySetup'));
 import TruckInfoCard, { TruckInfo, EquipmentShippingInfo } from '@/components/operator/TruckInfoCard';
 import OperatorReturnReceipts from '@/components/operator/OperatorReturnReceipts';
+import InspectionGraceRequestCard from '@/components/operator/InspectionGraceRequestCard';
 import MyDocumentsFolders from '@/components/operator/MyDocumentsFolders';
 import PendingPassengerAuthCard from '@/components/operator/PendingPassengerAuthCard';
 import PendingOSASCard from '@/components/operator/PendingOSASCard';
@@ -1923,6 +1924,14 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
               }}
               shippingInfo={equipmentShipping}
             />
+
+            {/* ── QUARTERLY INSPECTION (deadline + extension request) ── */}
+            {operatorId && (
+              <InspectionGraceRequestCard
+                operatorId={operatorId}
+                unitNumber={onboardingStatus.unit_number as string | null}
+              />
+            )}
 
             {/* ── RETURN RECEIPTS (legacy equipment asset sheet signing now handled via OSAS) ── */}
             {operatorId && (

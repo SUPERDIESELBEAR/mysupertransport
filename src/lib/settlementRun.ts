@@ -21,7 +21,7 @@
  * Once stored, a settlement is READ, never recomputed. Nothing in the driver's
  * path imports this module.
  */
-import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput, type SettlementAdjustmentInput } from '@/lib/settlementEngine';
+import { computeSettlement, type ComputedSettlement, type SettlementComputeInput, type SettlementLoadInput, type SettlementAdjustmentInput, type SettlementBonusInput } from '@/lib/settlementEngine';
 import { SETTLEMENT_SETTINGS_DEFAULTS, type SettlementSettings } from '@/lib/settlementConfig';
 import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } from '@/lib/settlementPeriod';
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
@@ -257,7 +257,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     });
   }
 
-  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes] = await Promise.all([
+  const [fuelRes, dedRes, advRes, rmRes, priorRes, operatorRes, adjRes, bonusRes] = await Promise.all([
     sb.from('fuel_transactions')
       .select(FUEL_SELECT)
       .not('operator_id', 'is', null)
@@ -283,6 +283,16 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .is('settlement_id', null)
       .gte('approved_at', fromIso)
       .lt('approved_at', toIso),
+    // APPROVED Clean Roadside bonuses not yet consumed by any settlement.
+    // No period bound: the settle-once key (settledSourcesEver) plus the
+    // settlement_id IS NULL filter are the two locks, exactly as with
+    // adjustments, and an unbounded read of a tiny queue is cheap. Losing
+    // this read can only delay a bonus, never double-pay it.
+    sb.from('inspection_program_payments')
+      .select('id, operator_id, amount, description, status, settlement_id')
+      .eq('kind', 'roadside_bonus')
+      .eq('status', 'approved')
+      .is('settlement_id', null),
   ]);
 
   // Each read is checked HERE, once, before anything derives a figure from it.
@@ -327,6 +337,21 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     });
   }
 
+  // Approved, unsettled roadside bonuses — the same TWO INDEPENDENT LOCKS as
+  // adjustments: the settle-once key in `settledSourcesEver`, and
+  // `settlement_id IS NULL` in the read itself.
+  const bonusesByOperator: Record<string, SettlementBonusInput[]> = {};
+  for (const b of rowsOf(bonusRes, 'inspection_program_payments')) {
+    if (b.status !== 'approved' || b.settlement_id) continue;
+    if (settledSourcesEver.has(`inspection_program_payments:${b.id}`)) continue;
+    if (!b.operator_id) continue;
+    (bonusesByOperator[b.operator_id] ??= []).push({
+      id: b.id,
+      amount: num(b.amount),
+      description: b.description,
+    });
+  }
+
   const operators = (rowsOf(operatorRes, 'operators'));
   const nameOf = (id: string) => {
     const a = operators.find(x => x.id === id)?.applications;
@@ -356,6 +381,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     ...Object.keys(rmByOperator),
     // An approved adjustment ALONE brings a driver into the run.
     ...Object.keys(adjustmentsByOperator),
+    // So does an approved, unsettled Clean Roadside bonus.
+    ...Object.keys(bonusesByOperator),
   ].filter(Boolean));
 
   const gathered: GatheredOperator[] = [];
@@ -443,6 +470,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
 
 
     const adjustments = adjustmentsByOperator[operatorId] ?? [];
+    const bonuses = bonusesByOperator[operatorId] ?? [];
 
     const work: UnsettledWork = {
       operatorId,
@@ -453,6 +481,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       rmDeductionDue: Math.min(rmShortfall, rmDeposit?.weeklyDeduction ?? settings.rm_weekly_deduction),
       otherDeductionsDue: deductions.reduce((t, d) => t + d.amount, 0),
       approvedAdjustmentCount: adjustments.length,
+      approvedBonusCount: bonuses.length,
     };
 
     gathered.push({
@@ -470,6 +499,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         fuel,
         deductions,
         adjustments,
+        bonuses,
         // Cash advances are a POPULATION trigger only: no repayment schedule is
         // recorded anywhere, and inventing one here would be the gathering layer
         // making a pay rule. Recorded as an open item.

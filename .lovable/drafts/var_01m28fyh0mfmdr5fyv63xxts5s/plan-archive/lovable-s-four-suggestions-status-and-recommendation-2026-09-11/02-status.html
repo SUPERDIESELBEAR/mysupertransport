@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 300" font-family="var(--font-sans)">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); font-size: 14px; font-weight: 480; }
+    .small { font-size: 12px; font-weight: 400; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; rx: 8; }
+    .tag { font-size: 12px; font-weight: 600; }
+  </style>
+
+  <text x="20" y="24">1. Reminder notices</text>
+  <rect x="20" y="36" width="600" height="44" rx="8" class="box"/>
+  <text x="36" y="62" class="small">Built — daily cron notifies each driver 30d / 14d / 3d before deadline, grace-aware</text>
+  <text x="556" y="26" class="tag" fill="var(--fg-secondary)">DONE</text>
+
+  <text x="20" y="112">2. Clean roadside bonus → settlement</text>
+  <rect x="20" y="124" width="600" height="44" rx="8" style="stroke: var(--fg-accent); stroke-width: 1.5; fill: var(--bg-accent-translucent);"/>
+  <text x="36" y="150" class="small">Not built — eligibility logic exists but no settlement line is ever created. Build it.</text>
+  <text x="532" y="114" class="tag" fill="var(--fg-accent)">BUILD</text>
+
+  <text x="20" y="200">3. Grace limits in Vehicle Hub</text>
+  <rect x="20" y="212" width="600" height="44" rx="8" style="stroke: var(--fg-accent); stroke-width: 1.5; fill: var(--bg-accent-translucent);"/>
+  <text x="36" y="238" class="small">Staff side built (cap 2/12mo, shown on cycle) — missing driver "Request extension" flow. Build it.</text>
+  <text x="508" y="202" class="tag" fill="var(--fg-accent)">PARTIAL</text>
+
+  <text x="20" y="288">4. Submission in Vehicle Hub (report, invoice, status)</text>
+  <text x="556" y="288" class="tag" fill="var(--fg-secondary)">DONE</text>
+</svg>
