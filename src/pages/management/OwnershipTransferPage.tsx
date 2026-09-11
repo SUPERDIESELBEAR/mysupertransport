@@ -393,7 +393,31 @@ export default function OwnershipTransferPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this ownership transfer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The pending transfer will be withdrawn and nobody's role changes. If
+              you did not start it, cancel it and change your password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Leave it pending</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmCancel(false);
+                void onCancel();
+              }}
+            >
+              Cancel transfer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={confirmAccept} onOpenChange={setConfirmAccept}>
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Become the owner of this company?</AlertDialogTitle>
