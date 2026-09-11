@@ -764,6 +764,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // 2026-09-11: 125 - 1 = 124. `get_user_roles(uuid)` DROPPED — no caller in any
 //   schema or in source, and as a definer taking an arbitrary user id with no
 //   in-body gate it let any signed-in user read another user's roles.
+// 2026-09-11 owner Pass 2: owner_role_writer_active(),
+//   enforce_owner_role_writes(), and bootstrap_assign_owner(uuid) are all
+//   service_role-only. They therefore do not change this client-executable
+//   registry or either linter ceiling.
 const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
 
 
