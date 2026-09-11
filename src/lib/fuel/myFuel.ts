@@ -41,6 +41,7 @@ interface MyFuelRpcRow {
   payday: string | null;
   settlement_status: string | null;
   work_week_start_dow: number | null;
+  discount_passthrough: boolean | null;
 }
 
 export interface MyFuelData {
@@ -52,6 +53,13 @@ export interface MyFuelData {
    * one way the driver's weeks and the office's weeks could drift apart.
    */
   workWeekStartDow: number;
+  /**
+   * Whether the fuel discount is passed through to THIS driver, resolved in the
+   * database (his own setting first, the company default second). Drivers cannot
+   * read pay policies, so the answer arrives with the rows. When false, this
+   * screen shows no discount at all — the deduction is unaffected either way.
+   */
+  discountPassthrough: boolean;
 }
 
 /** Reshape one RPC row into the shape the shared row builder already takes. */
