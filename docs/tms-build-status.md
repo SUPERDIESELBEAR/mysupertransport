@@ -10191,3 +10191,75 @@ source before it enters the record, INCLUDING by the reviewer.**
 
 No trigger, no `bootstrap_assign_owner`, no `transfer_owner`, no
 `owner_transfers` table, no UI. Those are Passes 2 through 5.
+
+## 2026-09-11 — Owner invariant, Pass 2: verification
+
+Pass 2 itself was interrupted by an execution deadline and shipped without
+verification. The verification was completed later the same day. No code,
+migration, documentation, or file edits were made during verification.
+
+### Verified live
+
+- **The owner row is intact and unchanged:** Marcus Mueller,
+  `5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe`, role `owner`, status `active`.
+- **Owner count is exactly one**, measured before the probes and again after
+  them.
+- **All six structural suites pass.**
+- **Five refusals were demonstrated**, each in its own aborting transaction.
+  No probe committed and no probe data remained:
+
+  | Probe | Verbatim error |
+  | --- | --- |
+  | Insert a second `owner` | `42501` `Owner role changes must use an approved ownership function.` |
+  | Delete the existing `owner` row | `42501` `Owner role changes must use an approved ownership function.` |
+  | Update a non-owner row to `owner` | `42501` `Owner role changes must use an approved ownership function.` |
+  | Update the owner row away from `owner` | `42501` `Owner role changes must use an approved ownership function.` |
+  | Call `bootstrap_assign_owner` while an owner exists | `23505` `An owner already exists; bootstrap cannot assign another owner.` |
+
+### Not runtime-verified — recorded as source-verified only
+
+`delete-user-account` refusing an owner target was **not** exercised. It is a
+deployed edge function and cannot be enclosed in a caller-controlled
+transaction, so it cannot be attempted and rolled back safely. Running it
+would have been a real deletion attempt against a real account.
+
+The refusal text — **"Owner accounts cannot be deleted through account deletion"**
+— is **source-verified only**. "Verified" and "verified by reading the source"
+are different claims, and only the second was available here.
+
+What would settle it:
+
+- A scratch non-owner account deleted through the function would prove the
+  function still works for ordinary targets.
+- A scratch account temporarily holding `owner` to be refused would prove the
+  owner-target refusal — but that is impossible while the single-owner index
+  stands, which is itself why the path is unreachable today.
+
+The refusal is therefore defence in depth for **Pass 3**, when an atomic
+transfer briefly makes a second owner possible and this otherwise unreachable
+hole becomes reachable.
+
+### The zero-row probe lesson
+
+One probe targeted a management row that did not exist. The `UPDATE` affected
+zero rows, raised no error, and rolled back. It was reported, then repeated
+against a confirmed operator row, which produced the expected refusal.
+
+**An `UPDATE` affecting zero rows raises no error.** A refusal probe must
+confirm the target exists before a clean result means anything. Otherwise it
+reads exactly like a passed refusal. This is the same shape as the anti-vacuity
+assertion added to the invoice-dispatch reconciliation guard — a check that
+passes because there was nothing to check.
+
+### Suites run by name
+
+- `src/test/definer-live-catalog.test.ts`
+- `src/test/definer-search-path.test.ts`
+- `src/test/definer-fail-open.test.ts`
+- `src/test/function-reachability.test.ts`
+- `src/test/grant-parity-live.test.ts`
+- `src/test/policy-grant-parity.test.ts`
+
+### Contradictions
+
+None found.
