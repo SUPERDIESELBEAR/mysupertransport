@@ -61,8 +61,9 @@ describe('an OFF driver sees no discount on the document he keeps', () => {
   it('drops the column, the cell and the totals line', () => {
     const off = pdf(false);
     expect(off.columns).not.toContain('Discount');
-    expect(off.columns).toHaveLength(FUEL_PDF_COLUMNS.length - 1);
-    expect(off.rows[0]).toHaveLength(FUEL_PDF_COLUMNS.length - 1);
+    expect(off.columns).not.toContain('After discount');
+    expect(off.columns).toHaveLength(FUEL_PDF_COLUMNS.length - 2);
+    expect(off.rows[0]).toHaveLength(FUEL_PDF_COLUMNS.length - 2);
     expect(off.settled.breakdown.map(b => b.label)).not.toContain('Discount');
     expect(off.pending.breakdown.map(b => b.label)).not.toContain('Discount');
     expect(JSON.stringify(off)).not.toMatch(/discount/i);
