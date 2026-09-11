@@ -68,6 +68,8 @@ export interface FuelPdfDocument {
   periodLine: string;
   generatedLine: string;
   columns: string[];
+  /** Column widths for exactly the columns above, in points. */
+  widths: number[];
   /** Formatted cells, in the SAME order the screens show. */
   rows: string[][];
   /** Parallel to `rows`: true where the purchase has not been deducted. */
@@ -83,10 +85,13 @@ export const FUEL_PDF_COLUMNS = [
   'Discount', 'Total', 'Gallons', '$/gal', 'Deducted on',
 ];
 
+/** The index of the Discount column, dropped whole when it is not this driver's. */
+const DISCOUNT_INDEX = FUEL_PDF_COLUMNS.indexOf('Discount');
+
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 function totalsBlock(
-  title: string, note: string, totals: FuelDriverTotals,
+  title: string, note: string, totals: FuelDriverTotals, showDiscount: boolean,
 ): FuelPdfTotalsBlock {
   return {
     title,
@@ -98,7 +103,7 @@ function totalsBlock(
       { label: 'Cash advance', value: money(totals.cashAdvance) },
       { label: 'Repairs', value: money(totals.repair) },
       { label: 'Other', value: money(totals.other) },
-      { label: 'Discount', value: money(totals.discount) },
+      ...(showDiscount ? [{ label: 'Discount', value: money(totals.discount) }] : []),
       { label: 'Gallons', value: totals.gallons ? String(totals.gallons) : '—' },
     ],
   };
