@@ -5925,6 +5925,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                       placeholder="e.g. 301"
                       className="h-9 text-sm"
                     />
+                    <UnitNumberConflictAlert operatorId={operatorId} onboardingUnit={status.unit_number ?? null} />
                   </div>
 
                   {/* Truck Decals section */}
