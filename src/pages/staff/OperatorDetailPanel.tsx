@@ -61,7 +61,6 @@ import { Suspense } from 'react';
 const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentEditor').then(m => ({ default: m.DocumentEditor })));
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import SettlementForecast from '@/components/operator/SettlementForecast';
-import FuelDiscountPassthroughCard from '@/components/operator/FuelDiscountPassthroughCard';
 import DeletedDocumentsTray from '@/components/operator/DeletedDocumentsTray';
 import { softDeleteOperatorDocument } from '@/lib/operatorDocuments';
 import TruckOwnerCard from '@/components/management/TruckOwnerCard';
@@ -7426,7 +7425,6 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           </button>
           {!collapsedStages.has('fuel_discount_passthrough') && (
             <div className="px-5 pb-5">
-              <FuelDiscountPassthroughCard operatorId={operatorId} />
             </div>
           )}
         </div>

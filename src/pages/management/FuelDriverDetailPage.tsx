@@ -24,6 +24,7 @@ import {
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
+import { fetchOperatorDiscountPassthrough } from '@/lib/fuel/discountPassthrough';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchOperatorOptions, operatorLabel } from '@/lib/fuel/fuelOperators';
 import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
@@ -161,6 +162,17 @@ export default function FuelDriverDetailPage() {
   const operators = useQuery({ queryKey: ['fuel-operator-options'], queryFn: fetchOperatorOptions });
   const dow = useQuery({ queryKey: ['settlement-work-week-dow'], queryFn: fetchWorkWeekStartDow });
 
+  /**
+   * The document handed to a driver must read the same as his own screen, so
+   * the PDF omits the discount whenever it is not passed through to him. The
+   * staff table below still shows it — it is our record of what we were billed.
+   */
+  const passthrough = useQuery({
+    queryKey: ['fuel-discount-passthrough', operatorId],
+    queryFn: () => fetchOperatorDiscountPassthrough(operatorId as string),
+    enabled: Boolean(operatorId),
+  });
+
   const txns = useQuery({
     queryKey: ['fuel-driver-detail', operatorId],
     queryFn: () => fetchDriverFuel(operatorId as string),
@@ -208,6 +220,7 @@ export default function FuelDriverDetailPage() {
       unitNumber: selected.unit,
       rows,
       generatedAt: new Date(),
+      showDiscount: passthrough.data === true,
     });
   };
 
