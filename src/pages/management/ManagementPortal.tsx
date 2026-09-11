@@ -89,6 +89,8 @@ import { differenceInDays, formatDistanceToNowStrict, parseISO, startOfDay } fro
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import OwnershipTransferPage from '@/pages/management/OwnershipTransferPage';
+import { usePendingOwnerTransfer } from '@/hooks/usePendingOwnerTransfer';
 import { cn } from '@/lib/utils';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -115,7 +117,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'app-errors' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'ownership-transfer' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -166,6 +168,7 @@ const SETTINGS_SECTIONS: { label: string; path: ManagementView | '__demo__' }[] 
 const SETTINGS_VIEWS = new Set<string>([
   ...SETTINGS_SECTIONS.map(s => s.path).filter(p => p !== '__demo__'),
   'email-catalog',
+  'ownership-transfer',
   'settings',
 ]);
 
@@ -188,11 +191,12 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','duplicate-plates','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','duplicate-plates','carrier-signature','terminations','broadcast','app-errors','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','ownership-transfer','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
-  const { session } = useAuth();
+  const { session, isOwner } = useAuth();
+  const pendingOwnerTransferForMe = usePendingOwnerTransfer();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
@@ -1038,6 +1042,15 @@ export default function ManagementPortal() {
     { label: 'Messages',  icon: <MessageSquare className="h-4 w-4" />,   path: 'messages', badge: unreadMsgCount },
   ];
 
+  // Ownership Transfer is owner-only, plus the one management user who has a
+  // transfer waiting on them — otherwise the recipient could never accept.
+  const settingsSections = [
+    ...SETTINGS_SECTIONS,
+    ...(isOwner || pendingOwnerTransferForMe
+      ? [{ label: 'Ownership Transfer', path: 'ownership-transfer' as ManagementView }]
+      : []),
+  ];
+
   const navGroups = [
     {
       label: 'Recruiting',
@@ -1172,6 +1185,22 @@ export default function ManagementPortal() {
             </button>
           }
       >
+        {/* A pending ownership transfer must find its recipient; they have no
+            reason to open Settings unprompted. */}
+        {pendingOwnerTransferForMe && view !== 'ownership-transfer' && (
+          <button
+            onClick={() => handleNavigate('ownership-transfer')}
+            className="mb-4 w-full text-left rounded-lg border border-gold/40 bg-gold/10 px-4 py-3 text-sm hover:bg-gold/15 transition-colors"
+          >
+            <span className="font-semibold text-foreground">
+              You have a pending ownership transfer.
+            </span>{' '}
+            <span className="text-muted-foreground">
+              Review and accept or decline it — it expires within 72 hours.
+            </span>
+          </button>
+        )}
+
         {/* ── SETTINGS SHELL ── */}
         {SETTINGS_VIEWS.has(view) && (
           <div className="space-y-5 animate-fade-in mb-6">
@@ -1183,7 +1212,7 @@ export default function ManagementPortal() {
               <p className="text-muted-foreground text-sm mt-1">Configuration, catalogs and administrative tools</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {SETTINGS_SECTIONS.map((section) => {
+              {settingsSections.map((section) => {
                 const active = section.path === view || (section.path === 'content-manager' && view === 'email-catalog');
                 const isDemoToggle = section.path === '__demo__';
                 return (
@@ -2360,6 +2389,10 @@ export default function ManagementPortal() {
             <CarrierSignatureSettings />
             <RevertCourtesyDefaultsCard />
           </div>
+        )}
+
+        {view === 'ownership-transfer' && (
+          <OwnershipTransferPage />
         )}
 
         {view === 'demo-accounts' && (
