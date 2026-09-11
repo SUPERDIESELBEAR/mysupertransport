@@ -43,7 +43,7 @@ export function exceptionCount(choices: Record<string, Choice>): number {
   return Object.values(choices).filter(c => c !== 'inherit').length;
 }
 
-interface Row extends OperatorOption { choice: Choice }
+interface Row extends OperatorOption { choice: Choice; offList: boolean }
 
 const CHOICES: { value: Choice; label: string }[] = [
   { value: 'inherit', label: 'Follow company' },
@@ -77,9 +77,20 @@ export default function FuelDiscountPassthroughSettings() {
       ((overrides.data ?? []) as { id: string; fuel_discount_passthrough_override: boolean | null }[])
         .map(o => [o.id, o.fuel_discount_passthrough_override]),
     );
+    let status = new Map<string, DriverSetupStatus>();
+    try {
+      status = await fetchDriverSetupStatus(options.map(o => o.id));
+    } catch {
+      status = new Map();
+    }
+    const listed = selectExceptionListRows(
+      options.map(o => ({ ...o, choice: toChoice(byId.get(o.id)) })),
+      status,
+      id => byId.get(id) != null,
+    );
     setPolicyId(policy.data?.id ?? null);
     setCompanyOn(Boolean(policy.data?.fuel_discount_passthrough));
-    setRows(options.map(o => ({ ...o, choice: toChoice(byId.get(o.id)) })));
+    setRows(listed);
     setLoading(false);
   }, []);
 
