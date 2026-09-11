@@ -176,6 +176,7 @@ export function buildDriverRow(
     location,
     fuel, cashAdvance, repair, other,
     discount, discrepancy, total,
+    grossTotal: round2(total - discount),
     gallons,
     costPerGallon: gallons > 0 && dieselAmount > 0
       ? Math.round((dieselAmount / gallons) * 1000) / 1000
