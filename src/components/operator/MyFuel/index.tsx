@@ -91,7 +91,7 @@ function PurchaseCard({ row, showDiscount }: { row: FuelDriverRow; showDiscount:
             </div>
           </div>
           <div className="text-right">
-            <div className="font-bold">{formatCurrency(row.total)}</div>
+            <div className="font-bold">{formatCurrency(row.grossTotal)}</div>
             {row.costPerGallon && (
               <div className="text-xs text-muted-foreground">${row.costPerGallon.toFixed(3)}/gal</div>
             )}
@@ -103,7 +103,12 @@ function PurchaseCard({ row, showDiscount }: { row: FuelDriverRow; showDiscount:
           {row.cashAdvance !== 0 && <div className="flex justify-between"><dt>Cash advance</dt><dd>{money(row.cashAdvance)}</dd></div>}
           {row.repair !== 0 && <div className="flex justify-between"><dt>Repairs</dt><dd>{money(row.repair)}</dd></div>}
           {row.other !== 0 && <div className="flex justify-between"><dt>Other</dt><dd>{money(row.other)}</dd></div>}
-          {showDiscount && row.discount !== 0 && <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>}
+          {showDiscount && row.discount !== 0 && (
+            <>
+              <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>
+              <div className="flex justify-between"><dt>After discount</dt><dd>{money(row.total)}</dd></div>
+            </>
+          )}
           {row.gallons !== 0 && <div className="flex justify-between"><dt>Gallons</dt><dd>{row.gallons}</dd></div>}
         </dl>
 
