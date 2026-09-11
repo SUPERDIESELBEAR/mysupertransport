@@ -506,6 +506,13 @@ export default function SignOffSheetList({ onCreate, onPreview }: Props) {
                     {sheet.signed_at && (
                       <div className="text-xs text-muted-foreground">Signed: {format(new Date(sheet.signed_at), 'MM/dd/yyyy h:mm a')}</div>
                     )}
+                    {/* Built at offboarding to track equipment issued before SUPERDRIVE — never issued or signed at onboarding. */}
+                    {(sheet as any).is_return_only && (
+                      <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
+                        <Badge variant="secondary" className="shrink-0">Return only</Badge>
+                        <span className="text-muted-foreground">Created during offboarding to track the return. No signature was ever collected.</span>
+                      </div>
+                    )}
                     {sheet.is_paper_original && (
                       <div className="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-border bg-muted/40 px-2.5 py-1.5 text-xs">
                         <Badge variant="secondary" className="shrink-0">Paper original</Badge>

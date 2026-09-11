@@ -15,6 +15,7 @@ import { Separator } from '@/components/ui/separator';
 import { Loader2, CheckCircle2, AlertTriangle, Send, UserX, FileSignature, RotateCcw, CreditCard, ShieldAlert, MapPin, LogOut, ChevronRight, ChevronLeft, Ban, ArrowLeft, Mail, Camera } from 'lucide-react';
 import type { Database } from '@/integrations/supabase/types';
 import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
+import RecordPaperIcaModal from '@/components/ica/RecordPaperIcaModal';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
 
 export interface DeactivationWizardContentProps {
@@ -107,6 +108,28 @@ interface IcaContract {
   lease_effective_date: string | null;
 }
 
+/**
+ * One thing the driver still holds, gathered for a driver who never had an
+ * assignment sheet. Everything comes from a record already in SUPERDRIVE —
+ * nothing here is invented, and a line with no serial on file stays visible
+ * but cannot be checked.
+ */
+interface ReturnCandidate {
+  key: string;
+  deviceType: string;
+  label: string;
+  serial: string | null;
+  source: 'inventory' | 'plate' | 'onboarding';
+}
+
+const RETURN_DEVICE_LABELS: Record<string, string> = {
+  eld: 'ELD Unit',
+  dash_cam: 'Dash Camera',
+  bestpass: 'BestPass',
+  fuel_card: 'Fuel Card',
+  license_plate: 'License Plate',
+};
+
 const DOT_SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
 const OWNER_EMAIL = 'marc@mysupertransport.com';
 const OWNER_NAME = 'Marcus Mueller';
@@ -187,6 +210,13 @@ export function DeactivationWizardContent({
   // Step 6: MO plate
   const [plateAssignments, setPlateAssignments] = useState<MoPlateAssignment[]>([]);
   const [releasingPlates, setReleasingPlates] = useState<Record<string, boolean>>({});
+
+  // Legacy paths — drivers who started before SUPERDRIVE
+  const [showRecordIca, setShowRecordIca] = useState(false);
+  const [onboardingIcaStatus, setOnboardingIcaStatus] = useState<string | null>(null);
+  const [returnCandidates, setReturnCandidates] = useState<ReturnCandidate[]>([]);
+  const [returnSelection, setReturnSelection] = useState<Record<string, boolean>>({});
+  const [buildingReturnSheet, setBuildingReturnSheet] = useState(false);
 
   // Step 7: ICA void
   const [icaVoided, setIcaVoided] = useState(false);
@@ -347,7 +377,7 @@ export function DeactivationWizardContent({
       const [snapRes, ownerRes] = await Promise.all([
         supabase
           .from('onboarding_status')
-          .select('unit_number, truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number')
+          .select('unit_number, truck_year, truck_make, truck_model, truck_vin, truck_plate, truck_plate_state, trailer_number, ica_status, eld_serial_number, dash_cam_number, bestpass_number, fuel_card_number')
           .eq('operator_id', operatorId)
           .maybeSingle(),
         supabase
@@ -407,6 +437,48 @@ export function DeactivationWizardContent({
         );
       }
       setPlateAssignments((platesRes.data || []) as MoPlateAssignment[]);
+
+      // What the driver actually holds today, for the case where no assignment
+      // sheet was ever issued. Inventory first, then the plate, then the
+      // onboarding record as a last resort for a device inventory never got.
+      const snap = (snapRes.data ?? {}) as Record<string, string | null>;
+      setOnboardingIcaStatus(snap.ica_status ?? null);
+      const fromInventory: ReturnCandidate[] = (equipmentRes.data || [])
+        .map((row: any) => (Array.isArray(row.equipment_items) ? row.equipment_items[0] : row.equipment_items))
+        .filter((item: any) => item && RETURN_DEVICE_LABELS[item.device_type])
+        .map((item: any) => ({
+          key: `inv-${item.id}`,
+          deviceType: item.device_type,
+          label: RETURN_DEVICE_LABELS[item.device_type] ?? item.device_type,
+          serial: item.serial_number || null,
+          source: 'inventory' as const,
+        }));
+      const covered = new Set(fromInventory.map(c => c.deviceType));
+      const fallbacks: [string, string | null][] = [
+        ['eld', snap.eld_serial_number ?? null],
+        ['dash_cam', snap.dash_cam_number ?? null],
+        ['bestpass', snap.bestpass_number ?? null],
+        ['fuel_card', snap.fuel_card_number ?? null],
+      ];
+      const fromOnboarding: ReturnCandidate[] = fallbacks
+        .filter(([type, serial]) => !covered.has(type) && serial)
+        .map(([type, serial]) => ({
+          key: `onb-${type}`,
+          deviceType: type,
+          label: RETURN_DEVICE_LABELS[type],
+          serial,
+          source: 'onboarding' as const,
+        }));
+      const fromPlates: ReturnCandidate[] = (platesRes.data || []).map((p: any) => ({
+        key: `plate-${p.id}`,
+        deviceType: 'license_plate',
+        label: 'License Plate',
+        serial: p.mo_plates?.plate_number ? `${p.mo_plates.plate_number} (MO)` : null,
+        source: 'plate' as const,
+      }));
+      const candidates = [...fromInventory, ...fromOnboarding, ...fromPlates];
+      setReturnCandidates(candidates);
+      setReturnSelection(Object.fromEntries(candidates.map(c => [c.key, Boolean(c.serial)])));
       if (terminationRes.data) {
         setExistingTerminationId((terminationRes.data as any).id);
         setTerminationCreated(true);
@@ -475,6 +547,15 @@ export function DeactivationWizardContent({
     fetchAllData();
   }, [operatorId, session?.user?.email, fetchAllData]);
 
+  /**
+   * A driver with no ICA row but an agreement that plainly existed — the
+   * onboarding record says the ICA was issued, or we hold his truck details.
+   * Staff can record the paper original and then run steps 4 and 8 normally.
+   */
+  const canRecordPaperIca =
+    !ica &&
+    ((onboardingIcaStatus != null && onboardingIcaStatus !== 'not_issued') || Boolean(truckSnapshot?.truck_vin));
+
   // Auto-complete steps that have no work to do. Screen-only: nothing here is
   // saved (see persistStep) — the steps a person really performs are saved by
   // their own handlers, and the full picture is written at Finish.
@@ -482,7 +563,13 @@ export function DeactivationWizardContent({
     if (loading) return;
     const auto = { auto: true } as const;
     if (!sheets.length && !receiptsUploaded) {
-      updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets', auto);
+      // A driver issued equipment before SUPERDRIVE has no sheet, but he still
+      // holds the gear — that is work to do, not a step to skip.
+      if (returnCandidates.length) {
+        updateStepStatus('equipment_return', 'pending', undefined, auto);
+      } else {
+        updateStepStatus('equipment_return', 'skipped', 'No active equipment assignment sheets', auto);
+      }
     } else if (sheets.every(s => s.return_completed_at && s.decal_photo_driver_side_url && s.decal_photo_passenger_side_url)) {
       updateStepStatus('equipment_return', 'completed', undefined, auto);
     } else {
@@ -506,8 +593,15 @@ export function DeactivationWizardContent({
     }
 
     if (!ica) {
-      updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file', auto);
-      updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file', auto);
+      // Signed before SUPERDRIVE: the agreement is real, it just was never
+      // recorded here. Staff can record it, so the steps stay open.
+      if (canRecordPaperIca) {
+        updateStepStatus('ica_void', 'pending', undefined, auto);
+        updateStepStatus('lease_termination', 'pending', undefined, auto);
+      } else {
+        updateStepStatus('ica_void', 'skipped', 'No active ICA contract on file', auto);
+        updateStepStatus('lease_termination', 'skipped', 'No active ICA contract on file', auto);
+      }
     } else {
       if (terminationCreated || existingTerminationId) {
         updateStepStatus('lease_termination', 'completed', undefined, auto);
@@ -520,7 +614,7 @@ export function DeactivationWizardContent({
         updateStepStatus('ica_void', 'pending', undefined, auto);
       }
     }
-  }, [loading, sheets, fuelCards, fuelCardError, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, updateStepStatus]);
+  }, [loading, sheets, fuelCards, fuelCardError, plateAssignments, ica, icaVoided, terminationCreated, existingTerminationId, receiptsUploaded, returnCandidates, canRecordPaperIca, updateStepStatus]);
 
   const addEmail = (input: string, list: string[], setList: (v: string[]) => void, setInput: (v: string) => void) => {
     const email = input.trim().toLowerCase();
@@ -675,6 +769,52 @@ export function DeactivationWizardContent({
       toast({ title: 'Send failed', description: err.message, variant: 'destructive' });
     } finally {
       setSendingInsurance(false);
+    }
+  };
+
+  /**
+   * BUILD A RETURN LIST FOR A DRIVER WHO NEVER HAD AN ASSIGNMENT SHEET.
+   * Staff confirm the list first — nothing is emailed until they do. The row
+   * created is marked return-only so it is never mistaken for a sheet that was
+   * issued and signed at onboarding.
+   */
+  const handleBuildReturnSheet = async () => {
+    const chosen = returnCandidates.filter(c => returnSelection[c.key] && c.serial);
+    if (!chosen.length) {
+      toast({ title: 'Select at least one item to return', variant: 'destructive' });
+      return;
+    }
+    setBuildingReturnSheet(true);
+    try {
+      const { data: sheet, error: sheetErr } = await (supabase as any)
+        .from('onboard_assignment_sheets')
+        .insert({
+          operator_id: operatorId,
+          unit_number: truckSnapshot?.unit_number ?? unitNumber ?? null,
+          status: 'signed',
+          bestpass_included: chosen.some(c => c.deviceType === 'bestpass'),
+          is_paper_original: false,
+          is_return_only: true,
+        })
+        .select('id')
+        .single();
+      if (sheetErr) throw sheetErr;
+
+      const { error: itemsErr } = await (supabase as any)
+        .from('onboard_assignment_sheet_items')
+        .insert(chosen.map(c => ({
+          sheet_id: sheet.id,
+          device_type: c.deviceType,
+          serial_snapshot: c.serial,
+        })));
+      if (itemsErr) throw itemsErr;
+
+      toast({ title: 'Return list saved', description: 'Now email the return instructions to the driver.' });
+      await fetchAllData();
+    } catch (err: any) {
+      toast({ title: 'Could not build return list', description: err.message, variant: 'destructive' });
+    } finally {
+      setBuildingReturnSheet(false);
     }
   };
 
@@ -1274,9 +1414,23 @@ export function DeactivationWizardContent({
         return (
           <div className="space-y-4">
             {!ica ? (
-              <Alert className="border-muted-foreground/30 bg-muted/30">
-                <AlertDescription className="text-xs">No active ICA contract exists for this driver. A lease termination is not required.</AlertDescription>
-              </Alert>
+              <div className="space-y-3">
+                <Alert className={canRecordPaperIca ? 'border-warning/30 bg-warning/5' : 'border-muted-foreground/30 bg-muted/30'}>
+                  <AlertDescription className="text-xs">
+                    {canRecordPaperIca
+                      ? 'This driver signed an agreement before SUPERDRIVE, so nothing is on file here yet. Record the existing agreement to sign Appendix C and notify insurance as usual.'
+                      : 'No ICA contract exists for this driver. A lease termination is not required.'}
+                  </AlertDescription>
+                </Alert>
+                {canRecordPaperIca && (
+                  <Button className="w-full gap-1.5 bg-gold hover:bg-gold/90 text-black" onClick={() => setShowRecordIca(true)}>
+                    <FileSignature className="h-4 w-4" /> Record Existing Agreement
+                  </Button>
+                )}
+                <Button variant="outline" className="w-full" onClick={() => skipStep('No agreement on file to terminate')}>
+                  Skip — No Lease Termination Needed
+                </Button>
+              </div>
             ) : (
               <>
                 <div className="border border-border rounded-lg p-4 bg-card space-y-2 text-sm">
@@ -1366,9 +1520,50 @@ export function DeactivationWizardContent({
         return (
           <div className="space-y-4">
             {sheets.length === 0 ? (
-              <Alert className="border-muted-foreground/30 bg-muted/30">
-                <AlertDescription className="text-xs">No active Onboard Systems Assignment Sheets for this driver.</AlertDescription>
-              </Alert>
+              returnCandidates.length === 0 ? (
+                <Alert className="border-muted-foreground/30 bg-muted/30">
+                  <AlertDescription className="text-xs">No active Onboard Systems Assignment Sheets for this driver.</AlertDescription>
+                </Alert>
+              ) : (
+                <div className="space-y-3">
+                  <Alert className="border-warning/30 bg-warning/5">
+                    <AlertTriangle className="h-4 w-4 text-warning" />
+                    <AlertDescription className="text-xs">
+                      This driver was issued equipment before SUPERDRIVE, so there is no assignment sheet. Confirm what he
+                      still holds — pulled from his existing records — and the return is tracked from there.
+                    </AlertDescription>
+                  </Alert>
+                  <div className="border border-border rounded-lg bg-card divide-y divide-border">
+                    {returnCandidates.map(c => (
+                      <label key={c.key} className="flex items-center justify-between gap-3 p-3 text-sm">
+                        <span className="flex items-center gap-2 min-w-0">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4 accent-gold"
+                            checked={Boolean(returnSelection[c.key])}
+                            disabled={!c.serial}
+                            onChange={e => setReturnSelection(prev => ({ ...prev, [c.key]: e.target.checked }))}
+                          />
+                          <span className="font-medium">{c.label}</span>
+                        </span>
+                        <span className="text-xs text-right min-w-0 break-all">
+                          {c.serial
+                            ? <span className="font-mono text-muted-foreground">{c.serial}</span>
+                            : <span className="text-warning">serial not on file</span>}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  <Button
+                    className="w-full gap-1.5 bg-gold hover:bg-gold/90 text-black"
+                    onClick={handleBuildReturnSheet}
+                    disabled={buildingReturnSheet}
+                  >
+                    {buildingReturnSheet ? <Loader2 className="h-4 w-4 animate-spin" /> : <RotateCcw className="h-4 w-4" />}
+                    Confirm List & Track Return
+                  </Button>
+                </div>
+              )
             ) : (
               sheets.map(sheet => (
                 <div key={sheet.id} className="border border-border rounded-lg p-3 bg-card space-y-2">
@@ -1690,6 +1885,13 @@ export function DeactivationWizardContent({
           onClose={() => { setViewTerminationId(null); fetchAllData(); }}
         />
       )}
+      <RecordPaperIcaModal
+        open={showRecordIca}
+        onClose={() => setShowRecordIca(false)}
+        operatorId={operatorId}
+        operatorName={operatorName}
+        onRecorded={() => { void fetchAllData(); }}
+      />
     </>
   );
 

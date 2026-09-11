@@ -170,6 +170,7 @@ export default function SignOffSheetPreviewModal({ sheet, onClose, onResent, onD
                 <span className="flex items-center gap-1.5">{meta.icon}{meta.label}</span>
               </Badge>
               {sheet.is_paper_original && <Badge variant="secondary" className="shrink-0">Paper original</Badge>}
+              {(sheet as any).is_return_only && <Badge variant="secondary" className="shrink-0">Return only</Badge>}
             </div>
           </div>
         </DialogHeader>
