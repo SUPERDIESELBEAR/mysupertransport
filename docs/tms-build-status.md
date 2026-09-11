@@ -10263,3 +10263,66 @@ passes because there was nothing to check.
 ### Contradictions
 
 None found.
+
+---
+
+## Owner invariant — Pass 3: `owner_transfers`, `transfer_owner`, audit (2026-09-11)
+
+**Migrations**
+
+- `20260911133815_739e4f47-b659-4292-87cc-9dd49e390551.sql` — `owner_transfers` table, RLS, grants, `initiate_owner_transfer(uuid)`, `cancel_owner_transfer(uuid)`, `transfer_owner(uuid)`.
+- `20260911133848_2518acc1-6d9c-4b23-9fae-4fcddfdfa320.sql` — reassert `REVOKE … FROM PUBLIC, anon` on all three.
+- `20260911134214_83832cd5-6471-4f90-af69-23382eef70a7.sql` — first audit-name fix attempt.
+- `20260911134339_7c0a6ddc-fd31-4675-b4ad-4ae5cae58e6a.sql` — final: `_audit_actor_name` takes a **user id**, not a profile id. The original bodies passed `current_profile_id()` and audit rows came out with `actor_name = NULL`. `actor_id` stays the profile id per the standing rule; only the name argument changed to `auth.uid()`.
+
+**Protections, quoted, identical on all three functions**
+
+```
+SECURITY DEFINER
+SET search_path = public, extensions
+REVOKE EXECUTE ON FUNCTION … FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION … TO authenticated;
+```
+
+Live ACL readback: `{postgres, authenticated, service_role, sandbox_exec_…}` on each — no PUBLIC, no anon. `authenticated` rather than `service_role` because both parties act as themselves: the owner initiates and the recipient accepts, and `auth.uid()` / `current_profile_id()` must resolve to a real person. Rejected: service-role-only through an edge function — it would have had to be told who the actor is, and an actor id supplied by a caller is exactly what the standing rule forbids.
+
+**One pending transfer** — enforced by a partial unique index, `owner_transfers_single_pending` on `(status) WHERE status = 'pending'`, plus an in-body pre-check that first expires stale rows. Rejected: a counting check alone, which two concurrent initiations can both pass before either commits. The index is the guarantee; the in-body check exists only to return a readable message instead of a raw 23505.
+
+**Recipient must already hold `management`** — checked at initiation and again inside `transfer_owner`, because the role can be removed in the 72-hour window. Probe P6 exercises exactly that.
+
+**Atomicity** — one function, one transaction: unlock flag, delete old owner, insert new owner, mark accepted, audit. Insert-first is impossible under the Pass 1 index and delete-first across two REST calls would leave a zero-owner window against 166 live owner-keyed policy expressions.
+
+### Verification, 2026-09-11 — all probes in aborting transactions
+
+Probes ran through `run_sql` as `postgres`, each wrapped in a `DO` block that ends in `RAISE EXCEPTION`, so the whole statement rolls back by construction. The sandbox psql role could not be used: it holds no EXECUTE on the new functions (correctly — they are granted to `authenticated` only).
+
+**The check that matters:** `has_role('5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe','owner') = t`, before and after. Owner count exactly 1, Marcus Mueller, unchanged.
+
+- **Complete transfer** — `owner_rows=1`, `owner_is_recipient=t`, old owner gone, `status=accepted`, audit `owner_transfer_initiated actor_name=Marcus Mueller` then `owner_transferred actor_name=Omar Tarar`.
+- **Forced failure mid-transfer** — a temporary `AFTER INSERT … WHEN (NEW.role='owner')` trigger raised `forced failure after the delete, during the owner insert`. Result: `owner_rows=1`, `original_owner_intact=t`, `transfer_status=pending`. Demonstrated, not asserted.
+
+Verbatim refusals, each with its target confirmed to exist first (the Pass 2 zero-row lesson):
+
+```
+P3 wrong acceptor      (target_pending=1)      42501 Only the named recipient may accept this ownership transfer.
+P4 expired             (expired_target=1)      22023 This ownership transfer has expired.
+P5 cancelled           (cancelled_target=1)    22023 This ownership transfer was cancelled and cannot be accepted.
+P6 lost management     (remaining_mgmt_rows=0) 42501 The recipient no longer holds management; this ownership transfer cannot be accepted.
+P7 second pending      (existing_pending=1)    23505 An ownership transfer is already pending; cancel it before starting another.
+P8 transfer to self                            22023 Ownership cannot be transferred to yourself.
+P9 non-owner initiates                         42501 Only the current owner may initiate an ownership transfer.
+```
+
+**Not probed:** the stale-`from`-owner refusal (`The sending user is no longer the owner; this ownership transfer is stale.`). Making the `from` user stop being owner requires an owner write, which the Pass 2 trigger refuses outside an ownership function — so the state cannot be reached to test it. Source-verified only, and unreachable by the same guard that makes it hard to test.
+
+**Left behind:** nothing. Post-probe: 1 owner row (unchanged), 0 `owner_transfers` rows, 0 `owner_transfer` audit rows, 10 management rows (the P6 deletion rolled back).
+
+**Suites run:** `definer-live-catalog.test.ts` (13), `definer-search-path.test.ts` (7), `definer-fail-open.test.ts` (3), `grant-parity-live.test.ts` (3), `policy-grant-parity.test.ts` (4), `function-reachability.test.ts` (4, still GREEN), and `tsgo --noEmit`. All pass.
+
+**Ceilings moved:** `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 124 → 127 (up, three new authenticated RPCs). `KNOWN_NO_CALLER_MAX` 2 → 5 (up, three `AWAITING owner invariant Pass 4` entries — the UI in Pass 4 supplies the callers and these come back down). Anon ceiling unchanged at 31.
+
+**Linter:** 166 findings before and after this pass — unchanged count, none attributable here.
+
+**Fourth-occurrence note:** this pass created three SECURITY DEFINER functions, which is the recorded trigger for reviewing the search-path authoring defect. All three were authored with `SET search_path = public, extensions` correctly on the first attempt, so the trigger fires with nothing to remedy. The open question stands unchanged.
+
+**CONTRADICTIONS:** none found.
