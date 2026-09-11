@@ -113,10 +113,31 @@ const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
       "through this client-side writer. Verified 2026-09-10. KEPT for the same " +
       "reason as assign_user_role: it holds the owner-removal refusal.",
   },
+  {
+    name: "initiate_owner_transfer",
+    reason:
+      "AWAITING owner invariant Pass 4 — the management-facing ownership " +
+      "transfer screen will call it. Built in Pass 3 (2026-09-11) with the " +
+      "database enforcement first, deliberately, because the atomic swap and " +
+      "its refusals had to be provable before any UI existed.",
+  },
+  {
+    name: "cancel_owner_transfer",
+    reason:
+      "AWAITING owner invariant Pass 4 — the cancel control on the same " +
+      "transfer screen, available to either party until acceptance.",
+  },
+  {
+    name: "transfer_owner",
+    reason:
+      "AWAITING owner invariant Pass 4 — the recipient's accept action. It is " +
+      "the one function permitted to move the owner row, and it does the " +
+      "delete and the insert in one transaction.",
+  },
 ];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
-const KNOWN_NO_CALLER_MAX = 2;
+const KNOWN_NO_CALLER_MAX = 5;
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
 

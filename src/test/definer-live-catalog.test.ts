@@ -417,6 +417,14 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // has_role management|owner|dispatcher; writes the paired duplicate-broker-
   // reference notes to load_change_history on both loads. No other effect.
   "public.record_duplicate_broker_reference(uuid,uuid,text)",
+  // has_role owner in-body; refuses transfer to self, requires the recipient to
+  // already hold management, and refuses a second pending transfer.
+  "public.initiate_owner_transfer(uuid)",
+  // caller must be the sending or receiving party of that transfer row.
+  "public.cancel_owner_transfer(uuid)",
+  // caller must BE the named recipient; also refuses non-pending, cancelled,
+  // expired, a recipient who lost management, and a stale from-owner.
+  "public.transfer_owner(uuid)",
   // has_role management|owner|dispatcher; files a document's references, their
   // stop citations and the baseline provenance entry in ONE transaction, with
   // the actor resolved by current_profile_id(). Replaces
@@ -768,7 +776,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   enforce_owner_role_writes(), and bootstrap_assign_owner(uuid) are all
 //   service_role-only. They therefore do not change this client-executable
 //   registry or either linter ceiling.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
+// 2026-09-11 owner Pass 3: 124 + 3 = 127. initiate_owner_transfer,
+//   cancel_owner_transfer and transfer_owner are called by the signed-in owner
+//   and recipient directly, so the actor resolves through current_profile_id();
+//   a service_role grant would have made auth.uid() null and forced an actor id
+//   to be passed in, which the actor-stamping rule forbids. Each gates in-body.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 127;
 
 
 

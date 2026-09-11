@@ -8546,6 +8546,79 @@ export type Database = {
           },
         ]
       }
+      owner_transfers: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          cancelled_at: string | null
+          cancelled_by: string | null
+          created_at: string
+          expires_at: string
+          from_user_id: string
+          id: string
+          initiated_at: string
+          initiated_by: string | null
+          mechanism: string
+          status: string
+          to_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          expires_at: string
+          from_user_id: string
+          id?: string
+          initiated_at?: string
+          initiated_by?: string | null
+          mechanism?: string
+          status?: string
+          to_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
+          created_at?: string
+          expires_at?: string
+          from_user_id?: string
+          id?: string
+          initiated_at?: string
+          initiated_by?: string | null
+          mechanism?: string
+          status?: string
+          to_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "owner_transfers_accepted_by_fkey"
+            columns: ["accepted_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_transfers_cancelled_by_fkey"
+            columns: ["cancelled_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_transfers_initiated_by_fkey"
+            columns: ["initiated_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pandadoc_documents: {
         Row: {
           document_name: string
@@ -12240,6 +12313,10 @@ export type Database = {
         Args: { p_request_id: string }
         Returns: undefined
       }
+      cancel_owner_transfer: {
+        Args: { p_transfer_id: string }
+        Returns: undefined
+      }
       canonical_equipment_serial: { Args: { _serial: string }; Returns: string }
       certify_rods_day:
         | {
@@ -12666,6 +12743,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      initiate_owner_transfer: {
+        Args: { p_to_user_id: string }
+        Returns: string
       }
       invoice_writer_active: { Args: never; Returns: boolean }
       is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
@@ -13283,6 +13364,7 @@ export type Database = {
             }
             Returns: string
           }
+      transfer_owner: { Args: { p_transfer_id: string }; Returns: undefined }
       try_notify: {
         Args: {
           p_body: string
