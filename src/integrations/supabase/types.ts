@@ -12232,6 +12232,10 @@ export type Database = {
         Args: { _reason: string; _settlement_id: string }
         Returns: string
       }
+      bootstrap_assign_owner: {
+        Args: { p_user_id: string }
+        Returns: undefined
+      }
       cancel_application_correction: {
         Args: { p_request_id: string }
         Returns: undefined
@@ -12855,6 +12859,7 @@ export type Database = {
         Args: { _onboarding_unit: string; _operator_unit: string }
         Returns: string
       }
+      owner_role_writer_active: { Args: never; Returns: boolean }
       post_invoice_payment_internal: {
         Args: {
           p_actor: string
