@@ -10507,3 +10507,53 @@ the rest of `src/lib/fuel` and `src/components/operator` (24 files, 280 tests),
 
 CONTRADICTIONS: none found beyond the superseded 2026-09-07 decision named above,
 which the owner explicitly overrode.
+
+---
+
+## 2026-09-11 — the fuel discount exceptions list shows onboarded drivers only
+
+DISPLAY ONLY. No migration, no writer, no engine change.
+
+The Driver exceptions list in Settlement Settings → Fuel Discount Pass-Through
+listed every `is_active` operator — 60 rows, applicants and half-finished
+onboarding records among them. It now lists a driver when ALL of: `is_active`,
+not `is_demo`, `onboarding_status.fully_onboarded`, a `go_live_date` and an
+`insurance_added_date`. **46 of 60** today.
+
+**`excluded_from_dispatch` is deliberately NOT in the filter.** It would cut the
+list to 35 by removing 11 fully onboarded drivers who are off dispatch — Bilal
+Leggett, Cortez Nelson, Craig Pate, Dale Erickson, David Mitchell, Emma Mueller,
+Vino Huddleston among them. A driver off dispatch for a truck repair or a lapsed
+medical still HAS a pay arrangement. This list answers "who is set up as a
+driver", not "who is hauling this week". A later pass will be tempted to add the
+flag for tidiness; do not.
+
+**Rejected: filtering by unit number**, the owner's first suggestion. It excludes
+the right 12 today by coincidence, but Daniel Vazquez Gonzalez (unit 271) and
+Jonathan Grant (unit 268) hold units while being unonboarded with no go-live, no
+insurance and no dispatch record — so it would leave two unfinished drivers
+visible while appearing to work. A unit is a proxy for being set up, not the
+thing itself.
+
+On screen: the list states its own scope, so a missing name reads as filtered
+rather than broken. The collapsed summary still counts EXCEPTIONS, not list
+length. **A driver with a setting of his own always appears, marked "Not
+currently onboarded — setting kept"** — an invisible pay setting is the no-caller
+shape in a different guise. Live today: **0 such drivers**, because there are 0
+overrides on file at all.
+
+Unchanged: the three states, the company-wide toggle, and the settlement
+engine's override-then-company resolution. This is a display filter on a
+settings screen — an unonboarded driver with an override still has it honoured
+if he ever settles.
+
+Where: `src/lib/fuel/setupDriverFilter.ts` (`isSetUpDriver`,
+`selectExceptionListRows`, `fetchDriverSetupStatus`), read by
+`FuelDiscountPassthroughSettings.tsx`.
+
+Suites run: `passthroughDriverList.test.ts` (10, new — five live assertions
+against the real roster), `discountPassthroughVisibility.test.ts`,
+`fuelDiscountPassthroughOverride.test.ts`, `myFuel.test.ts`,
+`fuelStatementReconciles.test.tsx`, `tsgo --noEmit`.
+
+CONTRADICTIONS: none found.
