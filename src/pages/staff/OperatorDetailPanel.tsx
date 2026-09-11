@@ -501,6 +501,9 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
   const [openTerminationId, setOpenTerminationId] = useState<string | null>(null);
   const [applicationData, setApplicationData] = useState<any>(null);
   const [icaDraftUpdatedAt, setIcaDraftUpdatedAt] = useState<string | null>(null);
+  // Drivers who signed before SUPERDRIVE have no contract row at all.
+  const [hasIcaRow, setHasIcaRow] = useState<boolean | null>(null);
+  const [showRecordPaperIca, setShowRecordPaperIca] = useState(false);
   // Fallback contract timestamps so Stage 3 can show the real record even when
   // the staff-entered date fields were never filled in.
   const [icaContractDates, setIcaContractDates] = useState<{ sent: string | null; signed: string | null }>({ sent: null, signed: null });
