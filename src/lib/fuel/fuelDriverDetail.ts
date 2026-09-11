@@ -83,6 +83,13 @@ export interface FuelDriverRow {
   discrepancy: number;
   /** The net `total_amount` — what the card was charged. */
   total: number;
+  /**
+   * `total − discount`. WHAT THE DRIVER IS DEDUCTED, in every state, and the
+   * figure the four buckets already sum to — they are built from it. The
+   * driver-facing surfaces print THIS as the Total so their columns add up
+   * whether or not the discount line is shown; see `fuelDriverPdf`.
+   */
+  grossTotal: number;
   gallons: number;
   /** Diesel cost ÷ diesel gallons. Null unless both are present. */
   costPerGallon: number | null;
@@ -169,6 +176,7 @@ export function buildDriverRow(
     location,
     fuel, cashAdvance, repair, other,
     discount, discrepancy, total,
+    grossTotal: round2(total - discount),
     gallons,
     costPerGallon: gallons > 0 && dieselAmount > 0
       ? Math.round((dieselAmount / gallons) * 1000) / 1000
@@ -207,12 +215,14 @@ export interface FuelDriverTotals {
   discrepancy: number;
   /** The sum of the rows' net totals. */
   total: number;
+  /** The sum of the rows' gross totals — what was deducted. */
+  grossTotal: number;
   gallons: number;
 }
 
 const EMPTY_TOTALS: FuelDriverTotals = {
   count: 0, fuel: 0, cashAdvance: 0, repair: 0, other: 0,
-  discount: 0, discrepancy: 0, total: 0, gallons: 0,
+  discount: 0, discrepancy: 0, total: 0, grossTotal: 0, gallons: 0,
 };
 
 function accumulate(rows: FuelDriverRow[]): FuelDriverTotals {
@@ -225,6 +235,7 @@ function accumulate(rows: FuelDriverRow[]): FuelDriverTotals {
     discount: round2(t.discount + r.discount),
     discrepancy: round2(t.discrepancy + r.discrepancy),
     total: round2(t.total + r.total),
+    grossTotal: round2(t.grossTotal + r.grossTotal),
     gallons: round2(t.gallons + r.gallons),
   }), { ...EMPTY_TOTALS });
 }

@@ -82,11 +82,25 @@ export interface FuelPdfDocument {
 
 export const FUEL_PDF_COLUMNS = [
   'Date', 'Merchant', 'Location', 'Fuel', 'Cash advance', 'Repairs', 'Other',
-  'Discount', 'Total', 'Gallons', '$/gal', 'Deducted on',
+  'Total', 'Discount', 'After discount', 'Gallons', '$/gal', 'Deducted on',
 ];
 
-/** The index of the Discount column, dropped whole when it is not this driver's. */
-const DISCOUNT_INDEX = FUEL_PDF_COLUMNS.indexOf('Discount');
+/**
+ * THE TOTAL IS THE GROSS, IN BOTH STATES — decided with the owner 2026-09-11.
+ *
+ * The gross is what is DEDUCTED from the driver's pay, it is what the four
+ * bucket columns already sum to (they are built from it), and — the owner
+ * having established that pump receipts carry no discount, which is applied
+ * only when the purchase clears the MultiService account — it is what his own
+ * receipt says. The net matches nothing he holds.
+ *
+ * So there is no branch over which total to print. When the discount IS his,
+ * two further columns follow it: the discount itself and what the card was
+ * charged after it, so the reduction explains its own difference. When it is
+ * not his, both columns are dropped whole and the gross stands alone.
+ */
+const DISCOUNT_COLUMNS = ['Discount', 'After discount']
+  .map((c) => FUEL_PDF_COLUMNS.indexOf(c));
 
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
@@ -97,13 +111,18 @@ function totalsBlock(
     title,
     note,
     countLabel: `${totals.count} purchase${totals.count === 1 ? '' : 's'}`,
-    amount: formatCurrency(totals.total),
+    amount: formatCurrency(totals.grossTotal),
     breakdown: [
       { label: 'Fuel', value: money(totals.fuel) },
       { label: 'Cash advance', value: money(totals.cashAdvance) },
       { label: 'Repairs', value: money(totals.repair) },
       { label: 'Other', value: money(totals.other) },
-      ...(showDiscount ? [{ label: 'Discount', value: money(totals.discount) }] : []),
+      ...(showDiscount
+        ? [
+          { label: 'Discount', value: money(totals.discount) },
+          { label: 'After discount', value: money(totals.total) },
+        ]
+        : []),
       { label: 'Gallons', value: totals.gallons ? String(totals.gallons) : '—' },
     ],
   };
@@ -136,14 +155,17 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
   const showDiscount = input.showDiscount !== false;
   const summary = summarizeDriverRows(rows);
   const range = coveredRange(rows);
-  // Dropping a column widens the merchant name rather than leaving a gap, so
-  // the table still fills the page it is printed on.
+  // Dropping the discount columns widens the merchant name rather than leaving
+  // a gap, so the table still fills the page it is printed on.
+  const dropped = DISCOUNT_COLUMNS.reduce((sum, i) => sum + TABLE_LAYOUT.widths[i], 0);
   const widths = showDiscount
     ? TABLE_LAYOUT.widths
     : TABLE_LAYOUT.widths
-      .map((w, i) => (i === 1 ? w + TABLE_LAYOUT.widths[DISCOUNT_INDEX] : w))
-      .filter((_, i) => i !== DISCOUNT_INDEX);
-  const drop = <T,>(arr: T[]) => (showDiscount ? arr : arr.filter((_, i) => i !== DISCOUNT_INDEX));
+      .map((w, i) => (i === 1 ? w + dropped : w))
+      .filter((_, i) => !DISCOUNT_COLUMNS.includes(i));
+  const drop = <T,>(arr: T[]) => (
+    showDiscount ? arr : arr.filter((_, i) => !DISCOUNT_COLUMNS.includes(i))
+  );
 
   return {
     carrier: FUEL_PDF_CARRIER,
@@ -163,6 +185,7 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       money(r.cashAdvance),
       money(r.repair),
       money(r.other),
+      formatCurrency(r.grossTotal),
       money(r.discount),
       formatCurrency(r.total),
       r.gallons ? String(r.gallons) : '—',
@@ -201,7 +224,7 @@ const MUTED: [number, number, number] = [110, 110, 110];
 const PENDING_BG: [number, number, number] = [253, 243, 219];
 const MARGIN = 32;
 /** Column widths in points, summing to the printable width of letter landscape. */
-const WIDTHS = [50, 104, 74, 44, 56, 40, 38, 46, 50, 36, 36, 154];
+const WIDTHS = [50, 80, 74, 44, 56, 40, 38, 50, 46, 52, 36, 36, 126];
 /** Letter landscape, minus both margins. The widths must not exceed it. */
 const PRINTABLE = 792 - MARGIN * 2;
 const ROW_HEIGHT = 18;

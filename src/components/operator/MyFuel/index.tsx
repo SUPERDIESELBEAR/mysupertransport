@@ -52,7 +52,9 @@ function Totals({ title, note, tone, totals, showDiscount }: {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="text-2xl font-bold">{formatCurrency(totals.total)}</div>
+        {/* The gross, in both states: it is what is deducted, and it is what
+            the four bucket lines below already sum to. See `fuelDriverPdf`. */}
+        <div className="text-2xl font-bold">{formatCurrency(totals.grossTotal)}</div>
         <p className="text-xs text-muted-foreground">{note}</p>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div className="flex justify-between"><dt>Fuel</dt><dd>{money(totals.fuel)}</dd></div>
@@ -60,7 +62,10 @@ function Totals({ title, note, tone, totals, showDiscount }: {
           <div className="flex justify-between"><dt>Repairs</dt><dd>{money(totals.repair)}</dd></div>
           <div className="flex justify-between"><dt>Other</dt><dd>{money(totals.other)}</dd></div>
           {showDiscount && (
-            <div className="flex justify-between"><dt>Discount</dt><dd>{money(totals.discount)}</dd></div>
+            <>
+              <div className="flex justify-between"><dt>Discount</dt><dd>{money(totals.discount)}</dd></div>
+              <div className="flex justify-between"><dt>After discount</dt><dd>{money(totals.total)}</dd></div>
+            </>
           )}
           <div className="flex justify-between"><dt>Gallons</dt><dd>{totals.gallons || '—'}</dd></div>
         </dl>
@@ -86,7 +91,7 @@ function PurchaseCard({ row, showDiscount }: { row: FuelDriverRow; showDiscount:
             </div>
           </div>
           <div className="text-right">
-            <div className="font-bold">{formatCurrency(row.total)}</div>
+            <div className="font-bold">{formatCurrency(row.grossTotal)}</div>
             {row.costPerGallon && (
               <div className="text-xs text-muted-foreground">${row.costPerGallon.toFixed(3)}/gal</div>
             )}
@@ -98,7 +103,12 @@ function PurchaseCard({ row, showDiscount }: { row: FuelDriverRow; showDiscount:
           {row.cashAdvance !== 0 && <div className="flex justify-between"><dt>Cash advance</dt><dd>{money(row.cashAdvance)}</dd></div>}
           {row.repair !== 0 && <div className="flex justify-between"><dt>Repairs</dt><dd>{money(row.repair)}</dd></div>}
           {row.other !== 0 && <div className="flex justify-between"><dt>Other</dt><dd>{money(row.other)}</dd></div>}
-          {showDiscount && row.discount !== 0 && <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>}
+          {showDiscount && row.discount !== 0 && (
+            <>
+              <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>
+              <div className="flex justify-between"><dt>After discount</dt><dd>{money(row.total)}</dd></div>
+            </>
+          )}
           {row.gallons !== 0 && <div className="flex justify-between"><dt>Gallons</dt><dd>{row.gallons}</dd></div>}
         </dl>
 
