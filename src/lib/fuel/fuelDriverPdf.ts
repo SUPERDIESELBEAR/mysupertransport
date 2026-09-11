@@ -155,14 +155,17 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
   const showDiscount = input.showDiscount !== false;
   const summary = summarizeDriverRows(rows);
   const range = coveredRange(rows);
-  // Dropping a column widens the merchant name rather than leaving a gap, so
-  // the table still fills the page it is printed on.
+  // Dropping the discount columns widens the merchant name rather than leaving
+  // a gap, so the table still fills the page it is printed on.
+  const dropped = DISCOUNT_COLUMNS.reduce((sum, i) => sum + TABLE_LAYOUT.widths[i], 0);
   const widths = showDiscount
     ? TABLE_LAYOUT.widths
     : TABLE_LAYOUT.widths
-      .map((w, i) => (i === 1 ? w + TABLE_LAYOUT.widths[DISCOUNT_INDEX] : w))
-      .filter((_, i) => i !== DISCOUNT_INDEX);
-  const drop = <T,>(arr: T[]) => (showDiscount ? arr : arr.filter((_, i) => i !== DISCOUNT_INDEX));
+      .map((w, i) => (i === 1 ? w + dropped : w))
+      .filter((_, i) => !DISCOUNT_COLUMNS.includes(i));
+  const drop = <T,>(arr: T[]) => (
+    showDiscount ? arr : arr.filter((_, i) => !DISCOUNT_COLUMNS.includes(i))
+  );
 
   return {
     carrier: FUEL_PDF_CARRIER,
@@ -182,6 +185,7 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       money(r.cashAdvance),
       money(r.repair),
       money(r.other),
+      formatCurrency(r.grossTotal),
       money(r.discount),
       formatCurrency(r.total),
       r.gallons ? String(r.gallons) : '—',
