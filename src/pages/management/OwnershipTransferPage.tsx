@@ -122,6 +122,22 @@ export default function OwnershipTransferPage() {
   const iAmRecipient = !!pending && pending.to_user_id === user?.id;
   const iAmSender = !!pending && pending.from_user_id === user?.id;
 
+  // The cancel link in the out-of-band owner email names the transfer; it carries
+  // no authority. Arriving here still required a signed-in session, and the
+  // cancel below still goes through cancel_owner_transfer(), which refuses
+  // anyone who is not a party to the row.
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const linkedTransferId =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('cancel')
+      : null;
+  useEffect(() => {
+    if (linkedTransferId && pending?.id === linkedTransferId && (iAmSender || iAmRecipient)) {
+      setConfirmCancel(true);
+    }
+  }, [linkedTransferId, pending?.id, iAmSender, iAmRecipient]);
+
+
   const run = async (fn: () => Promise<{ error: unknown }>, ok: string) => {
     setBusy(true);
     try {
