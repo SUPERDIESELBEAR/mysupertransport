@@ -10396,3 +10396,69 @@ Suites run: `discountPassthroughVisibility.test.ts` (12, new),
 Migration linter total remained the pre-existing 166.
 
 CONTRADICTIONS: none found.
+
+---
+
+## Module 6 — THE STATEMENT TOTAL IS THE GROSS, IN BOTH STATES (2026-09-11)
+
+DISPLAY ONLY. No parser, schema, writer or settlement change.
+
+**This SUPERSEDES the 2026-09-07 "`Total` stays net" decision above**, and the
+rejection recorded there of a gross total. That reasoning was written before the
+discount could be hidden from a driver, and before the owner corrected an
+assumption it rested on.
+
+**The defect.** With the discount hidden (pass-through OFF) the statement stopped
+adding up: the visible columns summed to the GROSS while the Total printed the
+NET. On Ali Mohamed's three real purchases the visible gap was $8.12 (Flying J),
+$2.04 (Pilot) and $10.16 in the totals block — unlabelled, unexplained, and
+findable by a driver adding up his own statement. Same shape as the
+import-screen Unexplained balance: buckets built on the gross, headline built on
+the net, the bridging line removed from view.
+
+**The decision: the Total is the GROSS, with no branch.** Unambiguously right,
+not a trade-off:
+
+- The gross is what is **DEDUCTED** from his pay. The statement exists to explain
+  what came out of his settlement; the net explains nothing he experienced.
+- The gross is what the visible columns **already sum to** — Fuel, Cash advance,
+  Repairs and Other are all built from it. The Total was the odd one out.
+- **The owner established 2026-09-11 that pump receipts carry no discount** — it
+  is applied only when the purchase clears the MultiService account. So the gross
+  is also what his own receipt says. The net matches nothing he holds. The
+  earlier caution that a gross total would conflict with his receipt was WRONG.
+
+Both states, one rule, no special case:
+- **OFF:** the gross stands alone and the columns sum to it.
+- **ON:** the gross is still the Total, and `Discount` then `After discount`
+  follow it, so the reduction explains its own difference down to the net.
+
+Rejected:
+- *A neutral bridging line when OFF* — re-reveals the reduction's size, which is
+  the exact thing hiding it was for.
+- *Leaving it* — the statement stays internally contradictory by the discount
+  amount for every driver with pass-through off.
+
+**Where.** `FuelDriverRow.grossTotal` and `FuelDriverTotals.grossTotal`
+(`fuelDriverDetail.ts`, `total − discount`, the same arithmetic the buckets are
+already built from and the same figure `settlementRun.ts` deducts). Printed by
+`fuelDriverPdf.ts` and by the My Fuel screen; both add an `After discount`
+line only when the discount is the driver's. The management Driver Fuel Detail
+table is unchanged — it is our billing record, not his statement.
+
+Ali Mohamed, itemised, both states — Fuel $1,465.72 · Cash advance $505.00 ·
+**Total $1,970.72**; with the discount shown, Discount −$10.16 · After discount
+$1,960.56. Per row: Flying J $514.08, Pilot $627.30, Love's $829.34.
+
+Unchanged and verified: the settlement deduction is the gross in every state,
+asserted against the engine's own `total + |discount|` definition; an OFF driver
+still sees no reference to a discount anywhere.
+
+Suites run: `fuelStatementReconciles.test.tsx` (10, new),
+`fuelDriverPdf.test.ts` (12), `discountPassthroughVisibility.test.ts` (12),
+`fuelDriverDetail.test.ts` (11), `myFuel.test.ts` (6), `fuelBuckets.test.ts` (16),
+the rest of `src/lib/fuel` and `src/components/operator` (24 files, 280 tests),
+`settlementRun.test.ts`, `settlement-adjustment-seam.test.ts`, `tsgo --noEmit`.
+
+CONTRADICTIONS: none found beyond the superseded 2026-09-07 decision named above,
+which the owner explicitly overrode.
