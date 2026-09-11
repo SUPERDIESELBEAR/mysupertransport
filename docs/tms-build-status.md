@@ -10582,3 +10582,59 @@ CONTRADICTIONS: none found.
 - Engine: `SettlementBonusInput` + `bonuses` input; a bonus pays 100% as an `adjustment` line, never through the policy map. Gatherer/population: `approvedBonusCount` trigger; a bonus alone brings a driver into the run.
 - UI: driver card on the operator home (status, deadline, request dialog); staff review (approve/decline with reason) on the Vehicle Hub quarterly panel.
 - Verified: inspection-bonus-settlement (4), settlement-foundation, settlement-adjustment-seam — 47 passed; tsgo clean. Live-DB behaviour of the staged SQL is unverifiable until the draft is accepted.
+
+## 2026-09-11 — Driver Fuel Detail: a total labelled "deducted" is the DEDUCTION
+
+DISPLAY ONLY. No migration, no writer, no engine change.
+
+**A CORRECTION to the 2026-09-11 scoping, not a reversal of it.** That decision
+kept the management-facing Driver Fuel Detail on the net. It was right about the
+TRANSACTION TABLE — net per row with its Discount column, because that is the
+company's billing record — and wrong about a TOTAL LABELLED "DEDUCTED".
+
+**The defect.** The summary cards are headed "Deducted from settlements" and
+"Not yet deducted" and printed `total`, the NET — what MultiService billed the
+company after the discount. Ali Mohamed is on pass-through OFF, so the engine
+deducts him the GROSS: the card said $1,960.56 and $1,970.72 will leave his pay.
+The printed figure appears on no settlement of his; the heading claimed one
+thing and the number was another.
+
+**Now.** The headline is `grossTotal` in both states, with the discount shown as
+its own line so the difference is visible rather than silent:
+- **OFF** — `Discount retained by company −$10.16`, `Billed to the company
+  $1,960.56`, "The driver is deducted the gross; the company keeps the discount."
+- **ON** — `Discount credited to driver −$10.16`, `Net deduction $1,960.56`,
+  "The discount is credited back on his settlement, so the deduction nets out."
+- No discount on the period: one figure, no extra lines, in either state.
+
+Ali Mohamed, pending, both states: Fuel $1,465.72 · Cash advance $505.00 ·
+**headline $1,970.72** · discount −$10.16 · $1,960.56 beneath.
+
+**The pass-through state is on the page**, a badge under the driver picker —
+"Fuel discount: not passed through" / "passed through to this driver" — read
+through `fetchOperatorDiscountPassthrough`, the existing override-first /
+company-fallback resolution. Neither field is read directly. Without it one
+driver's totals differ from another's for no visible reason, and the answer to
+"who is on" required opening Settlement Settings.
+
+**And the page says which view it is** — one line: the company view lists each
+purchase at the amount billed, the driver's own statement shows the gross he is
+deducted. The owner compared the two screens and asked whether the difference
+was a defect; it is deliberate, and now it says so.
+
+Unchanged and asserted: the per-transaction table (net per row, Discount column,
+rows identical in both states), My Fuel and the fuel PDF (Ali's PDF still prints
+$1,970.72), the four buckets, the unexplained balance, and the settlement
+engine, which deducts the gross in every state.
+
+Where: `src/lib/fuel/fuelDeductionCard.ts` (`buildDeductionCard`,
+`passthroughLabel`, `COMPANY_VIEW_NOTE` — display choice only, no arithmetic not
+already on `FuelDriverTotals`), read by `FuelDriverDetailPage.tsx`.
+
+Suites run: `fuelDeductionCard.test.ts` (8, new),
+`fuelStatementReconciles.test.tsx` (10), `discountPassthroughVisibility.test.ts`
+(12), `fuelDriverDetail.test.ts` (11), `fuelDiscountPassthroughOverride.test.ts`
+(7), all of `src/lib/fuel` and `src/components/operator` (24 files, 250 tests),
+`tsgo --noEmit`.
+
+CONTRADICTIONS: none found.
