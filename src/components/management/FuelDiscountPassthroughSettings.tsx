@@ -213,6 +213,11 @@ export default function FuelDiscountPassthroughSettings() {
 
             {open && (
               <div className="space-y-3 border-t border-border p-3">
+                <p className="text-[11px] text-muted-foreground" data-testid="fdp-list-scope">
+                  Shows onboarded drivers — active, fully onboarded, with a go-live date and
+                  insurance on file. Applicants and unfinished onboarding records are not listed.
+                  Anyone with a setting of his own is always shown, even if he no longer qualifies.
+                </p>
                 <Input
                   value={search}
                   onChange={e => setSearch(e.target.value)}
@@ -228,7 +233,17 @@ export default function FuelDiscountPassthroughSettings() {
                   return (
                     <div key={r.id} className="space-y-2 rounded-md border border-border p-2.5" data-testid="fdp-driver-row">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-medium text-foreground">{operatorLabel(r)}</span>
+                        <span className="text-xs font-medium text-foreground">
+                          {operatorLabel(r)}
+                          {r.offList && (
+                            <span
+                              data-testid="fdp-off-list"
+                              className="ml-2 rounded bg-muted px-1.5 py-0.5 text-[10px] font-normal text-muted-foreground"
+                            >
+                              Not currently onboarded — setting kept
+                            </span>
+                          )}
+                        </span>
                         <div className="flex gap-1">
                           {CHOICES.map(c => (
                             <Button
