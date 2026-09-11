@@ -5549,6 +5549,147 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_cycles: {
+        Row: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          assigned_group: string
+          billed_to_company_account?: boolean
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          credited_reason?: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes?: string | null
+          defects_identified?: boolean
+          defects_repaired?: boolean
+          facility?: string | null
+          grace_decline_reason?: string | null
+          grace_granted_at?: string | null
+          grace_is_override?: boolean
+          grace_override_by?: string | null
+          grace_reason?: string | null
+          grace_request_days?: number | null
+          grace_request_reason?: string | null
+          grace_request_status?: string | null
+          grace_requested_at?: string | null
+          grace_requested_by?: string | null
+          grace_reviewed_at?: string | null
+          grace_reviewed_by?: string | null
+          grace_until?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_fee?: number | null
+          inspection_id?: string | null
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          operator_id: string
+          report_file_name?: string | null
+          report_file_path?: string | null
+          status?: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at?: string | null
+          unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          assigned_group?: string
+          billed_to_company_account?: boolean
+          closed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          credited_reason?: string | null
+          cycle_month?: number
+          cycle_year?: number
+          defect_notes?: string | null
+          defects_identified?: boolean
+          defects_repaired?: boolean
+          facility?: string | null
+          grace_decline_reason?: string | null
+          grace_granted_at?: string | null
+          grace_is_override?: boolean
+          grace_override_by?: string | null
+          grace_reason?: string | null
+          grace_request_days?: number | null
+          grace_request_reason?: string | null
+          grace_request_status?: string | null
+          grace_requested_at?: string | null
+          grace_requested_by?: string | null
+          grace_reviewed_at?: string | null
+          grace_reviewed_by?: string | null
+          grace_until?: string | null
+          id?: string
+          inspection_date?: string | null
+          inspection_fee?: number | null
+          inspection_id?: string | null
+          invoice_file_name?: string | null
+          invoice_file_path?: string | null
+          operator_id?: string
+          report_file_name?: string | null
+          report_file_path?: string | null
+          status?: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at?: string | null
+          unit_number?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_cycles_inspection_id_fkey"
+            columns: ["inspection_id"]
+            isOneToOne: false
+            referencedRelation: "truck_dot_inspections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_cycles_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       inspection_document_versions: {
         Row: {
           created_at: string
@@ -5656,6 +5797,142 @@ export type Database = {
           updated_at?: string
           uploaded_at?: string
           uploaded_by?: string | null
+        }
+        Relationships: []
+      }
+      inspection_program_payments: {
+        Row: {
+          amount: number
+          created_at: string
+          created_by: string | null
+          cycle_id: string | null
+          description: string | null
+          id: string
+          kind: Database["public"]["Enums"]["inspection_payment_kind"]
+          operator_id: string
+          review_note: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          roadside_stop_id: string | null
+          settled_at: string | null
+          settlement_id: string | null
+          status: Database["public"]["Enums"]["inspection_payment_status"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          created_by?: string | null
+          cycle_id?: string | null
+          description?: string | null
+          id?: string
+          kind: Database["public"]["Enums"]["inspection_payment_kind"]
+          operator_id: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roadside_stop_id?: string | null
+          settled_at?: string | null
+          settlement_id?: string | null
+          status?: Database["public"]["Enums"]["inspection_payment_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          created_by?: string | null
+          cycle_id?: string | null
+          description?: string | null
+          id?: string
+          kind?: Database["public"]["Enums"]["inspection_payment_kind"]
+          operator_id?: string
+          review_note?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roadside_stop_id?: string | null
+          settled_at?: string | null
+          settlement_id?: string | null
+          status?: Database["public"]["Enums"]["inspection_payment_status"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_program_payments_cycle_id_fkey"
+            columns: ["cycle_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_cycles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_program_payments_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "inspection_program_payments_roadside_stop_id_fkey"
+            columns: ["roadside_stop_id"]
+            isOneToOne: false
+            referencedRelation: "roadside_stops"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      inspection_program_settings: {
+        Row: {
+          bonus_level_1: number
+          bonus_level_2: number
+          bonus_level_3: number
+          bonus_report_window_hours: number
+          created_at: string
+          group_a_months: number[]
+          group_b_months: number[]
+          id: string
+          max_grace_days: number
+          max_grace_per_12_months: number
+          reimbursement_cap: number
+          reminder_offsets_days: number[]
+          submission_email: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bonus_level_1?: number
+          bonus_level_2?: number
+          bonus_level_3?: number
+          bonus_report_window_hours?: number
+          created_at?: string
+          group_a_months?: number[]
+          group_b_months?: number[]
+          id?: string
+          max_grace_days?: number
+          max_grace_per_12_months?: number
+          reimbursement_cap?: number
+          reminder_offsets_days?: number[]
+          submission_email?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bonus_level_1?: number
+          bonus_level_2?: number
+          bonus_level_3?: number
+          bonus_report_window_hours?: number
+          created_at?: string
+          group_a_months?: number[]
+          group_b_months?: number[]
+          id?: string
+          max_grace_days?: number
+          max_grace_per_12_months?: number
+          reimbursement_cap?: number
+          reminder_offsets_days?: number[]
+          submission_email?: string
+          updated_at?: string
+          updated_by?: string | null
         }
         Relationships: []
       }
@@ -10152,6 +10429,8 @@ export type Database = {
       roadside_stops: {
         Row: {
           agency: string | null
+          bonus_amount: number | null
+          bonus_eligible: boolean
           citation_issued: boolean
           created_at: string
           created_by: string | null
@@ -10171,6 +10450,7 @@ export type Database = {
           oos_vehicle: boolean
           operator_id: string
           outcome: Database["public"]["Enums"]["roadside_stop_outcome"]
+          report_submitted_at: string | null
           state: string | null
           stop_at: string
           stop_reason: Database["public"]["Enums"]["roadside_stop_reason"]
@@ -10181,6 +10461,8 @@ export type Database = {
         }
         Insert: {
           agency?: string | null
+          bonus_amount?: number | null
+          bonus_eligible?: boolean
           citation_issued?: boolean
           created_at?: string
           created_by?: string | null
@@ -10200,6 +10482,7 @@ export type Database = {
           oos_vehicle?: boolean
           operator_id: string
           outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          report_submitted_at?: string | null
           state?: string | null
           stop_at: string
           stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
@@ -10210,6 +10493,8 @@ export type Database = {
         }
         Update: {
           agency?: string | null
+          bonus_amount?: number | null
+          bonus_eligible?: boolean
           citation_issued?: boolean
           created_at?: string
           created_by?: string | null
@@ -10229,6 +10514,7 @@ export type Database = {
           oos_vehicle?: boolean
           operator_id?: string
           outcome?: Database["public"]["Enums"]["roadside_stop_outcome"]
+          report_submitted_at?: string | null
           state?: string | null
           stop_at?: string
           stop_reason?: Database["public"]["Enums"]["roadside_stop_reason"]
@@ -12727,6 +13013,61 @@ export type Database = {
           user_id: string
         }[]
       }
+      grant_inspection_grace: {
+        Args: {
+          _cycle_id: string
+          _days: number
+          _override?: boolean
+          _reason: string
+        }
+        Returns: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inspection_cycles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       grant_parity_report: {
         Args: never
         Returns: {
@@ -12748,6 +13089,7 @@ export type Database = {
         Args: { p_to_user_id: string }
         Returns: string
       }
+      inspection_grace_used: { Args: { _operator_id: string }; Returns: number }
       invoice_writer_active: { Args: never; Returns: boolean }
       is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
@@ -13101,6 +13443,56 @@ export type Database = {
         }
         Returns: undefined
       }
+      request_inspection_grace: {
+        Args: { _days: number; _reason: string }
+        Returns: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inspection_cycles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       resolve_officer_packet_token: {
         Args: { p_token: string }
         Returns: {
@@ -13149,6 +13541,61 @@ export type Database = {
       reverse_equipment_return_confirmation: {
         Args: { _operator_id: string; _reason: string }
         Returns: string
+      }
+      review_inspection_grace_request: {
+        Args: {
+          _approve: boolean
+          _cycle_id: string
+          _decline_reason?: string
+          _override?: boolean
+        }
+        Returns: {
+          assigned_group: string
+          billed_to_company_account: boolean
+          closed_at: string | null
+          created_at: string
+          created_by: string | null
+          credited_reason: string | null
+          cycle_month: number
+          cycle_year: number
+          defect_notes: string | null
+          defects_identified: boolean
+          defects_repaired: boolean
+          facility: string | null
+          grace_decline_reason: string | null
+          grace_granted_at: string | null
+          grace_is_override: boolean
+          grace_override_by: string | null
+          grace_reason: string | null
+          grace_request_days: number | null
+          grace_request_reason: string | null
+          grace_request_status: string | null
+          grace_requested_at: string | null
+          grace_requested_by: string | null
+          grace_reviewed_at: string | null
+          grace_reviewed_by: string | null
+          grace_until: string | null
+          id: string
+          inspection_date: string | null
+          inspection_fee: number | null
+          inspection_id: string | null
+          invoice_file_name: string | null
+          invoice_file_path: string | null
+          operator_id: string
+          report_file_name: string | null
+          report_file_path: string | null
+          status: Database["public"]["Enums"]["inspection_cycle_status"]
+          submitted_at: string | null
+          unit_number: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "inspection_cycles"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       revoke_share_token: { Args: { p_token: string }; Returns: boolean }
       save_application_draft: {
@@ -13581,7 +14028,16 @@ export type Database = {
         | "in_progress"
         | "sent_for_signature"
         | "complete"
+      inspection_cycle_status:
+        | "upcoming"
+        | "due"
+        | "submitted"
+        | "closed"
+        | "overdue"
+        | "grace"
       inspection_doc_scope: "company_wide" | "per_driver"
+      inspection_payment_kind: "inspection_reimbursement" | "roadside_bonus"
+      inspection_payment_status: "pending" | "approved" | "rejected" | "settled"
       install_method:
         | "ar_shop_install"
         | "ups_self_install"
@@ -13993,7 +14449,17 @@ export const Constants = {
         "sent_for_signature",
         "complete",
       ],
+      inspection_cycle_status: [
+        "upcoming",
+        "due",
+        "submitted",
+        "closed",
+        "overdue",
+        "grace",
+      ],
       inspection_doc_scope: ["company_wide", "per_driver"],
+      inspection_payment_kind: ["inspection_reimbursement", "roadside_bonus"],
+      inspection_payment_status: ["pending", "approved", "rejected", "settled"],
       install_method: [
         "ar_shop_install",
         "ups_self_install",
