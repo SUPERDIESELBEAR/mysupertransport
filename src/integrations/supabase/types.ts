@@ -12646,10 +12646,6 @@ export type Database = {
           user_id: string
         }[]
       }
-      get_user_roles: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"][]
-      }
       grant_parity_report: {
         Args: never
         Returns: {
