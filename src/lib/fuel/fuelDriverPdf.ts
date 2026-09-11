@@ -43,6 +43,14 @@ export interface FuelPdfInput {
   rows: FuelDriverRow[];
   /** Injected so the document is deterministic under test. */
   generatedAt: Date;
+  /**
+   * Whether the discount is passed through to THIS driver. When it is not, the
+   * document says nothing about a discount at all — no column, no total line —
+   * because a driver who does not receive it must not learn from his own
+   * paperwork that it exists. Defaults to true so an unsaid caller cannot
+   * silently hide money a driver IS receiving.
+   */
+  showDiscount?: boolean;
 }
 
 export interface FuelPdfTotalsBlock {
