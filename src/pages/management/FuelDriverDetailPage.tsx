@@ -89,8 +89,17 @@ async function fetchSettledIndex(ids: string[]): Promise<SettledFuelIndex> {
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 function TotalsCard({
-  title, tone, note, totals,
-}: { title: string; tone: 'settled' | 'pending'; note: string; totals: FuelDriverTotals }) {
+  title, tone, note, totals, passthrough,
+}: {
+  title: string; tone: 'settled' | 'pending'; note: string;
+  totals: FuelDriverTotals; passthrough: boolean;
+}) {
+  /**
+   * THE HEADLINE IS THE DEDUCTION — the gross — because that is what the
+   * heading says. The table below keeps the net per row; it is the billing
+   * record. See `fuelDeductionCard.ts`.
+   */
+  const card = buildDeductionCard(totals, passthrough);
   return (
     <Card className={tone === 'pending' ? 'border-amber-400 bg-amber-50/60' : 'border-border'}>
       <CardHeader className="pb-2">
@@ -102,8 +111,25 @@ function TotalsCard({
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-2">
-        <div className="text-2xl font-semibold">{formatCurrency(totals.total)}</div>
+        <div className="text-2xl font-semibold" data-testid={`fuel-total-${tone}`}>
+          {formatCurrency(card.headline)}
+        </div>
         <p className="text-xs text-muted-foreground">{note}</p>
+        {card.discountLine && (
+          <div className="rounded border border-border/70 bg-background/60 p-2 text-xs space-y-1">
+            <div className="flex justify-between" data-testid={`fuel-discount-${tone}`}>
+              <dt>{card.discountLine.label}</dt>
+              <dd>{formatCurrency(card.discountLine.amount)}</dd>
+            </div>
+            {card.netLine && (
+              <div className="flex justify-between text-muted-foreground" data-testid={`fuel-net-${tone}`}>
+                <dt>{card.netLine.label}</dt>
+                <dd>{formatCurrency(card.netLine.amount)}</dd>
+              </div>
+            )}
+            {card.stateNote && <p className="text-muted-foreground">{card.stateNote}</p>}
+          </div>
+        )}
         <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
           <div className="flex justify-between"><dt>Fuel</dt><dd>{money(totals.fuel)}</dd></div>
           <div className="flex justify-between"><dt>Cash advance</dt><dd>{money(totals.cashAdvance)}</dd></div>
@@ -116,6 +142,7 @@ function TotalsCard({
     </Card>
   );
 }
+
 
 function Row({ row }: { row: FuelDriverRow }) {
   return (
