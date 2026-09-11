@@ -1,0 +1,51 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+<style>
+  text { font-family: var(--font-sans); fill: var(--fg-primary); }
+  .lbl { font-size: 14px; font-weight: 480; }
+  .sm { font-size: 12px; fill: var(--fg-secondary); }
+  .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--fg-secondary); }
+  .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+  .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+  .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+</style>
+<defs>
+  <marker id="ch" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+    <path d="M0,0 L6,3 L0,6" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+  </marker>
+</defs>
+
+<text class="sm" x="0" y="14">Cortez Nelson — what exists today</text>
+
+<rect class="zone" x="0" y="26" width="300" height="120" rx="8"/>
+<text class="mono" x="12" y="44">on file in superdrive</text>
+<rect class="box" x="14" y="54" width="128" height="30" rx="8"/>
+<text class="lbl" x="30" y="73">ELD + Dash cam</text>
+<rect class="box" x="154" y="54" width="128" height="30" rx="8"/>
+<text class="lbl" x="176" y="73">Fuel card 169</text>
+<rect class="box" x="14" y="94" width="128" height="30" rx="8"/>
+<text class="lbl" x="34" y="113">Plate 61KU2A</text>
+<rect class="box" x="154" y="94" width="128" height="30" rx="8"/>
+<text class="lbl" x="172" y="113">Truck + owner</text>
+
+<rect class="zone" x="340" y="26" width="300" height="120" rx="8"/>
+<text class="mono" x="352" y="44">missing, so steps skip</text>
+<rect class="box" x="354" y="54" width="128" height="30" rx="8" fill="var(--bg-muted)"/>
+<text class="lbl" x="372" y="73">No agreement</text>
+<rect class="box" x="494" y="54" width="128" height="30" rx="8" fill="var(--bg-muted)"/>
+<text class="lbl" x="522" y="73">No sheet</text>
+<text class="sm" x="354" y="112">4 Lease Termination · 5 Equipment Return</text>
+<text class="sm" x="354" y="130">8 ICA Void — all three skip themselves</text>
+
+<path class="wire" d="M150 160 L150 186" marker-end="url(#ch)"/>
+<path class="wire" d="M490 160 L490 186" marker-end="url(#ch)"/>
+
+<rect x="0" y="192" width="300" height="88" rx="8" fill="var(--bg-accent-translucent)"/>
+<text class="lbl" x="16" y="216" fill="var(--fg-accent)">Record existing agreement</text>
+<text class="sm" x="16" y="238">Pre-filled truck + owner, confirmed by staff</text>
+<text class="sm" x="16" y="258">Scan optional — marked if none</text>
+
+<rect x="340" y="192" width="300" height="88" rx="8" fill="var(--bg-accent-translucent)"/>
+<text class="lbl" x="356" y="216" fill="var(--fg-accent)">Build return list from records</text>
+<text class="sm" x="356" y="238">Confirm devices + plate, send instructions</text>
+<text class="sm" x="356" y="258">Return-only record created, receipts tracked</text>
+</svg>
