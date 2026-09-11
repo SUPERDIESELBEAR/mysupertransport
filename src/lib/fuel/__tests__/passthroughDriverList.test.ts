@@ -16,9 +16,10 @@ import { resolveDiscountPassthrough } from '@/lib/fuel/discountPassthrough';
 const HAS_DB = Boolean(process.env.PGHOST);
 if (!HAS_DB) {
   skipBanner('passthroughDriverList.test.ts LIVE CHECKS DID NOT RUN', [
-    'No PGHOST, so the included/excluded counts could not be checked against',
-    'the fleet the screen actually reads.',
+    'No PGHOST, so who the filter includes and excludes could not be checked',
+    'against the fleet the screen actually reads.',
   ]);
+
 }
 const itLive = gatedIt({
   enabled: HAS_DB,
