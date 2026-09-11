@@ -1,105 +1,95 @@
-# Read-only investigation report: `get_user_roles(uuid)`
+# Proposal: one owner, protected assignment, safe transfer
 
-## Conclusion
+Design proposal only. No code, no migrations.
 
-**Recommendation: DROP.** The function has no current caller in any searched category. Its original purpose is fully served today by direct, RLS-scoped `user_roles` reads for the signed-in user, direct service-role table reads in backend functions, and `has_role(uuid, app_role)` for database authorization. It is not anonymous-executable, so this is not an active anonymous-data incident. It is still unnecessary authenticated cross-user surface: any signed-in caller may supply an arbitrary user UUID and receive that user’s role array because the function is `SECURITY DEFINER` and has no self/staff check.
+## 1. Current state (all live queries unless noted)
 
-## 1. What it is
+- **Owners today: exactly one.** Marcus Mueller, user `5cca4f77…f950965c1ffe`, account status `active`. One row in `user_roles` with role `owner`.
+- **Table shape:** `user_roles(id uuid pk, user_id uuid, role app_role, created_at)`. Indexes: pk on `id`, unique on `(user_id, role)`, index on `user_id`. **No triggers at all** on the table.
+- **Row-level rules:** three policies, all read-only (own rows; management; owner). There is **no** insert/update/delete policy, so `authenticated` writes are blocked by row-level security even though the table grants insert/update/delete to `authenticated` and `service_role`.
+- **What can write `owner` today:**
+  - `bootstrap-admin` (source): assigns `owner` when the caller passes `role: 'owner'`, gated only by the shared `BOOTSTRAP_SECRET`. It upserts on `(user_id, role)` and can be called repeatedly for different users. Confirmed.
+  - Any other backend function using the service key could write it; today none does. `get-staff-list` restricts role add/remove to `onboarding_staff | dispatcher | management` (source), `invite-operator` writes `operator`, `invite-staff` writes staff roles, `invite-truck-owner` writes `truck_owner`, the two test/demo provisioners write driver roles.
+  - Direct database writes as `postgres`/service role — always possible, unconstrained.
+  - `assign_user_role(uuid, app_role)` refuses `owner` outright, and nothing calls it (recorded).
+- **What can remove it:** `remove_user_role` refuses `owner`, and nothing calls it. `get-staff-list` never passes `owner` through its role list, and blocks password resets for owner accounts. `delete-user-account` deletes **all** `user_roles` rows for the target user — it checks that the *caller* is owner, not that the *target* is not the owner, so it is a real deletion path for the owner row.
+- **Would anything today prevent a second owner?** No. Nothing in the database prevents it; only the fact that no shipped code path other than `bootstrap-admin` writes `owner`.
 
-### Live
+## 2. Only one owner
 
-- **Signature:** `public.get_user_roles(uuid)`; argument `_user_id uuid`; result `app_role[]`.
-- **Body:** `SELECT ARRAY_AGG(role) FROM public.user_roles WHERE user_id = _user_id`.
-- **Behavior:** returns every `user_roles.role` for the supplied user as an array. When no rows match, `ARRAY_AGG` returns `NULL`, not an empty array.
-- **Checks:** it checks only `user_id = _user_id`. It does **not** check `auth.uid()`, caller role, account status, or whether the requested UUID belongs to the caller.
-- **Execution:** `authenticated` and `service_role` may execute it. `anon` and implicit `PUBLIC` may not.
-- **Comment:** no `COMMENT ON FUNCTION` exists.
+**Mechanism: a unique partial index.**
 
-### Repo
+```
+CREATE UNIQUE INDEX user_roles_single_owner
+  ON public.user_roles ((true)) WHERE role = 'owner';
+```
 
-- **Defining migrations:** exactly one migration defines the function: `20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql`. It is therefore also the newest definition.
-- **Grant-only migration:** `20260903193033_8674aee3-0e36-434b-b576-311b1da87ad5.sql` does not redefine it; it revokes `PUBLIC, anon` and grants `authenticated, service_role`.
-- **Original purpose:** the creating migration labels it “Function to get all roles for a user,” adjacent to the first `user_roles` table and `has_role` helper. No more specific purpose is documented.
+It works given the table's shape: a partial unique index on a constant expression allows at most one matching row overall (a unique index on `role` where `role='owner'` gives the same effect and reads more plainly; either is fine). Because there is exactly one owner row today, the index builds without touching or rejecting existing data.
 
-### Its four catalog protections — and their limit
+*Rejected:* a check constraint (cannot see other rows) and a validation trigger counting rows (races under concurrency; an index is enforced by the storage layer and cannot be bypassed by service role).
 
-1. **Live:** `SECURITY DEFINER` permits reading through `user_roles` RLS.
-2. **Live:** `STABLE` declares it read-only within a statement.
-3. **Live/repo:** it pins `search_path = public`.
-4. **Live:** execution is limited to `authenticated` and `service_role`; `PUBLIC` and `anon` are revoked.
+**What this breaks for transfer.** With the index in place, "insert new owner, then delete old" fails at the insert. "Delete old, then insert new" leaves a window with zero owners — and if the insert fails, the system has no owner at all, with 166 policy expressions keyed on owner/role checks still live. Therefore transfer must be a **single database function that deletes and inserts inside one statement/transaction**, so the constraint is only ever evaluated at the end of the operation. Two REST calls from an edge function cannot give that guarantee; one RPC can.
 
-These are execution properties, not caller authorization. The function has no in-body self/staff gate. Its `public`-only search path is also the documented legacy pin, not the current `public, extensions` convention; it remains on the legacy allowlist.
+Note the index enforces "at most one", not "exactly one". "Exactly one" is not enforceable by an index; it is preserved by making the transfer atomic and by refusing plain deletion of the owner row (section 3).
 
-## 2. Whether anything calls it — all eight categories
+## 3. Nobody becomes owner through the application
 
-1. **Repo literals in `src/` and `supabase/functions/`, including dynamic and ternary RPC names — REPO: nothing found.** The only non-migration mention is a backtick comment in `supabase/functions/_shared/email/auth.ts` describing an old broken call shape. It is not executable code. No quoted literal, direct RPC, dynamic name, ternary name, or wrapper call exists.
-2. **RLS policies in every schema — LIVE: nothing found.** No `qual` or `with_check` in `pg_policies` contains `get_user_roles`.
-3. **Function bodies in every schema — LIVE: nothing found.** No other `pg_proc.prosrc` contains `get_user_roles`.
-4. **Views and materialized views — LIVE: nothing found.** No definition contains the function name.
-5. **Column defaults — LIVE: nothing found.** No default expression contains the function name.
-6. **Cron — LIVE: nothing found.** The cron schema was readable and zero job commands contain the function name.
-7. **Grants — LIVE/REPO: grants found, but no caller.** Current ACL grants execution to `authenticated` and `service_role`. The September 3 migration explicitly revoked `PUBLIC, anon` and re-granted those two roles.
-8. **Creating migration — REPO: definition only; no call found.** The March migration creates it and documents only the generic purpose above.
+The refusal must move from `assign_user_role` (uncalled, and bypassed by service role anyway) into a **trigger on `user_roles`**, because the trigger is the only thing service-role writes cannot route around.
 
-**Additional category:** triggers — LIVE: nothing found.
+Proposed `BEFORE INSERT OR UPDATE OR DELETE ON public.user_roles`, fires only when the row's role is `owner`:
 
-## 3. How roles are actually read today
+- raise unless an unlock flag is set for the current transaction;
+- otherwise allow.
 
-### Signed-in app and role switcher
+**Unlock pattern.** The precedent in this codebase is the settlement/invoice immutability pair: `enforce_invoice_immutability()` consults `invoice_writer_active()`, which reads `current_setting('app.invoice_write', true) = 'on'`. It fits, with one caveat that decides the design: a session GUC cannot be set from a Supabase REST `upsert`. `bootstrap-admin` writes through `from('user_roles').upsert(...)`, so under the trigger it would start failing.
 
-- **Repo:** `useAuth.fetchRoles` reads `user_roles` directly with `.select('role').eq('user_id', userId)`.
-- **Live:** `user_roles` RLS permits users to select their own rows; management and owner may select all rows.
-- **Repo:** `useAuth` turns those rows into the `roles` array, chooses the default active role, restores a saved role only if it remains in that array, and exposes `setActiveRole`.
-- **Repo:** `StaffLayout` renders `roles.map(...)` in the role switcher. Selecting one calls `setActiveRole`; it does not call `get_user_roles`.
+So the legitimate paths must become RPCs that set the flag internally:
 
-### Database authorization
+- `bootstrap_assign_owner(...)` — only permits the assignment when **no owner row exists** (fresh deployment), sets the flag, inserts, audits.
+- `transfer_owner(...)` — the atomic transfer of section 4.
 
-- **Live:** `has_role(uuid, app_role)` directly checks `public.user_roles` under `SECURITY DEFINER`.
-- **Live:** the catalog currently contains 202 RLS policy expressions and 65 other function bodies referencing `has_role`. Those are the database authorization mechanism; none delegates to `get_user_roles`.
+Everything else that touches `owner` is refused, including `delete-user-account`, which should be changed to refuse when the target holds `owner`.
 
-### Backend functions and staff listings
+*Rejected:* keeping the guard only in edge functions (the current situation — a per-function convention that the next function forgets); and dropping `BOOTSTRAP_SECRET` in favour of the trigger alone (the secret is still the only thing standing between a fresh deployment and an arbitrary first owner).
 
-- **Repo:** backend functions query `user_roles` directly with the service-role client. The shared `requireStaff` helper explicitly says it always queries `user_roles` directly because JWT role metadata is generally absent.
-- **Repo:** `get-staff-list` reads role rows directly and assembles each staff member’s roles. Other backend functions likewise read `user_roles` directly for authorization or recipient selection.
+## 4. The transfer
 
-### Superseding mechanisms
+**Proposed mechanism: two-party confirmation, initiated by the owner, accepted by the recipient, with a short cancellation window and an audited atomic commit.**
 
-The old array-returning helper is superseded by three purpose-specific paths:
+A small `owner_transfers` table: from user, to user, initiated at/by, expires at, accepted at, cancelled at, status, mechanism. Flow:
 
-1. self-scoped direct table read in `useAuth` for the current user and role switcher;
-2. `has_role` for policy/function authorization;
-3. service-role direct table reads for trusted backend workflows and staff listings.
+1. Current owner initiates against a named existing management user. Row created, status `pending`, expiry (proposal: 72 hours).
+2. Notification email to the current owner's address on record — out-of-band awareness, and the cancellation link. This is the anti-accident layer: a hijacked session that initiates a transfer still puts a cancel link in the real owner's inbox.
+3. Recipient accepts in-app. Acceptance calls `transfer_owner`, which in one transaction sets the unlock flag, deletes the old owner row, inserts the new one, marks the transfer accepted, and writes an `audit_log` row (actor, from, to, timestamp, mechanism).
+4. Either party can cancel before acceptance; expiry cancels automatically.
 
-These paths serve its purpose without requiring a general authenticated RPC that accepts another user’s UUID.
+Costs of each candidate:
+- **Two-party confirmation** — best accident resistance; costs a new table, two screens, and an email. Chosen.
+- **A secret, as bootstrap uses** — cheapest, but a shared string is transferable and unattributable; whoever has it *is* the owner. Rejected as the primary mechanism; retained only for the no-owner bootstrap case.
+- **Time delay with cancellation window** — good, but weak alone (a delay nobody watches is just a slower transfer). Adopted as part of the above, not instead of it.
+- **Out-of-band email confirmation** — adopted as the notification/cancel channel; rejected as sole gate because an email click is a single factor held by one party.
+- **Approval by a second management user** instead of the recipient — rejected: the recipient's acceptance is more meaningful, and it does not help when management is thin.
 
-## 4. Anonymous execution
+**If the owner is unavailable.** A mechanism requiring the outgoing owner is useless precisely when it is needed. Handled in two layers:
 
-### Live
+- **Break-glass:** `bootstrap_assign_owner` remains available for the zero-owner case. The documented emergency procedure is therefore: delete the orphaned owner row directly in the database (a deliberate, logged, credential-gated act), then run bootstrap with `BOOTSTRAP_SECRET` to install the new owner. This is honestly a **manual database procedure**, and the proposal keeps it that way rather than building an automated succession path that would become a second unattended way to become owner.
+- **Documented**, with the audit entry written after the fact naming who executed it and why.
 
-- `has_function_privilege('anon', ..., 'EXECUTE')` is **false**.
-- The ACL contains `postgres`, `authenticated`, `service_role`, and the test harness role; it contains no `anon` or `PUBLIC` execute grant.
-- An anonymous caller receives a permission error and gets no role data.
+## 5. What must not break
 
-### Repo and recorded audit
+- `has_role(auth.uid(), 'owner')` and friends: **202 policy expressions** reference `has_role`, of which **166 policy expressions** mention `'owner'`; **59 functions** in `public` reference `has_role`. Nothing in this proposal changes the owner's `user_roles` row, `has_role`, or the read policies, so `has_role(<current owner>, 'owner')` returns true before and after. The index is a constraint, the trigger only fires on writes.
+- `bootstrap-admin` still works for its intended purpose — a fresh deployment with no owner — via `bootstrap_assign_owner`. Its management-role path is unaffected. What changes: it can no longer install a *second* owner, which is the point.
 
-- It **was one of the class-(c) functions handled by the September 3 audit**, not missed.
-- The migration explicitly includes `REVOKE EXECUTE ON FUNCTION public.get_user_roles(uuid) FROM PUBLIC, anon;` and then grants only `authenticated, service_role`.
+## 6. Build order
 
-### Remaining exposure
+- **Pass 1 — index.** Add the partial unique index. Verifiable: it builds against live data (one owner), and a second insert is rejected in a fixture.
+- **Pass 2 — trigger + `bootstrap_assign_owner`, and repoint `bootstrap-admin`'s owner path at the RPC.** Verifiable in fixtures: service-role insert of `owner` refused; bootstrap refused while an owner exists; bootstrap succeeds with none. Also fix `delete-user-account` to refuse owner targets.
+- **Pass 3 — `transfer_owner` RPC + `owner_transfers` + audit.** Verifiable in fixtures: atomic swap leaves exactly one owner; failure leaves the original untouched; expired/cancelled transfers refuse.
+- **Pass 4 — UI and the owner email.** Verifiable by walking the screens.
+- **Pass 5 — write the break-glass procedure into the record.** Not testable; that is the honest status.
 
-This is not the same anonymous exposure shape as the dropped PEI helper. It is nevertheless broader than the replacement paths: because the function accepts any UUID, lacks an in-body authorization check, runs as definer, and is executable by `authenticated`, any signed-in user can ask for an arbitrary user’s roles. The direct `useAuth` table read cannot do that for ordinary users because RLS limits it to their own rows.
+**What cannot be verified:** the real thing. A genuine transfer happens roughly never, and cannot be rehearsed in production without moving the owner row. Everything in passes 2–4 is fixture evidence on scratch rows. **The one live check that matters, run after every pass: the current owner still resolves as owner and still reaches the owner-only screens.**
 
-## 5. Recommendation and urgency
+## CONTRADICTIONS
 
-**DROP `public.get_user_roles(uuid)`.**
-
-- **Repo/live:** nothing calls it across all eight required categories plus triggers.
-- **Repo/live:** every current role-reading need has a named replacement: `useAuth` plus `user_roles` RLS, `has_role`, direct backend table reads, and `get-staff-list` for staff-directory aggregation.
-- **Live:** dropping it removes an authenticated cross-user metadata reader and the final reachability finding.
-- **Repo:** the historical comment about a broken invocation is evidence of a former caller, not a current dependency.
-
-**Priority:** security hygiene above ordinary housekeeping, but below an active anonymous leak. Anonymous access was correctly removed on September 3. The remaining risk requires a valid signed-in account and reveals role membership rather than applicant or financial data.
-
-## Contradictions
-
-**None found.** The current record says `get_user_roles` is the final uninvestigated reachability finding and that the September 3 audit revoked its anonymous access; both match the live catalog and repository evidence.
+None found.
