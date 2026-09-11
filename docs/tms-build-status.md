@@ -10326,3 +10326,29 @@ P9 non-owner initiates                         42501 Only the current owner may 
 **Fourth-occurrence note:** this pass created three SECURITY DEFINER functions, which is the recorded trigger for reviewing the search-path authoring defect. All three were authored with `SET search_path = public, extensions` correctly on the first attempt, so the trigger fires with nothing to remedy. The open question stands unchanged.
 
 **CONTRADICTIONS:** none found.
+
+---
+
+## Owner invariant — Pass 4: the screens that make transfer reachable (2026-09-12)
+
+**Files:** `src/pages/management/OwnershipTransferPage.tsx` (new), `src/hooks/usePendingOwnerTransfer.ts` (new), `src/pages/management/ManagementPortal.tsx` (view, allowed view, settings entry, banner, render), `src/test/function-reachability.test.ts`. No migration — Pass 3 already put every rule in the database, and this pass adds no rule the database does not already enforce.
+
+**Navigation placement (the standing rule at line 419):** Management portal → Settings shell → last tab, **Ownership Transfer**, after Demo Mode. Visible to the owner, and to the one management user who has a transfer waiting on them; invisible to every other management user. Route `/dashboard?view=ownership-transfer`, in `ALLOWED_VIEWS` and in `SETTINGS_VIEWS` so a refresh lands back on it inside the Settings shell.
+
+**Rendering verified by opening it,** not by reading code: signed in as the live owner (Marcus Mueller) in a real browser session, screenshot at `/tmp/browser/own/owner.png`. The Ownership Transfer tab appears in the Settings tab row, is the active tab, and the page body renders the warning block, the "Transfer to" picker populated from live management users, and a disabled "Start ownership transfer" button until a recipient is chosen. No console errors.
+
+**Recipient discovery — all three, deliberately.** A management user has no reason to open a Settings tab they have never needed: (1) a gold banner above every Management view linking straight to the screen, (2) the conditional Settings tab, (3) the screen itself, which shows the recipient's accept/decline card first, above the owner's card. Email is Pass 5.
+
+**Recipient picker:** existing management users only, read from `user_roles` + `profiles` under ordinary management RLS, self excluded, inactive accounts excluded. *Rejected — any existing user:* the database refuses a non-management recipient at both initiation and acceptance, so offering them would be offering a rejection. *Rejected — email invitation to a new person:* it would create an account and grant management as a side effect of a transfer, which is two privileged acts disguised as one. Recorded, not built. When no eligible user exists the screen says so and names the fix (Settings → Staff Directory) rather than showing an empty menu.
+
+**No direct role UI.** The screen calls exactly three functions — `initiate_owner_transfer`, `cancel_owner_transfer`, `transfer_owner` — and contains no control that writes `user_roles`. Decline is `cancel_owner_transfer`; there is no separate decline path.
+
+**Reachability guard:** predicted 5 → 2, actual 5 → 2. The three `AWAITING owner invariant Pass 4` entries were deleted and `KNOWN_NO_CALLER_MAX` lowered 5 → 2 (down). The remaining two are `assign_user_role` and `remove_user_role`, kept for the reasons already recorded. No other ceiling moved.
+
+**Evidence classes, kept apart.** *Rendered and reachable:* the owner's screen, the tab, the picker populated from live data. *Not exercised:* no transfer was initiated, accepted, cancelled or declined — `owner_transfers` holds 0 rows before and after this pass, and the recipient-side card and banner are therefore source- and type-verified only, not rendered. Proving them needs a pending row, which needs a real initiation. That is the honest gap in this pass.
+
+**Owner unchanged:** 1 owner row, `5cca4f77-…` (Marcus Mueller), before and after. `has_role` could not be called from the verification identity (`42501 permission denied for function has_role`, same limitation as Pass 2); ownership was confirmed by direct `user_roles` read instead, and that limitation is stated rather than papered over.
+
+**Suites run:** `function-reachability.test.ts` (4, GREEN at the new ceiling) and `tsgo --noEmit`. Both pass.
+
+**CONTRADICTIONS:** none found.
