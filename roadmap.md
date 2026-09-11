@@ -98,3 +98,14 @@
   Anon ceiling unchanged at 31 (anon EXECUTE was revoked 2026-09-03).
 - Reachability guard: predicted 1 -> 0, got 1 -> 0. GREEN for the first time.
   The sweep that began with 16 findings is complete.
+
+## Owner invariant (Passes 2-5)
+- [done 2026-09-11] Pass 1: `user_roles_single_owner` partial unique index (at most one owner).
+- Pass 2: trigger on `user_roles` refusing `owner` writes/deletes unless unlocked;
+  `bootstrap_assign_owner` (zero-owner case only); fix `delete-user-account` to
+  refuse owner targets (KNOWN DEBT recorded in Pass 1).
+- Pass 3: `transfer_owner` RPC + `owner_transfers` (management-only recipient,
+  72h expiry, either-party cancel) — MUST be one atomic function, not two writes.
+- Pass 4: UI + out-of-band email to the current owner with a cancel link.
+- Pass 5: document the break-glass database procedure for an unavailable owner.
+
