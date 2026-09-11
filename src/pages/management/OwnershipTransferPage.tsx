@@ -141,11 +141,51 @@ export default function OwnershipTransferPage() {
     }
   };
 
-  const onInitiate = () =>
-    run(
-      async () => await supabase.rpc('initiate_owner_transfer', { p_to_user_id: selected }),
-      'Ownership transfer sent. It expires in 72 hours.',
-    );
+  // The out-of-band notice is deliberately NOT part of the transfer: the row is
+  // already committed by the RPC. A mail failure is reported as a separate,
+  // non-destructive warning and lands in the Email Log as a `failed` row.
+  const onInitiate = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('initiate_owner_transfer', {
+        p_to_user_id: selected,
+      });
+      if (error) throw error;
+      toast({ title: 'Ownership transfer sent. It expires in 72 hours.' });
+      const transferId = typeof data === 'string' ? data : null;
+      if (transferId) {
+        try {
+          const { data: res, error: mailErr } = await supabase.functions.invoke(
+            'notify-owner-transfer',
+            { body: { transfer_id: transferId } },
+          );
+          if (mailErr || res?.sent === false) {
+            toast({
+              title: 'Transfer created, notice email not sent',
+              description:
+                'The transfer stands. The failed send is in Management → Email Log.',
+            });
+          }
+        } catch {
+          toast({
+            title: 'Transfer created, notice email not sent',
+            description:
+              'The transfer stands. The failed send is in Management → Email Log.',
+          });
+        }
+      }
+      await load();
+    } catch (err) {
+      toast({
+        title: 'Refused',
+        description: (err as { message?: string })?.message ?? 'The request was refused.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const onCancel = () =>
     run(
