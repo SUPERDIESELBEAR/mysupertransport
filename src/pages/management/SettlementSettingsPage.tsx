@@ -201,6 +201,10 @@ export default function SettlementSettingsPage() {
         </Card>
       )}
 
+      <FuelDiscountPassthroughSettings />
+
+
+
       <Card className="p-4 space-y-2">
         <p className="text-sm font-semibold text-foreground">Change history</p>
         {history.length === 0 ? (
