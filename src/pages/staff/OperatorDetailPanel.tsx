@@ -7756,6 +7756,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         />
       )}
 
+      <RecordPaperIcaModal
+        open={showRecordPaperIca}
+        onClose={() => setShowRecordPaperIca(false)}
+        operatorId={operatorId}
+        operatorName={operatorName}
+        onRecorded={() => setHasIcaRow(true)}
+      />
+
       {/* Lease Termination Viewer */}
       {openTerminationId && (
         <LeaseTerminationViewModal
