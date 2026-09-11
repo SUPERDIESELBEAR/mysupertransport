@@ -85,3 +85,16 @@
   six sent for investigation. It stays RED and uninvestigated.
 - OPEN QUESTION recorded: the `owner` role invariant now lives only in two
   functions nothing calls.
+
+## Done (2026-09-11, the last uncalled function)
+- Dropped `get_user_roles(uuid)`. Not housekeeping: SECURITY DEFINER, took ANY
+  user id, no in-body self-or-staff check, `authenticated` could execute — so
+  any signed-in user, operator included, could read another user's role array
+  and see who holds `owner`. RLS closes that boundary everywhere else.
+  Replacements: `useAuth` reading `user_roles` under RLS, `has_role()` (202
+  policy expressions, 65 function bodies), direct service-role reads in edge
+  functions.
+- Ceilings: LEGACY_MAX 75 -> 74; KNOWN_AUTHENTICATED_EXECUTABLE_MAX 125 -> 124.
+  Anon ceiling unchanged at 31 (anon EXECUTE was revoked 2026-09-03).
+- Reachability guard: predicted 1 -> 0, got 1 -> 0. GREEN for the first time.
+  The sweep that began with 16 findings is complete.

@@ -1,0 +1,1 @@
+COMMENT ON TABLE public.user_roles IS 'Role membership per user. Roles are assigned by service-role edge functions; read via useAuth under RLS and has_role() in policies.';

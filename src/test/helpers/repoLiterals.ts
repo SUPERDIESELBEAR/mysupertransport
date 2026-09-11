@@ -21,10 +21,11 @@
  * NEGATIVE (a caller we credit that is really a comment) is one missed finding;
  * the cost of a false POSITIVE is the whole guard being ignored.
  *
- * Backticks are NOT matched, on purpose. `get_user_roles` appears exactly once
- * in the tree — inside a `//` comment in supabase/functions/_shared/email/auth.ts,
- * backtick-quoted — and a comment is not a caller. That distinction is what
- * turned it into a finding.
+ * Backticks are NOT matched, on purpose. `get_user_roles` was mentioned exactly
+ * once in the tree — inside a `//` comment in
+ * supabase/functions/_shared/email/auth.ts, backtick-quoted — and a comment is
+ * not a caller. That distinction is what turned it into a finding, and the
+ * function was dropped on 2026-09-11.
  *
  * WHAT DOES NOT COUNT: `*.test.*`, `__tests__/`, `src/test/`, and the generated
  * `src/integrations/supabase/types.ts`. A function referenced only by the tests

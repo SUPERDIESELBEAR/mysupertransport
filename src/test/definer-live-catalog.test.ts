@@ -320,7 +320,6 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   
   "public.get_staff_contact_info(uuid[])",
   "public.get_thread_participants(uuid)",
-  "public.get_user_roles(uuid)",
   "public.has_role(uuid,app_role)",
   "public.is_own_rods_operator(uuid)",
   "public.is_staff(uuid)",
@@ -762,7 +761,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   get_application_pei_summary(uuid) and get_pei_requests_needing_action()
 //   were DROPPED — no caller in any schema; the PEI Queue uses get_pei_queue()
 //   and the application PEI tab reads `pei_requests` directly.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 125;
+// 2026-09-11: 125 - 1 = 124. `get_user_roles(uuid)` DROPPED — no caller in any
+//   schema or in source, and as a definer taking an arbitrary user id with no
+//   in-body gate it let any signed-in user read another user's roles.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 124;
 
 
 

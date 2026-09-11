@@ -9967,3 +9967,91 @@ expected — `get_user_roles` — 3 passed), `src/test/definer-live-catalog.test
 (passed), `src/test/definer-search-path.test.ts` (passed). `tsgo` clean.
 Contradictions: one, reported above and not reconciled — the investigated six and
 the guard's six were not the same six.
+
+---
+
+## 2026-09-11 — `get_user_roles(uuid)` dropped; the reachability sweep closes GREEN
+
+**Migration:** `20260911104451_862190f7-9173-4a58-bb8a-10f2c188f9ba.sql` —
+`DROP FUNCTION IF EXISTS public.get_user_roles(uuid);`. A second, unrelated
+migration added a `COMMENT ON TABLE public.user_roles` describing how roles are
+assigned and read.
+
+### Why dropped rather than kept — this was not housekeeping
+
+The function was `SECURITY DEFINER`, accepted ANY user UUID, carried NO in-body
+self-or-staff check, and `authenticated` held EXECUTE. Any signed-in user —
+including any operator — could obtain an arbitrary user's role array, which
+identifies who holds `owner`. It is a hole in a boundary RLS otherwise closes:
+the replacement path cannot do this, because `useAuth` reads `user_roles` under
+RLS and an ordinary user sees only their own rows. The data is role membership,
+not applicant or financial data, but the `owner` disclosure is the point.
+
+Anon EXECUTE was correctly revoked on 2026-09-03, so this was not an anonymous
+exposure. Nothing called it across all eight search categories plus triggers, in
+every schema. Named replacements: `useAuth` under `user_roles` RLS for the
+signed-in user, `has_role(uuid, app_role)` for database authorization (202 live
+policy expressions and 65 function bodies), and direct service-role table reads
+in backend functions.
+
+### Ceilings moved — all downward
+
+| Ceiling | Before | After | Why |
+| --- | --- | --- | --- |
+| `LEGACY_MAX` (`legacyPublicOnlyPins.ts`) | 75 | 74 | Its legacy `public`-only pin entry deleted because the function is gone. A shrink by deletion, not by excuse. |
+| `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` | 125 | 124 | Registration removed from `definer-live-catalog.test.ts`. The live linter independently reported 124 authenticated-executable definers after the drop. |
+| `KNOWN_ANON_EXECUTABLE_MAX` | 31 | 31 | Unchanged — anon EXECUTE had already been revoked on 2026-09-03. |
+
+`KNOWN_NO_CALLER_MAX` was not moved: the function was never allowlisted, it was
+a live finding.
+
+### Also removed
+
+The stale backtick comment in `supabase/functions/_shared/email/auth.ts`
+describing an old `get_user_roles({ user_id })` vs `{ _user_id }` call bug. It
+was evidence of a former caller and would read as a live dependency to the next
+person searching the tree. Replaced with a name-free description of the same
+class of bug. The explanatory note in `src/test/helpers/repoLiterals.ts` about
+why backticks are not matched was kept and updated to past tense — it is the
+reason this finding existed at all.
+
+### Prediction and result
+
+**Predicted before running: 1 finding -> 0.** **Got: 1 -> 0.** No difference in
+either direction to account for.
+
+**The guard is GREEN for the first time.** The sweep that began with 16 findings
+is complete: 16 -> 14 (guard build) -> 13 -> 12 (search scope widened to every
+schema) -> 11 -> 6 (five accessorial writers got a screen) -> 3 -> 1 -> 0. Every
+finding was settled by investigation, a caller, a drop or a justified SUPERSEDED
+allowlist entry naming the mechanism that replaced it. None was silenced.
+
+The guard's failure message was rewritten accordingly: it no longer announces an
+expected-red baseline, it states that the guard is green, must stay green, and
+that ANY name it prints is new.
+
+### Suites run by name
+
+- `src/test/function-reachability.test.ts` — 4 passed (first run hit the 5s
+  default timeout on the live catalog query, not an assertion failure; re-run
+  with `--testTimeout=120000` passed)
+- `src/test/definer-live-catalog.test.ts` — 13 passed
+- `src/test/definer-search-path.test.ts` — passed
+- `src/test/definer-fail-open.test.ts` — passed
+- `src/test/grant-parity-live.test.ts` — passed
+- `src/test/policy-grant-parity.test.ts` — passed
+- `tsgo --noEmit` — clean
+
+### Incident during the pass — types file blanked and recovered
+
+`npx supabase gen types` was run without an access token. It exited 0 and wrote
+an EMPTY file, which was then copied over `src/integrations/supabase/types.ts`.
+The error text was in stderr; the exit code lied. Recovered by running a no-op
+migration, which triggers the platform's own type regeneration (14,065 lines,
+no `get_user_roles`). Lesson: never regenerate types with the CLI on this
+project, and never pipe a generator's output over a real file without checking
+the output is non-empty first.
+
+### Contradictions
+
+None found.
