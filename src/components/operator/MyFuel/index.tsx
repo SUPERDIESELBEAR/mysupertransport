@@ -37,8 +37,9 @@ import {
 
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
-function Totals({ title, note, tone, totals }: {
+function Totals({ title, note, tone, totals, showDiscount }: {
   title: string; note: string; tone: 'settled' | 'pending'; totals: FuelDriverTotals;
+  showDiscount: boolean;
 }) {
   return (
     <Card className={tone === 'pending' ? 'border-amber-400 bg-amber-50/60' : undefined}>
@@ -58,7 +59,9 @@ function Totals({ title, note, tone, totals }: {
           <div className="flex justify-between"><dt>Cash advance</dt><dd>{money(totals.cashAdvance)}</dd></div>
           <div className="flex justify-between"><dt>Repairs</dt><dd>{money(totals.repair)}</dd></div>
           <div className="flex justify-between"><dt>Other</dt><dd>{money(totals.other)}</dd></div>
-          <div className="flex justify-between"><dt>Discount</dt><dd>{money(totals.discount)}</dd></div>
+          {showDiscount && (
+            <div className="flex justify-between"><dt>Discount</dt><dd>{money(totals.discount)}</dd></div>
+          )}
           <div className="flex justify-between"><dt>Gallons</dt><dd>{totals.gallons || '—'}</dd></div>
         </dl>
       </CardContent>
@@ -67,7 +70,7 @@ function Totals({ title, note, tone, totals }: {
 }
 
 /** One purchase. Mobile reads it as a card; the desktop table shares the data. */
-function PurchaseCard({ row }: { row: FuelDriverRow }) {
+function PurchaseCard({ row, showDiscount }: { row: FuelDriverRow; showDiscount: boolean }) {
   return (
     <Card
       data-testid="my-fuel-row"
@@ -95,7 +98,7 @@ function PurchaseCard({ row }: { row: FuelDriverRow }) {
           {row.cashAdvance !== 0 && <div className="flex justify-between"><dt>Cash advance</dt><dd>{money(row.cashAdvance)}</dd></div>}
           {row.repair !== 0 && <div className="flex justify-between"><dt>Repairs</dt><dd>{money(row.repair)}</dd></div>}
           {row.other !== 0 && <div className="flex justify-between"><dt>Other</dt><dd>{money(row.other)}</dd></div>}
-          {row.discount !== 0 && <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>}
+          {showDiscount && row.discount !== 0 && <div className="flex justify-between"><dt>Discount</dt><dd>{money(row.discount)}</dd></div>}
           {row.gallons !== 0 && <div className="flex justify-between"><dt>Gallons</dt><dd>{row.gallons}</dd></div>}
         </dl>
 
@@ -126,6 +129,13 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
   const summary = useMemo(() => summarizeDriverRows(rows), [rows]);
 
   /**
+   * THE DISCOUNT IS SHOWN ONLY IF IT IS HIS. Resolved in the database and
+   * carried on the rows. When it is off, this screen and the PDF say nothing
+   * about a discount; the deduction is the gross amount either way.
+   */
+  const showDiscount = q.data?.discountPassthrough === true;
+
+  /**
    * HIS OWN, AND ONLY HIS OWN. The PDF is built from `rows` — the rows the
    * self-scoped `my_fuel_transactions()` returned for the signed-in driver.
    * There is no operator id anywhere on this path and no parameterised read
@@ -136,6 +146,7 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
     unitNumber: unitNumber ?? null,
     rows,
     generatedAt: new Date(),
+    showDiscount,
   });
 
   if (q.isSuccess && onReady) onReady();
@@ -187,17 +198,19 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
           note="Already deducted from a check."
           tone="settled"
           totals={summary.settled}
+          showDiscount={showDiscount}
         />
         <Totals
           title="Not yet deducted"
           note="Bought, but not taken out of any check yet."
           tone="pending"
           totals={summary.pending}
+          showDiscount={showDiscount}
         />
       </div>
 
       <div className="space-y-3">
-        {rows.map((r) => <PurchaseCard key={r.id} row={r} />)}
+        {rows.map((r) => <PurchaseCard key={r.id} row={r} showDiscount={showDiscount} />)}
       </div>
     </div>
   );
