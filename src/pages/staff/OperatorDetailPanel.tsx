@@ -5721,6 +5721,24 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                 </Button>
               </div>
             )}
+            {/* Signed before SUPERDRIVE: no contract row exists, so record the original. */}
+            {hasIcaRow === false && (
+              <div className="space-y-2">
+                <p className="text-xs text-muted-foreground">
+                  No agreement is on file in SUPERDRIVE for this driver. If they signed one on paper, record it here so
+                  lease termination and void work normally.
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full border-gold text-gold hover:bg-gold/10 text-xs gap-1.5"
+                  onClick={() => setShowRecordPaperIca(true)}
+                >
+                  <FilePen className="h-3.5 w-3.5" />
+                  Record Existing Agreement
+                </Button>
+              </div>
+            )}
             {status.ica_status === 'sent_for_signature' && (
               <Button
                 variant="outline"
