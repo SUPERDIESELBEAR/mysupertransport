@@ -122,6 +122,22 @@ export default function OwnershipTransferPage() {
   const iAmRecipient = !!pending && pending.to_user_id === user?.id;
   const iAmSender = !!pending && pending.from_user_id === user?.id;
 
+  // The cancel link in the out-of-band owner email names the transfer; it carries
+  // no authority. Arriving here still required a signed-in session, and the
+  // cancel below still goes through cancel_owner_transfer(), which refuses
+  // anyone who is not a party to the row.
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const linkedTransferId =
+    typeof window !== 'undefined'
+      ? new URLSearchParams(window.location.search).get('cancel')
+      : null;
+  useEffect(() => {
+    if (linkedTransferId && pending?.id === linkedTransferId && (iAmSender || iAmRecipient)) {
+      setConfirmCancel(true);
+    }
+  }, [linkedTransferId, pending?.id, iAmSender, iAmRecipient]);
+
+
   const run = async (fn: () => Promise<{ error: unknown }>, ok: string) => {
     setBusy(true);
     try {
@@ -141,11 +157,51 @@ export default function OwnershipTransferPage() {
     }
   };
 
-  const onInitiate = () =>
-    run(
-      async () => await supabase.rpc('initiate_owner_transfer', { p_to_user_id: selected }),
-      'Ownership transfer sent. It expires in 72 hours.',
-    );
+  // The out-of-band notice is deliberately NOT part of the transfer: the row is
+  // already committed by the RPC. A mail failure is reported as a separate,
+  // non-destructive warning and lands in the Email Log as a `failed` row.
+  const onInitiate = async () => {
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc('initiate_owner_transfer', {
+        p_to_user_id: selected,
+      });
+      if (error) throw error;
+      toast({ title: 'Ownership transfer sent. It expires in 72 hours.' });
+      const transferId = typeof data === 'string' ? data : null;
+      if (transferId) {
+        try {
+          const { data: res, error: mailErr } = await supabase.functions.invoke(
+            'notify-owner-transfer',
+            { body: { transfer_id: transferId } },
+          );
+          if (mailErr || res?.sent === false) {
+            toast({
+              title: 'Transfer created, notice email not sent',
+              description:
+                'The transfer stands. The failed send is in Management → Email Log.',
+            });
+          }
+        } catch {
+          toast({
+            title: 'Transfer created, notice email not sent',
+            description:
+              'The transfer stands. The failed send is in Management → Email Log.',
+          });
+        }
+      }
+      await load();
+    } catch (err) {
+      toast({
+        title: 'Refused',
+        description: (err as { message?: string })?.message ?? 'The request was refused.',
+        variant: 'destructive',
+      });
+    } finally {
+      setBusy(false);
+    }
+  };
+
 
   const onCancel = () =>
     run(
@@ -337,7 +393,31 @@ export default function OwnershipTransferPage() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={confirmCancel} onOpenChange={setConfirmCancel}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel this ownership transfer?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The pending transfer will be withdrawn and nobody's role changes. If
+              you did not start it, cancel it and change your password.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Leave it pending</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                setConfirmCancel(false);
+                void onCancel();
+              }}
+            >
+              Cancel transfer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <AlertDialog open={confirmAccept} onOpenChange={setConfirmAccept}>
+
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Become the owner of this company?</AlertDialogTitle>

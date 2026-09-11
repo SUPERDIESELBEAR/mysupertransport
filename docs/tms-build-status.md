@@ -10357,7 +10357,48 @@ P9 non-owner initiates                         42501 Only the current owner may 
 
 **CONTRADICTIONS:** none found.
 
+---
+
+## Owner invariant — Pass 5: the out-of-band notice, and break-glass (2026-09-12)
+
+**Files:** `supabase/functions/notify-owner-transfer/index.ts` (new), `src/pages/management/OwnershipTransferPage.tsx` (initiation now also invokes the notice; deep-linked cancel dialog). No migration — the transfer rules are already in the database and this pass adds none.
+
+**Why an email for something exercised roughly never.** Every other layer in this sequence assumes whoever holds the session is the owner. This is the only one that reaches outside the app: if someone is inside the owner's session and starts a transfer, the notice lands in the real owner's inbox.
+
+**The message.** Sent to the current owner's address on record (`auth.users.email` for the transfer's `from_user_id`, read service-side — never taken from the caller). Subject: *Ownership transfer started on your SUPERTRANSPORT account*. Body: that a transfer was started, to whom (recipient's name), that they become the owner and the current owner stops being owner if they accept, the expiry timestamp in Central time, "if this was you, no action is needed — if it was not, cancel it now and change your password", and the note that the link requires signing in first. One gold CTA: **Cancel this transfer** → `/management?view=ownership-transfer&cancel=<transfer_id>`.
+
+**The link carries no authority.** It names the transfer and nothing else. The route is behind the app's authenticated management shell, and the cancel itself still goes through `cancel_owner_transfer()`, which refuses anyone who is not a party to the row. Arriving with the parameter opens a confirmation dialog; it does not cancel on load. Verified signed-out: `POST /functions/v1/notify-owner-transfer` without a bearer token returns **401 `{"error":"Unauthorized"}`**, and the function additionally refuses any caller who is not the transfer's `from_user_id` (403) and any non-pending row (409).
+
+**Initiation only.** Not on acceptance, cancellation or expiry — those are visible in-app, and this is an anti-hijack measure, not a notification system. No template system, no preference, no send log beyond the existing `email_send_log`.
+
+**A failed send does not undo the transfer.** The row is committed by `initiate_owner_transfer()` before the function is called. The send is wrapped in `withEmailLog`, which writes a `pending` row and then a `failed` row carrying the error; the function returns `{ sent: false }` rather than throwing. Surfaces, in order: (1) a second toast on the owner's screen — *"Transfer created, notice email not sent — the transfer stands. The failed send is in Management → Email Log"*; (2) a `failed` row in `email_send_log` under template `owner-transfer-initiated`, visible in Management → Email Log with the transfer id in its metadata; (3) an edge-function log line. A missing `RESEND_API_KEY` or an owner with no email on record takes the same path.
+
+**Not exercised end to end.** There is one owner and one production account, so no real transfer was initiated — the email is **source-verified**, as Pass 2 and Pass 3 each correctly declined a probe on the same grounds. What was exercised live: the unauthenticated refusal above, and the deployment of the function.
+
+### BREAK-GLASS — recorded, deliberately NOT built
+
+A transfer requiring the outgoing owner is useless precisely when it is most needed: the owner is incapacitated, gone, or the account is lost. The procedure, in order:
+
+1. Delete the orphaned owner row directly in the database — `delete from public.user_roles where user_id = '<orphaned owner>' and role = 'owner';` — a deliberate, credential-gated act.
+2. Run bootstrap with `BOOTSTRAP_SECRET` against the `bootstrap-admin` function with `role: 'owner'`, which calls `bootstrap_assign_owner`. That function **refuses while an owner exists and succeeds when none does**, so step 1 is not optional and step 2 cannot be used to add a second owner.
+3. Write the audit entry after the fact, into `audit_log`, naming who executed it, when, and why.
+
+**This is deliberately manual.** An automated succession path would be a second unattended way to become owner, which is the thing this whole sequence exists to prevent. The manual step is the control, not a gap.
+
+**What it requires:** direct database credentials and `BOOTSTRAP_SECRET` — held by different people if at all possible, so no single person can execute it alone.
+
+**Nobody has verified this procedure end to end,** because doing so would mean deleting the live owner row. Steps are individually source-verified: `bootstrap_assign_owner`'s refusal-while-owner-exists was probed in Pass 2; the deletion and the bootstrap call in sequence have not been.
+
+**Owner still resolves:** exactly one row — `5cca4f77-c4a9-4c4d-bcf7-f950965c1ffe`, Marcus Mueller, role `owner`. Method: **direct `user_roles` read**, not `has_role`, which was not callable from the verification identity in Pass 2 and Pass 4 (`42501 permission denied for function has_role`).
+
+**Suites run:** `function-reachability.test.ts` (4, GREEN), `definer-live-catalog.test.ts` (13), `tsgo --noEmit`. All pass. No ceiling moved — this pass creates no database function.
+
+**CONTRADICTIONS:** none found.
+
+---
+
 ## 2026-09-11 — fuel discount pass-through moved into Settlement Settings
+
 
 Both controls now sit on Management → Settlement Settings, in one card:
 
