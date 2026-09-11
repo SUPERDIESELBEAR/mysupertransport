@@ -7409,26 +7409,10 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         <RoadsideStopsCard operatorId={operatorId} />
       </div>
 
-      {/* Fuel discount pass-through — a per-driver SETTLEMENT SETTING, management/owner only. */}
-      {(isManagement || isOwner) && (
-        <div className="bg-white border border-border rounded-xl shadow-sm" style={{ order: isQuickView ? 8.9 : 39 }}>
-          <button
-            onClick={() => toggleStage('fuel_discount_passthrough')}
-            className="w-full flex items-center justify-between px-5 py-4 text-left"
-          >
-            <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-gold" />
-              <h3 className="font-semibold text-foreground text-sm">Fuel Discount Pass-Through</h3>
-              <span className="text-[11px] text-muted-foreground">(settlement setting)</span>
-            </div>
-            <ChevronDown className={`h-4 w-4 text-muted-foreground transition-transform ${collapsedStages.has('fuel_discount_passthrough') ? '-rotate-90' : ''}`} />
-          </button>
-          {!collapsedStages.has('fuel_discount_passthrough') && (
-            <div className="px-5 pb-5">
-            </div>
-          )}
-        </div>
-      )}
+      {/* The fuel discount pass-through setting — company default and the
+          per-driver exceptions — now lives on Settlement Settings, so there is
+          one place the rule is read and one place it is changed. */}
+
 
       {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
       <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={{ order: isQuickView ? 9 : 40 }}>
