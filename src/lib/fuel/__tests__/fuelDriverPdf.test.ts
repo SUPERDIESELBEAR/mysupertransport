@@ -75,7 +75,10 @@ describe('the PDF cannot print different money from the screens', () => {
     expect(doc.rows.map((r) => r[0])).toEqual(rows.map((r) => r.dateLabel));
     expect(doc.rows).toHaveLength(3);
     // Same money, to the cent.
-    expect(doc.pending.amount).toBe('$1,960.56');
+    // The printed total is the GROSS — what is deducted, and what the bucket
+    // lines sum to. The net follows it as `After discount`.
+    expect(doc.pending.amount).toBe('$1,970.72');
+    expect(screen.pending.grossTotal).toBe(1970.72);
     expect(screen.pending.total).toBe(1960.56);
     expect(doc.pending.breakdown).toEqual([
       { label: 'Fuel', value: '$1,465.72' },
@@ -83,6 +86,7 @@ describe('the PDF cannot print different money from the screens', () => {
       { label: 'Repairs', value: '—' },
       { label: 'Other', value: '—' },
       { label: 'Discount', value: '-$10.16' },
+      { label: 'After discount', value: '$1,960.56' },
       { label: 'Gallons', value: '233.68' },
     ]);
   });
@@ -112,10 +116,10 @@ describe('settled and pending never meet in print', () => {
     const doc = buildFuelPdfDocument(input(rows));
     expect(doc.settled.amount).toBe('$829.34');
     expect(doc.settled.countLabel).toBe('1 purchase');
-    expect(doc.pending.amount).toBe('$1,131.22');
+    expect(doc.pending.amount).toBe('$1,141.38');
     expect(doc.pending.countLabel).toBe('2 purchases');
-    // 1960.56 is the sum of the two; it appears nowhere in the document.
-    expect(JSON.stringify(doc)).not.toContain('1,960.56');
+    // 1970.72 is the sum of the two grosses; it appears nowhere in the document.
+    expect(JSON.stringify(doc)).not.toContain('1,970.72');
   });
 
   it('says "Not yet deducted" in words on every pending row', () => {
