@@ -5329,6 +5329,7 @@ export type Database = {
           deposit_initials: string | null
           equipment_location: string | null
           id: string
+          is_paper_original: boolean
           lease_effective_date: string | null
           lease_termination_date: string | null
           linehaul_split_pct: number
@@ -5342,6 +5343,10 @@ export type Database = {
           owner_phone: string | null
           owner_state: string | null
           owner_zip: string | null
+          paper_recorded_at: string | null
+          paper_recorded_by: string | null
+          paper_scan_name: string | null
+          paper_scan_path: string | null
           status: string
           trailer_number: string | null
           truck_make: string | null
@@ -5370,6 +5375,7 @@ export type Database = {
           deposit_initials?: string | null
           equipment_location?: string | null
           id?: string
+          is_paper_original?: boolean
           lease_effective_date?: string | null
           lease_termination_date?: string | null
           linehaul_split_pct?: number
@@ -5383,6 +5389,10 @@ export type Database = {
           owner_phone?: string | null
           owner_state?: string | null
           owner_zip?: string | null
+          paper_recorded_at?: string | null
+          paper_recorded_by?: string | null
+          paper_scan_name?: string | null
+          paper_scan_path?: string | null
           status?: string
           trailer_number?: string | null
           truck_make?: string | null
@@ -5411,6 +5421,7 @@ export type Database = {
           deposit_initials?: string | null
           equipment_location?: string | null
           id?: string
+          is_paper_original?: boolean
           lease_effective_date?: string | null
           lease_termination_date?: string | null
           linehaul_split_pct?: number
@@ -5424,6 +5435,10 @@ export type Database = {
           owner_phone?: string | null
           owner_state?: string | null
           owner_zip?: string | null
+          paper_recorded_at?: string | null
+          paper_recorded_by?: string | null
+          paper_scan_name?: string | null
+          paper_scan_path?: string | null
           status?: string
           trailer_number?: string | null
           truck_make?: string | null
@@ -7843,6 +7858,7 @@ export type Database = {
           driver_signature_name: string | null
           id: string
           is_paper_original: boolean
+          is_return_only: boolean
           operator_id: string
           paper_scan_name: string | null
           paper_scan_path: string | null
@@ -7881,6 +7897,7 @@ export type Database = {
           driver_signature_name?: string | null
           id?: string
           is_paper_original?: boolean
+          is_return_only?: boolean
           operator_id: string
           paper_scan_name?: string | null
           paper_scan_path?: string | null
@@ -7919,6 +7936,7 @@ export type Database = {
           driver_signature_name?: string | null
           id?: string
           is_paper_original?: boolean
+          is_return_only?: boolean
           operator_id?: string
           paper_scan_name?: string | null
           paper_scan_path?: string | null
