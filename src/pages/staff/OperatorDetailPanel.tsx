@@ -72,6 +72,7 @@ import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDia
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { getOnboardingProgress } from '@/lib/onboardingProgress';
+import { UnitNumberConflictAlert } from '@/components/operator/UnitNumberConflictAlert';
 
 interface OperatorDetailPanelProps {
   operatorId: string;
