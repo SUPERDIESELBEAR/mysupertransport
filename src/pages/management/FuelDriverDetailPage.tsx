@@ -311,13 +311,16 @@ export default function FuelDriverDetailPage() {
               tone="settled"
               note="Already taken out of a settlement."
               totals={summary.settled}
+              passthrough={passthrough.data === true}
             />
             <TotalsCard
               title="Not yet deducted"
               tone="pending"
               note="Bought, but not taken out of any check yet."
               totals={summary.pending}
+              passthrough={passthrough.data === true}
             />
+
           </div>
 
           <Card>
