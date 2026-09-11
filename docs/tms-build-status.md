@@ -2365,6 +2365,23 @@ The rule, three parts:
 
 ## Standing rule — A GUARD MUST ASSERT AN INVARIANT, NOT A CENSUS (2026-09-04)
 
+### Third occurrence — `passthroughDriverList.test.ts` (2026-09-11)
+
+The fuel-discount driver-list guard shipped with `toBe(60)`, `toBe(46)`,
+`toBe(11)` twice, and a `Christopher Harris does not appear` assertion. Every
+one of them failed on a legitimate business outcome: onboarding a driver,
+returning one to dispatch, or Harris finishing onboarding. Rewritten the same
+day as invariants — two-way set difference between the TS predicate and the SQL
+filter, "off dispatch never removes an otherwise set-up driver", "holding a unit
+never grants inclusion", and "a driver carrying a setting is never dropped" —
+each quantified over whoever matches today, with a non-vacuity check on the
+roster. Harris and the Vazquez/Grant unit pair are now a comment recording the
+evidence the filter was built from, not assertions. Third instance in eight
+days; the rule keeps being re-derived rather than applied when a pass writes a
+live-data guard.
+
+
+
 
 `parked-and-termination-guardrail` hard-coded live row counts taken on
 2026-08-31: `toBe(31)` total `lease_terminations` rows and `toBe(6)` voided. Two
