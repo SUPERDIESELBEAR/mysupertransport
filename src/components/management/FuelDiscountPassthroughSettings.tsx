@@ -26,6 +26,11 @@ import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronDown, Fuel, Loader2 } from 'lucide-react';
 import { fetchOperatorOptions, operatorLabel, type OperatorOption } from '@/lib/fuel/fuelOperators';
+import {
+  fetchDriverSetupStatus,
+  selectExceptionListRows,
+  type DriverSetupStatus,
+} from '@/lib/fuel/setupDriverFilter';
 
 type Choice = 'inherit' | 'on' | 'off';
 
