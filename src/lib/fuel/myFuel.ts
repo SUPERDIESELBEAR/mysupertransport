@@ -104,6 +104,9 @@ export function shapeMyFuel(rows: MyFuelRpcRow[]): MyFuelData {
     transactions: rows.map(toDriverTransaction),
     settled: toSettledIndex(rows),
     workWeekStartDow: rows[0]?.work_week_start_dow ?? SETTLEMENT_SETTINGS_DEFAULTS.work_week_start_dow,
+    // Absent means OFF: the company default is off, and a screen must never
+    // invent a discount for a driver whose setting could not be read.
+    discountPassthrough: rows[0]?.discount_passthrough === true,
   };
 }
 
