@@ -47,7 +47,8 @@ export type SettlementLineType =
 
 export type SettlementSourceTable =
   | 'loads' | 'fuel_transactions' | 'deductions' | 'deduction_installments'
-  | 'cash_advances' | 'rm_deposits' | 'settlements' | 'accessorial_adjustments';
+  | 'cash_advances' | 'rm_deposits' | 'settlements' | 'accessorial_adjustments'
+  | 'inspection_program_payments';
 
 export interface SettlementLine {
   lineType: SettlementLineType;
@@ -211,6 +212,18 @@ export interface SettlementAdjustmentInput {
 }
 
 
+/**
+ * An APPROVED Clean Roadside bonus (`inspection_program_payments`,
+ * kind `roadside_bonus`) reaching the driver's check. Deliberately NOT a
+ * charge: it pays 100% of the approved amount and never touches the policy
+ * percentage map — a bonus is a program payment, not a broker charge.
+ */
+export interface SettlementBonusInput {
+  id: string;
+  amount: number;
+  description?: string | null;
+}
+
 export interface RmDepositState {
   id: string | null;
   currentBalance: number;
@@ -240,6 +253,12 @@ export interface SettlementComputeInput {
    * the load's delivery period.
    */
   adjustments?: SettlementAdjustmentInput[];
+  /**
+   * APPROVED Clean Roadside bonuses due this period. SETTLE-ONCE, keyed on
+   * `settledSourcesEver` like adjustments; paid at 100%, never through the
+   * policy percentage map.
+   */
+  bonuses?: SettlementBonusInput[];
   rmDeposit?: RmDepositState | null;
   /**
    * Signed carry-forward from a prior period. Negative is a debt the driver
@@ -437,6 +456,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   const {
     operatorId, periodAnchorDate, settings, companyPolicy, driverPolicy,
     loads = [], fuel = [], deductions = [], advances = [], adjustments = [],
+    bonuses = [],
     rmDeposit = null, carryForwardIn = 0,
     isDeparting = false, equipmentOutstanding,
     fuelDiscountPassthroughOverride = null,
@@ -581,6 +601,25 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
       });
     }
   }
+
+  /* --- Clean Roadside bonuses -------------------------------------- */
+  // A bonus is NOT a charge: it pays 100% of the approved amount and never
+  // resolves through the policy percentage map. SETTLE-ONCE like an
+  // adjustment — the gathering layer keys it on `settledSourcesEver` and
+  // `store_settlement_run` stamps the payment row settled in the same
+  // transaction as this line.
+  for (const bonus of bonuses) {
+    const amount = round2(num(bonus.amount));
+    if (!amount) continue;
+    lines.push({
+      lineType: 'adjustment',
+      amount,
+      description: bonus.description || 'Clean inspection bonus',
+      sourceTable: 'inspection_program_payments',
+      sourceId: bonus.id,
+    });
+  }
+
 
 
   /* --- Fuel -------------------------------------------------------- */

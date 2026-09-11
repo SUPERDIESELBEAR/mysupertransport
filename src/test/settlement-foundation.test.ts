@@ -161,6 +161,7 @@ const emptyWork = (operatorId: string): UnsettledWork => ({
   rmDeductionDue: 0,
   otherDeductionsDue: 0,
   approvedAdjustmentCount: 0,
+  approvedBonusCount: 0,
 });
 
 describe('the population rule', () => {

@@ -39,6 +39,9 @@ interface CycleRow {
   grace_until: string | null;
   grace_reason: string | null;
   grace_is_override: boolean;
+  grace_request_status: 'pending' | 'approved' | 'declined' | null;
+  grace_request_days: number | null;
+  grace_request_reason: string | null;
   submitted_at: string | null;
   closed_at: string | null;
 }
@@ -68,7 +71,30 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
   const [loading, setLoading] = useState(true);
   const [submitOpen, setSubmitOpen] = useState(false);
   const [graceOpen, setGraceOpen] = useState(false);
+  const [declineOpen, setDeclineOpen] = useState(false);
   const [saving, setSaving] = useState(false);
+
+  const reviewRequest = useCallback(async (row: CycleRow, approve: boolean, declineReason?: string) => {
+    setSaving(true);
+    const { error } = await db.rpc('review_inspection_grace_request', {
+      _cycle_id: row.id,
+      _approve: approve,
+      _decline_reason: declineReason ?? null,
+      _override: false,
+    });
+    setSaving(false);
+    if (error) {
+      toast({
+        title: approve ? 'Could not approve the request' : 'Could not decline the request',
+        description: error.message,
+        variant: 'destructive',
+      });
+      return;
+    }
+    toast({ title: approve ? 'Extension approved' : 'Request declined' });
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const group = useMemo(() => inspectionGroup(unitNumber), [unitNumber]);
 
@@ -196,6 +222,27 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
             </div>
           )}
 
+          {openRow?.grace_request_status === 'pending' && (
+            <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 space-y-2">
+              <p className="text-xs font-medium text-amber-900">
+                Driver requested a {openRow.grace_request_days ?? '—'}-day extension
+              </p>
+              <p className="text-[11px] text-amber-800 italic">“{openRow.grace_request_reason}”</p>
+              {!readOnly && (
+                <div className="flex gap-2">
+                  <Button size="sm" className="text-xs gap-1.5" disabled={saving}
+                    onClick={() => reviewRequest(openRow, true)}>
+                    <CheckCircle2 className="h-3.5 w-3.5" /> Approve
+                  </Button>
+                  <Button size="sm" variant="outline" className="text-xs" disabled={saving}
+                    onClick={() => setDeclineOpen(true)}>
+                    Decline
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
+
           <div className="flex flex-wrap items-center gap-2">
             {!readOnly && (
               <Button size="sm" variant="outline" className="text-xs gap-1.5" onClick={() => setSubmitOpen(true)}>
@@ -285,7 +332,59 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
           onSaved={() => { setGraceOpen(false); load(); }}
         />
       )}
+
+      {declineOpen && openRow && (
+        <DeclineRequestDialog
+          saving={saving}
+          onClose={() => setDeclineOpen(false)}
+          onDecline={async (reason) => {
+            await reviewRequest(openRow, false, reason);
+            setDeclineOpen(false);
+          }}
+        />
+      )}
     </div>
+  );
+}
+
+/* ------------------------------------------------- decline request */
+
+function DeclineRequestDialog({
+  saving, onClose, onDecline,
+}: {
+  saving: boolean;
+  onClose: () => void;
+  onDecline: (reason: string) => void | Promise<void>;
+}) {
+  const [reason, setReason] = useState('');
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader><DialogTitle className="text-base">Decline the extension request</DialogTitle></DialogHeader>
+        <div className="space-y-2">
+          <Label htmlFor="decline-reason" className="text-xs">Reason (shared with the driver)</Label>
+          <Textarea
+            id="decline-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            rows={3}
+            placeholder="Why the extension can't be granted"
+          />
+        </div>
+        <DialogFooter>
+          <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={saving || !reason.trim()}
+            onClick={() => onDecline(reason.trim())}
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Decline request
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 

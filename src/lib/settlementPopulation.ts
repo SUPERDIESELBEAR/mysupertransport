@@ -40,6 +40,11 @@ export interface UnsettledWork {
    * only item is a deduction is.
    */
   approvedAdjustmentCount: number;
+  /**
+   * APPROVED Clean Roadside bonuses not yet settled. A trigger in its own
+   * right, exactly like an approved adjustment.
+   */
+  approvedBonusCount: number;
 }
 
 export const POPULATION_TRIGGERS = [
@@ -50,6 +55,7 @@ export const POPULATION_TRIGGERS = [
   'rmDeductionDue',
   'otherDeductionsDue',
   'approvedAdjustmentCount',
+  'approvedBonusCount',
 ] as const;
 
 /**
@@ -75,6 +81,7 @@ export function hasUnsettledWork(work: UnsettledWork): boolean {
     || work.rmDeductionDue > 0
     || work.otherDeductionsDue > 0
     || work.approvedAdjustmentCount > 0
+    || work.approvedBonusCount > 0
   );
 }
 
@@ -88,6 +95,7 @@ export function populationReasons(work: UnsettledWork): string[] {
   if (work.rmDeductionDue > 0) out.push('Repair & Maintenance Deposit deduction due');
   if (work.otherDeductionsDue > 0) out.push('deductions due');
   if (work.approvedAdjustmentCount > 0) out.push(`${work.approvedAdjustmentCount} approved late accessorial adjustment(s)`);
+  if (work.approvedBonusCount > 0) out.push(`${work.approvedBonusCount} approved clean inspection bonus(es)`);
   return out;
 }
 
