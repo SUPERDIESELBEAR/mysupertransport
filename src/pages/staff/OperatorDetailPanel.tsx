@@ -34,6 +34,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import ICABuilderModal from '@/components/ica/ICABuilderModal';
 import ICAViewModal from '@/components/ica/ICAViewModal';
+import RecordPaperIcaModal from '@/components/ica/RecordPaperIcaModal';
 import ICAAmendmentList from '@/components/ica/ICAAmendmentList';
 import ParkDriverControl, { type ParkedFields } from '@/components/drivers/ParkDriverControl';
 import ParkedBadge from '@/components/drivers/ParkedBadge';
