@@ -25,6 +25,10 @@ import {
 import { Skeleton } from '@/components/ui/skeleton';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchOperatorDiscountPassthrough } from '@/lib/fuel/discountPassthrough';
+import {
+  COMPANY_VIEW_NOTE, buildDeductionCard, passthroughLabel,
+} from '@/lib/fuel/fuelDeductionCard';
+
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchOperatorOptions, operatorLabel } from '@/lib/fuel/fuelOperators';
 import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
