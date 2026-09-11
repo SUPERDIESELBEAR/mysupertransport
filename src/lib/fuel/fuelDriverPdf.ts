@@ -133,8 +133,17 @@ export function coveredRange(rows: FuelDriverRow[]): { first: string; last: stri
  */
 export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
   const { driverName, unitNumber, rows, generatedAt } = input;
+  const showDiscount = input.showDiscount !== false;
   const summary = summarizeDriverRows(rows);
   const range = coveredRange(rows);
+  // Dropping a column widens the merchant name rather than leaving a gap, so
+  // the table still fills the page it is printed on.
+  const widths = showDiscount
+    ? TABLE_LAYOUT.widths
+    : TABLE_LAYOUT.widths
+      .map((w, i) => (i === 1 ? w + TABLE_LAYOUT.widths[DISCOUNT_INDEX] : w))
+      .filter((_, i) => i !== DISCOUNT_INDEX);
+  const drop = <T,>(arr: T[]) => (showDiscount ? arr : arr.filter((_, i) => i !== DISCOUNT_INDEX));
 
   return {
     carrier: FUEL_PDF_CARRIER,
