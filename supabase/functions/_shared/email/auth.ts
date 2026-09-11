@@ -1,7 +1,7 @@
 // requireStaff — a single, correct staff auth check for every edge function.
 //
 // Kills the recurring class of bugs where each function reimplemented auth:
-//   - `get_user_roles({ user_id })` vs `{ _user_id }` (broke send-osas-to-operator)
+//   - argument-name mismatches in role lookups (broke send-osas-to-operator)
 //   - reading `app_metadata.roles` that was never populated
 //   - inconsistent 401/403 responses without CORS
 //

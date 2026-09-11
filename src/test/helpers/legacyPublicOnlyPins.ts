@@ -63,7 +63,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260727195451_f65f922b-e025-4ed4-86e4-b609458f05a3.sql::public.get_pei_queue()",
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.get_pei_request_for_response(uuid)",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
-  "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.get_user_roles(uuid)",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
   "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.has_role(uuid, public.app_role)",
   "20260729234627_b6bc3761-1036-44c1-97a8-909fa2f98d0f.sql::public.is_own_rods_operator(uuid)",
@@ -129,4 +128,10 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
 //     PEI tab reads `pei_requests` directly).
 //   - `assign_user_role(uuid, app_role)` and `remove_user_role(uuid, app_role)`
 //     were REPINNED to `public, extensions`, so they are no longer offenders.
-export const LEGACY_MAX = 75;
+// 2026-09-11: 75 -> 74. `get_user_roles(uuid)` was DROPPED. It was SECURITY
+// DEFINER, took ANY user id, had no self-or-staff check in its body, and
+// `authenticated` could execute it — so any signed-in user could read another
+// user's role array, including who holds `owner`. Nothing called it; roles are
+// read via `useAuth` under `user_roles` RLS, `has_role()` in policies, and
+// direct service-role reads in edge functions. A shrink by deletion.
+export const LEGACY_MAX = 74;
