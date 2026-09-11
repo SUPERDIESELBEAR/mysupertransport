@@ -10352,3 +10352,47 @@ P9 non-owner initiates                         42501 Only the current owner may 
 **Suites run:** `function-reachability.test.ts` (4, GREEN at the new ceiling) and `tsgo --noEmit`. Both pass.
 
 **CONTRADICTIONS:** none found.
+
+## 2026-09-11 — fuel discount pass-through moved into Settlement Settings
+
+Both controls now sit on Management → Settlement Settings, in one card:
+
+- **Company-wide toggle** — writes `pay_policies.fuel_discount_passthrough` on the
+  company default policy. This value had no UI at all before this pass; it was
+  reachable only from the database.
+- **Driver exceptions** — a collapsible list of every active driver with the same
+  three states as before (follow company / yes / no), a required reason, and the
+  existing `set_operator_fuel_discount_passthrough(uuid, boolean, text)` writer.
+  The header states the exception count; live count today is **0 of 60 active
+  drivers**, all following the company setting, which is currently OFF.
+
+`FuelDiscountPassthroughCard` and its section on the staff driver page are
+deleted; a guard test asserts `OperatorDetailPanel.tsx` no longer names the card
+or the writer RPC.
+
+Driver-facing surfaces now respect the setting rather than always showing the
+discount, which was the defect found in this pass:
+
+- `my_fuel_transactions()` was recreated to return `discount_passthrough`,
+  resolved server-side as operator override → company default → false. Drivers
+  cannot read `pay_policies`, so the answer must arrive with the rows.
+- My Fuel hides the Discount total line and the per-purchase Discount row.
+- The driver fuel PDF drops the Discount column, cell and totals line, and the
+  freed 46pt goes to the merchant column so the table still fills the page. The
+  document model carries its own `widths` for that reason. `showDiscount`
+  defaults to **true** so an unsaid caller cannot hide money a driver IS getting.
+- The management Driver Fuel Detail table still shows the discount — it is our
+  record of what we were billed — but the PDF it downloads is the driver's
+  document and is gated by his effective setting.
+
+Unchanged and verified: the settlement engine's override-first resolution, the
+gross fuel deduction in all three states, and the retained Pratt $327.94 result.
+
+Suites run: `discountPassthroughVisibility.test.ts` (12, new),
+`fuelDriverPdf.test.ts` (12), `myFuel.test.ts` (6),
+`fuelDiscountPassthroughOverride.test.ts` (7), `mySettlements.test.tsx` (7),
+`operator-fuel-isolation.test.ts` (7), `operator-pay-exposure.test.ts` (5),
+`tsgo --noEmit`. Rendering verified in the browser as the owner.
+Migration linter total remained the pre-existing 166.
+
+CONTRADICTIONS: none found.

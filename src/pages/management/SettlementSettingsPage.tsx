@@ -11,6 +11,7 @@ import {
   DOW_NAMES, dowLabel, SETTLEMENT_SETTINGS_DEFAULTS, SETTLEMENT_SETTING_HELP,
   SETTLEMENT_SETTING_KEYS, SETTLEMENT_SETTING_LABELS, type SettlementSettings,
 } from '@/lib/settlementConfig';
+import FuelDiscountPassthroughSettings from '@/components/management/FuelDiscountPassthroughSettings';
 
 interface HistoryRow {
   id: string;
@@ -200,6 +201,10 @@ export default function SettlementSettingsPage() {
           </div>
         </Card>
       )}
+
+      <FuelDiscountPassthroughSettings />
+
+
 
       <Card className="p-4 space-y-2">
         <p className="text-sm font-semibold text-foreground">Change history</p>

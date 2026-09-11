@@ -43,6 +43,14 @@ export interface FuelPdfInput {
   rows: FuelDriverRow[];
   /** Injected so the document is deterministic under test. */
   generatedAt: Date;
+  /**
+   * Whether the discount is passed through to THIS driver. When it is not, the
+   * document says nothing about a discount at all — no column, no total line —
+   * because a driver who does not receive it must not learn from his own
+   * paperwork that it exists. Defaults to true so an unsaid caller cannot
+   * silently hide money a driver IS receiving.
+   */
+  showDiscount?: boolean;
 }
 
 export interface FuelPdfTotalsBlock {
@@ -60,6 +68,8 @@ export interface FuelPdfDocument {
   periodLine: string;
   generatedLine: string;
   columns: string[];
+  /** Column widths for exactly the columns above, in points. */
+  widths: number[];
   /** Formatted cells, in the SAME order the screens show. */
   rows: string[][];
   /** Parallel to `rows`: true where the purchase has not been deducted. */
@@ -75,10 +85,13 @@ export const FUEL_PDF_COLUMNS = [
   'Discount', 'Total', 'Gallons', '$/gal', 'Deducted on',
 ];
 
+/** The index of the Discount column, dropped whole when it is not this driver's. */
+const DISCOUNT_INDEX = FUEL_PDF_COLUMNS.indexOf('Discount');
+
 const money = (n: number) => (n ? formatCurrency(n) : '—');
 
 function totalsBlock(
-  title: string, note: string, totals: FuelDriverTotals,
+  title: string, note: string, totals: FuelDriverTotals, showDiscount: boolean,
 ): FuelPdfTotalsBlock {
   return {
     title,
@@ -90,7 +103,7 @@ function totalsBlock(
       { label: 'Cash advance', value: money(totals.cashAdvance) },
       { label: 'Repairs', value: money(totals.repair) },
       { label: 'Other', value: money(totals.other) },
-      { label: 'Discount', value: money(totals.discount) },
+      ...(showDiscount ? [{ label: 'Discount', value: money(totals.discount) }] : []),
       { label: 'Gallons', value: totals.gallons ? String(totals.gallons) : '—' },
     ],
   };
@@ -120,8 +133,17 @@ export function coveredRange(rows: FuelDriverRow[]): { first: string; last: stri
  */
 export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
   const { driverName, unitNumber, rows, generatedAt } = input;
+  const showDiscount = input.showDiscount !== false;
   const summary = summarizeDriverRows(rows);
   const range = coveredRange(rows);
+  // Dropping a column widens the merchant name rather than leaving a gap, so
+  // the table still fills the page it is printed on.
+  const widths = showDiscount
+    ? TABLE_LAYOUT.widths
+    : TABLE_LAYOUT.widths
+      .map((w, i) => (i === 1 ? w + TABLE_LAYOUT.widths[DISCOUNT_INDEX] : w))
+      .filter((_, i) => i !== DISCOUNT_INDEX);
+  const drop = <T,>(arr: T[]) => (showDiscount ? arr : arr.filter((_, i) => i !== DISCOUNT_INDEX));
 
   return {
     carrier: FUEL_PDF_CARRIER,
@@ -131,8 +153,9 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       ? `Purchases ${formatFuelDate(range.first)} – ${formatFuelDate(range.last)}`
       : 'No purchases in this period',
     generatedLine: `Generated ${formatFuelDate(isoDay(generatedAt))}`,
-    columns: FUEL_PDF_COLUMNS,
-    rows: rows.map((r) => [
+    columns: drop(FUEL_PDF_COLUMNS),
+    widths,
+    rows: rows.map((r) => drop([
       r.dateLabel,
       r.merchantName ?? '—',
       r.location ?? '—',
@@ -147,17 +170,19 @@ export function buildFuelPdfDocument(input: FuelPdfInput): FuelPdfDocument {
       // Pending says so in words, exactly as the screens say it. There is no
       // blank cell a reader could take for "already deducted".
       r.deducted ? r.periodLabel : NOT_YET_DEDUCTED_LABEL,
-    ]),
+    ])),
     pendingFlags: rows.map((r) => !r.deducted),
     settled: totalsBlock(
       'Taken out of your settlements',
       'Already deducted from a check.',
       summary.settled,
+      showDiscount,
     ),
     pending: totalsBlock(
       NOT_YET_DEDUCTED_LABEL,
       'Bought, but not taken out of any check yet.',
       summary.pending,
+      showDiscount,
     ),
     emptyMessage: rows.length === 0 ? FUEL_PDF_EMPTY_MESSAGE : null,
     filename: range
@@ -255,7 +280,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
     doc.setFontSize(7.5);
     doc.setTextColor(...MUTED);
     let x = MARGIN + 4;
-    model.columns.forEach((c, i) => { doc.text(c, x, y); x += WIDTHS[i]; });
+    model.columns.forEach((c, i) => { doc.text(c, x, y); x += model.widths[i]; });
     y += 14;
   };
 
@@ -295,7 +320,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
       // driver keeps is exactly the ambiguity this report exists to remove.
       const last = ci === cells.length - 1;
       doc.setFontSize(last ? 7 : 8);
-      const lines = doc.splitTextToSize(cell, WIDTHS[ci] - 6) as string[];
+      const lines = doc.splitTextToSize(cell, model.widths[ci] - 6) as string[];
       if (last) {
         lines.slice(0, 2).forEach((l, li) => doc.text(l, x, y + li * 8));
       } else {
@@ -303,7 +328,7 @@ export function renderFuelPdf(model: FuelPdfDocument): jsPDF {
         // something that reads like a different merchant.
         doc.text(lines.length > 1 ? `${(lines[0] ?? '').trimEnd()}…` : (lines[0] ?? ''), x, y);
       }
-      x += WIDTHS[ci];
+      x += model.widths[ci];
     });
     doc.setFontSize(8);
     doc.setDrawColor(238);

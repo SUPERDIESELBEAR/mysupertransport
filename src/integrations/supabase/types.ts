@@ -12900,6 +12900,7 @@ export type Database = {
           city: string
           diesel_amount: number
           diesel_gallons: number
+          discount_passthrough: boolean
           fuel_discount_amount: number
           id: string
           invoice_date: string
