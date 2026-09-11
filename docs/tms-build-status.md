@@ -10083,3 +10083,96 @@ the output is non-empty first.
 ### Contradictions
 
 None found.
+
+## 2026-09-11 — Owner invariant, Pass 1: the single-owner index
+
+**Migration:** `20260911122152_9bc3d118-3936-410d-a383-d0455056dabb.sql`.
+
+### Decisions taken by the owner BEFORE any code (2026-09-11)
+
+**TRANSFER RECIPIENT — the in-app transfer is MANAGEMENT-ONLY.** Ownership may
+pass only to a user who already holds `management`.
+
+Rejected, with reasons:
+
+- *Any existing user* — widens the pool for no gain; every legitimate successor
+  already holds `management`.
+- *Transfer by invitation to someone with no account* — ownership would pass to
+  an email address rather than a known person, and an attacker inside the
+  owner's session could send it to an inbox they control.
+
+Reasoning for keeping the path narrow: selling the business or passing it to
+family is rare, deliberate, and already involves lawyers and paperwork. For that
+case the documented break-glass database procedure is the RIGHT mechanism, not a
+worse one — it is slow and requires database credentials, which for a
+once-in-a-business-lifetime event is a feature, not friction to be engineered
+away.
+
+**EXPIRY — 72 hours**, cancellable by either party until accepted.
+
+### The index
+
+```sql
+CREATE UNIQUE INDEX user_roles_single_owner
+  ON public.user_roles (role) WHERE role = 'owner';
+```
+
+Chosen over the `((true))` expression form: on a partial index restricted to
+`role = 'owner'` the two are exactly equivalent, and indexing the column reads
+plainly to the next person — the `((true))` form makes a reader stop and work
+out why a constant is being indexed.
+
+Rejected, and why:
+
+- **A CHECK constraint** cannot see other rows, so it cannot express "at most
+  one in the table".
+- **A counting trigger** races under concurrency: two concurrent inserts each
+  count zero and both proceed.
+- An index is enforced by the storage layer and **cannot be bypassed by
+  `service_role`**, which is the whole point — every live role write today goes
+  through service-role edge functions.
+
+**It enforces AT MOST ONE, not exactly one.** State that plainly: nothing here
+stops the owner row being deleted, leaving zero. "Exactly one" is preserved by
+refusing plain deletion of the owner row (Pass 2) and by making transfer atomic
+(Pass 3) — not by this index.
+
+### The consequence that shapes Pass 3 — recorded now, not rediscovered later
+
+With this index live:
+
+- **"insert the new owner, then delete the old" FAILS AT THE INSERT.**
+- **"delete the old, then insert the new" leaves a window with ZERO owners**
+  while 166 owner-keyed policy expressions are live; if the insert then fails,
+  the system has no owner at all.
+
+Therefore **transfer MUST be a single database function performing both the
+delete and the insert inside one transaction**, so the unique index is only
+evaluated at statement end. Two REST calls from an edge function cannot give
+that guarantee. Pass 3 must not start from the obvious two-step implementation.
+
+### KNOWN DEBT — `delete-user-account` can delete the owner row
+
+Found by the proposal, live today, **not fixed in this pass**:
+`delete-user-account` deletes ALL `user_roles` rows for its target and checks
+only that the CALLER holds `owner`, never that the TARGET does not. The owner
+can therefore delete their own owner row — a real path to zero owners, which
+this index does nothing to prevent.
+
+**Trigger: fixed in Pass 2**, alongside the trigger that refuses owner writes.
+
+### Verification
+
+- Owners before: **1** — Marcus Mueller (`5cca4f77…`), `active`.
+- Second-owner insert attempted against a real management user inside a block
+  that aborts. Verbatim: `duplicate key value violates unique constraint
+  "user_roles_single_owner"`, SQLSTATE `23505`. Nothing was written.
+- Owners after: **1**, unchanged.
+- The live check that matters after every pass in this sequence:
+  `has_role('5cca4f77…','owner')` returns **true**. The current owner still
+  resolves as owner.
+
+### Not in this pass
+
+No trigger, no `bootstrap_assign_owner`, no `transfer_owner`, no
+`owner_transfers` table, no UI. Those are Passes 2 through 5.
