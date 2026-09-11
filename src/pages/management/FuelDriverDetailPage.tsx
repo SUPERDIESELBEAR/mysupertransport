@@ -291,6 +291,27 @@ export default function FuelDriverDetailPage() {
         </Button>
       </div>
 
+      {/* The setting comes from the shared resolution — override first,
+          company policy as fallback. Neither field is read directly here. */}
+      {operatorId && passthrough.isSuccess && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge
+            data-testid="fuel-passthrough-state"
+            variant="outline"
+            className={passthrough.data
+              ? 'border-emerald-500 text-emerald-700'
+              : 'border-muted-foreground text-muted-foreground'}
+          >
+            {passthroughLabel(passthrough.data === true)}
+          </Badge>
+        </div>
+      )}
+
+      <p className="text-xs text-muted-foreground" data-testid="fuel-company-view-note">
+        {COMPANY_VIEW_NOTE}
+      </p>
+
+
       {!operatorId && (
         <Card><CardContent className="flex items-center gap-2 py-8 text-muted-foreground">
           <Fuel className="h-4 w-4" /> Select a driver to see his fuel purchases.
