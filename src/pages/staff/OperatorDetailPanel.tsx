@@ -940,6 +940,18 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
       .then(({ data }) => setIcaDraftUpdatedAt((data as any)?.updated_at ?? null));
   }, [operatorId, status.ica_status]);
 
+  // Is there a contract row at all? Drivers who signed on paper before
+  // SUPERDRIVE have none, which is why "View Executed ICA" finds nothing.
+  useEffect(() => {
+    supabase
+      .from('ica_contracts')
+      .select('id')
+      .eq('operator_id', operatorId)
+      .limit(1)
+      .maybeSingle()
+      .then(({ data }) => setHasIcaRow(Boolean(data)));
+  }, [operatorId]);
+
   // Fetch the contract's own timestamps as a read-only fallback for the date fields
   useEffect(() => {
     if (status.ica_status !== 'sent_for_signature' && status.ica_status !== 'complete') {
