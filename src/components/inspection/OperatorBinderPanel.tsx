@@ -309,6 +309,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const handleStaffUpload = async (category: DriverUploadCategory, file: File) => {
     if (!user) return;
     if (guardDemo()) return;
+    const tooBig = validateBinderFile(file);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     setStaffUploading(category);
     try {
       const ext = file.name.split('.').pop();
@@ -578,6 +580,7 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
                 {/* Staff Upload Section */}
                 <div className="rounded-xl border border-border bg-secondary/40 p-3 space-y-2">
                   <p className="text-xs font-semibold text-foreground">Upload on behalf of driver</p>
+                  <p className="text-[11px] text-muted-foreground">{BINDER_FILE_HINT}</p>
                   <div className="flex flex-wrap gap-2">
                     {STAFF_UPLOAD_SECTIONS.map(({ key, label }) => (
                       <div key={key}>
