@@ -87,7 +87,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
     // A REJECTED READ MUST NOT LOOK LIKE AN EMPTY QUEUE. Every read is checked
     // here, before anything renders — the whole reason this page appeared to
     // have no work to review was a discarded PostgREST error.
-    const firstError =
+    const firstError = (
       [
         ['payments', payRes.error],
         ['drivers', opsRes.error],
