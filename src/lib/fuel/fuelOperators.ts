@@ -16,6 +16,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 import { fetchOperatorUnits, resolveOperatorUnit } from './operatorUnit';
+import { fetchDriverSetupStatus, isSetUpDriver } from './setupDriverFilter';
 
 export interface OperatorOption { id: string; name: string; unit: string | null }
 
@@ -44,6 +45,22 @@ export async function fetchOperatorOptions(): Promise<OperatorOption[]> {
       unit: resolveOperatorUnit(units.get(o.id) ?? null),
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * THE SAME LIST, NARROWED TO DRIVERS WHO ARE ACTUALLY SET UP.
+ *
+ * `is_active` alone includes applicants and half-finished onboarding records —
+ * Christopher Harris and four others turned up in the Driver Fuel Detail picker
+ * for exactly that reason. The five-condition rule lives in
+ * `setupDriverFilter.ts` and is not restated here; this is the fuel screens'
+ * way of asking it. A screen that legitimately needs unfinished drivers (a
+ * compliance or onboarding view) keeps using `fetchOperatorOptions`.
+ */
+export async function fetchSetUpOperatorOptions(): Promise<OperatorOption[]> {
+  const all = await fetchOperatorOptions();
+  const status = await fetchDriverSetupStatus(all.map(o => o.id));
+  return all.filter(o => isSetUpDriver(status.get(o.id)));
 }
 
 /** `Unit 260 · Ali Mohamed`, or just the name when no unit is recorded. */

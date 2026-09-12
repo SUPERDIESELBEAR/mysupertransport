@@ -621,7 +621,7 @@ export default function FuelImportPage() {
   return (
     <div className="mx-auto max-w-6xl space-y-4 p-4">
       <div>
-        <h1 className="text-xl font-semibold text-[#2C2C2C]">Fuel import</h1>
+        <h1 className="text-xl font-semibold text-[#2C2C2C]">Fuel Import</h1>
         <p className="text-sm text-muted-foreground">
           MultiService customized detail export. Nothing is written until you commit.
         </p>

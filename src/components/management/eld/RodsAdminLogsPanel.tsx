@@ -1,3 +1,4 @@
+import PageHeading from '@/components/shared/PageHeading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -179,6 +180,11 @@ export default function RodsAdminLogsPanel({
 
   return (
     <div className="space-y-4">
+      <PageHeading
+        title="Paper Logs (RODS)"
+        description="Read a driver's records of duty status and raise a correction request."
+        icon={<FileText className="h-6 w-6 text-gold shrink-0" />}
+      />
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="flex items-center gap-2 text-base">

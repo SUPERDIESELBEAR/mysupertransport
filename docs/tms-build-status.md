@@ -10638,3 +10638,62 @@ Suites run: `fuelDeductionCard.test.ts` (8, new),
 `tsgo --noEmit`.
 
 CONTRADICTIONS: none found.
+
+## 2026-09-12 — pickers, page names, and one shared heading
+
+FOUR FINDINGS FROM THE LIVE SITE, all in Driver Fuel Detail's neighbourhood.
+
+1. THE SET-UP FILTER IS NOW REUSED. `fetchSetUpOperatorOptions` in
+   `src/lib/fuel/fuelOperators.ts` wraps `fetchOperatorOptions` through
+   `isSetUpDriver`, so the pay-facing Driver Fuel Detail picker asks the shared
+   five-condition rule instead of listing every `is_active` operator. Live: 45
+   drivers listed; Christopher Harris, Lakina Pittman, Michael Campbell,
+   Michelle Watts and Reginald Blue no longer appear. The rule is NOT restated
+   in the fuel helper — `setupDriverFilter.ts` is still the only definition.
+
+   FUEL IMPORT DELIBERATELY STAYS UNFILTERED. It matches a whole card file,
+   including rows belonging to drivers who never finished onboarding; narrowing
+   it would hide transactions that exist. Recorded in a source guard so the
+   difference is intentional, not accidental.
+
+   OTHER DRIVER PICKERS AND THE RECOMMENDATION:
+   - Fuel Discount Pass-Through (Settlement Settings) — already filtered. Keep.
+   - Assign Device, Create Assignment Sheet, Inspection Binder — searchable
+     `DriverCombobox`, correctly unfiltered: equipment and binders are handed to
+     drivers who are still onboarding. Keep.
+   - Assign Driver (load detail) — has its own eligibility model. Do not touch.
+   - Paper Logs (RODS), Retention Archive, ELD Device Data Quality, MO Plate
+     Assign, Passenger Auth, Roadside Stop, ELD Malfunction Wizard — plain
+     `Select`, compliance/operational scope, unfiltered is right. RECOMMEND
+     searchable pickers (below), not filtering.
+
+2. UNSEARCHABLE PICKERS WITH MORE THAN ~10 OPTIONS. Driver Fuel Detail is fixed
+   (shared `DriverCombobox`, type-ahead on name and unit — verified: typing
+   `moham` narrows to `Ali Mohamed · Unit 260`). Still plain `Select` over the
+   full roster, RECOMMENDED for the same treatment in a later pass:
+   Fuel Import, Paper Logs (RODS), Retention Archive, ELD Device Data Quality,
+   MO Plate Assign, Send Passenger Auth, Roadside Stop.
+   Messages and Broadcast already have their own search boxes.
+
+3. EVERY PAGE SHOWS ITS OWN NAME. New `src/components/shared/PageHeading.tsx`
+   is the Applications shape in one place: the MENU LABEL as `<h1>` plus one
+   short line. Headings added where there was none — Driver Fuel Detail, Paper
+   Logs (RODS), Retention Archive, Deactivate Driver (route with no menu item,
+   named anyway) — and upgraded on Inspection Program and Duplicate Plates.
+   Menu/title mismatches corrected to the menu label: "Fuel import" → Fuel
+   Import, "Parser diagnostics" → Parser Diagnostics, "Cost per gallon by
+   location" → Fuel Cost by Location, "Dispatch Company Settlement" → Dispatch
+   Settlement, "Operator Preview" → Driver App Preview.
+
+   REMAINING MISMATCHES, NOT CHANGED — the MENU is the abbreviation, not the
+   page: "PEI" (page: Previous Employment Investigations) and "Notifs" (page:
+   Notifications). Whether the menu label spells them out is the owner's call.
+   `InspectionCalendar.tsx` has no heading because it is a panel inside
+   Inspection Program, not a page.
+
+4. Driver Fuel Detail stays management-facing: transaction rows net with the
+   Discount column, deduction cards gross. Unchanged by this pass.
+
+GUARD: `src/lib/fuel/__tests__/setUpOperatorOptions.test.ts` is a SOURCE guard,
+not a census — it fails if a pay screen goes back to reading its own list, and
+survives any driver being onboarded or terminated.
