@@ -58,12 +58,16 @@ on this guard it was read as "still red" for two days.
 
 ### `storage-bucket-limits.test.ts` — the only record of a bucket cap
 
-Added 2026-09-12, GREEN, 3 tests, ~3.2s. Writes to `storage.buckets` are rejected in
-this project, so a bucket's `file_size_limit` exists only in the live database — four
-caps (`inspection-documents`, `driver-uploads`, `broker-documents`, `rate-con-ingest`)
-appear in NO migration. `docs/storage-bucket-limits.md` is the intent; this suite reads
-the live catalog and fails on any drift from it. Change a cap and that document in the
-same pass, or this goes red. Gated on PGHOST with a named skip.
+Added 2026-09-12, GREEN, 4 tests, ~5.4s. Writes to `storage.buckets` are rejected in
+this project, so a bucket's `file_size_limit` exists only in the live database —
+SEVENTEEN of the twenty-one caps appear in NO migration (only `message-attachments`
+does). `docs/storage-bucket-limits.md` is the intent; this suite reads the live catalog
+and fails on any drift from it. Change a cap and that document in the same pass, or this
+goes red. Gated on PGHOST with a named skip.
+
+The fourth test asserts that EXACTLY four buckets are uncapped — `rods-logs`,
+`eld-notices`, and the two passenger-auth buckets, all deliberate and reasoned in the
+document. A null anywhere else is an unset cap and fails here rather than blending in.
 
 ### Live-catalog suites and the 5s default (swept 2026-09-12)
 
