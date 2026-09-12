@@ -10866,3 +10866,78 @@ fixture verdicts are unchanged.
 `definer-live-catalog` was red on the four quarterly inspection-bonus grace RPCs
 left unregistered by the 2026-09-11 staged-migration pass. Registered with their
 gates; `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 127 → 131.
+
+## 2026-09-12 — Inspection reminder job: fixed, deployed, NOT scheduled
+
+DOCUMENTATION ONLY. No code, no migration, no schedule created.
+
+### State today
+
+The quarterly DOT inspection reminder edge function
+(`supabase/functions/cron-inspection-reminders/index.ts`) is **fixed and
+redeployed**, but it has **no daily schedule**, **no record of ever being
+invoked**, and **zero reminder notifications have ever been created**. The broken
+`operators.first_name` query it carried never ran in production because the job
+never ran at all.
+
+It sends nothing today and will send nothing until someone schedules it. Anyone
+reading this must not assume drivers are receiving reminders.
+
+### Owner decisions, 2026-09-12
+
+- **Scheduling is the owner's call and he will do it when ready.** Lovable
+deliberately did not create the daily cron schedule — turning on a live
+driver-email job is not a build decision. Record that as the right judgement,
+alongside declining to perform a real ownership transfer for the same reason.
+
+- **The missed 2026-09-01 notice to Group A will NOT be sent as a separate
+catch-up.** The owner has been CALLING DRIVERS INDIVIDUALLY, so the email is
+written confirmation of something they already know rather than first notice.
+Group A gets 19 days rather than 30 for the October cycle; the owner judges that
+acceptable given the calls.
+
+### Why the defect was invisible
+
+A JOB THAT REPORTS ZERO IS INDISTINGUISHABLE FROM A JOB WITH NOTHING TO DO. The
+broken query made the function report `sent: 0, skipped: 0` while sending
+nothing, and it would have gone on doing so indefinitely. It was found only
+because a page that shared the same query (`InspectionProgramPanel`) rendered
+blank names — the job had no UI to reveal the same failure.
+
+### Check before scheduling
+
+A scheduled job must be verifiable as HAVING RUN, not merely as having reported
+success. Before this one is turned on, establish where its runs will be visible —
+`cron.job_run_details`, a log table, or a notification count — so "it is
+working" is answerable after the fact.
+
+### Unit resolver — fifth consumer, second missed
+
+The Inspection Program was the **fifth** consumer of `src/lib/fuel/operatorUnit.ts`
+and the **second** added without using it, after the Driver Fuel Detail picker on
+2026-09-11. Both inspection pages now resolve the unit through the shared
+onboarding-first rule, so the existing source guard
+(`src/lib/fuel/__tests__/fuelUnitSourceGuard.test.ts`) covers them. A page added
+without the resolver fails a test.
+
+### Remaining direct readers of `operators.unit_number`
+
+Three places still read the operator record's unit directly. They are NOT defects —
+each has a reason — but they are the ones to re-examine if a sixth consumer is
+added:
+
+- **Driver App Preview** (`OperatorPreviewPicker.tsx`) — lists the operator's own
+recorded unit for the preview card. It is a staff convenience label, not a
+dispatch or payment decision. RECOMMEND: use the shared resolver so the card
+matches what the driver sees elsewhere.
+- **Assign Notification** — sends a device/equipment assignment notice; the unit on
+the operator record is the right value for that message. RECOMMEND: leave as-is,
+but document why.
+- **Staff Availability** — staff scheduling reads the operator record's unit as
+a display hint. RECOMMEND: leave as-is; it is not a driver-facing operational
+surface.
+
+Two other readers correctly stay on their own record:
+- **OSAS assignment sheets** and the **binder-share page** read a unit stored on
+their own record (`osas_assignment_sheets`, `inspection_binder_order`), not the
+current operator unit, and correctly remain as they are.
