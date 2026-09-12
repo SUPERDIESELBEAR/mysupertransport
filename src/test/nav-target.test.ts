@@ -16,8 +16,11 @@ import { readSource, sourceFiles } from "@/test/helpers/repoLiterals";
  * plausible-looking URL that can never work — the working form is
  * `/management?view=drivers`.
  *
- * THIS GUARD IS EXPECTED TO BE RED. It ships with one real finding. Green is
- * reached by fixing the destination — never by allowlisting a finding.
+ * THIS GUARD IS GREEN. It shipped on 2026-09-10 with one real finding
+ * (FleetRoster -> /management/drivers), fixed on 2026-09-12. Any destination it
+ * names from now on is NEW and unresolved — treat it as a live defect, not
+ * inherited noise. Green is reached by fixing the destination, never by
+ * allowlisting a finding.
  */
 
 /** Real routes from src/App.tsx, `:param` and trailing `*` honoured. */
