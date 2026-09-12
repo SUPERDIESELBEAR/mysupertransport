@@ -10755,6 +10755,8 @@ Systems`, `Onboarding Pipeline`, and `DOT Inspection Binder`; Dispatch uses
 `Driver Hub`; Management and Staff use `PEI Q`; Management uses `Overview` and
 `Device Models`; Operator uses `Document Hub`. `PEI Q` includes the space and
 remains explicitly flagged for the owner to confirm from the rendered screen.
+The navigation/title invariant guard was predicted to have 0 failures after
+the pass and produced 0. It encodes only the two reasoned exceptions above.
 
 =====================================================================
 2026-09-12 — TWO SILENT FAILURES FIXED, ONE FINDING ALREADY FIXED
