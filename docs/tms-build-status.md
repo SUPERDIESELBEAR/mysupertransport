@@ -11242,3 +11242,53 @@ bucket cap nor an inline literal. Four inline limits exist: 5 MB in
 `RevisionReplyAttachments.tsx:11`. Two of those are a 5 MB tier no declared constant
 records. Folding them in is a separate pass; recorded so it is not found by accident a
 third time.
+
+## 2026-09-12 (later) — SEVENTEEN BUCKETS CAPPED; FOUR DELIBERATE NULLS; 5 MB TIER DECLARED
+
+BROKER-DOCUMENTS REALIGNED FIRST. It sat at 25,000,000 decimal bytes behind a 25 MiB
+client check — about 1.4 MB STRICTER than the validator, so a file between the two
+passed the browser and was refused by storage with a raw error. No reason was ever
+recorded for the decimal value (it was the storage tool's default parse), so it moved
+UP to 26,214,400 to match the validator and the other 25 MB buckets. Nothing was
+aligned downward.
+
+The storage tool's `"10MB"` stores 10,485,760 — its MB is a MiB — so every cap set in
+this pass is a power-of-two value matching the client constants. Confirmed by reading
+the value back out of `storage.buckets`, not by trusting the tool's echo.
+
+CAPS SET, each at the limit the screen in front of it already enforces:
+`application-documents` 10 MiB (done first — the only bucket an unauthenticated visitor
+writes to), `signatures` 10 MiB, `application-revision-replies` 10 MiB,
+`operator-documents` 10 MiB, `load-documents` 25 MiB, `avatars` 5 MiB,
+`fleet-documents` 10 MiB, `ica-signatures` 10 MiB, `pei-documents` 10 MiB,
+`dot-consultant-attachments` 10 MiB, `resource-library` 20 MiB, `service-logos` 5 MiB.
+
+FOUR DELIBERATE NULLS, RECORDED AS A DECISION WITH ITS REASON: `rods-logs`,
+`eld-notices`, `passenger-auth-signatures`, `passenger-auth-executed`. Server-written
+only, no browser upload path, and the first two hold federal records where a cap turns
+an oversized required log into a silent write failure. The guard now asserts that
+EXACTLY these four are uncapped, so a null appearing anywhere else fails a test rather
+than reading like one of these four. Trigger for revisiting: a browser upload path
+being added to any of them.
+
+A NULL NOW MEANS SOMETHING. Before this pass sixteen nulls were "not yet decided";
+after it, four are decisions and any other null is an unset cap. The document and the
+guard both say so.
+
+FOURTH TIER DECLARED — 5 MB. The two inline 5 MB avatar checks
+(`EditProfileModal`, `StaffMemberPanel`) were a tier nothing declared. Rather than
+leave them invisible they are now `MAX_AVATAR_BYTES` in `src/lib/validateFile.ts`, with
+its reason, and `file-size-tier.test.ts` declares 5/10/20/25 and fails on a fifth. The
+other two inline literals (`OperatorDetailPanel:414` and `:6250`) and the non-exported
+`MAX_BYTES` in `RevisionReplyAttachments` now use `MAX_FILE_SIZE_BYTES`. No inline
+size literal remains on any upload path.
+
+PROVEN, NOT ASSERTED. A 12 MB direct POST to `application-documents` with the anon key,
+never touching the app, was refused by storage:
+`{"statusCode":"413","error":"Payload too large","message":"The object exceeded the
+maximum allowed size","code":"EntityTooLarge"}`. That is the cap, not the client and not
+RLS.
+
+STILL OPEN, RECORDED IN THE DOCUMENT: `service-logos` and the quarterly-inspection path
+into `fleet-documents` have no client check at all, so an oversized file there gets a
+storage error instead of a sentence on screen. The bucket cap is now behind both.
