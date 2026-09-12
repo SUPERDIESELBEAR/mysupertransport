@@ -61,7 +61,6 @@ interface PaymentRow {
   created_at: string;
   operator_id: string;
   operators?: {
-    unit_number: string | null;
     is_demo?: boolean | null;
     demo_label?: string | null;
     applications?: { first_name: string | null; last_name: string | null } | null;
@@ -98,10 +97,10 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
     setLoading(true);
     const [payRes, opsRes, cyclesRes, setRes] = await Promise.all([
       db.from('inspection_program_payments')
-        .select('*, operators(unit_number, is_demo, demo_label, applications(first_name, last_name))')
+        .select('*, operators(is_demo, demo_label, applications(first_name, last_name))')
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('operators')
-        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .select('id, is_active, is_demo, demo_label, applications(first_name, last_name)')
         .eq('is_active', true),
       db.from('inspection_cycles').select('*'),
       db.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
@@ -245,7 +244,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
                 <div>
                   <p className="text-sm font-medium">
                     {paymentDriverName(p)}
-                    {p.operators?.unit_number ? ` · Unit ${p.operators.unit_number}` : ''}
+                    {unitById.get(p.operator_id) ? ` · Unit ${unitById.get(p.operator_id)}` : ''}
                   </p>
                   <p className="text-xs text-muted-foreground">{p.description || '—'}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">

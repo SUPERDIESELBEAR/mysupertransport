@@ -46,7 +46,7 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
     // an empty calendar with no error at all.
     const [opsRes, cyclesRes] = await Promise.all([
       supabase.from('operators')
-        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .select('id, is_active, is_demo, demo_label, applications(first_name, last_name)')
         .eq('is_active', true),
       db.from('inspection_cycles').select('*').gte('cycle_year', year).lte('cycle_year', year),
     ]);
@@ -62,8 +62,11 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: CalendarUnit[] = [];
 
+    const unitValues = await fetchOperatorUnits(((opsRes.data as any[]) ?? []).map(o => o.id));
+
     for (const op of (opsRes.data as any[]) ?? []) {
-      const group = inspectionGroup(op.unit_number);
+      const unit = resolveOperatorUnit(unitValues.get(op.id) ?? null);
+      const group = inspectionGroup(unit);
       if (!group) continue;
 
       // For each assigned month in the year, figure the cycle status.
@@ -77,7 +80,7 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
             { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
             'Unknown driver',
           ),
-          unit: op.unit_number,
+          unit,
           group,
           month,
           status: cycleStatus({
