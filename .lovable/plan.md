@@ -1,55 +1,59 @@
-# File size limits: what is enforced vs. what is shown
+# Two checks on the 2026-09-12 file-size pass
 
-Read-only investigation. Nothing changed.
+Read-only. Nothing in the project changed; mutations ran against a throwaway copy under `/tmp`, since deleted. `git status` is clean.
 
-## 1. Every upload path
+## 1. The bucket caps exist only in the live database
 
-| Path | Enforced in code | Shown on screen | Agree? |
-|---|---|---|---|
-| Create Load — Scan Rate Con with AI (`RateConfirmationParser.tsx:172`) | 20 MB (`validateRateConFile`); parse function also rejects above ~21 MB | nothing stated | no statement |
-| Revised Rate Con (`RevisedRateConModal.tsx:183`) | 20 MB (`validateRateConFile`) | "PDF or image, up to 10MB." (line 590) | **no** |
-| Load documents / POD (`UploadDocumentsDialog`) | 25 MB (`validateLoadDocumentFile`) | 25 MB | yes |
-| Driver load paperwork, loadout photos | 25 MB | not stated | no statement |
-| Late-accessorial proof (`ProofPicker`) | 25 MB | not stated | no statement |
-| Maintenance invoice + AI scan (`MaintenanceRecordModal:139,193`) | 10 MB (`validateFile`) | not stated | no statement |
-| Applicant documents (`Step7Documents`) | 10 MB | 10 MB | yes |
-| Operator document upload, driver vault, 2290/registration, DOT inspection, equipment, PE screening, staff decal | 10 MB | 10 MB where stated | yes |
-| Paper ICA, equipment sign-off sheet | 10 MB | 10 MB | yes |
-| Company document editor (`DocumentEditorModal`) | 20 MB | 20 MB | yes |
-| Message attachments | 10 MB (client) + 10 MB bucket cap | 10 MB | yes |
-| QPassport (`OperatorDetailPanel`) | 10 MB | 10 MB | yes |
-| DOT inspection binder rows (`DocRow`, `OperatorBinderPanel`, `InspectionBinderAdmin`) | **no client size check**; bucket has no cap | nothing | unbounded |
-| Broker paperwork (`BrokerPaperworkSection`) | **no client size check**; `broker-documents` bucket caps at 25 MB | nothing | silent server reject |
-| FAQ generation from a document | no upload — picks an existing resource | n/a | n/a |
-| Rate cons arriving by email | server side, `rate-con-ingest` bucket caps at 30 MB | n/a | n/a |
+Live `storage.buckets` values, all 21 buckets:
 
-## 2. Where they disagree, and how bad each is
+| Bucket | Live `file_size_limit` | In a migration file? |
+|---|---|---|
+| inspection-documents | 26,214,400 (25 MiB) | **no** |
+| driver-uploads | 26,214,400 (25 MiB) | **no** |
+| broker-documents | 25,000,000 | **no** |
+| rate-con-ingest | 30,000,000 | **no** |
+| message-attachments | 10,485,760 | yes — `20260427110313_c4fdf046…sql:142` (`10485760, -- 10 MB`) |
+| application-documents, application-revision-replies, avatars, dot-consultant-attachments, eld-notices, fleet-documents, ica-signatures, load-documents, operator-documents, passenger-auth-executed, passenger-auth-signatures, pei-documents, resource-library, rods-logs, service-logos, signatures | null (unbounded) | n/a |
 
-- **Revised Rate Con — displayed lower than enforced (10 shown, 20 enforced).** The invisible shape: a dispatcher holding a 14 MB revised rate con reads "up to 10MB" and doesn't try. Silent lost action. This is the only true displayed-vs-enforced contradiction in the app.
-- **Broker paperwork — displayed higher than enforced, effectively.** No limit is stated, and anything over 25 MB is refused by the storage bucket with a raw error. Visible and confusing, but rare.
-- **Binder rows — no limit stated and none enforced anywhere.** Not a disagreement, a gap: a 200 MB scan is accepted and uploaded.
-- **No path has two competing validators.** `validateFile` (10 MB) and `validateRateConFile` (20 MB) are never both called on the same file. The "stricter silently wins" shape does not occur.
+Plainly: **four caps exist live and in no file.** The only cap recorded in `supabase/migrations` is `message-attachments`, from 2026-04-27. `inspection-documents` and `driver-uploads` were set by the storage tool during yesterday's pass; `broker-documents` and `rate-con-ingest` were set the same way in August. Nothing in the repository records that any of them was ever set.
 
-## 3. Does a 10–20 MB file work on the Create Load parse path?
+Consequences, stated without fixing them:
 
-Traced, not assumed: the Create Load strip calls only `validateRateConFile` — 20 MB — and never `validateFile`. The file is then base64-encoded and sent to `parse-rate-confirmation`, whose own guard is `file_base64.length > 28_000_000`, about 21 MB of raw file. A 20 MB file encodes to roughly 26.7 M characters, under that guard.
+- Rebuild the environment from migrations and the binder path returns to unbounded — the exact hole the pass was closing. The client validator still refuses at 25 MB, but a direct storage API call does not go through it.
+- The values also disagree with each other in kind: 26,214,400 is 25 MiB, 25,000,000 is decimal 25 MB, and neither is written down.
+- `storage.buckets` cannot be written from a migration in this project (writes are rejected), so recording them means the storage tool plus a durable note, not SQL. That is a decision for a build pass.
 
-So yes, by trace: 10–20 MB is accepted client-side and passes the server guard. What is not proven is the model-gateway request-body ceiling, which no constant in this project controls. That is the one thing worth confirming with a real 15 MB rate con before anyone advertises 20 MB on screen.
+## 2. The tier guard fails on all three mutations
 
-## 4. Why there are two
+Baseline in the scratch copy: 5 passed. Each mutation applied alone, then reverted.
 
-- `MAX_FILE_SIZE_BYTES = 10 MB` — `validateFile.ts`, commit `4aae3d558`, 2026-03-09, "Add form validations". The original applicant/document validator, built for phone photos and scans.
-- `MAX_RATECON_BYTES = 20 MB` — `rateConfirmation.ts`, commit `f8a19c702`, 2026-08-20, with the rate-con parser work, five months later.
+**a. Value drifted off its tier** — `MAX_BINDER_BYTES` 25 → 30 MB. 2 of 5 failed:
 
-`rateConfirmation.ts` does not import `validateFile`, does not mention it, and carries no comment explaining the different number; it also duplicates the accepted-type list. Neither is superseded, and the difference is defensible — a multi-page broker PDF is genuinely larger than a licence photo — but the record shows the second arrived without acknowledging the first. `validateLoadDocumentFile` at 25 MB is a third, independent limit, added with load documents.
+```text
+FAIL … > keeps every constant on one of the three allowed tiers
++   "src/lib/binderUpload.ts::MAX_BINDER_BYTES (30 MB)",
+FAIL … > matches the declared megabyte value for each constant
++   "src/lib/binderUpload.ts::MAX_BINDER_BYTES is 30 MB, declared 25 MB",
+```
 
-## 5. Recommendation, one answer per path
+**b. Fourth constant at a new size** — `export const MAX_ARCHIVE_BYTES = 40 * 1024 * 1024` added to `loadDocuments.ts`, with a `SIZE LIMIT` comment above it so only the tier assertions could catch it. 2 of 5 failed:
 
-Do not collapse to a single number. Keep three tiers and make every screen state the tier it enforces:
+```text
+FAIL … > declares every file-size constant in the tier table
++   "src/lib/loadDocuments.ts::MAX_ARCHIVE_BYTES (40 MB)",
+FAIL … > keeps every constant on one of the three allowed tiers
++   "src/lib/loadDocuments.ts::MAX_ARCHIVE_BYTES (40 MB)",
+```
 
-- **Rate confirmations — 20 MB.** Fix `RevisedRateConModal.tsx:590` to say 20 MB, and add the same sentence to the Create Load strip, which currently states nothing. Confirm the 15 MB end-to-end parse first.
-- **Load documents and photos — 25 MB.** Already correct where stated; add the sentence to driver load paperwork, loadout capture, and the accessorial proof picker.
-- **Driver, applicant and equipment documents — 10 MB.** Already consistent; leave it.
-- **Broker paperwork — adopt 25 MB explicitly:** validate client-side against the bucket cap and say so, so the rejection stops being a raw error.
-- **Binder rows — pick a limit and enforce it.** 25 MB matches the other staff-scanned paperwork.
-- Add a cross-reference comment to each constant naming the other two, so the next one added has to acknowledge them.
+**c. Recorded reason removed** — the `SIZE LIMIT` block above `MAX_BINDER_BYTES` deleted. 1 of 5 failed:
+
+```text
+FAIL … > requires a recorded reason above each constant
++   "src/lib/binderUpload.ts::MAX_BINDER_BYTES",
+```
+
+No mutation passed silently. Unlike the nav-target case, this guard reads real file text and names the offending constant, so a green run means the four declared constants are the only ones present, on tier, at their declared values, each with a reason. Its blind spot is scope, not assertion strength: it only reads `src/**` for `export const MAX_*(BYTES|SIZE) = N * 1024 * 1024`. A limit written as a bare byte count, declared inside an edge function under `supabase/functions`, or — as section 1 shows — held only in a storage bucket, is invisible to it.
+
+## Suites run
+
+`src/test/file-size-tier.test.ts` — baseline 5/5 green, then 2 failed, 2 failed, 1 failed across the three mutations. No other suite was run; nothing was fixed.
