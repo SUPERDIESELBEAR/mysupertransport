@@ -116,16 +116,10 @@ Deno.serve(async (req) => {
         entity_id: op.id,
       });
 
-      // Resolve email from the operator's original application record.
-      let email: string | null = null;
-      if (op.application_id) {
-        const { data: app } = await supabase
-          .from('applications')
-          .select('email')
-          .eq('id', op.application_id)
-          .maybeSingle();
-        email = app?.email ?? null;
-      }
+      // Email comes from the operator's original application record, embedded above.
+      const app = (op as any).applications ?? null;
+      const email: string | null = app?.email ?? null;
+
 
       const resendKey = Deno.env.get('RESEND_API_KEY');
       if (email && resendKey) {
@@ -133,7 +127,7 @@ Deno.serve(async (req) => {
         const html = buildEmail(
           subject,
           `Quarterly DOT inspection — ${label}`,
-          `<p>Hi ${op.first_name ?? 'there'},</p><p>${message}</p>
+          `<p>Hi ${app?.first_name ?? 'there'},</p><p>${message}</p>
            <p>SUPERTRANSPORT covers the inspection fee up to $${Number(settings?.reimbursement_cap ?? 150).toFixed(0)}.
            Send the inspection report, the itemised invoice and your unit number within seven days of the inspection.</p>`,
         );
