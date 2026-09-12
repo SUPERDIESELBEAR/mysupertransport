@@ -11,6 +11,8 @@ import {
   inspectionGroup, nextCycleOnOrAfter, cycleStatus, cycleLabel,
   CYCLE_STATUS_LABELS, MONTH_NAMES, GROUP_MONTHS, MAKEUP_MONTHS, type CycleStatus,
 } from '@/lib/inspectionProgram';
+/** The unit comes from the shared resolver — onboarding first, operator second. */
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 
 const db = supabase as any;
 

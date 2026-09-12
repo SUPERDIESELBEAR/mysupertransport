@@ -18,6 +18,15 @@ import {
   inspectionGroup, nextCycleOnOrAfter, cycleStatus, cycleLabel, CYCLE_STATUS_LABELS,
   MONTH_NAMES, type CycleStatus,
 } from '@/lib/inspectionProgram';
+/**
+ * THE UNIT IS RESOLVED, NOT READ OFF `operators`.
+ *
+ * A unit is assigned during onboarding, so 48 of 60 active drivers carry it on
+ * `onboarding_status` alone. Reading `operators.unit_number` here showed every
+ * driver as "Unit —" and left both inspection groups at 0/0, because the group
+ * is derived from the unit's last digit. `resolveOperatorUnit` is the one rule.
+ */
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 
 /** Driver name for a payment row — always through the linked application. */
 function paymentDriverName(p: { operators?: PaymentRow['operators'] }): string {
