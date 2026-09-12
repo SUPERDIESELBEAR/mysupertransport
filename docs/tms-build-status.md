@@ -10990,3 +10990,85 @@ Two other readers correctly stay on their own record:
 - **OSAS assignment sheets** and the **binder-share page** read a unit stored on
 their own record (`osas_assignment_sheets`, `inspection_binder_order`), not the
 current operator unit, and correctly remain as they are.
+
+## 2026-09-12 — THE TRIGGER RULE'S FIRST VIOLATION, FOUND THE DAY IT WAS WRITTEN
+
+The rule recorded this morning — a red guard MUST carry a trigger, and "expected
+red" is not a status a guard may hold indefinitely — already had a violation when
+it was written: `src/test/view-reachability.test.ts` was red with one finding,
+management `app-errors`, and `src/test/README.md:39` documented it with NO
+TRIGGER. The same shape as FleetRoster: correctly diagnosed, durably recorded,
+nothing saying when it had to be closed.
+
+### What `app-errors` was for — settled from history, not inference
+
+- **2026-05-11, commit `8e0a09279`** added `'app-errors'` to the Management view
+  union; **`8761810d6`** (14 seconds later) added it to the allow-list, added the
+  sidebar item `{ label: 'Application Errors', path: 'app-errors' }`, and added
+  the render branch `{view === 'app-errors' && <ApplicationErrorsPanel />}`.
+  `src/components/management/ApplicationErrorsPanel.tsx` (238 lines) listed
+  `audit_log` rows for failed application submissions, filtered by stage
+  (`encrypt_ssn`, `insert_application`, `update_application`), with a
+  user-agent-to-device column.
+- **2026-06-24, commit `2ea8f518e`** DELETED the panel file, the import, the
+  sidebar item and the render branch — and left the view in the union and in
+  `ALLOWED_VIEWS`.
+
+So this was **a screen removed with the view left behind**, not a screen planned
+and never built. Its function is covered today by Activity (`audit_log`) and the
+Audit Log filters.
+
+### What was done: DELETED
+
+`'app-errors'` was removed from `ManagementView` and from `ALLOWED_VIEWS` in
+`src/pages/management/ManagementPortal.tsx`. Nothing wants it: the panel it
+rendered has been gone for almost three months, no source file references it, and
+its audit-log content is already reachable through Activity. A declared view with
+no render branch is the same shape as a database function with no caller, and
+this project has dropped several on exactly that reasoning
+(`get_user_roles`, `can_driver_message_staff`, `get_inspection_doc_by_token`).
+Giving it a build trigger would have meant committing to rebuild a screen nobody
+asked for, to satisfy a leftover string.
+
+The guard's own banner and its failure message were rewritten from "EXPECTED RED
+… 1 known finding" to green-with-a-new-report-is-a-defect. A banner claiming an
+expected failure is how the next real finding gets ignored — the same correction
+made to `nav-target` earlier today.
+
+### THE SWEEP — how many places already failed the rule
+
+**Result: no red guard remains, and none is left carrying an untriggered
+finding.** Predicted counts before running, per the standing rule:
+
+| Guard | Predicted | Actual |
+|---|---|---|
+| `view-reachability` | 1 -> 0 | **0** |
+| `nav-target` | 0 | **0** |
+| `navigation-title-invariant` | 0 failures (13 tests) | **0, 13 passed** |
+| `function-reachability` | **11** | **0** |
+
+### CONTRADICTION FOUND — the function guard is not red, and the record said it was
+
+`src/test/README.md` claimed `function-reachability` "ships failing on purpose"
+with **11 findings remaining**. It runs **GREEN, 0 findings**. The prediction of
+11 came from the record and was wrong.
+
+The record was stale, not the guard: the 2026-09-11/12 passes closed the
+remaining findings and nothing updated the table. `get_user_roles` was dropped,
+the two role writers were repinned with registered justifications, and the
+inspection-grace RPCs were registered. `KNOWN_NO_CALLER_ENTRIES` holds 2 entries
+against `KNOWN_NO_CALLER_MAX = 2`, so the closures were deletions and
+justified repins, not allowlist growth.
+
+**A second, quieter failure mode surfaced with it.** Run bare, the function guard
+reports `Test timed out in 5000ms` — it reads the live catalog and needs ~11s. A
+timeout looks like a red guard and counts as one in a casual read, and for some
+period this guard has been "known red" partly on the strength of an output that
+was never a finding. It now carries an explicit instruction to run with
+`--testTimeout=180000`, and **a timeout is not a finding** — a guard that cannot
+finish has reported nothing at all, which is a different and worse state than
+reporting a failure.
+
+Standing addition: **a stale expected-red table is the same defect as a missing
+trigger.** Both let a guard sit in a state nobody re-checks. When a finding
+closes, the count in `src/test/README.md` moves in the same pass.
