@@ -52,7 +52,7 @@ const INTENDED: Record<string, number | null> = {
   "eld-notices": null,
   "fleet-documents": null,
   "ica-signatures": null,
-  "inspection-documents": 26_214_400, // 25 MiB, matches validateBinderFile
+  "inspection-documents": 20_971_520, // 25 MiB, matches validateBinderFile
   "load-documents": null,
   "message-attachments": 10_485_760, // the only cap also written in a migration
   "operator-documents": null,
