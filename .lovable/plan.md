@@ -1,103 +1,108 @@
-# Recovered report — the three sweeps from the 2026-09-11/12 pass
+# Read-only report: heading guard and FleetRoster
 
-Read-only. Nothing was changed. Live counts queried today; headings and pickers read from current source.
+No project source, test, database, or documentation file was changed. The three heading mutations were injected only into test reads; `git status --short` remained empty.
 
-## 1. Page name audit
+## 1. Heading guard mutation proof
 
-The convention (from the Applications page, now `src/components/shared/PageHeading.tsx`): the page shows **exactly its menu label** as its title, plus one short line saying what it is for.
+All three mutations were made against the covered **Device Models** case or the exception array, one at a time. The original source was used for every run.
 
-### Compliant — title matches the menu item and has the short line
+### A. Page title changed away from its menu label
 
-Management: Applications, Driver Hub, Fleet Compliance, Document Hub, Paper Logs (RODS), Lease Terminations, Dispatch Board, Driver Status, Rate Con Inbox, Fuel Import, Driver Fuel Detail, Fuel Cost by Location, Billing Queue, Late Accessorials, Dispatch Settlement, Settlement Settings, Vehicle Hub, Inspection Program, Duplicate Plates, Onboard Systems, ELD Malfunctions, License Plate Registry, DOT Inspection Binder, Retention Archive, Notifications, Broadcast Email, Staff Directory, Pipeline Config, Carrier Signature, Forms Catalog, FAQ Manager, What's New, Email Log, Activity Log, Parser Diagnostics, Demo Accounts, Resource Center, Ownership Transfer, Settings, Help, Messages, Onboarding Pipeline.
+Injected change: `title="Device Models"` → `title="ELD Device Models"`.
 
-Staff: Driver Hub, Vehicle Hub, Document Hub, Resource Center, FAQ Manager, Notifications.
-Operator: My Documents, Resource Center, Paper Logs, My Settlements, My Fuel, Settlement Forecast, ELD Malfunction (last five have a title but **no** description line).
+**Result: failed, 1 failed / 12 passed.** Verbatim assertion:
 
-### Title present, no description line
+```text
+FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > 'src/pages/management/ManagementPortal…' menu agrees with 'src/components/management/eld/ELDDevi…'
+AssertionError: expected 'import { useCallback, useEffect, useM…' to match /title="Device Models"/
 
-Loads, Brokers, Facilities, Settlement Run, Driver App Preview, Create/Edit Load; Operator: My Settlements, My Fuel, Settlement Forecast, Paper Logs, ELD Malfunction, FAQ, Dispatch.
+- Expected:
+/title="Device Models"/
+```
 
-### No title at all
+### B. Third exception added
 
-- Staff → Messages
-- Dispatch → Messages
-- Operator → Messages, Upload Documents, ICA
+Injected exception:
 
-### Title disagrees with its menu name — both strings
+```text
+{ menu: 'Test', title: 'Third', reason: 'Mutation proof.' }
+```
 
-| Portal | Menu says | Page says |
-|---|---|---|
-| Management | Overview | Management Overview |
-| Management | PEI | Previous Employment Investigations |
-| Management | Device Models | ELD Device Models |
-| Staff | PEI Queue | Previous Employment Investigations |
-| Staff | Compliance | Fleet Compliance |
-| Staff | Inspection Binder | DOT Inspection Binder |
-| Staff | Equipment | Onboard Systems |
-| Staff | Applicant Pipeline | Onboarding Pipeline |
-| Dispatch | Drivers | Driver Hub |
-| Operator | Doc Hub | Document Hub |
-| Operator | My Truck | Vehicle Detail / Unit {n} |
-| Operator | Pay Setup | Stage 9 — Payroll and Procedures |
-| Operator | Dispatch | Dispatch Status |
-| Operator | FAQ | Frequently Asked Questions |
+**Result: failed, 1 failed / 12 passed.** Verbatim assertion and diff:
 
-Deliberate exceptions: the Operator Home and My Progress pages greet the driver by name instead of naming the page; Inspection Calendar is a panel inside Inspection Program, not a page; public flow screens (apply, login, install, welcome) have no menu item.
+```text
+FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > keeps only the two reasoned owner-approved exceptions
+AssertionError: expected [ { menu: 'FAQ', …(2) }, …(2) ] to deeply equal [ ObjectContaining{…}, …(1) ]
 
-Note: the same page appearing under different menu labels in different portals (Compliance/Fleet Compliance, Equipment/Onboard Systems, Drivers/Driver Hub, Applicant Pipeline/Onboarding Pipeline) means the mismatch cannot be fixed in the page — one of the two menu labels has to give.
++   {
++     "menu": "Test",
++     "reason": "Mutation proof.",
++     "title": "Third",
++   },
+```
 
-### What the pass fixed vs left
-Fixed: titles added to Driver Fuel Detail, Paper Logs (RODS), Retention Archive, Deactivate Driver; upgraded on Inspection Program and Duplicate Plates; renamed to the menu label on Fuel Import, Parser Diagnostics, Fuel Cost by Location, Dispatch Settlement, Driver App Preview.
-Left: everything in the two tables above, and the PEI / Notifs menu abbreviations, which were raised as your call.
+### C. Page heading removed entirely
 
-## 2. Pickers with many options and no type-ahead
+Injected change: removed the complete `PageHeading` for Device Models.
 
-Live sizes today: 59 active drivers (154 records), 219 onboard devices, 38 plates, 12 brokers, 7 dispatchers, 10 management users.
+**Result: failed, 1 failed / 12 passed.** Verbatim assertion:
 
-| Where | Picks | Options | Recommendation |
-|---|---|---|---|
-| Assign Plate (MO plates) | driver | ~59 | Convert — same job as Assign Device, which is already searchable |
-| Retention Archive | driver filter | full roster (154) | Convert |
-| Paper Logs (RODS) | driver filter | full roster (154) | Convert |
-| Inspection Binder — bulk assign | driver | full roster | Convert |
-| Staff Availability | driver | ~59 | Convert |
-| Fuel Import | driver | ~59 unfiltered | Convert (search only — the list stays unfiltered on purpose) |
-| Send Passenger Auth | driver | ~59 | Convert |
-| Roadside Stop, ELD Malfunction wizard, ELD Device Data Quality | driver | ~59 | Convert |
-| Add Driver — state, home state, license state (3 fields) | US state | 51 each | Reuse the existing searchable state picker; it already exists and these three rebuild it by hand |
-| Assign Dispatcher (load detail) | dispatcher | 7 | Leave |
-| Ownership Transfer | management user | 10 | Leave |
-| ICA Amendment — unit | truck | unconfirmed | Check the list size, then decide |
+```text
+FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > 'src/pages/management/ManagementPortal…' menu agrees with 'src/components/management/eld/ELDDevi…'
+AssertionError: expected 'import { useCallback, useEffect, useM…' to match /title="Device Models"/
 
-Already searchable: Driver Fuel Detail, Assign Device, Create Assignment Sheet, Inspection Binder per-document, Assign Driver (load), brokers, facilities, states. Messages and Broadcast have their own search boxes. Short fixed lists (claim types, truck makes, days of week, statuses) are fine as they are.
+- Expected:
+/title="Device Models"/
+```
 
-## 3. Driver lists and the set-up filter
+**Verdict:** all three required failure modes are detected. None produced the “does not fail” finding.
 
-The filter means: active, not a demo account, fully onboarded, go-live date set, insurance date set.
+## 2. FleetRoster failure
 
-Using it today: Driver Fuel Detail, and the Fuel Discount Pass-Through exceptions list in Settlement Settings.
+### Verbatim standalone failure
 
-**Should use it (pay-facing, not yet filtered)**
-- Assign Driver on a load — assigning a load decides pay. Has its own eligibility model, so this needs a decision rather than a swap.
-- Assign Plate, Assign Device, Create Assignment Sheet — only if plate and equipment charges become settlement deductions. Open question.
+`src/test/nav-target.test.ts` fails standalone. Command result: **1 test file failed; 1 test failed and 2 passed**.
 
-**Correctly unfiltered**
-- Fuel Import — matches a whole card file; filtering would hide real transactions.
-- Onboarding Pipeline, Add Driver, Driver Hub, Archived Drivers, Vehicle Hub, management onboarding dashboards — these exist to show unfinished and inactive drivers.
-- Compliance, Inspection Program, Inspection Calendar, Inspection Binder — a driver still onboarding still has to be compliant.
-- Messages, group members, Bulk Message, Broadcast Email, Assign Notification — you need to reach drivers mid-onboarding.
-- Demo Accounts — the filter's job is to exclude demo drivers; this page is about them.
-- Staff Availability, Driver App Preview, Launch Superdrive, Send Passenger Auth — operational, not pay.
+```text
+1 navigation destination(s) do not resolve.
+EXPECTED RED: this guard shipped on 2026-09-10 with 1 known finding (FleetRoster -> /management/drivers). Do not make it pass by allowlisting it.
 
-A guard already fails if a pay screen goes back to building its own driver list, and it survives drivers being onboarded or terminated.
+src/components/fleet/FleetRoster.tsx:732 sends the user to '/management/drivers' — which does not resolve.
+  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => navigate('/management/drivers')}>
 
-## 4. What the pass actually changed
+Why it fails: /management/* is mounted, but ManagementPortal parses NO path segments — it reads only the query string. '/management/drivers' falls through to the default view.
 
-- `src/lib/fuel/fuelOperators.ts` — added the filtered driver list used by pay screens.
-- `src/pages/management/FuelDriverDetailPage.tsx` — filtered list, searchable picker, page title.
-- `src/components/shared/DriverCombobox.tsx` (+ old path re-export) — the shared searchable driver picker, now searching name and unit.
-- `src/components/shared/PageHeading.tsx` — the title-plus-one-line shape in one place.
-- Titles/renames on the pages listed in section 1.
-- `src/lib/fuel/__tests__/setUpOperatorOptions.test.ts` — guard.
+Nothing throws when this happens. React Router matches the portal wildcard,
+the portal finds no view it recognises and renders its default. The user
+clicks a button and silently lands somewhere else.
+```
 
-Addressed findings 1, 2 and 3 for Driver Fuel Detail specifically; finding 4 confirmed no change (transaction rows stay net with the Discount column, deduction totals stay gross). Deliberately left: Fuel Import's unfiltered list, the other unsearchable pickers, the menu/title disagreements above.
+### Documentation
+
+It is documented in three durable places:
+
+- `src/test/README.md`:
+
+  > `src/test/nav-target.test.ts` | 1 | `FleetRoster.tsx:617` navigates to `/management/drivers`; Management parses only `?view=`, so the click silently lands on the overview.
+
+  The recorded line number is stale; the same call is now at line 732.
+
+- `docs/tms-build-status.md`, reachability verification:
+
+  > pointing FleetRoster at `/dispatch/nowhere` produced a finding naming the six segments dispatch parses, and pointing it at the correct `/dispatch/loads` took the nav guard to 0 — proving the expected finding is detected, not hardcoded.
+
+- `docs/tms-build-status.md`, later accessorial pass:
+
+  > Its one known finding (FleetRoster -> `/management/drivers`) is untouched and still red.
+
+The test itself also says:
+
+> THIS GUARD IS EXPECTED TO BE RED. It ships with one real finding. Green is reached by fixing the destination — never by allowlisting a finding.
+
+### Origin and verdict
+
+Git history establishes that this project introduced the broken button on **2026-09-03**, in commit `2b16e526…`, as part of the **vacant-units/FleetRoster work** adding the “Assign new driver” action. The navigation guard was added on 2026-09-10 and correctly exposed it.
+
+**Verdict:** this is a real project defect, not external or legacy background noise. “Pre-existing” is accurate only relative to the 2026-09-12 heading pass; it is not grounds for dismissal.
+
+It is documented and continuously visible as an expected-red guard, but **there is no explicit remediation trigger or owner-approved deferral trigger recorded**. The documentation says how it becomes green, and says not to allowlist it, but does not say *when it must be fixed*. That missing trigger is the finding.
