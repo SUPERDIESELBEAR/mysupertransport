@@ -658,6 +658,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // so authenticated MUST hold EXECUTE. It takes no argument, returns one uuid
   // that is the same for everyone today, and exposes nothing.
   "public.current_company_id()",
+  // Quarterly inspection-bonus grace (2026-09-11, registered 2026-09-12). The
+  // driver-facing pair is self-scoped: request_inspection_grace takes no
+  // operator id at all and inspection_grace_used resolves the operator from
+  // auth.uid(). The staff pair checks management|owner in its own body, requires
+  // a written reason, and audits. Authenticated EXECUTE is required because the
+  // driver calls the first from the operator portal.
+  "public.request_inspection_grace(integer,text)",
+  "public.inspection_grace_used(uuid)",
+  "public.grant_inspection_grace(uuid,integer,text,boolean)",
+  "public.review_inspection_grace_request(uuid,boolean,text,boolean)",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -781,7 +791,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   and recipient directly, so the actor resolves through current_profile_id();
 //   a service_role grant would have made auth.uid() null and forced an actor id
 //   to be passed in, which the actor-stamping rule forbids. Each gates in-body.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 127;
+// 2026-09-12: 127 + 4 = 131. The four quarterly inspection-bonus grace RPCs,
+//   created by the 2026-09-11 staged migrations and left unregistered by that
+//   pass. Two are driver self-scoped, two check management|owner in-body.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 131;
 
 
 

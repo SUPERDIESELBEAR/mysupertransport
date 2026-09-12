@@ -239,6 +239,15 @@ describe("parked — live schema and standing rows", () => {
    *
    * Everything here is dated against `lt.voided_at`. A flag flipped after the
    * void cannot reach back and condemn it.
+   *
+   * The third branch asks whether the driver ALREADY had an in-force
+   * termination WHEN THIS ONE WAS RECORDED — `prior.created_at <=
+   * lt.created_at`, not `<= lt.voided_at`. Dated against the void it condemned
+   * withdrawing a SUPERSEDED DUPLICATE, which is the one thing a void is most
+   * clearly for: Vino Huddleston's 2026-09-03 row was withdrawn on 2026-09-10
+   * precisely BECAUSE the 2026-09-04 termination in its place was signed and
+   * sent to insurance. Under the old dating, recording the correct replacement
+   * made withdrawing the duplicate a violation.
    */
   const goneAsOfVoid = (lt: string, op: string) => `(
        (${op}.deactivated_at is not null and ${op}.deactivated_at <= ${lt}.voided_at)
@@ -248,7 +257,7 @@ describe("parked — live schema and standing rows", () => {
          where prior.operator_id = ${lt}.operator_id
            and prior.id <> ${lt}.id
            and prior.voided_at is null
-           and prior.created_at <= ${lt}.voided_at))`;
+           and prior.created_at <= ${lt}.created_at))`;
 
   itLive("no void was issued against a driver who was already gone", () => {
     // A void withdraws a termination recorded in error for someone who was
