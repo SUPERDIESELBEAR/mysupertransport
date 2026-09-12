@@ -36,6 +36,7 @@ import { InspectionDocument, DriverUpload, PER_DRIVER_DOCS, COMPANY_WIDE_DOCS, p
 import { ExpiryBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
 import { signBinderFileUrl } from './BinderDocHistoryDialog';
 import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
+import { validateBinderFile, BINDER_FILE_HINT } from '@/lib/binderUpload';
 import type { Database } from '@/integrations/supabase/types';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
@@ -144,6 +145,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
   const handleUpload = async (docName: string, file: File, existingId?: string) => {
     if (!user) return;
     if (guardDemo()) return;
+    const tooBig = validateBinderFile(file);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     setUploading(docName);
     try {
       const ext = file.name.split('.').pop();
