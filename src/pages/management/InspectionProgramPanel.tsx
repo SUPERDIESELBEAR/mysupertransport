@@ -175,6 +175,16 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
         icon={<CalendarClock className="h-6 w-6 text-gold shrink-0" />}
       />
 
+      {loadError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+          <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" /> This page did not load — what you see below is incomplete
+          </p>
+          <p className="text-[11px] text-destructive/80 mt-1">{loadError}</p>
+          <Button size="sm" variant="outline" className="text-xs mt-2 h-7" onClick={() => load()}>Try again</Button>
+        </div>
+      )}
+
       <Tabs defaultValue="review">
         <TabsList>
           <TabsTrigger value="review" className="text-xs">
@@ -198,7 +208,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium">
-                    {p.operators ? `${p.operators.first_name ?? ''} ${p.operators.last_name ?? ''}`.trim() : 'Driver'}
+                    {paymentDriverName(p)}
                     {p.operators?.unit_number ? ` · Unit ${p.operators.unit_number}` : ''}
                   </p>
                   <p className="text-xs text-muted-foreground">{p.description || '—'}</p>
