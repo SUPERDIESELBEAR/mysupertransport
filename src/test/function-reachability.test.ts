@@ -39,6 +39,17 @@ import { callersOf } from "@/test/helpers/repoLiterals";
  * NOT A FINDING — a guard that cannot finish has reported nothing at all.
  */
 
+/**
+ * This guard's live check reads every client-executable function in the catalog
+ * and then searches triggers, policies, defaults, function bodies and views in
+ * EVERY schema for each one. That measures ~11s here — over Vitest's 5s default,
+ * so a bare run reported `Test timed out in 5000ms` and looked like a finding.
+ * 60s is 5x the measured runtime, which is the headroom needed when the psql
+ * suites run together and the pooler queues; it is not so large that a genuinely
+ * hung connection would sit unnoticed for minutes.
+ */
+const LIVE_CATALOG_TIMEOUT_MS = 60_000;
+
 const HAS_DB = Boolean(process.env.PGHOST);
 
 if (!HAS_DB) {
@@ -367,7 +378,7 @@ describe("function reachability — nothing privileged goes uncalled", () => {
         `Investigate before you act, and do not make this pass by ` +
         `allowlisting.\n${detail}`,
     ).toEqual([]);
-  });
+  }, LIVE_CATALOG_TIMEOUT_MS);
 
   itLive("stale allowlist entries are reported", () => {
     const live = new Set(loadCatalog().map((r) => r.name));
@@ -380,5 +391,5 @@ describe("function reachability — nothing privileged goes uncalled", () => {
       );
     }
     expect(true).toBe(true);
-  });
+  }, LIVE_CATALOG_TIMEOUT_MS);
 });
