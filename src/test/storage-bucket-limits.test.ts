@@ -113,11 +113,18 @@ describe("live storage bucket size limits", () => {
     expect(drift, drift.join("\n")).toEqual([]);
   });
 
-  itLive("the four caps that exist in no migration are still in place", () => {
+  itLive("every cap that exists in no migration is still in place", () => {
     const live = liveLimits();
-    const lost = ["inspection-documents", "driver-uploads", "broker-documents", "rate-con-ingest"]
+    const lost = Object.keys(INTENDED)
+      .filter((id) => INTENDED[id] !== null && id !== "message-attachments")
       .filter((id) => live[id] == null)
       .map((id) => `${id} has no cap — it exists in no migration, so a rebuild drops it silently`);
     expect(lost, lost.join("\n")).toEqual([]);
+  });
+
+  itLive("only the four deliberate nulls are uncapped", () => {
+    const live = liveLimits();
+    const uncapped = Object.keys(live).filter((id) => live[id] == null).sort();
+    expect(uncapped, uncapped.join(", ")).toEqual([...DELIBERATELY_UNBOUNDED].sort());
   });
 });
