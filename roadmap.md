@@ -1,6 +1,17 @@
 # Roadmap
 
 ## In progress
+- [done 2026-09-12] Record every storage bucket's intended `file_size_limit` in
+  `docs/storage-bucket-limits.md` (bucket config is not in migrations and cannot be) and
+  guard the live values with `src/test/storage-bucket-limits.test.ts`.
+- OPEN, owner decision: the sixteen uncapped buckets, ranked by exposure in
+  `docs/storage-bucket-limits.md`. No caps set. Highest: `application-documents`
+  (unauthenticated applicant writes, no server ceiling).
+- OPEN: fold the four inline size literals (5 MB avatar/staff photo, 10 MB
+  OperatorDetailPanel x2, RevisionReplyAttachments `MAX_BYTES`) into the declared tiers,
+  or declare a 5 MB tier. The tier guard cannot see any of them.
+- OPEN: align `broker-documents` 25,000,000 (decimal) to 26,214,400 (25 MiB) so the
+  bucket cap and the client validator agree. Owner decision.
 - [done 2026-09-12] Make page titles and menu labels identical across portals;
   add missing titles/descriptions with the shared heading; encode deliberate exceptions
   (FAQ and My Truck) and add the navigation/title invariant guard. Pay Setup and Dispatch
