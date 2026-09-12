@@ -1,62 +1,57 @@
-# Investigation — `parked-and-termination-guardrail` failing on the 2026-09-10 void
+# Re-investigation — who voided Vino Huddleston's duplicate termination on 2026-09-10
 
-Read-only. Nothing was changed.
+Read-only. Nothing was changed. The earlier conclusion ("no UI voids a termination") holds on the code, but the *origin* of the row is now identified, and it was not a click.
 
-## 1. The row, in full
+## What the neighbouring writes show
 
-- Termination id `54022680-9e26-4133-9c4d-229df62f3deb`
-- Operator `28a00800-b6b5-4d60-a709-6e9c26ad7875` — Vino (Trovino) Huddleston, still **active**, not deactivated, not departing, excluded from dispatch
-- Created `2026-09-03 20:09:03 UTC`; carrier-signed `2026-09-03 20:09:02` by `2cedd3ac-…` (typed name Marc Mueller); reason `mutual`; effective `2026-09-03`; VIN `1XPBDP9X7GD298070`; never sent to insurance (`insurance_notified_at` null)
-- Voided `2026-09-10 13:45:26.964669 UTC` (same value as `updated_at`, so the void was the last write)
-- `void_reason` present: "Duplicate: superseded by the 2026-09-04 termination that was signed and sent to insurance. Kept for the record, not in force."
-- **`voided_by` is NULL**, and there is **no `lease_termination_voided` audit row** for this termination id. Those are the only two nulls/gaps; every other field is intact.
+Two writes, ten seconds apart, are the only writes anywhere in the database in that window:
 
-## 2. How it got that way
-
-There is no writer. Searched all of `src/`, `supabase/functions/`, and every migration:
-
-- No UI control anywhere sets `lease_terminations.voided_at`. The only void UI in the app is `DeactivationWizardContent.handleVoidIca`, which voids **`ica_contracts`** (stamps `voided_by`, writes an `ica_voided` audit row) — a different table.
-- No database function touches `lease_terminations` except `on_ica_amendment_activated`, which does not void.
-- The only trigger on the table is `set_lease_terminations_updated_at`. Nothing stamps `voided_by`.
-- No migration performs any void. Migrations dated 2026-09-09/09-10 that touch void columns (`20260909233723`) only *add* `void_reason`/`voided_by` to a different table. No migration dated around 2026-09-10 writes `lease_terminations` at all.
-
-Conclusion: the 2026-09-10 void was executed as a one-off SQL statement against the table, not through any code path. The six 2026-08-31 voids were also one-off SQL, but that batch stamped `voided_by` = `5cca4f77-…` (Marcus Mueller) and inserted six matching `lease_termination_voided` audit rows. The 2026-09-10 statement did neither.
-
-## 3. Is it a duplicate
-
-Yes, and both rows were real documents:
-
-| | `54022680` (voided) | `e2aac1e3` (in force) |
+| time (UTC) | table | what |
 |---|---|---|
-| created | 2026-09-03 20:09 | 2026-09-04 13:31 |
-| signed by | `2cedd3ac-…` | `97929f60-…` (Craig Pate) |
-| reason / effective / VIN | mutual / 2026-09-03 / `1XPBDP9X7GD298070` | identical |
-| insurance notified | never | 2026-09-04 13:31:30, to marc@mysupertransport.com |
+| 13:45:16.105775 | `operator_offboarding_steps` | new row for **Bilal Leggett**, `step_key = lease_termination`, `completed = true`, `completed_by` **NULL**, `metadata = {"backfill": "historical record: lease termination row exists; no DOT notice, ICA still live"}` |
+| 13:45:26.964669 | `lease_terminations` | Vino's duplicate `54022680…` stamped `voided_at` + `void_reason`, `voided_by` **NULL** |
 
-Same operator, same terms, generated a day apart; only the second was sent. Voiding the first is the correct business outcome, and `audit_log` independently corroborates both (`lease_termination_signed` for each, `lease_termination_sent` for the second only). The *decision* is legitimate; the *record of who made it* is missing.
+Six more `operator_offboarding_steps` rows were created in the same batch, all carrying a `"backfill"` metadata key, all with `completed_by` NULL — the backfill for Trovino, Willie and Bilal.
 
-## 4. Can the supported path produce this
+That batch is the data write of the plan approved that morning ("Deactivating a driver — one path, saved as you go", 2026-09-10). Its technical notes say, verbatim: *"Trovino's duplicate `lease_terminations` row from 09/03 gets a void stamp with a reason; the 09/04 sent one stays."* The void is that statement. It ran unauthenticated, so there was no actor to stamp and no audit row was written — the same reason all seven backfilled step rows have a null `completed_by`.
 
-There is no supported path, so the question resolves into a second finding:
+## What the owner was doing that day
 
-- `lease_terminations` RLS has a single `ALL` policy — `Staff manage lease terminations` using `is_staff(auth.uid())` for both `USING` and `WITH CHECK`. Any staff client can `UPDATE` `voided_at` directly with no actor and no audit row, and nothing in the database would stop it.
-- Nothing enforces the invariant the guard asserts: no NOT NULL / CHECK pairing `voided_at` with `voided_by`, no `BEFORE UPDATE` trigger stamping the actor (unlike `20260903174410`, which does exactly that for another table), no audit trigger.
+His own authenticated writes on 2026-09-10 are later and clearly his: `operator_offboarding_steps.safety_advisor` completed at **16:23:30** for Trovino and **16:27:55** for Willie, both stamped `completed_by = 5cca4f77-…` (Marcus Mueller). Those are wizard clicks, in Vino's record, in the offboarding flow, with an actor recorded. The 13:45 void is nearly three hours earlier and carries none of that signature.
 
-So a void with no accountability is reachable — not by a button today, but by the same table permission the app already grants staff.
+## 1. Every path that can reach `lease_terminations.voided_at`
 
-## 5. Verdict
+Searched all of `src/`, `supabase/functions/`, `scripts/`, and every migration for any touch of the table, including payloads built elsewhere, generic helpers and `updatePayload`:
 
-**Both of the first two, in this order — and the guard is right.**
+- `DeactivationWizardContent.tsx:735` — **INSERT** only (signs Appendix C). It reads `voided_at` at line 347 to find the live row and re-reads `insurance_notified_at` at 762. It never writes `voided_at`.
+- `send-lease-termination/index.ts:233` — UPDATE of `insurance_notified_at` and `insurance_recipients` only, plus a `lease_termination_sent` audit row.
+- `LeaseTerminationBuilderModal.tsx:130`, `LeaseTerminationViewModal.tsx:39`, `TerminationsView.tsx:47`, `DispatchBoardPage.tsx:87`, `OperatorDetailPanel.tsx:1482`, `DriverRoster.tsx:524`, `BulkMessageModal.tsx:304`, `NewDirectMessageModal.tsx:83` — all SELECT.
+- No database function writes the table (only `on_ica_amendment_activated` mentions it, and not the void columns). The only trigger is `set_lease_terminations_updated_at`.
+- No `updatePayload(...)`/dynamic-key write targets it. No cascade reaches those columns.
 
-1. **The row is bad data from a one-off write and should be corrected.** The void decision is sound and evidenced; what is missing is `voided_by` and the `lease_termination_voided` audit entry. Correcting it means stamping the actor who actually ran the statement and back-writing an audit row that says so, dated as a later reconstruction rather than as if it were written on 2026-09-10.
-2. **The writer gap is the real finding.** Voiding a termination has never had a code path, an actor-stamping trigger, or a constraint — the 2026-08-31 batch only satisfied the guard because whoever wrote it also hand-wrote the audit rows. The guard is asserting a genuine invariant that nothing in the database or app enforces.
+So no code path in the app writes `voided_at` on this table. That part of the earlier finding is confirmed by a second, wider search.
 
-The guard is not asserting something it should not. Its three checks (reason + actor present, every void audited, every void audit points at a real void with a named actor) are all set-based invariants with no census and no name, and the row they caught is genuinely incomplete.
+## 2. The ICA void specifically
 
-## Open question for you — remedy shape
+`handleVoidIca` writes **only** `ica_contracts` (`voided_at`, `voided_by = user.id`, `void_reason`), resets `onboarding_status.ica_status`, and inserts an `ica_voided` audit row. It does not touch `lease_terminations`, and no ICA contract was written at 13:45 at all. The one other void control, `ICAAmendmentList.handleVoid`, writes `ica_amendments` and its own audit row. Neither is the source.
 
-- Correct the one row only, and leave voids as a deliberately SQL-only operation.
-- Correct the row and add a `BEFORE UPDATE` trigger that stamps `voided_by` from the server-resolved actor and writes the `lease_termination_voided` audit row, so any future void is complete however it is issued.
-- Correct the row and add a proper `void_lease_termination(_id, _reason)` RPC plus a staff UI control, then narrow the RLS `ALL` policy so `voided_at` cannot be set directly.
+## 3. The deactivation wizard end to end
+
+No step voids or supersedes a termination — including `clear_operator_departing` (the step that failed silently until yesterday's fix), which writes `operators` only. The wizard's lease step can create a second Appendix C for a driver who already has one, but it never withdraws the first. That is how the duplicate arose on 09/03–09/04 in the first place.
+
+## 4/5. Verdict
+
+**The path does not exist, and I could not find it because it is not there — but the row is explained.** The void was written by the approved 2026-09-10 backfill data write, not by a control. There is no live defect in which a button voids a legal document without recording who clicked it: there is no such button.
+
+Which leaves the two findings from yesterday standing, now with a named cause for the row:
+
+1. **Bad data from a one-off write** — my backfill stamped `voided_at` and `void_reason` but could not stamp an actor and did not write the `lease_termination_voided` audit row the 2026-08-31 batch hand-wrote. The guard caught exactly that.
+2. **There is still no supported way to void a termination.** The withdrawal the business needed on 09/10 had to be done as SQL because the app offers no control for it — while the RLS `ALL` policy (`is_staff(auth.uid())`) would happily let any staff client set `voided_at` with no actor and no audit row, since nothing in the database pairs the two.
+
+## Open question — remedy shape
+
+- Correct the one row (attribute the void to the owner who authorised it, back-write the audit entry marked as a later reconstruction) and leave voids SQL-only.
+- Correct the row, then add a `BEFORE UPDATE` trigger that stamps `voided_by` and writes the audit row so any future void is complete however it is issued.
+- Correct the row, add a `void_lease_termination(_id, _reason)` RPC plus a staff control in the lease termination area, and narrow the RLS policy so `voided_at` cannot be set directly.
 
 No fix has been applied.
