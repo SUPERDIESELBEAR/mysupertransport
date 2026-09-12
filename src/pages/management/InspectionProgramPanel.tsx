@@ -91,6 +91,8 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
   const [settings, setSettings] = useState<any>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** Resolved unit per operator — onboarding first, operator record second. */
+  const [unitById, setUnitById] = useState<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -127,8 +129,20 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
     }
     setLoadError(null);
 
-    setPayments((payRes.data as PaymentRow[]) ?? []);
+    const paymentRows = (payRes.data as PaymentRow[]) ?? [];
+    setPayments(paymentRows);
     setSettings(setRes.data ?? null);
+
+    // Both records, for every driver on screen — fleet rows and payment rows.
+    const unitValues = await fetchOperatorUnits([
+      ...((opsRes.data as any[]) ?? []).map(o => o.id),
+      ...paymentRows.map(p => p.operator_id),
+    ]);
+    const unitFor = (operatorId: string) =>
+      resolveOperatorUnit(unitValues.get(operatorId) ?? null);
+    setUnitById(new Map(
+      [...unitValues.keys()].map(id => [id, resolveOperatorUnit(unitValues.get(id) ?? null)]),
+    ));
 
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: FleetRow[] = ((opsRes.data as any[]) ?? []).map(op => {
@@ -136,12 +150,13 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
         { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
         'Unknown driver',
       );
-      const group = inspectionGroup(op.unit_number);
+      const unit = unitFor(op.id);
+      const group = inspectionGroup(unit);
       if (!group) {
         return {
           operatorId: op.id,
           name,
-          unit: op.unit_number, group: null, status: null, cycleLabel: 'No unit number',
+          unit, group: null, status: null, cycleLabel: 'No unit number',
         };
       }
       const ref = nextCycleOnOrAfter(group, new Date());
@@ -149,7 +164,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
       return {
         operatorId: op.id,
         name,
-        unit: op.unit_number,
+        unit,
         group,
         status: cycleStatus({
           cycle: ref,
