@@ -60,8 +60,14 @@ export default function BrokerPaperworkSection({
   });
 
   const upload = useMutation({
-    mutationFn: async (args: { file: File; category: 'carrier_packet' | 'signed_broker_agreement' }) =>
-      uploadBrokerDocument(brokerId, args.category, args.file),
+    mutationFn: async (args: { file: File; category: 'carrier_packet' | 'signed_broker_agreement' }) => {
+      // 25 MB tier — see MAX_LOAD_DOC_BYTES. Matches the broker-documents bucket cap,
+      // so an oversized file is refused here with a readable message instead of
+      // failing silently in storage.
+      const check = validateLoadDocumentFile(args.file);
+      if (!check.valid) throw new Error(check.error);
+      return uploadBrokerDocument(brokerId, args.category, args.file);
+    },
     onSuccess: async (doc, args) => {
       await qc.invalidateQueries({ queryKey: brokerDocumentsQueryKey(brokerId) });
       if (args.category === 'signed_broker_agreement') {
@@ -138,6 +144,7 @@ export default function BrokerPaperworkSection({
         <p className="text-xs text-muted-foreground">
           Who recorded each of these, and when, is stamped from your sign-in — it is not editable here.
         </p>
+        <p className="text-xs text-muted-foreground">{LOAD_DOC_FILE_HINT}</p>
       </div>
 
       <div className="flex flex-wrap gap-2">

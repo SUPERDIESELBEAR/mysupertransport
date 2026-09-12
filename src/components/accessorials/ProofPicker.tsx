@@ -119,7 +119,7 @@ export default function ProofPicker({
       />
       <p className="text-[11px] text-muted-foreground" data-testid="adjustment-proof-hint">
         {PROOF_KIND_LABELS[proofKind]} is what this charge needs. Upload it here or pick a file
-        already on the load — either way it is filed on the load itself.
+        already on the load — either way it is filed on the load itself. {LOAD_DOC_FILE_HINT}.
       </p>
     </div>
   );

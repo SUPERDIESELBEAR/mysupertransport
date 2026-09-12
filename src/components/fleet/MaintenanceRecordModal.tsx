@@ -268,7 +268,7 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
           <div className="flex items-center justify-between rounded-md border border-dashed border-[#C9A84C]/60 bg-[#C9A84C]/5 px-3 py-2">
             <div className="flex items-center gap-2 text-xs text-[#0D0D0D]">
               <Sparkles className="h-3.5 w-3.5 text-[#C9A84C]" />
-              <span>Scan an invoice with AI to auto-fill the fields.</span>
+              <span>Scan an invoice with AI to auto-fill the fields. PDF or image, up to 10 MB.</span>
             </div>
             <label className="inline-flex">
               <input
