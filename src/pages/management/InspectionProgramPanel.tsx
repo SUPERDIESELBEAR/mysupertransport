@@ -19,6 +19,18 @@ import {
   MONTH_NAMES, type CycleStatus,
 } from '@/lib/inspectionProgram';
 
+/** Driver name for a payment row — always through the linked application. */
+function paymentDriverName(p: { operators?: PaymentRow['operators'] }): string {
+  return operatorDisplayName(
+    {
+      application: p.operators?.applications ?? null,
+      is_demo: p.operators?.is_demo,
+      demo_label: p.operators?.demo_label,
+    },
+    'Driver',
+  );
+}
+
 // Program tables arrive when this draft is accepted; generated types do not know them yet.
 const db = supabase as any;
 
@@ -343,7 +355,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
             <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
               <div>
                 <p className="text-xs font-medium">
-                  {p.operators ? `${p.operators.first_name ?? ''} ${p.operators.last_name ?? ''}`.trim() : 'Driver'} · {money(p.amount)}
+                  {paymentDriverName(p)} · {money(p.amount)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{p.description || '—'}</p>
                 {p.review_note && <p className="text-[11px] text-muted-foreground italic">“{p.review_note}”</p>}
