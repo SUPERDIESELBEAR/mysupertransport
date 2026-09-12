@@ -13,10 +13,19 @@ import { describe, expect, it } from 'vitest';
 
 const read = (p: string) => readFileSync(p, 'utf8');
 
-/** Fuel surfaces that display or export a driver's unit. */
+/**
+ * Every surface that displays or acts on a driver's unit.
+ *
+ * The Inspection Program pages were added on 2026-09-12 — the SECOND consumer
+ * built without the resolver, after the Driver Fuel Detail picker. There the
+ * cost was not a blank label: the inspection group is the unit's last digit, so
+ * reading `operators.unit_number` put every driver in no group at all.
+ */
 const CONSUMERS = [
   'src/lib/fuel/fuelOperators.ts',
   'src/pages/management/FuelImportPage.tsx',
+  'src/pages/management/InspectionProgramPanel.tsx',
+  'src/pages/management/InspectionCalendar.tsx',
 ];
 
 describe('unit number resolution is centralised', () => {
