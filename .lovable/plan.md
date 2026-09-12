@@ -1,108 +1,55 @@
-# Read-only report: heading guard and FleetRoster
+# File size limits: what is enforced vs. what is shown
 
-No project source, test, database, or documentation file was changed. The three heading mutations were injected only into test reads; `git status --short` remained empty.
+Read-only investigation. Nothing changed.
 
-## 1. Heading guard mutation proof
+## 1. Every upload path
 
-All three mutations were made against the covered **Device Models** case or the exception array, one at a time. The original source was used for every run.
+| Path | Enforced in code | Shown on screen | Agree? |
+|---|---|---|---|
+| Create Load — Scan Rate Con with AI (`RateConfirmationParser.tsx:172`) | 20 MB (`validateRateConFile`); parse function also rejects above ~21 MB | nothing stated | no statement |
+| Revised Rate Con (`RevisedRateConModal.tsx:183`) | 20 MB (`validateRateConFile`) | "PDF or image, up to 10MB." (line 590) | **no** |
+| Load documents / POD (`UploadDocumentsDialog`) | 25 MB (`validateLoadDocumentFile`) | 25 MB | yes |
+| Driver load paperwork, loadout photos | 25 MB | not stated | no statement |
+| Late-accessorial proof (`ProofPicker`) | 25 MB | not stated | no statement |
+| Maintenance invoice + AI scan (`MaintenanceRecordModal:139,193`) | 10 MB (`validateFile`) | not stated | no statement |
+| Applicant documents (`Step7Documents`) | 10 MB | 10 MB | yes |
+| Operator document upload, driver vault, 2290/registration, DOT inspection, equipment, PE screening, staff decal | 10 MB | 10 MB where stated | yes |
+| Paper ICA, equipment sign-off sheet | 10 MB | 10 MB | yes |
+| Company document editor (`DocumentEditorModal`) | 20 MB | 20 MB | yes |
+| Message attachments | 10 MB (client) + 10 MB bucket cap | 10 MB | yes |
+| QPassport (`OperatorDetailPanel`) | 10 MB | 10 MB | yes |
+| DOT inspection binder rows (`DocRow`, `OperatorBinderPanel`, `InspectionBinderAdmin`) | **no client size check**; bucket has no cap | nothing | unbounded |
+| Broker paperwork (`BrokerPaperworkSection`) | **no client size check**; `broker-documents` bucket caps at 25 MB | nothing | silent server reject |
+| FAQ generation from a document | no upload — picks an existing resource | n/a | n/a |
+| Rate cons arriving by email | server side, `rate-con-ingest` bucket caps at 30 MB | n/a | n/a |
 
-### A. Page title changed away from its menu label
+## 2. Where they disagree, and how bad each is
 
-Injected change: `title="Device Models"` → `title="ELD Device Models"`.
+- **Revised Rate Con — displayed lower than enforced (10 shown, 20 enforced).** The invisible shape: a dispatcher holding a 14 MB revised rate con reads "up to 10MB" and doesn't try. Silent lost action. This is the only true displayed-vs-enforced contradiction in the app.
+- **Broker paperwork — displayed higher than enforced, effectively.** No limit is stated, and anything over 25 MB is refused by the storage bucket with a raw error. Visible and confusing, but rare.
+- **Binder rows — no limit stated and none enforced anywhere.** Not a disagreement, a gap: a 200 MB scan is accepted and uploaded.
+- **No path has two competing validators.** `validateFile` (10 MB) and `validateRateConFile` (20 MB) are never both called on the same file. The "stricter silently wins" shape does not occur.
 
-**Result: failed, 1 failed / 12 passed.** Verbatim assertion:
+## 3. Does a 10–20 MB file work on the Create Load parse path?
 
-```text
-FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > 'src/pages/management/ManagementPortal…' menu agrees with 'src/components/management/eld/ELDDevi…'
-AssertionError: expected 'import { useCallback, useEffect, useM…' to match /title="Device Models"/
+Traced, not assumed: the Create Load strip calls only `validateRateConFile` — 20 MB — and never `validateFile`. The file is then base64-encoded and sent to `parse-rate-confirmation`, whose own guard is `file_base64.length > 28_000_000`, about 21 MB of raw file. A 20 MB file encodes to roughly 26.7 M characters, under that guard.
 
-- Expected:
-/title="Device Models"/
-```
+So yes, by trace: 10–20 MB is accepted client-side and passes the server guard. What is not proven is the model-gateway request-body ceiling, which no constant in this project controls. That is the one thing worth confirming with a real 15 MB rate con before anyone advertises 20 MB on screen.
 
-### B. Third exception added
+## 4. Why there are two
 
-Injected exception:
+- `MAX_FILE_SIZE_BYTES = 10 MB` — `validateFile.ts`, commit `4aae3d558`, 2026-03-09, "Add form validations". The original applicant/document validator, built for phone photos and scans.
+- `MAX_RATECON_BYTES = 20 MB` — `rateConfirmation.ts`, commit `f8a19c702`, 2026-08-20, with the rate-con parser work, five months later.
 
-```text
-{ menu: 'Test', title: 'Third', reason: 'Mutation proof.' }
-```
+`rateConfirmation.ts` does not import `validateFile`, does not mention it, and carries no comment explaining the different number; it also duplicates the accepted-type list. Neither is superseded, and the difference is defensible — a multi-page broker PDF is genuinely larger than a licence photo — but the record shows the second arrived without acknowledging the first. `validateLoadDocumentFile` at 25 MB is a third, independent limit, added with load documents.
 
-**Result: failed, 1 failed / 12 passed.** Verbatim assertion and diff:
+## 5. Recommendation, one answer per path
 
-```text
-FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > keeps only the two reasoned owner-approved exceptions
-AssertionError: expected [ { menu: 'FAQ', …(2) }, …(2) ] to deeply equal [ ObjectContaining{…}, …(1) ]
+Do not collapse to a single number. Keep three tiers and make every screen state the tier it enforces:
 
-+   {
-+     "menu": "Test",
-+     "reason": "Mutation proof.",
-+     "title": "Third",
-+   },
-```
-
-### C. Page heading removed entirely
-
-Injected change: removed the complete `PageHeading` for Device Models.
-
-**Result: failed, 1 failed / 12 passed.** Verbatim assertion:
-
-```text
-FAIL  src/test/navigation-title-invariant.test.ts > routed page titles match their menu labels > 'src/pages/management/ManagementPortal…' menu agrees with 'src/components/management/eld/ELDDevi…'
-AssertionError: expected 'import { useCallback, useEffect, useM…' to match /title="Device Models"/
-
-- Expected:
-/title="Device Models"/
-```
-
-**Verdict:** all three required failure modes are detected. None produced the “does not fail” finding.
-
-## 2. FleetRoster failure
-
-### Verbatim standalone failure
-
-`src/test/nav-target.test.ts` fails standalone. Command result: **1 test file failed; 1 test failed and 2 passed**.
-
-```text
-1 navigation destination(s) do not resolve.
-EXPECTED RED: this guard shipped on 2026-09-10 with 1 known finding (FleetRoster -> /management/drivers). Do not make it pass by allowlisting it.
-
-src/components/fleet/FleetRoster.tsx:732 sends the user to '/management/drivers' — which does not resolve.
-  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => navigate('/management/drivers')}>
-
-Why it fails: /management/* is mounted, but ManagementPortal parses NO path segments — it reads only the query string. '/management/drivers' falls through to the default view.
-
-Nothing throws when this happens. React Router matches the portal wildcard,
-the portal finds no view it recognises and renders its default. The user
-clicks a button and silently lands somewhere else.
-```
-
-### Documentation
-
-It is documented in three durable places:
-
-- `src/test/README.md`:
-
-  > `src/test/nav-target.test.ts` | 1 | `FleetRoster.tsx:617` navigates to `/management/drivers`; Management parses only `?view=`, so the click silently lands on the overview.
-
-  The recorded line number is stale; the same call is now at line 732.
-
-- `docs/tms-build-status.md`, reachability verification:
-
-  > pointing FleetRoster at `/dispatch/nowhere` produced a finding naming the six segments dispatch parses, and pointing it at the correct `/dispatch/loads` took the nav guard to 0 — proving the expected finding is detected, not hardcoded.
-
-- `docs/tms-build-status.md`, later accessorial pass:
-
-  > Its one known finding (FleetRoster -> `/management/drivers`) is untouched and still red.
-
-The test itself also says:
-
-> THIS GUARD IS EXPECTED TO BE RED. It ships with one real finding. Green is reached by fixing the destination — never by allowlisting a finding.
-
-### Origin and verdict
-
-Git history establishes that this project introduced the broken button on **2026-09-03**, in commit `2b16e526…`, as part of the **vacant-units/FleetRoster work** adding the “Assign new driver” action. The navigation guard was added on 2026-09-10 and correctly exposed it.
-
-**Verdict:** this is a real project defect, not external or legacy background noise. “Pre-existing” is accurate only relative to the 2026-09-12 heading pass; it is not grounds for dismissal.
-
-It is documented and continuously visible as an expected-red guard, but **there is no explicit remediation trigger or owner-approved deferral trigger recorded**. The documentation says how it becomes green, and says not to allowlist it, but does not say *when it must be fixed*. That missing trigger is the finding.
+- **Rate confirmations — 20 MB.** Fix `RevisedRateConModal.tsx:590` to say 20 MB, and add the same sentence to the Create Load strip, which currently states nothing. Confirm the 15 MB end-to-end parse first.
+- **Load documents and photos — 25 MB.** Already correct where stated; add the sentence to driver load paperwork, loadout capture, and the accessorial proof picker.
+- **Driver, applicant and equipment documents — 10 MB.** Already consistent; leave it.
+- **Broker paperwork — adopt 25 MB explicitly:** validate client-side against the bucket cap and say so, so the rejection stops being a raw error.
+- **Binder rows — pick a limit and enforce it.** 25 MB matches the other staff-scanned paperwork.
+- Add a cross-reference comment to each constant naming the other two, so the next one added has to acknowledge them.
