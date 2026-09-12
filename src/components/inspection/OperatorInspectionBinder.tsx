@@ -20,6 +20,7 @@ import {
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { insertPayload } from '@/integrations/supabase/helpers';
+import { validateBinderFile, BINDER_FILE_HINT } from '@/lib/binderUpload';
 import logo from '@/assets/supertransport-logo.png';
 import {
   InspectionDocument, DriverUpload,
@@ -174,6 +175,8 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
 
   const handleDriverUpload = async (category: UploadCategory, file: File) => {
     if (!user) return;
+    const tooBig = validateBinderFile(file);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     setUploadingKey(category);
     try {
       const ext = file.name.split('.').pop();

@@ -1201,10 +1201,17 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden"
+                  title={BINDER_FILE_HINT}
                   onChange={e => {
                     const f = e.target.files?.[0];
-                    if (f) onUpload(f);
                     e.target.value = '';
+                    if (!f) return;
+                    const tooBig = validateBinderFile(f);
+                    if (tooBig) {
+                      toast({ title: 'File too large', description: tooBig, variant: 'destructive' });
+                      return;
+                    }
+                    onUpload(f);
                   }}
                 />
                 {isManagedByCompany ? (
