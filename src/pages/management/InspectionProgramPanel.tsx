@@ -18,6 +18,15 @@ import {
   inspectionGroup, nextCycleOnOrAfter, cycleStatus, cycleLabel, CYCLE_STATUS_LABELS,
   MONTH_NAMES, type CycleStatus,
 } from '@/lib/inspectionProgram';
+/**
+ * THE UNIT IS RESOLVED, NOT READ OFF `operators`.
+ *
+ * A unit is assigned during onboarding, so 48 of 60 active drivers carry it on
+ * `onboarding_status` alone. Reading `operators.unit_number` here showed every
+ * driver as "Unit —" and left both inspection groups at 0/0, because the group
+ * is derived from the unit's last digit. `resolveOperatorUnit` is the one rule.
+ */
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 
 /** Driver name for a payment row — always through the linked application. */
 function paymentDriverName(p: { operators?: PaymentRow['operators'] }): string {
@@ -52,7 +61,6 @@ interface PaymentRow {
   created_at: string;
   operator_id: string;
   operators?: {
-    unit_number: string | null;
     is_demo?: boolean | null;
     demo_label?: string | null;
     applications?: { first_name: string | null; last_name: string | null } | null;
@@ -82,15 +90,17 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
   const [settings, setSettings] = useState<any>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
   const [loadError, setLoadError] = useState<string | null>(null);
+  /** Resolved unit per operator — onboarding first, operator record second. */
+  const [unitById, setUnitById] = useState<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
     setLoading(true);
     const [payRes, opsRes, cyclesRes, setRes] = await Promise.all([
       db.from('inspection_program_payments')
-        .select('*, operators(unit_number, is_demo, demo_label, applications(first_name, last_name))')
+        .select('*, operators(is_demo, demo_label, applications(first_name, last_name))')
         .order('created_at', { ascending: false }).limit(200),
       supabase.from('operators')
-        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .select('id, is_active, is_demo, demo_label, applications(first_name, last_name)')
         .eq('is_active', true),
       db.from('inspection_cycles').select('*'),
       db.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
@@ -118,8 +128,20 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
     }
     setLoadError(null);
 
-    setPayments((payRes.data as PaymentRow[]) ?? []);
+    const paymentRows = (payRes.data as PaymentRow[]) ?? [];
+    setPayments(paymentRows);
     setSettings(setRes.data ?? null);
+
+    // Both records, for every driver on screen — fleet rows and payment rows.
+    const unitValues = await fetchOperatorUnits([
+      ...((opsRes.data as any[]) ?? []).map(o => o.id),
+      ...paymentRows.map(p => p.operator_id),
+    ]);
+    const unitFor = (operatorId: string) =>
+      resolveOperatorUnit(unitValues.get(operatorId) ?? null);
+    setUnitById(new Map(
+      [...unitValues.keys()].map(id => [id, resolveOperatorUnit(unitValues.get(id) ?? null)]),
+    ));
 
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: FleetRow[] = ((opsRes.data as any[]) ?? []).map(op => {
@@ -127,12 +149,13 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
         { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
         'Unknown driver',
       );
-      const group = inspectionGroup(op.unit_number);
+      const unit = unitFor(op.id);
+      const group = inspectionGroup(unit);
       if (!group) {
         return {
           operatorId: op.id,
           name,
-          unit: op.unit_number, group: null, status: null, cycleLabel: 'No unit number',
+          unit, group: null, status: null, cycleLabel: 'No unit number',
         };
       }
       const ref = nextCycleOnOrAfter(group, new Date());
@@ -140,7 +163,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
       return {
         operatorId: op.id,
         name,
-        unit: op.unit_number,
+        unit,
         group,
         status: cycleStatus({
           cycle: ref,
@@ -221,7 +244,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
                 <div>
                   <p className="text-sm font-medium">
                     {paymentDriverName(p)}
-                    {p.operators?.unit_number ? ` · Unit ${p.operators.unit_number}` : ''}
+                    {unitById.get(p.operator_id) ? ` · Unit ${unitById.get(p.operator_id)}` : ''}
                   </p>
                   <p className="text-xs text-muted-foreground">{p.description || '—'}</p>
                   <p className="text-[11px] text-muted-foreground mt-1">
