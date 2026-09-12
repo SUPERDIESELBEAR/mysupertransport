@@ -19,8 +19,11 @@ import { readSource } from "@/test/helpers/repoLiterals";
  * This guard asserts both halves for every declared view: A RENDER BRANCH and
  * A WAY IN.
  *
- * THIS GUARD IS EXPECTED TO BE RED. It ships with one real finding. Green is
- * reached by wiring or deleting the view — never by allowlisting a finding.
+ * THIS GUARD IS GREEN as of 2026-09-12. Its one shipped finding (management
+ * 'app-errors' — a view left in the union after the Application Errors panel was
+ * deleted on 2026-06-24) was closed by deleting the view. ANYTHING IT REPORTS
+ * NOW IS NEW. Green is reached by wiring or deleting the view — never by
+ * allowlisting a finding.
  */
 
 /**
@@ -294,8 +297,9 @@ describe("portal view reachability — every declared view can be reached", () =
     expect(
       ids,
       `${ids.length} declared view(s) cannot be reached or cannot render.\n` +
-        `EXPECTED RED: this guard shipped on 2026-09-10 with 1 known finding ` +
-        `(management 'app-errors'). Do not make it pass by allowlisting it.\n` +
+        `THIS GUARD IS GREEN since 2026-09-12 — its one shipped finding ` +
+        `(management 'app-errors') was deleted, not allowlisted. A report here ` +
+        `is a NEW defect: wire the view up or delete it. Do not allowlist it.\n` +
         failures.join("\n" + "-".repeat(74) + "\n"),
     ).toEqual([]);
   });
