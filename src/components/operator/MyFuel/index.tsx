@@ -30,6 +30,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { formatCurrency } from '@/lib/loadFormat';
 import { fetchMyFuel } from '@/lib/fuel/myFuel';
 import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
+import PageHeading from '@/components/shared/PageHeading';
 import {
   NOT_YET_DEDUCTED_LABEL, buildDriverRows, summarizeDriverRows,
   type FuelDriverRow, type FuelDriverTotals,
@@ -188,17 +189,15 @@ export default function MyFuel({ onReady, driverName, unitNumber }: {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">My Fuel</h1>
-          <p className="text-sm text-muted-foreground">
-            Everything bought on your fuel card, newest first.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" data-testid="my-fuel-pdf" onClick={downloadPdf}>
-          <Download className="mr-2 h-4 w-4" /> Download PDF
-        </Button>
-      </div>
+      <PageHeading
+        title="My Fuel"
+        description="Everything bought on your fuel card, newest first."
+        actions={(
+          <Button variant="outline" size="sm" data-testid="my-fuel-pdf" onClick={downloadPdf}>
+            <Download className="mr-2 h-4 w-4" /> Download PDF
+          </Button>
+        )}
+      />
 
       {/* Two totals, never one. Money already taken out of a check and money
           not taken yet are different facts and are never added together. */}

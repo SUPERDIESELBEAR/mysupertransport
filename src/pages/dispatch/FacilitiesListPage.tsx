@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import ColumnVisibilityMenu from '@/components/shared/ColumnVisibilityMenu';
 import SortableTableHead from '@/components/shared/SortableTableHead';
+import PageHeading from '@/components/shared/PageHeading';
 import FacilityDialog from '@/components/facilities/FacilityDialog';
 import { compareValues, nextSortState } from '@/lib/listSorting';
 import { FACILITY_TYPES, FACILITY_TYPE_LABELS, type Facility } from '@/lib/facilities';
@@ -75,10 +76,11 @@ export default function FacilitiesListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold text-foreground">Facilities</h1>
-        {addButton}
-      </div>
+      <PageHeading
+        title="Facilities"
+        description="Manage pickup and delivery locations."
+        actions={addButton}
+      />
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
         <div className="relative flex-1 min-w-[12rem]">

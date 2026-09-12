@@ -58,6 +58,7 @@ import PendingOSASCard from '@/components/operator/PendingOSASCard';
 import EquipmentReturnCard from '@/components/operator/EquipmentReturnCard';
 const FleetDetailDrawer = lazyWithRetry(() => import('@/components/fleet/FleetDetailDrawer'));
 import { BuildInfo } from '@/components/BuildInfo';
+import PageHeading from '@/components/shared/PageHeading';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
 const MySettlements = lazyWithRetry(() => import('@/components/operator/MySettlements'));
 const MyFuel = lazyWithRetry(() => import('@/components/operator/MyFuel'));
@@ -1206,7 +1207,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
     { view: 'progress' as OperatorView, label: isFullyOnboarded ? 'Onboarding Status' : 'My Progress', shortLabel: isFullyOnboarded ? 'Status' : 'Progress', icon: <CheckCircle2 className="h-5 w-5" />, criticalDot: hasCriticalExpiry },
     { view: 'documents' as OperatorView, label: 'Upload Documents', shortLabel: 'Upload Docs', icon: <Upload className="h-5 w-5" /> },
-    { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+    { view: 'docs-hub' as OperatorView, label: 'Document Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
     { view: 'inspection-binder' as OperatorView, label: 'Inspection Binder', shortLabel: 'Binder', icon: <Shield className="h-5 w-5" />, pillBadge: isFullyOnboarded ? 'DOT' : undefined },
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
@@ -1246,7 +1247,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
       firstSlot,
       { view: 'inspection-binder' as OperatorView, label: 'Binder', icon: <Shield className="h-5 w-5" /> },
       { view: 'messages' as OperatorView, label: 'Messages', icon: <MessageSquare className="h-5 w-5" />, badge: unreadCount },
-      { view: 'docs-hub' as OperatorView, label: 'Doc Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
+      { view: 'docs-hub' as OperatorView, label: 'Document Hub', icon: <Library className="h-5 w-5" />, badge: unackedRequiredDocs || undefined },
       { ...contextSlot },
     ];
   })();
@@ -1989,13 +1990,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
         {view === 'my-docs' && operatorId && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <FolderOpen className="h-6 w-6 text-primary" />
-              <div>
-                <h2 className="text-lg font-bold text-foreground">My Documents</h2>
-                <p className="text-sm text-muted-foreground">Organized by document type — tap a folder to open it</p>
-              </div>
-            </div>
+            <PageHeading
+              title="My Documents"
+              description="Organized by document type — tap a folder to open it"
+              icon={<FolderOpen className="h-6 w-6 text-primary" />}
+            />
             <MyDocumentsFolders operatorId={operatorId} />
           </div>
         )}
@@ -2046,6 +2045,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── ONBOARD SYSTEMS (OSAS) VIEW ── */}
         {view === 'onboard-systems' && (
           <div className="space-y-4">
+            <PageHeading title="Onboard Systems" description="Review and sign for your assigned truck equipment." />
             {operatorId && <EquipmentReturnCard operatorId={operatorId} />}
             <OperatorOSASSign
               onBack={() => navigateToView('progress')}
@@ -2055,7 +2055,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
 
         {/* ── ICA SIGN VIEW ── */}
-        {view === 'ica' && <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />}
+        {view === 'ica' && (
+          <div className="space-y-4">
+            <PageHeading title="ICA" description="Review and sign your Independent Contractor Agreement." />
+            <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />
+          </div>
+        )}
 
         {/* ── ELD MALFUNCTION VIEW ── */}
         {view === 'eld-malfunction' && (
@@ -2103,12 +2108,15 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── DOCUMENTS VIEW ── */}
         {view === 'documents' && operatorId && (
-          <OperatorDocumentUpload
-            operatorId={operatorId}
-            uploadedDocs={uploadedDocs}
-            onboardingStatus={effectiveOnboardingStatus}
-            onUploadComplete={fetchData}
-          />
+          <div className="space-y-4">
+            <PageHeading title="Upload Documents" description="Send requested documents and truck photos for review." />
+            <OperatorDocumentUpload
+              operatorId={operatorId}
+              uploadedDocs={uploadedDocs}
+              onboardingStatus={effectiveOnboardingStatus}
+              onUploadComplete={fetchData}
+            />
+          </div>
         )}
         {view === 'documents' && !operatorId && (
           <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
@@ -2145,15 +2153,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── PAY SETUP VIEW ── */}
         {view === 'pay-setup' && operatorId && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/10 shrink-0">
-                <CreditCard className="h-5 w-5 text-primary" />
-              </span>
-              <div>
-                <h2 className="text-base font-bold text-foreground">Stage 9 — Payroll and Procedures</h2>
-                <p className="text-xs text-muted-foreground">Payroll Setup, BOL Procedures, Handbook, and Load Out Procedures.</p>
-              </div>
-            </div>
+            <PageHeading
+              title="Pay Setup"
+              description="Set up payroll and review BOL, handbook, and load-out procedures."
+              icon={<CreditCard className="h-6 w-6 text-gold" />}
+            />
             <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
               <ContractorPaySetup operatorId={operatorId} onSubmitted={fetchData} />
             </Suspense>
@@ -2169,14 +2173,16 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
         {/* ── MESSAGES VIEW ── */}
         {view === 'messages' && (
-          <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading messages…</div>}>
-            <OperatorMessagesHub
-              initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
-              initialUserId={messageInitialUserId ?? undefined}
-              onInitialUserConsumed={() => setMessageInitialUserId(null)}
-            />
-
-          </Suspense>
+          <div className="space-y-4">
+            <PageHeading title="Messages" description="Read company announcements and message your SUPERTRANSPORT team." />
+            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading messages…</div>}>
+              <OperatorMessagesHub
+                initialBroadcastId={new URLSearchParams(location.search).get('b') ?? undefined}
+                initialUserId={messageInitialUserId ?? undefined}
+                onInitialUserConsumed={() => setMessageInitialUserId(null)}
+              />
+            </Suspense>
+          </div>
         )}
 
         {/* ── DISPATCH VIEW ── */}

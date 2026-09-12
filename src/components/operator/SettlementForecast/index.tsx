@@ -12,6 +12,7 @@ import AddLoadModal from './AddLoadModal';
 import AddExpenseModal from './AddExpenseModal';
 import DeductionsManager from './DeductionsManager';
 import PastSettlements from './PastSettlements';
+import PageHeading from '@/components/shared/PageHeading';
 
 interface Props {
   operatorId: string;
@@ -117,19 +118,11 @@ export default function SettlementForecast({ operatorId, readOnly = false, onRea
   return (
     <div className="space-y-4 animate-fade-in pb-8">
       {/* Header */}
-      <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Calculator className="h-6 w-6 text-primary" />
-          <div>
-            <h2 className="text-lg font-bold text-foreground">Settlement Forecast</h2>
-            <p className="text-sm text-muted-foreground">
-              {readOnly ? 'Operator view · ' : 'Plan your next 3 paydays · '}
-              {readOnly ? 'Pay rate: ' : 'Your pay rate: '}
-              <strong>{payPercentage}%</strong>
-            </p>
-          </div>
-        </div>
-      </div>
+      <PageHeading
+        title="Settlement Forecast"
+        description={`${readOnly ? 'Operator view' : 'Plan your next 3 paydays'} · ${readOnly ? 'Pay rate' : 'Your pay rate'}: ${payPercentage}%`}
+        icon={<Calculator className="h-6 w-6 text-primary" />}
+      />
 
       {/* Staff banner — only shown in read-only (staff/management) view */}
       {readOnly && (

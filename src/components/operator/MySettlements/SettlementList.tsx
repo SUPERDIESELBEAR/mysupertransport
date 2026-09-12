@@ -17,6 +17,7 @@ import {
   deductionLines, earningLines, sumLines,
   type DriverRmDeposit, type DriverSettlement,
 } from './settlementView';
+import PageHeading from '@/components/shared/PageHeading';
 
 function StatusBadge({ status }: { status: DriverSettlement['status'] }) {
   const tone =
@@ -162,10 +163,7 @@ export interface SettlementListProps {
 export default function SettlementList({ settlements, rmDeposit, loading }: SettlementListProps) {
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="space-y-1">
-        <h1 className="text-xl font-bold text-foreground">My Settlements</h1>
-        <p className="text-sm text-muted-foreground">Your settled pay, most recent first.</p>
-      </div>
+      <PageHeading title="My Settlements" description="Your settled pay, most recent first." />
 
       {rmDeposit && (
         <Card className="p-4 flex items-start gap-3">

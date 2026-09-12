@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { AlertTriangle, Loader2, ShieldCheck, ExternalLink } from 'lucide-react';
 import RevokedListCheckModal from './RevokedListCheckModal';
+import PageHeading from '@/components/shared/PageHeading';
 import {
   ageBand, daysSinceCheck, daysUntil, DEVICE_MODEL_SELECT, RESULT_LABEL,
   type DeviceModelRow,
@@ -92,13 +93,10 @@ export default function ELDDeviceModelsPanel() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">ELD Device Models</h1>
-        <p className="text-sm text-muted-foreground">
-          49 CFR 395.8(a)(1) requires a device that is self-certified and registered on
-          FMCSA's list. FMCSA publishes no API, so this check is done by hand and recorded here.
-        </p>
-      </div>
+      <PageHeading
+        title="Device Models"
+        description="Track ELD models against FMCSA's self-certified device list."
+      />
 
       {revokedInUse.length > 0 && (
         <Card className="border-destructive bg-destructive/5">

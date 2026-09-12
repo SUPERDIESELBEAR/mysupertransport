@@ -8,7 +8,9 @@
  * away from its menu label.
  *
  * THE TITLE MUST BE THE MENU LABEL. Not a longer description of the page, not a
- * prettier version of it. If the two disagree, one of them is wrong.
+ * prettier version of it. If the two disagree, one of them is wrong. The two
+ * owner-approved exceptions are FAQ → Frequently Asked Questions and My Truck
+ * → Unit {n}; those page titles are deliberately more useful in context.
  */
 import type { ReactNode } from 'react';
 

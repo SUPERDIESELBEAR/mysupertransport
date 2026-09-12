@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHeader, TableRow } from '@/components/ui/table';
 import ColumnVisibilityMenu from '@/components/shared/ColumnVisibilityMenu';
 import SortableTableHead from '@/components/shared/SortableTableHead';
+import PageHeading from '@/components/shared/PageHeading';
 import BrokerDialog from '@/components/dispatch/loadForm/BrokerDialog';
 import { compareValues, nextSortState } from '@/lib/listSorting';
 import { FACTORING_STATUSES, FACTORING_STATUS_LABELS, type Broker } from '@/lib/brokers';
@@ -81,10 +82,11 @@ export default function BrokersListPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold text-foreground">Brokers</h1>
-        {addButton}
-      </div>
+      <PageHeading
+        title="Brokers"
+        description="Manage broker details, factoring status, and agreements."
+        actions={addButton}
+      />
 
       <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2.5">
         <div className="relative flex-1 min-w-[12rem]">
