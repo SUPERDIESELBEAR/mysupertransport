@@ -22,6 +22,7 @@ const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentE
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { resolveBinderStorage, resolvePathOnly } from '@/lib/binderStorage';
+import { validateBinderFile, BINDER_FILE_HINT } from '@/lib/binderUpload';
 
 
 /**
