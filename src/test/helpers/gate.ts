@@ -159,9 +159,16 @@ export function gatedIt(options: GateOptions) {
   const { enabled, reason, details = [] } = options;
   const required = options.required ?? IS_CI;
 
-  return (name: string, body: () => void | Promise<void>): void => {
+  /**
+   * `timeoutMs` is forwarded to Vitest. Live-catalog checks that genuinely take
+   * longer than the 5s default MUST declare it here rather than relying on a
+   * CLI flag: a timeout reads exactly like a failure, and on a guard whose
+   * value is that a failure means something, that is corrosive. A guard that
+   * cannot finish has reported nothing at all.
+   */
+  return (name: string, body: () => void | Promise<void>, timeoutMs?: number): void => {
     if (enabled) {
-      it(name, body);
+      it(name, body, timeoutMs);
       return;
     }
     if (required) {
