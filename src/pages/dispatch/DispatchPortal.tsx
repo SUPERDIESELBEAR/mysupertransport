@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { playTruckDownChime } from '@/lib/chime';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import StaffLayout from '@/components/layouts/StaffLayout';
+import PageHeading from '@/components/shared/PageHeading';
 import MessagesView from '@/components/staff/MessagesView';
 import NotificationHistory from '@/components/management/NotificationHistory';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
@@ -2457,7 +2458,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
     { label: 'Late Accessorials', icon: <FileWarning className="h-4 w-4" />, path: 'dispatch-late-accessorials', badgeNode: <LateAccessorialBadge /> },
     { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'dispatch-brokers' },
-    { label: 'Drivers',        icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
+    { label: 'Driver Hub',     icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
     { label: 'Notifications',  icon: <Bell className="h-4 w-4" />, path: 'dispatch-notifications',  badge: unreadNotifCount || undefined },
     { label: 'Parser Diagnostics', icon: <AlertTriangle className="h-4 w-4" />, path: 'dispatch-parser-diagnostics' },
@@ -2597,7 +2598,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
               ? <CreateLoadPage loadId={loadDetailId} />
               : loadDetailId ? <LoadDetailPage loadId={loadDetailId} /> : <LoadsListPage />)
           : activePage === 'dispatch-messages'
-          ? <MessagesView initialUserId={messageInitialUserId} />
+          ? <div className="space-y-4">
+              <PageHeading title="Messages" description="Message drivers and staff from Dispatch." />
+              <MessagesView initialUserId={messageInitialUserId} />
+            </div>
           : activePage === 'dispatch-notifications'
           ? <NotificationHistory />
           : activePage === 'dispatch-drivers'

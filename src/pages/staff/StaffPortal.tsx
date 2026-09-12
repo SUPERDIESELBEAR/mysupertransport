@@ -32,6 +32,7 @@ import { ScrollJumpButton } from '@/components/ui/ScrollJumpButton';
 import ComplianceAlertsPanel from '@/components/inspection/ComplianceAlertsPanel';
 import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
 import PEIQueuePanel from '@/components/pei/PEIQueuePanel';
+import PageHeading from '@/components/shared/PageHeading';
 import { differenceInDays, parseISO, startOfDay } from 'date-fns';
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -233,19 +234,19 @@ export default function StaffPortal() {
   }, [user]);
 
   const navItems = [
-    { label: 'Applicant Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', dividerBefore: 'Operations' },
+    { label: 'Onboarding Pipeline', icon: <LayoutDashboard className="h-4 w-4" />, path: 'pipeline', dividerBefore: 'Operations' },
     { label: 'Driver Hub', icon: <Users2 className="h-4 w-4" />, path: 'drivers', badge: driverAlertCount || undefined },
     // Moved out of "Tools" (2026-09-10): it belongs beside the drivers it previews.
     { label: 'Driver App Preview', icon: <Smartphone className="h-4 w-4" />, path: 'operator-preview' },
     { label: 'Vehicle Hub', icon: <Truck className="h-4 w-4" />, path: 'vehicle-hub' },
-    { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
-    { label: 'Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
-    { label: 'PEI Queue', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' },
+    { label: 'Fleet Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />, path: 'inspection-binder' },
+    { label: 'PEI Q', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' },
     { label: 'Document Hub', icon: <Library className="h-4 w-4" />, path: 'docs-hub' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadCount, dividerBefore: 'Tools' },
     { label: 'Resource Center', icon: <BookOpen className="h-4 w-4" />, path: 'resource-center' },
     { label: 'FAQ Manager', icon: <HelpCircle className="h-4 w-4" />, path: 'faq' },
-    { label: 'Equipment', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
+    { label: 'Onboard Systems', icon: <HardDrive className="h-4 w-4" />, path: 'equipment' },
     { label: 'Notifications', icon: <Bell className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount, dividerBefore: 'Admin' },
     { label: 'Demo Mode', icon: <GraduationCap className="h-4 w-4" />, path: '__demo__' },
   ];
@@ -647,7 +648,8 @@ export default function StaffPortal() {
         </Suspense>
       )}
       {currentView === 'messages' && (
-        <div className="flex flex-col gap-0" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+        <div className="flex flex-col gap-3" style={{ height: 'calc(100vh - 160px - 64px)' }}>
+          <PageHeading title="Messages" description="Message drivers and staff, manage group conversations, and send private announcements." />
           {/* Bulk Message toolbar */}
           <div className="flex items-center justify-between mb-3 shrink-0">
             <p className="text-xs text-muted-foreground">

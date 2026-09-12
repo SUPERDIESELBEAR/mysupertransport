@@ -33,6 +33,7 @@ import { sendPEIEmail } from './sendPEIEmail';
 import { GFEModal } from './GFEModal';
 import PEITemplateViewer from './PEITemplateViewer';
 import { SendTestPEIDialog } from './SendTestPEIDialog';
+import PageHeading from '@/components/shared/PageHeading';
 import { LogSendModal } from './LogSendModal';
 import { LogPhoneAttemptModal } from './LogPhoneAttemptModal';
 import { ArchiveApplicantDialog } from './ArchiveApplicantDialog';
@@ -494,13 +495,11 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
     <div className="space-y-6">
       <header>
         <div className="flex items-start justify-between gap-3 flex-wrap">
-          <div>
-            <h1 className="text-2xl font-semibold tracking-tight flex items-center gap-2">
-              <Briefcase className="h-6 w-6 text-gold" />
-              Previous Employment Investigations
-            </h1>
-            <p className="text-sm text-muted-foreground mt-1">49 CFR §391.23 Compliance Tracking</p>
-          </div>
+          <PageHeading
+            title="PEI Q"
+            description="49 CFR §391.23 compliance tracking"
+            icon={<Briefcase className="h-6 w-6 text-gold" />}
+          />
           <div className="flex items-center gap-2 flex-wrap">
             <Button variant="outline" size="sm" onClick={() => downloadPEICsv(filteredRows)} className="gap-2">
               <Download className="h-4 w-4" />

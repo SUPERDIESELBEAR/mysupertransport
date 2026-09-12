@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { fetchStaffContact } from '@/lib/staffContacts';
 import { Truck, MapPin, Clock, AlertTriangle, CheckCircle2, Home, Radio, Phone, MessageSquare } from 'lucide-react';
+import PageHeading from '@/components/shared/PageHeading';
 
 type DispatchStatusType = 'not_dispatched' | 'dispatched' | 'home' | 'truck_down';
 
@@ -154,10 +155,7 @@ export default function OperatorDispatchStatus({ operatorId, onMessageDispatcher
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Dispatch Status</h1>
-          <p className="text-sm text-muted-foreground mt-1">Your current load and dispatch information</p>
-        </div>
+        <PageHeading title="Dispatch" description="Your current load and dispatch information" />
         {/* Live pill */}
         <span className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full border transition-all duration-500 shrink-0 ${
           liveFlash

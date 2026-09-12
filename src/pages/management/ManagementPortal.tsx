@@ -68,6 +68,7 @@ import RetentionArchivePanel from '@/components/management/eld/RetentionArchiveP
 import ELDDeviceModelsPanel from '@/components/management/eld/ELDDeviceModelsPanel';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
+import PageHeading from '@/components/shared/PageHeading';
 import EmailCatalog from '@/components/management/EmailCatalog';
 import EmailLogPanel from '@/components/management/EmailLogPanel';
 import FormsCatalog from '@/components/management/FormsCatalog';
@@ -1059,7 +1060,7 @@ export default function ManagementPortal() {
       items: [
         { label: 'Applications',              icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
         { label: 'Onboarding Pipeline',       icon: <Users className="h-4 w-4" />,         path: 'pipeline', badge: criticalExpiryCount || undefined },
-        { label: 'PEI',                       icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
+        { label: 'PEI Q',                     icon: <Briefcase className="h-4 w-4" />,     path: 'pei-queue' },
       ],
     },
     {
@@ -1292,13 +1293,11 @@ export default function ManagementPortal() {
         {/* ── OVERVIEW ── */}
         {view === 'overview' && (
           <div className="space-y-5 sm:space-y-6 animate-fade-in">
-            <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-foreground flex items-center gap-2">
-                <LayoutDashboard className="h-6 w-6 text-gold shrink-0" />
-                Management Overview
-              </h1>
-              <p className="text-muted-foreground text-sm mt-1">Company-wide snapshot and pending reviews</p>
-            </div>
+            <PageHeading
+              title="Overview"
+              description="Company-wide snapshot and pending reviews"
+              icon={<LayoutDashboard className="h-6 w-6 text-gold shrink-0" />}
+            />
 
             {/* Metric cards */}
             <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2 sm:gap-4">
