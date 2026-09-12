@@ -69,28 +69,57 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [payRes, opsRes, cyclesRes, setRes] = await Promise.all([
       db.from('inspection_program_payments')
-        .select('*, operators(first_name, last_name, unit_number)')
+        .select('*, operators(unit_number, is_demo, demo_label, applications(first_name, last_name))')
         .order('created_at', { ascending: false }).limit(200),
-      supabase.from('operators').select('id, first_name, last_name, unit_number, is_active').eq('is_active', true),
+      supabase.from('operators')
+        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .eq('is_active', true),
       db.from('inspection_cycles').select('*'),
       db.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
     ]);
+
+    // A REJECTED READ MUST NOT LOOK LIKE AN EMPTY QUEUE. Every read is checked
+    // here, before anything renders — the whole reason this page appeared to
+    // have no work to review was a discarded PostgREST error.
+    const firstError =
+      [
+        ['payments', payRes.error],
+        ['drivers', opsRes.error],
+        ['inspection cycles', cyclesRes.error],
+        ['program settings', setRes.error],
+      ] as const
+    ).find(([, e]) => !!e);
+    if (firstError) {
+      const msg = `Could not load ${firstError[0]}: ${getDbErrorMessage(firstError[1])}`;
+      setLoadError(msg);
+      setPayments([]);
+      setFleet([]);
+      setLoading(false);
+      toast({ title: 'Inspection Program could not load', description: msg, variant: 'destructive' });
+      return;
+    }
+    setLoadError(null);
 
     setPayments((payRes.data as PaymentRow[]) ?? []);
     setSettings(setRes.data ?? null);
 
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: FleetRow[] = ((opsRes.data as any[]) ?? []).map(op => {
+      const name = operatorDisplayName(
+        { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
+        'Unknown driver',
+      );
       const group = inspectionGroup(op.unit_number);
       if (!group) {
         return {
           operatorId: op.id,
-          name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim(),
+          name,
           unit: op.unit_number, group: null, status: null, cycleLabel: 'No unit number',
         };
       }
@@ -98,7 +127,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
       const row = cycles.find(c => c.operator_id === op.id && c.cycle_year === ref.year && c.cycle_month === ref.month);
       return {
         operatorId: op.id,
-        name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim(),
+        name,
         unit: op.unit_number,
         group,
         status: cycleStatus({
