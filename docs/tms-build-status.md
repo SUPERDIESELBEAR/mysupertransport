@@ -5476,6 +5476,38 @@ grants and its revokes were NOT changed — its exposure is intended.
 > it is fixed in that pass or explicitly triaged with a TRIGGER. It is never
 > dismissed as out of scope on the grounds of age alone.
 
+> **Standing rule, extended again (2026-09-12).** A guard left RED must carry a
+> REMEDIATION TRIGGER — a date, an event, or a condition that says WHEN it has to
+> go green. "Expected red" is not a status a guard may hold indefinitely without
+> one. A red guard with no trigger is a defect with a comfortable place to live.
+
+**AN EXPECTED-RED GUARD WITH NO TRIGGER (2026-09-12).** `nav-target` shipped
+2026-09-10 with one real finding: `FleetRoster.tsx:732` navigating to
+`/management/drivers`, which ManagementPortal cannot resolve because it parses
+only `?view=`, so "Assign new driver" silently landed on the overview. The defect
+was documented in THREE durable places — `src/test/README.md`,
+`docs/tms-build-status.md` and the guard's own failure banner — correctly
+diagnosed, correctly attributed to this project (2026-09-03, commit `2b16e526`,
+the vacant-units pass), and explicitly marked "do not allowlist it". It still sat
+unfixed for NINE DAYS. Every one of those three places explained HOW to make it
+green. None of them said BY WHEN. Nothing ever made it urgent.
+
+Contrast the reachability guards, which also shipped red by design with 16
+findings and a written route to green: those were being actively worked, finding
+by finding, in successive passes. `nav-target` was not. Shipping red is
+acceptable while the work is live; it is not acceptable as a resting state.
+
+Also recorded: the 2026-09-12 heading pass labelled this failure "pre-existing".
+That was ACCURATE relative to that pass — and would have been grounds for
+dismissal had it not been checked. It was a real, project-introduced defect. This
+is the THIRD time the "pre-existing" label has covered something real.
+
+Fixed 2026-09-12: destination corrected to `/management?view=drivers` (the same
+form `DeactivationPage.tsx:44` uses), verified by clicking the live button, and
+the guard's banner and the README rewritten to state that the guard is GREEN and
+any destination it names from now on is NEW.
+
+
 **PROTECTIONS ARE QUOTED, NOT PARAPHRASED (2026-09-03).** The dispatch-settlement
 schema pass reported the four DEFINER protections as `REVOKE ALL ON FUNCTION ...
 FROM anon`. The migration reads `REVOKE EXECUTE ON FUNCTION ... FROM anon`, and
@@ -9386,7 +9418,7 @@ CONTRADICTIONS: none found.
 |---|---|---|
 | `src/test/function-reachability.test.ts` | 14 | 14 |
 | `src/test/view-reachability.test.ts` | 1 | 1 |
-| `src/test/nav-target.test.ts` | 1 | 1 |
+| `src/test/nav-target.test.ts` | 0 | 0 — **GREEN since 2026-09-12**; a new finding is a live defect |
 
 Sixteen red assertions is a lot to inherit, and the first instinct on finding
 them will be to make them pass. **Green is reached by adding a caller, revoking
@@ -9729,7 +9761,8 @@ The nav-target guard found the new dispatch path immediately
 (`/dispatch/late-accessorials` not in the parsed segment list) — the first time
 that guard caught a live defect rather than a seeded one. Fixed by teaching the
 guard the segment the portal now parses. Its one known finding (FleetRoster ->
-`/management/drivers`) is untouched and still red.
+`/management/drivers`) was untouched and still red at the time — fixed on
+2026-09-12, taking the guard to zero.
 
 ### THE APPROVAL LIMIT IS READ, NEVER PASSED
 

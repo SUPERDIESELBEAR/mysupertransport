@@ -729,7 +729,10 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
                   {u.notes && <p className="text-xs text-muted-foreground mt-0.5">{u.notes}</p>}
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
-                  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => navigate('/management/drivers')}>
+                  {/* Management is query-routed, not path-routed: the same form
+                      DeactivationPage.tsx:44 uses. '/management/drivers' looked
+                      right and silently landed on the overview. */}
+                  <Button size="sm" className="h-8 text-xs gap-1.5" onClick={() => navigate('/management?view=drivers')}>
                     <UserCheck className="h-3.5 w-3.5" /> Assign new driver
                   </Button>
                   <Button
