@@ -5328,6 +5328,50 @@ reads plausibly. The practical rule: when checking what a database function
 does, list EVERY migration defining it and read the NEWEST, never the first
 match.
 
+**Third instance (2026-09-09).** A security/reachability pass read the newest
+migration for several functions and still reported `search_path = public` pins
+that had already been corrected. The corrections existed in same-day follow-up
+migrations that were newer than the definitions being checked, but the check
+stopped at the first migration that contained the function name rather than the
+newest file that touched it. Files were read; not all relevant files were
+read. Documented separately under the SECURITY DEFINER search-path authoring
+defect.
+
+**FOURTH INSTANCE — the newest file is not the newest definition (2026-09-12).**
+The standing rule was followed correctly for `public.update_load_with_stops`:
+every migration defining the function was listed and the newest file was read.
+The conclusion was still wrong.
+
+Migration `20260901125516` does not contain
+`CREATE OR REPLACE FUNCTION public.update_load_with_stops`. It reads the
+function's current source from `pg_get_functiondef`, applies string
+replacements to that source, and re-executes the result. The live definition is
+DERIVED and exists in no committed file in a form any `grep` can match. So a
+search for the function's definition returns `20260831203038` as the newest
+migration containing the name — but `20260831203038` is superseded, and that is
+exactly what both the 2026-09-12 monitoring finding and the reviewer read.
+
+This is the **fourth instance** of a wrong conclusion drawn from migration
+files. It is the **first** where following the rule correctly was not enough.
+The previous three were caught by reading a newer file; this one could only be
+caught by querying the catalog.
+
+> **Standing rule, extended (2026-09-12).** When the answer matters, a claim
+> about what a database function does must come from the live catalog —
+> `pg_get_functiondef` on the deployed database — not from the migration files.
+> Files are evidence of intent; the catalog is evidence of state. The "newest
+> file" rule is necessary but not sufficient, because a migration may rewrite a
+> function by transforming its live source rather than redefining it.
+
+**Consequence: the 2026-09-12 defect pass item 3 was a false finding.** The
+monitoring report said `update_load_with_stops` computed the load total itself
+using `estimated_tons`, never called `recompute_load_total_value`, and did not
+write `confirmed_tons`. The live function does write `confirmed_tons` and does
+call `recompute_load_total_value`; its comment states that the total is
+deliberately not computed there. The superseded migration `20260831203038`
+contained the obsolete logic; the live definition did not. No change was made to
+the function and none was needed.
+
 **VERIFICATION AGAINST THE REPO CAN TRAIL LOVABLE'S WORKSPACE (2026-09-01).**
 A migration or file Lovable has just created and applied may not yet be present
 in the GitHub repository when it is checked from outside. On 2026-09-01 the
