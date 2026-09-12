@@ -48,9 +48,34 @@ inspection-grace RPCs registered). `KNOWN_NO_CALLER_ENTRIES` holds 2 entries
 against a ceiling of 2. Every step was a deletion, a repin with a written
 justification, or a guard fix.
 
-**Run it with `--testTimeout=180000`.** It reads the live catalog and needs
-~11s, well over the default 5s limit; a bare run reports a timeout, not a
-finding. A timeout is not a red guard.
+**No flags needed.** The function guard's live checks declare
+`LIVE_CATALOG_TIMEOUT_MS = 60_000` in the file (measured runtime ~11s), so
+`bunx vitest run src/test/function-reachability.test.ts` is green bare. Before
+2026-09-12 it needed `--testTimeout=180000` and a bare run printed
+`Test timed out in 5000ms`. **A TIMEOUT IS NOT A FINDING** — a guard that cannot
+finish has reported nothing at all, which is worse than reporting a failure, and
+on this guard it was read as "still red" for two days.
+
+### Live-catalog suites and the 5s default (swept 2026-09-12)
+
+All 26 psql suites were run together and timed. Only three sit near or over the
+default, and all three now declare their own timeout in-file rather than relying
+on a CLI flag:
+
+| Suite | Measured | Declared |
+|---|---|---|
+| `function-reachability.test.ts` | 11.1s in one test | `60_000` per live check |
+| `payments-schema.test.ts` | 4.93s ('no writer reads the dispatch factoring rate' reads six function bodies) — inside the default by 70ms | `vi.setConfig({ testTimeout: 60_000 })` |
+| `accessorial-adjustment-schema.test.ts` | 1-3.4s per test, 59s total; three tests were recorded as 5s timeouts on 2026-09-09 under contention | `vi.setConfig({ testTimeout: 60_000 })` |
+
+Every other live suite's slowest test is at or under 3.4s. File TOTALS are
+larger (`billing-schema` 44s, `dispatch-settlement-schema` 38s,
+`fuel-import-live` 26s) but the limit is per test, so those are fine.
+
+**Pooler flakes are not findings either.** Running all 26 together, three tests
+failed with `FATAL: (EAUTHQUERY) auth_query secret check timed out` — a
+connection refusal, not an assertion. All three passed on a serial re-run. Read
+the failure text before counting a finding.
 
 **Every red guard needs a trigger — a date, an event or a condition.** `nav-target`
 sat red for nine days with its defect diagnosed and attributed in three places and

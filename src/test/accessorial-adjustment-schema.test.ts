@@ -1,4 +1,4 @@
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
 
@@ -19,6 +19,16 @@ import { gatedIt, skipBanner } from '@/test/helpers/gate';
  * trigger body plus its attachment — which is the part a later migration is
  * most likely to drop.
  */
+
+/**
+ * RUNTIME: every check here is a live psql read. Individually they measure
+ * 1-3.4s, but when the ~26 psql suites run together the pooler queues and they
+ * have exceeded Vitest's 5s default before — three of this file's tests were
+ * recorded as `Test timed out in 5000ms` on 2026-09-09 and misread as failures.
+ * A timeout reads exactly like a finding, so this file declares 60s (about 18x
+ * the slowest measured test) rather than depending on a CLI flag.
+ */
+vi.setConfig({ testTimeout: 60_000 });
 
 const HAS_DB = Boolean(process.env.PGHOST);
 if (!HAS_DB) {

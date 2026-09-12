@@ -1,4 +1,4 @@
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
 
@@ -9,6 +9,15 @@ import { gatedIt, skipBanner } from '@/test/helpers/gate';
  * Read from the live catalog, not from the migration: a migration records an
  * intention, the catalog records the outcome, and the two have diverged before.
  */
+
+/**
+ * RUNTIME: every check here is a live psql read, and 'no writer reads the
+ * dispatch factoring rate' reads six function bodies in one test — measured at
+ * 4.93s on 2026-09-12, i.e. inside Vitest's 5s default by 70ms. That is a coin
+ * flip, not a margin, and a timeout reads exactly like a finding. This file
+ * declares 60s rather than depending on a CLI flag.
+ */
+vi.setConfig({ testTimeout: 60_000 });
 
 const HAS_DB = Boolean(process.env.PGHOST);
 if (!HAS_DB) {

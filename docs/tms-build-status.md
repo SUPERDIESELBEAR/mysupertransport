@@ -11072,3 +11072,86 @@ reporting a failure.
 Standing addition: **a stale expected-red table is the same defect as a missing
 trigger.** Both let a guard sit in a state nobody re-checks. When a finding
 closes, the count in `src/test/README.md` moves in the same pass.
+
+## 2026-09-12 — THE THIRD STALE BANNER, AND THE TIMEOUT THAT LOOKED LIKE A FINDING
+
+`src/test/function-reachability.test.ts:28` still said "THIS GUARD IS EXPECTED TO
+BE RED. It ships with real findings in it" while running GREEN with 0 findings.
+The `nav-target` and `view-reachability` banners were corrected earlier today and
+this one was left — which is precisely the defect recorded this morning: a stale
+expected-red line is somewhere a new finding can hide.
+
+**Rewritten banner:** the guard is GREEN as of 2026-09-12; it SHIPPED RED on
+2026-09-10 with 14 findings; every one was closed by calling or revoking it and
+never by allowlisting (`get_inspection_doc_by_token`, `can_driver_message_staff`
+and `get_user_roles` dropped, the two role writers repinned with written
+SUPERSEDED justifications, the search scope corrected); **any name it reports
+from now on is NEW AND UNRESOLVED — a live defect, not inherited noise.**
+
+### The timeout
+
+The live check reads every client-executable function and then searches triggers,
+policies, defaults, function bodies and views in every schema for each one:
+~11s measured, against Vitest's 5s default. A bare run printed
+`Test timed out in 5000ms`, which reads exactly like a failure on a guard whose
+entire value is that a failure means something.
+
+Set `LIVE_CATALOG_TIMEOUT_MS = 60_000`, declared in the file and passed to both
+live checks — 5x the measured runtime, which is the headroom needed when the psql
+suites contend for the pooler, and not so large that a hung connection sits
+unnoticed for minutes. `gatedIt` was extended to forward a per-test timeout,
+because a CLI flag is not a property of the test: whoever runs the file next
+without the flag sees the timeout again. **A timeout is not a finding** — a guard
+that cannot finish has reported nothing at all.
+
+### SWEEP 1 — every "expected red" banner, and whether it is still true
+
+Three files carried one. **All three are now green and all three banners have
+been corrected**; no other test file in the repository claims an expected
+failure.
+
+| Banner | Was it still true? |
+|---|---|
+| `function-reachability.test.ts` | **NO — stale.** Corrected in this pass. |
+| `view-reachability.test.ts` | NO — corrected earlier today when `app-errors` was deleted. |
+| `nav-target.test.ts` | NO — corrected earlier today when the FleetRoster destination was fixed. |
+| `src/test/README.md` | **NO — stale in two places.** Said `function-reachability` "ships failing on purpose" with 11 remaining, and told readers to pass `--testTimeout=180000`. Both corrected. |
+
+### SWEEP 2 — every live-catalog suite near or over the 5s default
+
+All 26 psql suites were run together and timed per test. Only three sit near or
+over the limit, and each now declares its own timeout in-file:
+
+| Suite | Measured | Declared |
+|---|---|---|
+| `function-reachability.test.ts` | 11.1s in one test | `60_000` per live check |
+| `payments-schema.test.ts` | **4.93s** — 'no writer reads the dispatch factoring rate' reads six function bodies in one test, inside the default by 70ms. A coin flip, not a margin. | `vi.setConfig({ testTimeout: 60_000 })` |
+| `accessorial-adjustment-schema.test.ts` | 1-3.4s per test, 59s total; three tests were recorded as 5s timeouts on 2026-09-09 under contention, and dismissed as "pre-existing failures" | `vi.setConfig({ testTimeout: 60_000 })` |
+
+Every other live suite's slowest test is at or under 3.4s. File totals run much
+higher (`billing-schema` 44s, `dispatch-settlement-schema` 38s,
+`fuel-import-live` 26s) but the limit is per test, so those need nothing.
+
+### TWO THINGS THE SWEEP TURNED UP THAT WERE NOT BEING LOOKED FOR
+
+1. **A real red test with no trigger, again.**
+   `accessorial-adjustment-schema.test.ts` > 'records WHY the value exists, and
+   which exclusion set owns it' was failing on an assertion, not a timeout: the
+   comment on `settlement_line_items_source_table_check` no longer contained
+   `docs/tms-build-status.md`. The Clean Roadside bonus migration rewrote that
+   comment and dropped the reference to the written record. **Fixed by migration**
+   — the comment again names the record, and the suite is 56 passed. Linter
+   findings stayed at 170 and anon at 31; a comment changes no privilege.
+2. **Pooler refusals are not findings.** Running all 26 psql suites together,
+   three tests failed with `FATAL: (EAUTHQUERY) auth_query secret check timed
+   out` — a connection refusal. All three passed on a serial re-run. Together
+   with the timeout above, that is TWO distinct non-finding failure shapes that
+   have previously been counted as red. Read the failure text before counting a
+   finding; a guard's value depends on its failures meaning something.
+
+**Contradictions with the record: one.** The record's "pre-existing failures,
+unrelated to this pass" line of 2026-09-09 listed the three
+`accessorial-adjustment-schema` 5s timeouts as environmental. They were
+environmental — but the label also carried the real `source_table` comment
+assertion alongside them, unnoticed, for three days. That is the fourth time
+"pre-existing" has covered something real.

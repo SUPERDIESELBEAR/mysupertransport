@@ -25,10 +25,30 @@ import { callersOf } from "@/test/helpers/repoLiterals";
  * `eld_cron_status` and `grant_parity_report` are both uncalled-but-privileged
  * in the service-role sense and are recorded in the sweep, not here.
  *
- * THIS GUARD IS EXPECTED TO BE RED. It ships with real findings in it. Green is
- * reached by CALLING or REVOKING each one — never by allowlisting a finding.
+ * THIS GUARD IS GREEN as of 2026-09-12. It SHIPPED RED on 2026-09-10 with 14
+ * findings; every one has since been closed by CALLING or REVOKING it, never by
+ * allowlisting — `get_inspection_doc_by_token`, `can_driver_message_staff` and
+ * `get_user_roles` were dropped, the two role writers were repinned with written
+ * SUPERSEDED justifications, and the search scope was corrected. ANY NAME IT
+ * REPORTS FROM NOW ON IS NEW AND UNRESOLVED — a live defect, not inherited
+ * noise. Green is reached by calling or revoking it, never by allowlisting.
  * See docs/tms-build-status.md, pass "reachability guards".
+ *
+ * RUNTIME: this guard reads the live catalog and takes ~11s, over Vitest's 5s
+ * default, so its live check declares its own 60s timeout below. A TIMEOUT IS
+ * NOT A FINDING — a guard that cannot finish has reported nothing at all.
  */
+
+/**
+ * This guard's live check reads every client-executable function in the catalog
+ * and then searches triggers, policies, defaults, function bodies and views in
+ * EVERY schema for each one. That measures ~11s here — over Vitest's 5s default,
+ * so a bare run reported `Test timed out in 5000ms` and looked like a finding.
+ * 60s is 5x the measured runtime, which is the headroom needed when the psql
+ * suites run together and the pooler queues; it is not so large that a genuinely
+ * hung connection would sit unnoticed for minutes.
+ */
+const LIVE_CATALOG_TIMEOUT_MS = 60_000;
 
 const HAS_DB = Boolean(process.env.PGHOST);
 
@@ -358,7 +378,7 @@ describe("function reachability — nothing privileged goes uncalled", () => {
         `Investigate before you act, and do not make this pass by ` +
         `allowlisting.\n${detail}`,
     ).toEqual([]);
-  });
+  }, LIVE_CATALOG_TIMEOUT_MS);
 
   itLive("stale allowlist entries are reported", () => {
     const live = new Set(loadCatalog().map((r) => r.name));
@@ -371,5 +391,5 @@ describe("function reachability — nothing privileged goes uncalled", () => {
       );
     }
     expect(true).toBe(true);
-  });
+  }, LIVE_CATALOG_TIMEOUT_MS);
 });
