@@ -157,7 +157,7 @@ export default function RateConfirmationParser({
     onFacilitySuggestions?.({});
   };
 
-  const pickFile = (f: File | null) => {
+  const pickFile = (f: File | null): boolean => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     reset();
     setPdfPages(null);
@@ -167,16 +167,17 @@ export default function RateConfirmationParser({
       setFile(null);
       setPreviewUrl(null);
       onSourceFileChange(null);
-      return;
+      return false;
     }
     const problem = validateRateConFile(f);
     if (problem) {
       toast({ variant: 'destructive', description: problem });
-      return;
+      return false;
     }
     setFile(f);
     setPreviewUrl(URL.createObjectURL(f));
     onSourceFileChange(f);
+    return true;
   };
 
   /**
@@ -288,13 +289,14 @@ export default function RateConfirmationParser({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const parse = async () => {
-    if (!file) return;
+  const parse = async (selectedFile?: File) => {
+    const sourceFile = selectedFile ?? file;
+    if (!sourceFile) return;
     setParsing(true);
     try {
-      const file_base64 = await fileToBase64(file);
+      const file_base64 = await fileToBase64(sourceFile);
       const { data, error } = await supabase.functions.invoke('parse-rate-confirmation', {
-        body: { file_base64, mime_type: file.type, file_name: file.name },
+        body: { file_base64, mime_type: sourceFile.type, file_name: sourceFile.name },
       });
       if (error) throw error;
 
@@ -313,10 +315,10 @@ export default function RateConfirmationParser({
       // Verification and source selection run BEFORE the form is filled: where
       // the page's own text layer is clean it is the better source than a
       // transcription of it, so the value the form receives is the adopted one.
-      const { checks, layer, adopted } = await verifyParsedVerbatim(file, parsedResult);
-      await applyResult(file, adopted, checks, layer);
+      const { checks, layer, adopted } = await verifyParsedVerbatim(sourceFile, parsedResult);
+      await applyResult(sourceFile, adopted, checks, layer);
     } catch (e) {
-      logDbError('parse-rate-confirmation', e, { name: file.name });
+      logDbError('parse-rate-confirmation', e, { name: sourceFile.name });
       const message = await invokeErrorMessage(e, 'Could not read that rate confirmation.');
       toast({ variant: 'destructive', title: 'Parsing failed', description: message });
     } finally {
@@ -414,7 +416,11 @@ export default function RateConfirmationParser({
         type="file"
         accept="application/pdf,image/*"
         className="hidden"
-        onChange={e => pickFile(e.target.files?.[0] ?? null)}
+        onChange={e => {
+          const selectedFile = e.target.files?.[0] ?? null;
+          e.target.value = '';
+          if (selectedFile && pickFile(selectedFile)) void parse(selectedFile);
+        }}
       />
 
       <div className="rounded-md border border-dashed border-gold/60 bg-gold/5 px-3 py-2">
@@ -441,18 +447,10 @@ export default function RateConfirmationParser({
       <div className="flex flex-wrap items-center gap-2">
         {file && (
           <>
-            <Button
-              type="button"
-              className="gap-1.5 bg-gold text-surface-dark hover:bg-gold-light"
-              onClick={() => void parse()}
-              disabled={parsing}
-            >
-              {parsing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {parsing ? 'Reading document…' : parsed ? 'Parse again' : 'Parse'}
-            </Button>
             <span className="inline-flex items-center gap-1.5 text-xs text-muted-foreground min-w-0">
-              <FileText className="h-3.5 w-3.5 shrink-0" />
+              {parsing ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <FileText className="h-3.5 w-3.5 shrink-0" />}
               <span className="truncate max-w-[220px]">{file.name}</span>
+              {parsing && <span>Reading document…</span>}
             </span>
             <Button
               type="button" variant="ghost" size="icon" className="h-8 w-8"
