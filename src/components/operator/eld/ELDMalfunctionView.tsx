@@ -12,6 +12,7 @@ import { useRoadsideHydration } from '@/hooks/useRoadsideHydration';
 import CachePacketChip from '@/components/eld/CachePacketChip';
 import ELDMalfunctionWizard from './ELDMalfunctionWizard';
 import ELDMalfunctionDashboard from './ELDMalfunctionDashboard';
+import PageHeading from '@/components/shared/PageHeading';
 
 export default function ELDMalfunctionView({
   operatorId,
@@ -86,15 +87,11 @@ export default function ELDMalfunctionView({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <AlertTriangle className="h-6 w-6" style={{ color: CLOCK_RED }} />
-        <div>
-          <h2 className="text-lg font-bold text-foreground">ELD Malfunction</h2>
-          <p className="text-sm text-muted-foreground">
-            What to do when the logging device in your truck stops working
-          </p>
-        </div>
-      </div>
+      <PageHeading
+        title="ELD Malfunction"
+        description="What to do when the logging device in your truck stops working"
+        icon={<AlertTriangle className="h-6 w-6" style={{ color: CLOCK_RED }} />}
+      />
 
       {activeEvent ? (
         <>

@@ -24,6 +24,7 @@ import type { DraftSegment } from '@/hooks/useRodsDay';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import RodsDayStrip from './RodsDayStrip';
 import RodsDayEditor from './RodsDayEditor';
+import PageHeading from '@/components/shared/PageHeading';
 import LogSyncBanner from './LogSyncBanner';
 import { syncNoticeDates } from '@/lib/eld/offline/cache';
 
@@ -151,7 +152,7 @@ export default function RodsView({
   if (!activeEvent) {
     return (
       <div className="space-y-4 animate-fade-in">
-        <h2 className="text-lg font-bold text-foreground">Paper Logs</h2>
+        <PageHeading title="Paper Logs" description="Your backup record of duty status while the ELD is down." />
         <div className="rounded-lg border border-border p-4 text-sm text-muted-foreground">
           Your ELD is working, so it is your record of duty status. Paper logs open up here automatically if you
           report a malfunction.
@@ -179,13 +180,11 @@ export default function RodsView({
 
   return (
     <div className="space-y-5 animate-fade-in">
-      <div className="flex items-center gap-3">
-        <ClipboardList className="h-6 w-6 text-primary" />
-        <div>
-          <h2 className="text-lg font-bold text-foreground">Paper Logs</h2>
-          <p className="text-sm text-muted-foreground">Your record of duty status while the ELD is down</p>
-        </div>
-      </div>
+      <PageHeading
+        title="Paper Logs"
+        description="Your record of duty status while the ELD is down"
+        icon={<ClipboardList className="h-6 w-6 text-primary" />}
+      />
 
       {(() => {
         const pending = yesterdayNeedingCertification();
