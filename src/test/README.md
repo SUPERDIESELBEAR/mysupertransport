@@ -29,24 +29,28 @@ Both behave the same way:
 
 Read this before anything else if you are looking at a red suite.
 
-`function-reachability` and `view-reachability` **ship failing on purpose**. The
-three guards shipped with **16 findings**; **12** remain. **`nav-target` is now
-GREEN** — anything it reports is new.
+`function-reachability` **ships failing on purpose** and is now the ONLY red
+guard of the three. The three guards shipped with **16 findings**; **11** remain.
+**`nav-target` and `view-reachability` are GREEN** — anything either reports is
+new.
 
-| Guard | Findings (shipped -> now) | What it means |
-|---|---|---|
-| `src/test/function-reachability.test.ts` | 14 -> 11 | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
-| `src/test/view-reachability.test.ts` | 1 | Management `app-errors`: declared in the view union and in `ALLOWED_VIEWS`, but no render branch and no way in. |
-| `src/test/nav-target.test.ts` | 1 -> 0 | **GREEN.** Its one finding (`FleetRoster.tsx:732` navigating to `/management/drivers` instead of `/management?view=drivers`) was fixed on 2026-09-12. A new report is a live defect. |
+| Guard | Findings (shipped -> now) | Trigger | What it means |
+|---|---|---|---|
+| `src/test/function-reachability.test.ts` | 14 -> 11 | **Each remaining finding is settled — kept with a written justification, or dropped — before the next pass that creates a SECURITY DEFINER function; and no finding may be carried past 2026-09-30.** | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
+| `src/test/view-reachability.test.ts` | 1 -> 0 | n/a — green | **GREEN.** Its one finding (management `app-errors`, left in the view union when the Application Errors panel was deleted on 2026-06-24) was closed on 2026-09-12 by deleting the view. A new report is a live defect. |
+| `src/test/nav-target.test.ts` | 1 -> 0 | n/a — green | **GREEN.** Its one finding (`FleetRoster.tsx:732` navigating to `/management/drivers` instead of `/management?view=drivers`) was fixed on 2026-09-12. A new report is a live defect. |
 
 The function guard moved 14 -> 13 (`get_inspection_doc_by_token` dropped),
 13 -> 12 (search scope corrected, below) and 12 -> 11
 (`can_driver_message_staff` dropped). Every step was a deletion or a guard fix;
 none was an allowlist entry.
 
-**Every red guard needs a trigger.** `nav-target` sat red for nine days with its
-defect diagnosed and attributed in three places, and no date, event or condition
-saying when it had to be fixed. A guard left red carries one, or it is fixed now.
+**Every red guard needs a trigger — a date, an event or a condition.** `nav-target`
+sat red for nine days with its defect diagnosed and attributed in three places and
+no trigger saying when it had to be fixed; `view-reachability` was red for two
+days with none either, and it was carrying a view whose screen had already been
+deleted three months earlier. A guard left red carries a trigger, or it is fixed
+now. "Expected red" is not a status a guard may hold indefinitely.
 
 These are a **backlog made visible**, not broken tests. Every finding is a real
 gap; each will go green when the gap is closed.
