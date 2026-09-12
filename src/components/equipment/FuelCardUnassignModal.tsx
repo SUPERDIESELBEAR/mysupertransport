@@ -9,7 +9,7 @@ import { Loader2, RotateCcw, Info } from 'lucide-react';
 import DemoLockIcon from '@/components/DemoLockIcon';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
-import { normalizeSerial } from '@/lib/equipmentSync';
+import { shouldClearRecordedSerial } from '@/lib/equipmentSync';
 import type { EquipmentItem } from './EquipmentInventory';
 
 interface Props {
