@@ -1,80 +1,62 @@
-# Fuel statement: does it still add up when the discount is hidden?
+# Investigation — `parked-and-termination-guardrail` failing on the 2026-09-10 void
 
-Read-only investigation. Nothing was changed. Ali Mohamed's statement was generated
-from his three real purchases both ways.
+Read-only. Nothing was changed.
 
-## Short answer
+## 1. The row, in full
 
-No. With the discount hidden, the statement no longer adds up. The Total stays NET
-(after the discount), while the visible columns still add up to the GROSS. The
-difference is exactly the hidden discount: **$10.16** on Ali Mohamed.
+- Termination id `54022680-9e26-4133-9c4d-229df62f3deb`
+- Operator `28a00800-b6b5-4d60-a709-6e9c26ad7875` — Vino (Trovino) Huddleston, still **active**, not deactivated, not departing, excluded from dispatch
+- Created `2026-09-03 20:09:03 UTC`; carrier-signed `2026-09-03 20:09:02` by `2cedd3ac-…` (typed name Marc Mueller); reason `mutual`; effective `2026-09-03`; VIN `1XPBDP9X7GD298070`; never sent to insurance (`insurance_notified_at` null)
+- Voided `2026-09-10 13:45:26.964669 UTC` (same value as `updated_at`, so the void was the last write)
+- `void_reason` present: "Duplicate: superseded by the 2026-09-04 termination that was signed and sent to insurance. Kept for the record, not in force."
+- **`voided_by` is NULL**, and there is **no `lease_termination_voided` audit row** for this termination id. Those are the only two nulls/gaps; every other field is intact.
 
-## 1. What the Total shows when the discount is hidden
+## 2. How it got that way
 
-Net, in both places:
+There is no writer. Searched all of `src/`, `supabase/functions/`, and every migration:
 
-- Row "Total" cell: the amount the card was charged after the price reduction.
-- Totals block headline: $1,960.56 — the sum of those net amounts.
+- No UI control anywhere sets `lease_terminations.voided_at`. The only void UI in the app is `DeactivationWizardContent.handleVoidIca`, which voids **`ica_contracts`** (stamps `voided_by`, writes an `ica_voided` audit row) — a different table.
+- No database function touches `lease_terminations` except `on_ica_amendment_activated`, which does not void.
+- The only trigger on the table is `set_lease_terminations_updated_at`. Nothing stamps `voided_by`.
+- No migration performs any void. Migrations dated 2026-09-09/09-10 that touch void columns (`20260909233723`) only *add* `void_reason`/`voided_by` to a different table. No migration dated around 2026-09-10 writes `lease_terminations` at all.
 
-Hiding the discount removes the Discount column, the per-row cell and the Discount
-line in the totals block. It changes no other figure. The Fuel / Cash advance /
-Repairs / Other figures are built from the gross and are unchanged.
+Conclusion: the 2026-09-10 void was executed as a one-off SQL statement against the table, not through any code path. The six 2026-08-31 voids were also one-off SQL, but that batch stamped `voided_by` = `5cca4f77-…` (Marcus Mueller) and inserted six matching `lease_termination_voided` audit rows. The 2026-09-10 statement did neither.
 
-## 2. Do the visible columns sum to the visible Total?
+## 3. Is it a duplicate
 
-Discount SHOWN — yes, everywhere.
+Yes, and both rows were real documents:
 
-```text
-Row  Flying J   Fuel 514.08 + Discount -8.12            = Total  505.96  OK
-Row  Pilot      Fuel 122.30 + Cash 505.00 + Disc -2.04  = Total  625.26  OK
-Row  Love's     Fuel 829.34 (no discount)               = Total  829.34  OK
-Block           1,465.72 + 505.00 - 10.16               = 1,960.56       OK
-```
+| | `54022680` (voided) | `e2aac1e3` (in force) |
+|---|---|---|
+| created | 2026-09-03 20:09 | 2026-09-04 13:31 |
+| signed by | `2cedd3ac-…` | `97929f60-…` (Craig Pate) |
+| reason / effective / VIN | mutual / 2026-09-03 / `1XPBDP9X7GD298070` | identical |
+| insurance notified | never | 2026-09-04 13:31:30, to marc@mysupertransport.com |
 
-Discount HIDDEN — no, on every row that had a discount, and in the block.
+Same operator, same terms, generated a day apart; only the second was sent. Voiding the first is the correct business outcome, and `audit_log` independently corroborates both (`lease_termination_signed` for each, `lease_termination_sent` for the second only). The *decision* is legitimate; the *record of who made it* is missing.
 
-```text
-Row  Flying J   Fuel 514.08                    vs Total  505.96   off by 8.12
-Row  Pilot      Fuel 122.30 + Cash 505.00      vs Total  625.26   off by 2.04
-Row  Love's     Fuel 829.34                    vs Total  829.34   OK (no discount)
-Block           1,465.72 + 505.00 = 1,970.72   vs Total 1,960.56  off by 10.16
-```
+## 4. Can the supported path produce this
 
-## 3. The gap, named and sized
+There is no supported path, so the question resolves into a second finding:
 
-The gap is the hidden fuel discount, unlabelled and unexplained: **$10.16** across
-Ali Mohamed's three purchases ($8.12 Flying J, $2.04 Pilot, $0.00 Love's). A driver
-adding his own column reaches $1,970.72 and the statement says $1,960.56.
+- `lease_terminations` RLS has a single `ALL` policy — `Staff manage lease terminations` using `is_staff(auth.uid())` for both `USING` and `WITH CHECK`. Any staff client can `UPDATE` `voided_at` directly with no actor and no audit row, and nothing in the database would stop it.
+- Nothing enforces the invariant the guard asserts: no NOT NULL / CHECK pairing `voided_at` with `voided_by`, no `BEFORE UPDATE` trigger stamping the actor (unlike `20260903174410`, which does exactly that for another table), no audit trigger.
 
-Note which side reconciles: $1,970.72 is the gross — and the gross is what is
-deducted from his pay in every state. So the figure the visible columns already
-sum to is also the figure that actually left his settlement. The document prints
-the other one.
+So a void with no accountability is reachable — not by a button today, but by the same table permission the app already grants staff.
 
-The same shape as the fuel import screen balance: buckets built on the gross,
-headline built on the net, the bridging line removed from view.
+## 5. Verdict
 
-## Where this comes from
+**Both of the first two, in this order — and the guard is right.**
 
-- `buildDriverRow` fills Fuel / Cash advance / Repairs / Other from
-  `fuelBucketLines`, which is fed the GROSS (`total − discount`), and sets
-  `total` to the NET `total_amount`. The Discount cell is the bridge between them.
-- `buildFuelPdfDocument` with `showDiscount: false` drops only the Discount column
-  and the Discount breakdown line; `amount` stays `formatCurrency(totals.total)`,
-  the net.
-- The My Fuel screen does the same thing: same row builder, same totals, Discount
-  line hidden behind the same flag — so the on-screen version has the identical gap.
-- Settlement is unaffected either way: the deduction is the gross.
+1. **The row is bad data from a one-off write and should be corrected.** The void decision is sound and evidenced; what is missing is `voided_by` and the `lease_termination_voided` audit entry. Correcting it means stamping the actor who actually ran the statement and back-writing an audit row that says so, dated as a later reconstruction rather than as if it were written on 2026-09-10.
+2. **The writer gap is the real finding.** Voiding a termination has never had a code path, an actor-stamping trigger, or a constraint — the 2026-08-31 batch only satisfied the guard because whoever wrote it also hand-wrote the audit rows. The guard is asserting a genuine invariant that nothing in the database or app enforces.
 
-## Open question — not decided here
+The guard is not asserting something it should not. Its three checks (reason + actor present, every void audited, every void audit points at a real void with a named actor) are all set-based invariants with no census and no name, and the row they caught is genuinely incomplete.
 
-If this is fixed, the choice is which figure the hidden state should print:
+## Open question for you — remedy shape
 
-1. Show the gross as the Total when the discount is hidden. Adds up, and matches
-   what left his pay. The Total then differs from the card receipt he holds.
-2. Keep the net and add a neutral bridging line. Adds up, but re-reveals the
-   reduction's size, which is what hiding it was for.
-3. Leave it. The statement stays internally contradictory by $10.16 for any driver
-   with a discount and pass-through off.
+- Correct the one row only, and leave voids as a deliberately SQL-only operation.
+- Correct the row and add a `BEFORE UPDATE` trigger that stamps `voided_by` from the server-resolved actor and writes the `lease_termination_voided` audit row, so any future void is complete however it is issued.
+- Correct the row and add a proper `void_lease_termination(_id, _reason)` RPC plus a staff UI control, then narrow the RLS `ALL` policy so `voided_at` cannot be set directly.
 
-Say which, and I will plan the change.
+No fix has been applied.
