@@ -18,6 +18,18 @@ const GROUP_MONTHS: Record<'A' | 'B', number[]> = { A: [1, 4, 7, 10], B: [3, 6, 
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
   'July', 'August', 'September', 'October', 'November', 'December'];
 
+// THE UNIT IS RESOLVED THE SAME WAY EVERYWHERE: onboarding first, operator
+// record second, blank treated as absent. This mirrors `public.operator_unit_number`
+// and `src/lib/fuel/operatorUnit.ts` — a unit is assigned during onboarding, so
+// most active drivers only have it on `onboarding_status`. Reading
+// `operators.unit_number` alone left every driver ungrouped and unreminded.
+function resolveUnit(onboardingUnit: string | null, operatorUnit: string | null): string | null {
+  const a = (onboardingUnit ?? '').trim();
+  if (a) return a;
+  const b = (operatorUnit ?? '').trim();
+  return b || null;
+}
+
 function groupFor(unit: string | null): 'A' | 'B' | null {
   if (!unit) return null;
   const digits = String(unit).replace(/\D/g, '');
@@ -51,7 +63,7 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    const [opsRes, cyclesRes, setRes] = await Promise.all([
+    const [opsRes, cyclesRes, unitsRes, setRes] = await Promise.all([
       // NAMES AND EMAIL LIVE ON `applications`. `operators` has no name column;
       // asking for one made PostgREST reject the read, so this job silently sent
       // nothing at all.
@@ -59,11 +71,12 @@ Deno.serve(async (req) => {
         .select('id, user_id, unit_number, is_active, application_id, applications(first_name, last_name, email)')
         .eq('is_active', true),
       supabase.from('inspection_cycles').select('*'),
+      supabase.from('onboarding_status').select('operator_id, unit_number'),
       supabase.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
     ]);
 
     // A REJECTED READ MUST NOT LOOK LIKE "NOBODY NEEDED A REMINDER".
-    const readError = opsRes.error ?? cyclesRes.error ?? setRes.error;
+    const readError = opsRes.error ?? cyclesRes.error ?? unitsRes.error ?? setRes.error;
     if (readError) {
       console.error('[cron-inspection-reminders] read failed', readError);
       return new Response(JSON.stringify({ error: readError.message, sent: 0 }), {
@@ -71,6 +84,9 @@ Deno.serve(async (req) => {
       });
     }
     const operators = opsRes.data, cycles = cyclesRes.data, settings = setRes.data as any;
+    const onboardingUnits = new Map<string, string | null>(
+      (unitsRes.data ?? []).map((r: any) => [r.operator_id, r.unit_number]),
+    );
 
     const offsets: number[] = settings?.reminder_offsets_days ?? [30, 14, 3];
     const [preMonth, midMonth, lateMonth] = [offsets[0] ?? 30, offsets[1] ?? 14, offsets[2] ?? 3];
@@ -78,7 +94,8 @@ Deno.serve(async (req) => {
     let sent = 0, skipped = 0;
 
     for (const op of operators ?? []) {
-      const group = groupFor(op.unit_number);
+      const unit = resolveUnit(onboardingUnits.get(op.id) ?? null, op.unit_number);
+      const group = groupFor(unit);
       if (!group || !op.user_id) { skipped++; continue; }
 
       const cycle = nextCycle(group, now);
