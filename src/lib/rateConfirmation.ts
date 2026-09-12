@@ -198,6 +198,20 @@ export interface BrokerCandidate {
   score: number;
 }
 
+/**
+ * SIZE LIMIT — one of three declared tiers in this codebase. Do not add a fourth
+ * without a reason recorded here and in the other two:
+ *   10 MB  `validateFile.ts`  — driver/applicant phone photos and scans
+ *   20 MB  this file          — multi-page broker rate confirmations; the parse
+ *          function's own guard is 28 M base64 characters, about 21 MB raw
+ *   25 MB  `loadDocuments.ts` / `binderUpload.ts` — staff-scanned paperwork
+ *
+ * NOT YET STATED ON SCREEN. `RevisedRateConModal` still says 10 MB and the Create
+ * Load strip says nothing, deliberately: 20 MB is unproven end to end because the
+ * model gateway's request-body ceiling is controlled by no constant here.
+ * Advertising 20 MB before a real 15 MB parse has run would promise a limit that
+ * might fail. Blocked on that test; understating is the safer error.
+ */
 export const MAX_RATECON_BYTES = 20 * 1024 * 1024;
 
 export const ACCEPTED_RATECON_MIME = [
