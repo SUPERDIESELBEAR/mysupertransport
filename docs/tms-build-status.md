@@ -10697,3 +10697,72 @@ FOUR FINDINGS FROM THE LIVE SITE, all in Driver Fuel Detail's neighbourhood.
 GUARD: `src/lib/fuel/__tests__/setUpOperatorOptions.test.ts` is a SOURCE guard,
 not a census — it fails if a pay screen goes back to reading its own list, and
 survives any driver being onboarded or terminated.
+
+=====================================================================
+2026-09-12 — TWO SILENT FAILURES FIXED, ONE FINDING ALREADY FIXED
+=====================================================================
+
+1. DEPARTING FLAG WAS NEVER CLEARED ON DEACTIVATION — FIXED
+
+`DeactivationWizardContent.handleFinalize` called
+`clear_operator_departing` with `{ p_operator_id }`. RPC passes NAMED
+arguments and the parameters are `_operator_id, _note`, so the call errored
+every time. The error was only `console.error`'d, so the wizard reported
+success while `operators.is_departing` stayed true — and `settlementRun.ts`
+feeds `is_departing` into the departing-hold formula, so a fully offboarded
+driver kept having his settlement held.
+
+Fixed to the same call shape `DepartingControl.tsx` has always used, with a
+note of "Cleared automatically on deactivation". The failure is no longer
+swallowed: a failed clear raises a destructive toast naming the consequence
+(still flagged departing, settlement held, clear it on his driver record) and
+the closing toast becomes "Deactivated with one item left to do" instead of
+"Driver deactivated". Deactivation itself still completes — aborting midway
+would leave the operator deactivated with the remaining steps unrun.
+
+LIVE DAMAGE: none. `is_departing = true` count is 0, and
+`is_departing AND is_active = false` is 0. The defect never bit because no
+departing-flagged driver has been through the wizard yet.
+
+2. UNASSIGNING A FUEL CARD BLANKED THE DRIVER'S CURRENT CARD — FIXED
+
+`FuelCardUnassignModal` set `onboarding_status.fuel_card_number` to null
+unconditionally. `EquipmentAssignModal` writes that field on each new
+assignment, so assigning 224 then unassigning 212 wiped the 224 just
+recorded. `fuel_resolve_card` and the import review queue read the value, so
+the damage would surface weeks later as unmatched fuel, not as a failed
+unassign.
+
+Fixed via new `shouldClearRecordedSerial(recorded, unassigned)` in
+`src/lib/equipmentSync.ts` — cleared only when the recorded number IS the
+card being unassigned, compared with the same `normalizeSerial` the
+assignment path writes through.
+
+ALI MOHAMED — DID IT BITE? No, by ordering alone. Card 212's assignment was
+closed at 2026-09-07 23:38:32 ("Assigned the wrong card"), and card 224's
+assignment row was created at 23:39:41. The unassign came FIRST, so the blind
+clear wiped an already-stale value and 224 was written after it. Reversed
+order and he would have had no card on file and unmatched fuel on the next
+import. GUARD: `src/lib/__tests__/fuelCardUnassignClear.test.ts`, invariants
+only, with the Ali timeline as a comment rather than an assertion.
+
+3. PER-TON EDIT PATH — ALREADY FIXED, REPORTED NOT RECONCILED
+
+The pass was asked to fix `update_load_with_stops` computing its own total
+from `estimated_tons`. That is true of migration `20260831203038`, which is
+SUPERSEDED. The LIVE function already carries the comment "The total is NOT
+computed here… public.recompute_load_total_value is the single implementation",
+already writes `confirmed_tons` in its UPDATE, and already calls
+`recompute_load_total_value(p_load_id, v_reason)` after it. Later migrations
+`20260901124505` and `20260901125516` are where it landed. No change made and
+none needed; reported rather than reconciled.
+
+ST26059: `total_load_value` 6750, `confirmed_tons` 25, `estimated_tons` 25,
+`rate_type` per_ton — before and after this pass, unchanged. Note the two tons
+figures are equal on that load, so it could not have demonstrated the drift
+either way.
+
+PRE-EXISTING, NOT IN THIS PASS: `parked-and-termination-guardrail` has two
+red live assertions over one row — the 2026-09-10 duplicate void
+(`54022680-9e26-4133-9c4d-229df62f3deb`) has a written reason but
+`voided_by IS NULL` and no audit entry. Untouched by this pass.

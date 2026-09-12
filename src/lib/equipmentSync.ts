@@ -155,6 +155,22 @@ export function normalizeSerial(value: string | null | undefined): string | null
 }
 
 /**
+ * Unassigning a device may only clear the recorded number when the recorded
+ * number IS that device. Unassigning an old fuel card after a newer one was
+ * already recorded must leave the newer one alone — `fuel_resolve_card` and the
+ * fuel import review queue read it, so a silent blanking surfaces weeks later
+ * as unmatched fuel rather than as a failed unassign.
+ */
+export function shouldClearRecordedSerial(
+  recorded: string | null | undefined,
+  unassigned: string | null | undefined,
+): boolean {
+  const a = normalizeSerial(recorded);
+  const b = normalizeSerial(unassigned);
+  return !!a && !!b && a === b;
+}
+
+/**
  * Comparison form of a serial. On top of normalizeSerial it folds the
  * characters that are visually confusable on a device label — O/0, I/1, L/1,
  * S/5 — so `AABL36UGO24945` and `AABL36UG024945` are recognised as the same
