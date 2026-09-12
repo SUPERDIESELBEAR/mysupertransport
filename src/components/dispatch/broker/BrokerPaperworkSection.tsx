@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { getDbErrorMessage } from '@/lib/dbError';
+import { validateLoadDocumentFile, LOAD_DOC_FILE_HINT } from '@/lib/loadDocuments';
 import {
   brokerDocumentUrl, fetchBrokerDocuments, uploadBrokerDocument, type BrokerDocument,
 } from '@/lib/brokerRelationship';

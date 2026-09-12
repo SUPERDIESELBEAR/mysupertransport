@@ -8,7 +8,7 @@ import {
 } from '@/components/ui/select';
 import { toast } from '@/hooks/use-toast';
 import {
-  fetchLoadDocuments, uploadLoadDocument, validateLoadDocumentFile,
+  fetchLoadDocuments, uploadLoadDocument, validateLoadDocumentFile, LOAD_DOC_FILE_HINT,
   type LoadDocumentType,
 } from '@/lib/loadDocuments';
 import { PROOF_KIND_LABELS, type ProofKind } from '@/lib/accessorialAdjustments';
