@@ -4,6 +4,7 @@ import type { Area } from 'react-easy-crop';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { MAX_AVATAR_BYTES } from '@/lib/validateFile';
 import { useAuth } from '@/hooks/useAuth';
 import {
   Dialog,
@@ -221,7 +222,7 @@ export default function EditProfileModal({ open, onClose, onSaved, variant = 'de
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_AVATAR_BYTES) {
       setAvatarError('Image must be under 5 MB.');
       if (fileInputRef.current) fileInputRef.current.value = '';
       return;

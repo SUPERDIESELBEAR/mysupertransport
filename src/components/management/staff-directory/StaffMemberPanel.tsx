@@ -10,6 +10,7 @@ import {
   Phone, Trash2, Camera, Loader2, KeyRound, Cake,
 } from 'lucide-react';
 import { formatPhoneInput } from '@/lib/utils';
+import { MAX_AVATAR_BYTES } from '@/lib/validateFile';
 import { BIRTH_MONTHS, daysInBirthMonth, formatBirthday } from '@/lib/birthdayAnniversary/birthdayFields';
 import { ALL_STAFF_ROLES, ROLE_CONFIG, STATUS_CONFIG, type AppRole, type StaffMember, type StaffRole } from './types';
 
@@ -314,7 +315,7 @@ export default function StaffMemberPanel({
       setAvatarError('Please upload a JPEG, PNG, or WebP image.');
       return;
     }
-    if (file.size > 5 * 1024 * 1024) {
+    if (file.size > MAX_AVATAR_BYTES) {
       setAvatarError('Image must be under 5 MB.');
       return;
     }

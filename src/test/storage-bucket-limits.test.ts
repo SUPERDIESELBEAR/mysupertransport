@@ -43,28 +43,40 @@ const itLive = gatedIt({
  * docs/storage-bucket-limits.md. Keep this map and that document in one pass.
  */
 const INTENDED: Record<string, number | null> = {
-  "application-documents": null,
-  "application-revision-replies": null,
-  avatars: null,
-  "broker-documents": 25_000_000, // decimal MB, not MiB — recorded, not yet aligned
-  "dot-consultant-attachments": null,
+  "application-documents": 10_485_760, // 10 MiB, matches validateFile on the public /apply form
+  "application-revision-replies": 10_485_760, // 10 MiB, matches MAX_FILE_SIZE_BYTES
+  avatars: 5_242_880, // 5 MiB, matches MAX_AVATAR_BYTES; public bucket
+  "broker-documents": 26_214_400, // realigned 2026-09-12 from 25,000,000 decimal to 25 MiB
+  "dot-consultant-attachments": 10_485_760, // 10 MiB, matches the staff attachment check
   "driver-uploads": 26_214_400, // 25 MiB, matches validateLoadDocumentFile / validateBinderFile
-  "eld-notices": null,
-  "fleet-documents": null,
-  "ica-signatures": null,
+  "eld-notices": null, // DELIBERATE: server-written retention archives, see the doc
+  "fleet-documents": 10_485_760, // 10 MiB, matches validateFile
+  "ica-signatures": 10_485_760, // 10 MiB, canvas exports; generous ceiling
   "inspection-documents": 26_214_400, // 25 MiB, matches validateBinderFile
-  "load-documents": null,
+  "load-documents": 26_214_400, // 25 MiB, matches validateLoadDocumentFile
   "message-attachments": 10_485_760, // the only cap also written in a migration
-  "operator-documents": null,
-  "passenger-auth-executed": null,
-  "passenger-auth-signatures": null,
-  "pei-documents": null,
+  "operator-documents": 10_485_760, // 10 MiB, matches validateFile / MAX_FILE_SIZE_BYTES
+  "passenger-auth-executed": null, // DELIBERATE: system-written, see the doc
+  "passenger-auth-signatures": null, // DELIBERATE: system-written, see the doc
+  "pei-documents": 10_485_760, // 10 MiB, matches the PEI upload check
   "rate-con-ingest": 30_000_000, // server-side email ingest only
-  "resource-library": null,
-  "rods-logs": null,
-  "service-logos": null,
-  signatures: null,
+  "resource-library": 20_971_520, // 20 MiB, matches DocumentEditorModal
+  "rods-logs": null, // DELIBERATE: federal records; a cap can lose a required log
+  "service-logos": 5_242_880, // 5 MiB, a logo; public bucket
+  signatures: 10_485_760, // 10 MiB, canvas exports; generous ceiling
 };
+
+/**
+ * The only four buckets that may read `null`. A null here is a DECISION with a
+ * reason recorded in docs/storage-bucket-limits.md, not a cap nobody got round to.
+ * Any other null is an unset cap.
+ */
+const DELIBERATELY_UNBOUNDED = [
+  "rods-logs",
+  "eld-notices",
+  "passenger-auth-signatures",
+  "passenger-auth-executed",
+];
 
 function psql(sql: string): string[] {
   const out = execFileSync("psql", ["-At", "-c", sql], {
@@ -101,11 +113,18 @@ describe("live storage bucket size limits", () => {
     expect(drift, drift.join("\n")).toEqual([]);
   });
 
-  itLive("the four caps that exist in no migration are still in place", () => {
+  itLive("every cap that exists in no migration is still in place", () => {
     const live = liveLimits();
-    const lost = ["inspection-documents", "driver-uploads", "broker-documents", "rate-con-ingest"]
+    const lost = Object.keys(INTENDED)
+      .filter((id) => INTENDED[id] !== null && id !== "message-attachments")
       .filter((id) => live[id] == null)
       .map((id) => `${id} has no cap — it exists in no migration, so a rebuild drops it silently`);
     expect(lost, lost.join("\n")).toEqual([]);
+  });
+
+  itLive("only the four deliberate nulls are uncapped", () => {
+    const live = liveLimits();
+    const uncapped = Object.keys(live).filter((id) => live[id] == null).sort();
+    expect(uncapped, uncapped.join(", ")).toEqual([...DELIBERATELY_UNBOUNDED].sort());
   });
 });

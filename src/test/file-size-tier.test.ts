@@ -5,24 +5,31 @@ import { join } from 'node:path';
 /**
  * FILE SIZE TIER GUARD — EXPECTED GREEN.
  *
- * This project enforces exactly three upload size tiers:
+ * This project enforces exactly four upload size tiers:
+ *    5 MB  `validateFile.ts` MAX_AVATAR_BYTES — profile and staff photos
  *   10 MB  `validateFile.ts`      — phone photos and single-page scans
  *   20 MB  `rateConfirmation.ts`  — multi-page broker rate confirmations
  *   25 MB  `loadDocuments.ts` and `binderUpload.ts` — scanner PDFs
  *
- * A fourth tier appearing here is NEW and unresolved: either fold it into an
+ * A fifth tier appearing here is NEW and unresolved: either fold it into an
  * existing tier or declare it below with a reason, in the same pass that adds it.
  * Every declared constant must also carry a comment explaining its tier, so the
  * next person does not have to guess which limit a screen should state.
+ *
+ * BLIND SPOT, still open: this guard only sees exported `MAX_*` constants under
+ * `src/**` written as `N * 1024 * 1024`. It cannot see a bucket cap (that is
+ * `storage-bucket-limits.test.ts`) nor an inline literal. The four inline limits
+ * this project carried were folded into the tiers above on 2026-09-12.
  */
 const DECLARED = new Map<string, number>([
+  ['src/lib/validateFile.ts::MAX_AVATAR_BYTES', 5],
   ['src/lib/validateFile.ts::MAX_FILE_SIZE_BYTES', 10],
   ['src/lib/rateConfirmation.ts::MAX_RATECON_BYTES', 20],
   ['src/lib/loadDocuments.ts::MAX_LOAD_DOC_BYTES', 25],
   ['src/lib/binderUpload.ts::MAX_BINDER_BYTES', 25],
 ]);
 
-const ALLOWED_TIERS = [10, 20, 25];
+const ALLOWED_TIERS = [5, 10, 20, 25];
 
 function walk(dir: string, out: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {

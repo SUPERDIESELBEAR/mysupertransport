@@ -1,13 +1,20 @@
 /**
- * SIZE LIMIT — one of three declared tiers in this codebase. Do not add a fourth
- * without a reason recorded here and in the other two:
- *   10 MB  this file               — driver/applicant phone photos and scans, and
- *          the maintenance invoice scan, all single-page captures
+ * SIZE LIMIT — one of four declared tiers in this codebase. Do not add a fifth
+ * without a reason recorded here and in the others:
+ *    5 MB  this file, `MAX_AVATAR_BYTES` — profile and staff photos, a single
+ *          cropped square image; the `avatars` bucket caps at the same value
+ *   10 MB  this file, `MAX_FILE_SIZE_BYTES` — driver/applicant phone photos and
+ *          scans, and the maintenance invoice scan, all single-page captures
  *   20 MB  `rateConfirmation.ts`   — multi-page broker rate confirmations
  *   25 MB  `loadDocuments.ts` / `binderUpload.ts` — staff-scanned paperwork
  * Every screen using this validator must state 10 MB.
+ *
+ * The 5 MB tier was declared on 2026-09-12. It already existed as an inline
+ * literal in two avatar screens, invisible to `src/test/file-size-tier.test.ts`,
+ * which is exactly how an undeclared limit arrives unnoticed.
  */
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+export const MAX_AVATAR_BYTES = 5 * 1024 * 1024; // 5 MB — see tier note above
 
 /** MIME types that are always accepted for document uploads */
 const ALLOWED_MIME_TYPES = new Set([
