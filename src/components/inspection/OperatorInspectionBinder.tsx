@@ -20,6 +20,7 @@ import {
   DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
 import { insertPayload } from '@/integrations/supabase/helpers';
+import { validateBinderFile, BINDER_FILE_HINT } from '@/lib/binderUpload';
 import logo from '@/assets/supertransport-logo.png';
 import {
   InspectionDocument, DriverUpload,
@@ -174,6 +175,8 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
 
   const handleDriverUpload = async (category: UploadCategory, file: File) => {
     if (!user) return;
+    const tooBig = validateBinderFile(file);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     setUploadingKey(category);
     try {
       const ext = file.name.split('.').pop();
@@ -217,6 +220,8 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
   /** Submit a proposed new version of a binder document for staff review. */
   const handleBinderReplaceSubmit = async () => {
     if (!user || !replaceSlot || !replaceFile) return;
+    const tooBig = validateBinderFile(replaceFile);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     if (!replaceExpiry) {
       toast({ title: 'Expiry date required', description: 'Enter the expiry date shown on the new document.', variant: 'destructive' });
       return;
@@ -554,6 +559,7 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
                       <div>
                         <p className="text-sm font-semibold text-foreground">{label}</p>
                         <p className="text-xs text-muted-foreground">{desc}</p>
+                        <p className="text-[11px] text-muted-foreground">{BINDER_FILE_HINT}</p>
                       </div>
                       <div>
                         <input
@@ -647,6 +653,7 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
           <div className="space-y-4 py-2">
             <div>
               <p className="text-xs font-medium text-foreground mb-1.5">New document (PDF or photo)</p>
+              <p className="text-[11px] text-muted-foreground mb-1.5">{BINDER_FILE_HINT}</p>
               <input
                 type="file"
                 accept=".pdf,.jpg,.jpeg,.png"

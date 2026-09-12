@@ -22,6 +22,7 @@ const DocumentEditor = lazyWithRetry(() => import('@/components/shared/DocumentE
 import { EditorErrorBoundary } from '@/components/shared/EditorErrorBoundary';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { resolveBinderStorage, resolvePathOnly } from '@/lib/binderStorage';
+import { validateBinderFile, BINDER_FILE_HINT } from '@/lib/binderUpload';
 
 
 /**
@@ -1200,10 +1201,17 @@ export function DocRow({ doc, name, hasExpiry, selected, selectMode, onToggleSel
                   type="file"
                   accept=".pdf,.jpg,.jpeg,.png"
                   className="hidden"
+                  title={BINDER_FILE_HINT}
                   onChange={e => {
                     const f = e.target.files?.[0];
-                    if (f) onUpload(f);
                     e.target.value = '';
+                    if (!f) return;
+                    const tooBig = validateBinderFile(f);
+                    if (tooBig) {
+                      toast({ title: 'File too large', description: tooBig, variant: 'destructive' });
+                      return;
+                    }
+                    onUpload(f);
                   }}
                 />
                 {isManagedByCompany ? (

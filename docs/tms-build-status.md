@@ -11155,3 +11155,47 @@ unrelated to this pass" line of 2026-09-09 listed the three
 environmental — but the label also carried the real `source_table` comment
 assertion alongside them, unnoticed, for three days. That is the fourth time
 "pre-existing" has covered something real.
+
+## 2026-09-12 — Upload size limits: binder closed, every path states its figure
+
+Binder rows were the one upload path in the app with NO client size check and NO
+bucket cap. Closed: `MAX_BINDER_BYTES` / `validateBinderFile` / `BINDER_FILE_HINT` in
+`src/lib/binderUpload.ts`, wired into every binder entry point — `DocRow` (the shared
+row input all binder screens render), `OperatorBinderPanel` (`handleUpload` and
+`handleStaffUpload`), `InspectionBinderAdmin` (`handleUpload`, which the bulk and
+replacement paths also call), and `OperatorInspectionBinder` (`handleDriverUpload` and
+`handleBinderReplaceSubmit`). Buckets `inspection-documents` (was NULL, unbounded) and
+`driver-uploads` now cap at 25 MB, so a file that gets past the client is refused by
+storage instead of stored.
+
+Displayed limits added where a path stated nothing: driver load paperwork, loadout
+photos, late-accessorial proof and broker paperwork say 25 MB; the maintenance invoice
+scan says 10 MB. Broker paperwork also gained the client check it never had — its
+bucket already capped at 25 MB, so oversized files failed silently in storage.
+
+THREE TIERS, DECLARED AND GUARDED. 10 MB (`validateFile.ts`, phone captures),
+20 MB (`rateConfirmation.ts`, multi-page broker scans), 25 MB (`loadDocuments.ts` and
+`binderUpload.ts`, scanner PDFs). Each constant carries a `SIZE LIMIT` comment naming
+the other two. `src/test/file-size-tier.test.ts` is EXPECTED GREEN and fails on a
+fourth tier, an undeclared constant, a value that drifts from its declaration, or a
+constant with no recorded reason.
+
+### OPEN TEST WITH A TRIGGER — the two rate-con labels
+
+`RevisedRateConModal.tsx` says 10 MB and the Create Load scan strip says nothing. Both
+should say 20 MB. Deliberately unchanged this pass.
+
+WHY IT CANNOT BE SETTLED FROM THE CODE: the model gateway's request-body ceiling is
+controlled by no constant in this project. Client validation (`MAX_RATECON_BYTES`,
+20 MB) and the edge function's own guard (28 M base64 characters, about 21 MB raw) both
+pass a 20 MB file. What the gateway does beyond that is untested, and advertising a
+limit that might fail is worse than understating one.
+
+WHAT THE TEST NEEDS: a GENUINE multi-page broker scan of roughly 15 MB parsed end to
+end. Not a padded or synthetic PDF — a file of the same nominal size may compress
+differently and prove nothing about the real path.
+
+TRIGGER: before either label is changed to say 20 MB, or the next time a large rate
+confirmation arrives naturally — whichever comes first. Per the standing rule recorded
+earlier today, this open item carries a trigger rather than sitting as an indefinite
+"pending".

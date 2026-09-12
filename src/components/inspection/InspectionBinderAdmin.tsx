@@ -40,7 +40,7 @@ import {
 } from './InspectionBinderTypes';
 import { useDriverOptionalDocs } from '@/hooks/useDriverOptionalDocs';
 import { ExpiryBadge, OnFileBadge, FilePreviewModal, bucketForBinderDoc, InspectedBadge, isInspectionDateDoc } from './DocRow';
-import { hashFile, findDuplicateByHash, replaceBinderDocumentFile, describeDuplicate, StaleBinderDocumentError, type DuplicateMatch } from '@/lib/binderUpload';
+import { hashFile, findDuplicateByHash, replaceBinderDocumentFile, describeDuplicate, StaleBinderDocumentError, validateBinderFile, BINDER_FILE_HINT, type DuplicateMatch } from '@/lib/binderUpload';
 
 import { signBinderFileUrl } from './BinderDocHistoryDialog';
 import DriverCombobox from './DriverCombobox';
@@ -416,6 +416,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
   ) => {
     if (!user) return;
     if (guardDemo()) return;
+    const tooBig = validateBinderFile(file);
+    if (tooBig) { toast({ title: 'File too large', description: tooBig, variant: 'destructive' }); return; }
     const driverId = scope === 'per_driver' ? selectedDriverId : null;
     if (scope === 'per_driver' && !driverId) {
       toast({ title: 'Select a driver first', variant: 'destructive' });
@@ -1487,6 +1489,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                   )}
                   <p className="text-xs text-muted-foreground">
                     These documents apply to all drivers. Upload here, then share fleet-wide or to a specific driver.
+                    {' '}{BINDER_FILE_HINT}.
                   </p>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
