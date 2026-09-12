@@ -138,3 +138,27 @@
 - Overdue is an ADVISORY badge ("not dispatch eligible"), not a hard dispatch block.
 - Deferred: CSA percentile and DataQ figures in the monthly summary stay manual —
   there is no FMCSA feed wired up.
+
+## Upload size limits (2026-09-12)
+
+- [done] Binder rows enforce 25 MB in the client (`validateBinderFile`) at every entry
+  point: `DocRow`, `OperatorBinderPanel` (own + on-behalf), `InspectionBinderAdmin`,
+  `OperatorInspectionBinder` (driver upload + replacement). Buckets
+  `inspection-documents` and `driver-uploads` now cap at 25 MB, so a file that slips
+  past the client is refused by storage rather than stored.
+- [done] Every upload path now states the limit it enforces: 25 MB on driver load
+  paperwork, loadout photos, late-accessorial proof and broker paperwork; 10 MB on the
+  maintenance invoice scan. Broker paperwork gained the client check it never had.
+- [done] `src/test/file-size-tier.test.ts` guards the three declared tiers
+  (10 / 20 / 25 MB) — a fourth tier, or a constant without a recorded reason, fails it.
+- [OPEN — BLOCKED ON A REAL FILE] Two rate-con labels understate or omit the limit:
+  `RevisedRateConModal.tsx` says 10 MB and the Create Load scan strip says nothing.
+  Both should say 20 MB. Neither may be changed until a GENUINE multi-page broker scan
+  of about 15 MB has been parsed end to end.
+  Why it cannot be settled from the code: the model gateway's request-body ceiling is
+  controlled by no constant in this project. Client validation (`MAX_RATECON_BYTES`,
+  20 MB) and the edge function's own guard (28 M base64 characters) both pass a 20 MB
+  file; what the gateway does beyond that is untested. A padded or synthetic PDF of the
+  same size may compress differently and prove nothing.
+  TRIGGER: before either label is changed to say 20 MB, or the next time a large rate
+  confirmation arrives naturally — whichever comes first.
