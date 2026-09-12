@@ -83,8 +83,7 @@ export default function FuelCardUnassignModal({ open, item, onClose, onSaved }: 
             .eq('operator_id', assignment.operator_id)
             .maybeSingle();
           if (osErr) throw osErr;
-          const recorded = normalizeSerial(os?.fuel_card_number);
-          if (recorded && recorded === normalizeSerial(item.serial_number)) {
+          if (shouldClearRecordedSerial(os?.fuel_card_number, item.serial_number)) {
             const { error: clearErr } = await supabase
               .from('onboarding_status')
               .update(updatePayload('onboarding_status', { fuel_card_number: null }))
