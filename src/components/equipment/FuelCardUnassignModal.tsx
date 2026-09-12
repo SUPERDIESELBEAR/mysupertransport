@@ -61,7 +61,13 @@ export default function FuelCardUnassignModal({ open, item, onClose, onSaved }: 
         .eq('id', item.id);
       if (itemErr) throw itemErr;
 
-      // 3. Clear the Stage 5 fuel card field on the driver's record.
+      // 3. Clear the Stage 5 fuel card field ONLY if it still records THIS card.
+      //    Unassigning an old card must never blank a newer one: assign 224,
+      //    then unassign 212, and a blind clear wipes the card the driver is
+      //    actually carrying. `fuel_resolve_card` and the fuel import review
+      //    queue read this value, so the damage surfaces weeks later as
+      //    unmatched fuel. Compared with the same normalisation
+      //    EquipmentAssignModal uses when it writes the value.
       if (item.current_assignment_id) {
         const { data: assignment, error: readErr } = await supabase
           .from('equipment_assignments')
@@ -70,11 +76,20 @@ export default function FuelCardUnassignModal({ open, item, onClose, onSaved }: 
           .single();
         if (readErr) throw readErr;
         if (assignment) {
-          const { error: clearErr } = await supabase
+          const { data: os, error: osErr } = await supabase
             .from('onboarding_status')
-            .update(updatePayload('onboarding_status', { fuel_card_number: null }))
-            .eq('operator_id', assignment.operator_id);
-          if (clearErr) throw clearErr;
+            .select('fuel_card_number')
+            .eq('operator_id', assignment.operator_id)
+            .maybeSingle();
+          if (osErr) throw osErr;
+          const recorded = normalizeSerial(os?.fuel_card_number);
+          if (recorded && recorded === normalizeSerial(item.serial_number)) {
+            const { error: clearErr } = await supabase
+              .from('onboarding_status')
+              .update(updatePayload('onboarding_status', { fuel_card_number: null }))
+              .eq('operator_id', assignment.operator_id);
+            if (clearErr) throw clearErr;
+          }
         }
       }
 

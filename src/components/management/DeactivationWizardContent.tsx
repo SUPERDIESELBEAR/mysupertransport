@@ -1062,7 +1062,15 @@ export function DeactivationWizardContent({
         },
       });
 
-      toast({ title: 'Driver deactivated', description: `${operatorName} has been deactivated.` });
+      toast(
+        departingClearFailed
+          ? {
+              title: 'Deactivated with one item left to do',
+              description: `${operatorName} has been deactivated, but the leaving-soon flag is still set and needs clearing on his driver record.`,
+              variant: 'destructive' as const,
+            }
+          : { title: 'Driver deactivated', description: `${operatorName} has been deactivated.` },
+      );
       onComplete();
     } catch (err: any) {
       toast({ title: 'Deactivation failed', description: err.message, variant: 'destructive' });
