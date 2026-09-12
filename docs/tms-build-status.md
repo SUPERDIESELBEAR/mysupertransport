@@ -10810,3 +10810,59 @@ PRE-EXISTING, NOT IN THIS PASS: `parked-and-termination-guardrail` has two
 red live assertions over one row — the 2026-09-10 duplicate void
 (`54022680-9e26-4133-9c4d-229df62f3deb`) has a written reason but
 `voided_by IS NULL` and no audit entry. Untouched by this pass.
+
+## The 2026-09-10 unattributable void — corrected, and made unwritable (2026-09-12)
+
+### What happened, attributed honestly
+
+Termination `54022680-9e26-4133-9c4d-229df62f3deb`, Vino (Trovino) Huddleston,
+was voided `2026-09-10 13:45:26.964669+00` with a correct reason, no
+`voided_by`, and no `lease_termination_voided` audit row.
+
+It was not a click. It was the backfill data write of the plan approved that
+morning — "Deactivating a driver — one path, saved as you go" — whose technical
+notes say the 09/03 duplicate gets a void stamp. That write ran
+UNAUTHENTICATED, so there was no actor to stamp, which is also why all seven
+`operator_offboarding_steps` rows written ten seconds earlier carry
+`completed_by` null. The owner's own writes that day are three hours later,
+16:23:30 and 16:27:55, both stamped `5cca4f77-…` — a different signature.
+
+The owner AUTHORISED the plan; an unauthenticated process EXECUTED it. No UI
+path to void a lease termination exists — confirmed by two independent searches
+— so this was never an app defect.
+
+### The row
+
+`voided_by` now names the owner as the AUTHORISING actor, and the missing audit
+row was written dated 2026-09-12, not backdated, stating in its `note` that it
+is a later reconstruction, naming the plan, and saying plainly that nobody
+performed the void because a process did. `voided_at`, `void_reason` and
+everything else on the row are unchanged.
+
+### The fix — a trigger, not a function guard
+
+`enforce_lease_termination_void()`, `BEFORE UPDATE ON public.lease_terminations`
+`FOR EACH ROW WHEN (OLD.voided_at IS NULL AND NEW.voided_at IS NOT NULL)`:
+requires a non-blank `void_reason`, stamps `voided_by` from
+`current_profile_id()` and DISCARDS whatever the client sent, writes the
+`lease_termination_voided` audit row, and REFUSES the void when no profile
+resolves. Stamping null would reproduce the state being corrected. A trigger
+because the table's RLS is a single `ALL` policy on `is_staff(auth.uid())`, so
+any staff client can set `voided_at` directly — and the write that caused this
+was a direct one. Protections: SECURITY DEFINER, `SET search_path = public,
+extensions`, EXECUTE revoked from PUBLIC/anon/authenticated with service_role
+only, plus the refuse-without-actor rule itself.
+
+### Two guard findings that came out of it
+
+`no void was issued against a driver who was already gone` was red for a reason
+NOT in this pass's brief: the third branch of `goneAsOfVoid` dated the prior
+in-force termination against `lt.voided_at`, so recording the correct 09/04
+replacement made withdrawing the 09/03 duplicate a violation — condemning the
+clearest legitimate use of a void. It now dates against `lt.created_at`: did the
+driver already have an in-force termination WHEN THIS ROW WAS RECORDED. The
+fixture verdicts are unchanged.
+
+`definer-live-catalog` was red on the four quarterly inspection-bonus grace RPCs
+left unregistered by the 2026-09-11 staged-migration pass. Registered with their
+gates; `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 127 → 131.
