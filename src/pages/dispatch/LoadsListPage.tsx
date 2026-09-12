@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import ColumnVisibilityMenu from '@/components/shared/ColumnVisibilityMenu';
 import SortableTableHead from '@/components/shared/SortableTableHead';
+import PageHeading from '@/components/shared/PageHeading';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import LoadClaimIndicator from '@/components/dispatch/LoadClaimIndicator';
 import { compareValues, nextSortState } from '@/lib/listSorting';
@@ -289,10 +290,11 @@ export default function LoadsListPage({ onSelectLoad, onCreateLoad }: LoadsListP
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-xl font-semibold text-foreground">Loads</h1>
-        {createButton}
-      </div>
+      <PageHeading
+        title="Loads"
+        description="Find, filter, and manage every load."
+        actions={createButton}
+      />
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2.5">

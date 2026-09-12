@@ -34,6 +34,7 @@ import { loadFormDefaults, loadFormSchema, type LoadFormValues } from './loadFor
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/hooks/useAuth';
+import PageHeading from '@/components/shared/PageHeading';
 import { fetchLoadForEdit, updateLoadWithStops } from '@/lib/loadDetail';
 import { saveVerbatimVerification } from '@/lib/verbatimPersist';
 import { saveLoadReferences } from '@/lib/loadReferences';
@@ -578,9 +579,10 @@ export default function CreateLoadPage({
         {isEdit ? 'Back to Load' : 'Back to Loads'}
       </Button>
 
-      <h1 className="text-xl font-semibold text-foreground">
-        {isEdit ? `Edit Load ${values.load_number || ''}`.trim() : 'Create Load'}
-      </h1>
+      <PageHeading
+        title={isEdit ? `Edit Load ${values.load_number || ''}`.trim() : 'Create Load'}
+        description={isEdit ? 'Update load details, stops, rates, and documents.' : 'Enter the load details, stops, rates, and documents.'}
+      />
 
       {isEdit && tier === 'warn' && (
         <Alert>

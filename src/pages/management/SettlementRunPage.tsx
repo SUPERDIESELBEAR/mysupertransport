@@ -24,6 +24,7 @@ import {
   type PreviewRow, type RunPreview, type StoreResultRow,
 } from '@/lib/settlementRun';
 import { SETTLEMENT_STATUS_LABELS } from '@/lib/settlementConfig';
+import PageHeading from '@/components/shared/PageHeading';
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -77,10 +78,11 @@ export default function SettlementRunPage() {
 
   return (
     <div className="space-y-4 p-4">
-      <div className="flex items-center gap-2">
-        <Wallet className="h-5 w-5" />
-        <h1 className="text-xl font-semibold">Settlement Run</h1>
-      </div>
+      <PageHeading
+        title="Settlement Run"
+        description="Preview and approve driver settlements for a work week."
+        icon={<Wallet className="h-6 w-6 text-gold" />}
+      />
 
       <Card className="p-4 space-y-3">
         <div className="flex flex-wrap items-end gap-3">

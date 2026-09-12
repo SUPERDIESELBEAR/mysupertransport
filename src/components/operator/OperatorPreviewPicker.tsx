@@ -7,6 +7,7 @@ import { ArrowLeft, Eye, Search, User, Smartphone } from 'lucide-react';
 import OperatorPortal from '@/pages/operator/OperatorPortal';
 import MobilePreviewQRModal from '@/components/staff/MobilePreviewQRModal';
 import { useAuth } from '@/hooks/useAuth';
+import PageHeading from '@/components/shared/PageHeading';
 
 interface OperatorOption {
   userId: string;
@@ -79,16 +80,11 @@ export default function OperatorPreviewPicker() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <div className="flex items-center gap-3 mb-1">
-          <Eye className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">Driver App Preview</h1>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          Select an operator to see their portal exactly as they see it — read-only.
-          {isManagement && ' Use the phone icon to open a live session on your own device.'}
-        </p>
-      </div>
+      <PageHeading
+        title="Driver App Preview"
+        description={`Select an operator to see their portal exactly as they see it — read-only.${isManagement ? ' Use the phone icon to open a live session on your own device.' : ''}`}
+        icon={<Eye className="h-6 w-6 text-primary" />}
+      />
 
       <div className="relative max-w-md">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
