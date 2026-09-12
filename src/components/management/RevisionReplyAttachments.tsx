@@ -6,9 +6,10 @@ import { Loader2, Paperclip, Upload, Trash2, FileText, ImageIcon } from 'lucide-
 import { toast } from 'sonner';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
+import { MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
 
 const BUCKET = 'application-revision-replies';
-const MAX_BYTES = 10 * 1024 * 1024; // 10 MB
+const MAX_BYTES = MAX_FILE_SIZE_BYTES; // 10 MB tier — see validateFile.ts
 const ACCEPT = 'image/*,application/pdf';
 
 interface Attachment {

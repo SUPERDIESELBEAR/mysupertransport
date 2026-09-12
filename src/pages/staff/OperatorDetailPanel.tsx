@@ -12,7 +12,7 @@ import { useAutoSaveStatusField } from '@/hooks/useAutoSaveStatusField';
 import type { UnsavedStatus } from '@/hooks/useUnsavedChanges';
 import { saveTruckSpecs } from '@/lib/truckSync';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
-import { validateFile, normalizeMobileCaptureFile } from '@/lib/validateFile';
+import { validateFile, normalizeMobileCaptureFile, MAX_FILE_SIZE_BYTES } from '@/lib/validateFile';
 import { reminderErrorToast } from '@/lib/reminderError';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -411,7 +411,7 @@ function Stage2DocUploader({
         toast({ title: 'Invalid file type', description: `"${file.name}" — only PDF, JPG, PNG, or HEIC allowed.`, variant: 'destructive' });
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
+      if (file.size > MAX_FILE_SIZE_BYTES) {
         toast({ title: 'File too large', description: `"${file.name}" exceeds 10 MB.`, variant: 'destructive' });
         return;
       }
@@ -6247,7 +6247,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                             toast({ title: 'Invalid file type', description: 'Please upload a PDF, JPG, or PNG.', variant: 'destructive' });
                             return;
                           }
-                          if (f.size > 10 * 1024 * 1024) {
+                          if (f.size > MAX_FILE_SIZE_BYTES) {
                             toast({ title: 'File too large', description: 'Max 10 MB.', variant: 'destructive' });
                             return;
                           }
