@@ -1,4 +1,6 @@
 import PageHeading from '@/components/shared/PageHeading';
+import { getDbErrorMessage } from '@/lib/dbError';
+import { operatorDisplayName } from '@/lib/profileNames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -20,6 +22,14 @@ import {
 // Program tables arrive when this draft is accepted; generated types do not know them yet.
 const db = supabase as any;
 
+/**
+ * NAMES COME FROM `applications`, NEVER FROM `operators`.
+ *
+ * `public.operators` has no `first_name`/`last_name` — they live on the linked
+ * application row. Selecting them off `operators` makes PostgREST reject the
+ * WHOLE request, which used to render here as an empty review queue. Same
+ * pattern as `InspectionComplianceSummary` and `settlementRun`.
+ */
 interface PaymentRow {
   id: string;
   kind: 'inspection_reimbursement' | 'roadside_bonus';
@@ -29,7 +39,12 @@ interface PaymentRow {
   review_note: string | null;
   created_at: string;
   operator_id: string;
-  operators?: { first_name: string | null; last_name: string | null; unit_number: string | null } | null;
+  operators?: {
+    unit_number: string | null;
+    is_demo?: boolean | null;
+    demo_label?: string | null;
+    applications?: { first_name: string | null; last_name: string | null } | null;
+  } | null;
 }
 
 interface FleetRow {
