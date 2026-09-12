@@ -150,6 +150,7 @@ export function LoadPaperworkUpload({ loadId, loadType, onUploaded }: Props) {
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold text-foreground">Paperwork for this load</p>
+      <p className="text-[11px] text-muted-foreground">{LOAD_DOC_FILE_HINT}</p>
 
       {status.outstandingRequired.length > 0 && (
         <div className="space-y-2">
