@@ -11,12 +11,11 @@ import { gatedIt, skipBanner } from '@/test/helpers/gate';
  */
 
 /**
- * RUNTIME: every check here is a live psql read. Individually they measure
- * 1-3.4s, but when the ~26 psql suites run together the pooler queues and they
- * have exceeded Vitest's 5s default before — three of this file's tests were
- * recorded as `Test timed out in 5000ms` on 2026-09-09 and misread as failures.
- * A timeout reads exactly like a finding, so this file declares 60s (about 18x
- * the slowest measured test) rather than depending on a CLI flag.
+ * RUNTIME: every check here is a live psql read, and 'no writer reads the
+ * dispatch factoring rate' reads six function bodies in one test — measured at
+ * 4.93s on 2026-09-12, i.e. inside Vitest's 5s default by 70ms. That is a coin
+ * flip, not a margin, and a timeout reads exactly like a finding. This file
+ * declares 60s rather than depending on a CLI flag.
  */
 vi.setConfig({ testTimeout: 60_000 });
 
