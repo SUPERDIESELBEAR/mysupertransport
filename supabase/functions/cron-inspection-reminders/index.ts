@@ -52,8 +52,11 @@ Deno.serve(async (req) => {
     const now = new Date();
 
     const [{ data: operators }, { data: cycles }, { data: settings }] = await Promise.all([
+      // NAMES AND EMAIL LIVE ON `applications`. `operators` has no name column;
+      // asking for one made PostgREST reject the read, so this job silently sent
+      // nothing at all.
       supabase.from('operators')
-        .select('id, user_id, first_name, last_name, unit_number, is_active, application_id')
+        .select('id, user_id, unit_number, is_active, application_id, applications(first_name, last_name, email)')
         .eq('is_active', true),
       supabase.from('inspection_cycles').select('*'),
       supabase.from('inspection_program_settings').select('*').limit(1).maybeSingle(),

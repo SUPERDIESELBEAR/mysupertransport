@@ -132,6 +132,18 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
     );
   }
 
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 mt-3">
+        <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" /> The calendar could not load
+        </p>
+        <p className="text-[11px] text-destructive/80 mt-1">{loadError}</p>
+        <Button size="sm" variant="outline" className="text-xs mt-2 h-7" onClick={() => load()}>Try again</Button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4 pt-3">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
