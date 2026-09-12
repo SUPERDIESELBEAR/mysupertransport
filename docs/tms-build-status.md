@@ -10742,6 +10742,20 @@ GUARD: `src/lib/fuel/__tests__/setUpOperatorOptions.test.ts` is a SOURCE guard,
 not a census — it fails if a pay screen goes back to reading its own list, and
 survives any driver being onboarded or terminated.
 
+STANDING PAGE-NAME RULE (owner decision, 2026-09-12): the same routed page uses
+the same name in every portal, and each menu label and page heading use that
+same name. Portal-specific abbreviations are not allowed. The two deliberate
+exceptions are Operator FAQ (menu `FAQ`, page `Frequently Asked Questions`) and
+My Truck (menu `My Truck`, page `Unit {n}`), where the in-context page title is
+more useful. Pay Setup does not expose its internal onboarding stage number to
+drivers; its page title is `Pay Setup`. Operator Dispatch is titled `Dispatch`.
+
+Canonical changes in this pass: Staff uses `Fleet Compliance`, `Onboard
+Systems`, `Onboarding Pipeline`, and `DOT Inspection Binder`; Dispatch uses
+`Driver Hub`; Management and Staff use `PEI Q`; Management uses `Overview` and
+`Device Models`; Operator uses `Document Hub`. `PEI Q` includes the space and
+remains explicitly flagged for the owner to confirm from the rendered screen.
+
 =====================================================================
 2026-09-12 — TWO SILENT FAILURES FIXED, ONE FINDING ALREADY FIXED
 =====================================================================

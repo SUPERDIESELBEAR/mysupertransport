@@ -9,16 +9,16 @@ type Placement = { file: string; menu: RegExp; pageFile: string; title: RegExp }
 // the title rendered by that same page. Adding a placement requires adding its
 // pair here; changing one side without the other fails.
 const identicalPageNames: Placement[] = [
-  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Fleet Compliance'.*path: 'compliance'/, pageFile: 'src/pages/staff/StaffPortal.tsx', title: />Fleet Compliance<\/h1>/ },
-  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Onboard Systems'.*path: 'equipment'/, pageFile: 'src/components/equipment/EquipmentInventory.tsx', title: />Onboard Systems<\/h1>/ },
-  { file: 'src/pages/dispatch/DispatchPortal.tsx', menu: /label: 'Driver Hub'.*path: 'dispatch-drivers'/, pageFile: 'src/components/drivers/DriverHubView.tsx', title: />Driver Hub<\/h1>/ },
-  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Onboarding Pipeline'.*path: 'pipeline'/, pageFile: 'src/pages/staff/PipelineDashboard.tsx', title: />Onboarding Pipeline<\/h1>/ },
-  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'DOT Inspection Binder'.*path: 'inspection-binder'/, pageFile: 'src/components/inspection/InspectionBinderAdmin.tsx', title: />DOT Inspection Binder<\/h1>/ },
+  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Fleet Compliance'.*path: 'compliance'/, pageFile: 'src/pages/staff/StaffPortal.tsx', title: /Fleet Compliance<\/h1>/ },
+  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Onboard Systems'.*path: 'equipment'/, pageFile: 'src/components/equipment/EquipmentInventory.tsx', title: /Onboard Systems/ },
+  { file: 'src/pages/dispatch/DispatchPortal.tsx', menu: /label: 'Driver Hub'.*path: 'dispatch-drivers'/, pageFile: 'src/components/drivers/DriverHubView.tsx', title: /Driver Hub/ },
+  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'Onboarding Pipeline'.*path: 'pipeline'/, pageFile: 'src/pages/staff/PipelineDashboard.tsx', title: /Onboarding Pipeline/ },
+  { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'DOT Inspection Binder'.*path: 'inspection-binder'/, pageFile: 'src/components/inspection/InspectionBinderAdmin.tsx', title: /DOT Inspection Binder/ },
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'PEI Q'.*path: 'pei-queue'/, pageFile: 'src/components/pei/PEIQueuePanel.tsx', title: /title="PEI Q"/ },
   { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'PEI Q'.*path: 'pei-queue'/, pageFile: 'src/components/pei/PEIQueuePanel.tsx', title: /title="PEI Q"/ },
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Overview'.*path: 'overview'/, pageFile: 'src/pages/management/ManagementPortal.tsx', title: /title="Overview"/ },
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Device Models'.*path: 'eld-device-models'/, pageFile: 'src/components/management/eld/ELDDeviceModelsPanel.tsx', title: /title="Device Models"/ },
-  { file: 'src/pages/operator/OperatorPortal.tsx', menu: /label: 'Document Hub'.*view: 'docs-hub'|view: 'docs-hub'.*label: 'Document Hub'/, pageFile: 'src/components/documents/DocumentHub.tsx', title: />Document Hub\s*<\/h1>/ },
+  { file: 'src/pages/operator/OperatorPortal.tsx', menu: /label: 'Document Hub'.*view: 'docs-hub'|view: 'docs-hub'.*label: 'Document Hub'/, pageFile: 'src/components/documents/DocumentHub.tsx', title: /Document Hub/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'pay-setup'.*label: 'Pay Setup'/, pageFile: 'src/pages/operator/OperatorPortal.tsx', title: /title="Pay Setup"/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'dispatch'.*label: 'Dispatch'/, pageFile: 'src/components/operator/OperatorDispatchStatus.tsx', title: /title="Dispatch"/ },
 ];

@@ -1990,13 +1990,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY DOCUMENTS VIEW (read-only vault) ── */}
         {view === 'my-docs' && operatorId && (
           <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <FolderOpen className="h-6 w-6 text-primary" />
-              <div>
-                <h2 className="text-lg font-bold text-foreground">My Documents</h2>
-                <p className="text-sm text-muted-foreground">Organized by document type — tap a folder to open it</p>
-              </div>
-            </div>
+            <PageHeading
+              title="My Documents"
+              description="Organized by document type — tap a folder to open it"
+              icon={<FolderOpen className="h-6 w-6 text-primary" />}
+            />
             <MyDocumentsFolders operatorId={operatorId} />
           </div>
         )}
@@ -2047,6 +2045,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── ONBOARD SYSTEMS (OSAS) VIEW ── */}
         {view === 'onboard-systems' && (
           <div className="space-y-4">
+            <PageHeading title="Onboard Systems" description="Review and sign for your assigned truck equipment." />
             {operatorId && <EquipmentReturnCard operatorId={operatorId} />}
             <OperatorOSASSign
               onBack={() => navigateToView('progress')}

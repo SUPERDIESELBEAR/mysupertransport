@@ -1,7 +1,7 @@
 # Roadmap
 
 ## In progress
-- [in progress 2026-09-12] Make page titles and menu labels identical across portals;
+- [done 2026-09-12] Make page titles and menu labels identical across portals;
   add missing titles/descriptions with the shared heading; encode deliberate exceptions
   (FAQ and My Truck) and add the navigation/title invariant guard. Pay Setup and Dispatch
   now have final owner decisions and must match their menu labels.
