@@ -11199,3 +11199,46 @@ TRIGGER: before either label is changed to say 20 MB, or the next time a large r
 confirmation arrives naturally — whichever comes first. Per the standing rule recorded
 earlier today, this open item carries a trigger rather than sitting as an indefinite
 "pending".
+
+## 2026-09-12 — BUCKET CAPS EXIST IN NO MIGRATION; RECORDED AND GUARDED
+
+Yesterday's pass capped `inspection-documents` and `driver-uploads` with the storage
+tool. `broker-documents` (25,000,000) and `rate-con-ingest` (30,000,000) were capped the
+same way in August. None of the four appears in `supabase/migrations`; the only cap that
+does is `message-attachments`, from `20260427110313_c4fdf046-…sql:142`. Writes to
+`storage.buckets` are rejected in this project, so this cannot be fixed with SQL — it
+had to be recorded.
+
+**`docs/storage-bucket-limits.md` is now the authority.** All 21 buckets, with `null`
+stated explicitly for the sixteen uncapped ones so a missing cap is visible rather than
+absent, plus which caps exist in a migration, the unit inconsistency, and the procedure:
+change the value with the storage tool and the row in the document in the SAME pass.
+
+**`src/test/storage-bucket-limits.test.ts` closes the loop.** It reads `storage.buckets`
+live and asserts every bucket against the recorded intention, that the record names
+exactly the buckets that exist, and that the four migration-less caps are still in
+place. Gated on PGHOST with a named skip, like the other live-catalog suites. Green,
+3 tests. Broken deliberately (`inspection-documents` recorded as 20,971,520) it failed
+with `inspection-documents: live 26214400, recorded 20971520`; restored.
+
+UNIT INCONSISTENCY, RECORDED NOT RESOLVED. 26,214,400 is 25 MiB and matches the client
+constants, which are all `N * 1024 * 1024`. 25,000,000 on `broker-documents` is decimal
+MB — about 1.4 MB STRICTER than the 25 MiB validator guarding the same path, so a file
+between the two passes the browser and is refused by storage. Aligning it is an owner
+decision, not a cleanup; until then the guard asserts what is actually live.
+
+THE SIXTEEN UNCAPPED BUCKETS ARE REPORTED, NOT DECIDED. Ranked by exposure in the new
+document. Sharpest: `application-documents`, the only bucket an UNAUTHENTICATED visitor
+writes to (the public application form), with no server-side ceiling at all. `rods-logs`
+and `eld-notices` are the opposite case — server-written federal records where a cap can
+turn an oversized required record into a silent write failure, so they are named as
+deliberately unbounded pending a decision. No caps were set in this pass.
+
+SECOND TIER-GUARD BLIND SPOT. `file-size-tier.test.ts` only matches
+`export const MAX_*(BYTES|SIZE) = N * 1024 * 1024` under `src/**`, so it sees neither a
+bucket cap nor an inline literal. Four inline limits exist: 5 MB in
+`EditProfileModal.tsx:224` and `StaffMemberPanel.tsx:317`, 10 MB in
+`OperatorDetailPanel.tsx:414` and `:6250`, plus the non-exported `MAX_BYTES` in
+`RevisionReplyAttachments.tsx:11`. Two of those are a 5 MB tier no declared constant
+records. Folding them in is a separate pass; recorded so it is not found by accident a
+third time.
