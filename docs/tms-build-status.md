@@ -9418,7 +9418,7 @@ CONTRADICTIONS: none found.
 |---|---|---|
 | `src/test/function-reachability.test.ts` | 14 | 14 |
 | `src/test/view-reachability.test.ts` | 1 | 1 |
-| `src/test/nav-target.test.ts` | 1 | 1 |
+| `src/test/nav-target.test.ts` | 0 | 0 — **GREEN since 2026-09-12**; a new finding is a live defect |
 
 Sixteen red assertions is a lot to inherit, and the first instinct on finding
 them will be to make them pass. **Green is reached by adding a caller, revoking
@@ -9761,7 +9761,8 @@ The nav-target guard found the new dispatch path immediately
 (`/dispatch/late-accessorials` not in the parsed segment list) — the first time
 that guard caught a live defect rather than a seeded one. Fixed by teaching the
 guard the segment the portal now parses. Its one known finding (FleetRoster ->
-`/management/drivers`) is untouched and still red.
+`/management/drivers`) was untouched and still red at the time — fixed on
+2026-09-12, taking the guard to zero.
 
 ### THE APPROVAL LIMIT IS READ, NEVER PASSED
 
