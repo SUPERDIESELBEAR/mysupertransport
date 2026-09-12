@@ -1,4 +1,6 @@
 import PageHeading from '@/components/shared/PageHeading';
+import { getDbErrorMessage } from '@/lib/dbError';
+import { operatorDisplayName } from '@/lib/profileNames';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -17,9 +19,29 @@ import {
   MONTH_NAMES, type CycleStatus,
 } from '@/lib/inspectionProgram';
 
+/** Driver name for a payment row — always through the linked application. */
+function paymentDriverName(p: { operators?: PaymentRow['operators'] }): string {
+  return operatorDisplayName(
+    {
+      application: p.operators?.applications ?? null,
+      is_demo: p.operators?.is_demo,
+      demo_label: p.operators?.demo_label,
+    },
+    'Driver',
+  );
+}
+
 // Program tables arrive when this draft is accepted; generated types do not know them yet.
 const db = supabase as any;
 
+/**
+ * NAMES COME FROM `applications`, NEVER FROM `operators`.
+ *
+ * `public.operators` has no `first_name`/`last_name` — they live on the linked
+ * application row. Selecting them off `operators` makes PostgREST reject the
+ * WHOLE request, which used to render here as an empty review queue. Same
+ * pattern as `InspectionComplianceSummary` and `settlementRun`.
+ */
 interface PaymentRow {
   id: string;
   kind: 'inspection_reimbursement' | 'roadside_bonus';
@@ -29,7 +51,12 @@ interface PaymentRow {
   review_note: string | null;
   created_at: string;
   operator_id: string;
-  operators?: { first_name: string | null; last_name: string | null; unit_number: string | null } | null;
+  operators?: {
+    unit_number: string | null;
+    is_demo?: boolean | null;
+    demo_label?: string | null;
+    applications?: { first_name: string | null; last_name: string | null } | null;
+  } | null;
 }
 
 interface FleetRow {
@@ -54,28 +81,57 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
   const [loading, setLoading] = useState(true);
   const [settings, setSettings] = useState<any>(null);
   const [calendarYear, setCalendarYear] = useState(() => new Date().getFullYear());
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     const [payRes, opsRes, cyclesRes, setRes] = await Promise.all([
       db.from('inspection_program_payments')
-        .select('*, operators(first_name, last_name, unit_number)')
+        .select('*, operators(unit_number, is_demo, demo_label, applications(first_name, last_name))')
         .order('created_at', { ascending: false }).limit(200),
-      supabase.from('operators').select('id, first_name, last_name, unit_number, is_active').eq('is_active', true),
+      supabase.from('operators')
+        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .eq('is_active', true),
       db.from('inspection_cycles').select('*'),
       db.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
     ]);
+
+    // A REJECTED READ MUST NOT LOOK LIKE AN EMPTY QUEUE. Every read is checked
+    // here, before anything renders — the whole reason this page appeared to
+    // have no work to review was a discarded PostgREST error.
+    const firstError = (
+      [
+        ['payments', payRes.error],
+        ['drivers', opsRes.error],
+        ['inspection cycles', cyclesRes.error],
+        ['program settings', setRes.error],
+      ] as const
+    ).find(([, e]) => !!e);
+    if (firstError) {
+      const msg = `Could not load ${firstError[0]}: ${getDbErrorMessage(firstError[1])}`;
+      setLoadError(msg);
+      setPayments([]);
+      setFleet([]);
+      setLoading(false);
+      toast({ title: 'Inspection Program could not load', description: msg, variant: 'destructive' });
+      return;
+    }
+    setLoadError(null);
 
     setPayments((payRes.data as PaymentRow[]) ?? []);
     setSettings(setRes.data ?? null);
 
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: FleetRow[] = ((opsRes.data as any[]) ?? []).map(op => {
+      const name = operatorDisplayName(
+        { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
+        'Unknown driver',
+      );
       const group = inspectionGroup(op.unit_number);
       if (!group) {
         return {
           operatorId: op.id,
-          name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim(),
+          name,
           unit: op.unit_number, group: null, status: null, cycleLabel: 'No unit number',
         };
       }
@@ -83,7 +139,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
       const row = cycles.find(c => c.operator_id === op.id && c.cycle_year === ref.year && c.cycle_month === ref.month);
       return {
         operatorId: op.id,
-        name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim(),
+        name,
         unit: op.unit_number,
         group,
         status: cycleStatus({
@@ -131,6 +187,16 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
         icon={<CalendarClock className="h-6 w-6 text-gold shrink-0" />}
       />
 
+      {loadError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
+          <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
+            <AlertTriangle className="h-3.5 w-3.5" /> This page did not load — what you see below is incomplete
+          </p>
+          <p className="text-[11px] text-destructive/80 mt-1">{loadError}</p>
+          <Button size="sm" variant="outline" className="text-xs mt-2 h-7" onClick={() => load()}>Try again</Button>
+        </div>
+      )}
+
       <Tabs defaultValue="review">
         <TabsList>
           <TabsTrigger value="review" className="text-xs">
@@ -154,7 +220,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <p className="text-sm font-medium">
-                    {p.operators ? `${p.operators.first_name ?? ''} ${p.operators.last_name ?? ''}`.trim() : 'Driver'}
+                    {paymentDriverName(p)}
                     {p.operators?.unit_number ? ` · Unit ${p.operators.unit_number}` : ''}
                   </p>
                   <p className="text-xs text-muted-foreground">{p.description || '—'}</p>
@@ -289,7 +355,7 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
             <div key={p.id} className="flex items-center justify-between gap-3 rounded-md border border-border px-3 py-2">
               <div>
                 <p className="text-xs font-medium">
-                  {p.operators ? `${p.operators.first_name ?? ''} ${p.operators.last_name ?? ''}`.trim() : 'Driver'} · {money(p.amount)}
+                  {paymentDriverName(p)} · {money(p.amount)}
                 </p>
                 <p className="text-[11px] text-muted-foreground">{p.description || '—'}</p>
                 {p.review_note && <p className="text-[11px] text-muted-foreground italic">“{p.review_note}”</p>}

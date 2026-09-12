@@ -4,7 +4,9 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Loader2, ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { Loader2, ChevronLeft, ChevronRight, Search, X, AlertTriangle } from 'lucide-react';
+import { getDbErrorMessage } from '@/lib/dbError';
+import { operatorDisplayName } from '@/lib/profileNames';
 import {
   inspectionGroup, nextCycleOnOrAfter, cycleStatus, cycleLabel,
   CYCLE_STATUS_LABELS, MONTH_NAMES, GROUP_MONTHS, MAKEUP_MONTHS, type CycleStatus,
@@ -33,13 +35,27 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
   const [groupFilter, setGroupFilter] = useState<'all' | 'A' | 'B'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | CycleStatus>('all');
   const [search, setSearch] = useState('');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    // NAMES LIVE ON `applications`, NOT ON `operators`. Selecting them off
+    // `operators` makes PostgREST reject the whole read, which rendered here as
+    // an empty calendar with no error at all.
     const [opsRes, cyclesRes] = await Promise.all([
-      supabase.from('operators').select('id, first_name, last_name, unit_number, is_active').eq('is_active', true),
+      supabase.from('operators')
+        .select('id, unit_number, is_active, is_demo, demo_label, applications(first_name, last_name)')
+        .eq('is_active', true),
       db.from('inspection_cycles').select('*').gte('cycle_year', year).lte('cycle_year', year),
     ]);
+
+    if (opsRes.error || cyclesRes.error) {
+      setLoadError(getDbErrorMessage(opsRes.error ?? cyclesRes.error));
+      setUnits([]);
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
 
     const cycles = (cyclesRes.data as any[]) ?? [];
     const rows: CalendarUnit[] = [];
@@ -55,7 +71,10 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
         );
         rows.push({
           operatorId: op.id,
-          name: `${op.first_name ?? ''} ${op.last_name ?? ''}`.trim(),
+          name: operatorDisplayName(
+            { application: op.applications, is_demo: op.is_demo, demo_label: op.demo_label },
+            'Unknown driver',
+          ),
           unit: op.unit_number,
           group,
           month,
@@ -110,6 +129,18 @@ export default function InspectionCalendar({ year, onSelectOperator }: Props) {
       <p className="text-xs text-muted-foreground flex items-center gap-2 py-6">
         <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading calendar…
       </p>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3 mt-3">
+        <p className="text-xs font-medium text-destructive flex items-center gap-1.5">
+          <AlertTriangle className="h-3.5 w-3.5" /> The calendar could not load
+        </p>
+        <p className="text-[11px] text-destructive/80 mt-1">{loadError}</p>
+        <Button size="sm" variant="outline" className="text-xs mt-2 h-7" onClick={() => load()}>Try again</Button>
+      </div>
     );
   }
 

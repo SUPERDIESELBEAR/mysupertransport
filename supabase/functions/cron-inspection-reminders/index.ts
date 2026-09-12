@@ -51,13 +51,26 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    const [{ data: operators }, { data: cycles }, { data: settings }] = await Promise.all([
+    const [opsRes, cyclesRes, setRes] = await Promise.all([
+      // NAMES AND EMAIL LIVE ON `applications`. `operators` has no name column;
+      // asking for one made PostgREST reject the read, so this job silently sent
+      // nothing at all.
       supabase.from('operators')
-        .select('id, user_id, first_name, last_name, unit_number, is_active, application_id')
+        .select('id, user_id, unit_number, is_active, application_id, applications(first_name, last_name, email)')
         .eq('is_active', true),
       supabase.from('inspection_cycles').select('*'),
       supabase.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
     ]);
+
+    // A REJECTED READ MUST NOT LOOK LIKE "NOBODY NEEDED A REMINDER".
+    const readError = opsRes.error ?? cyclesRes.error ?? setRes.error;
+    if (readError) {
+      console.error('[cron-inspection-reminders] read failed', readError);
+      return new Response(JSON.stringify({ error: readError.message, sent: 0 }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const operators = opsRes.data, cycles = cyclesRes.data, settings = setRes.data as any;
 
     const offsets: number[] = settings?.reminder_offsets_days ?? [30, 14, 3];
     const [preMonth, midMonth, lateMonth] = [offsets[0] ?? 30, offsets[1] ?? 14, offsets[2] ?? 3];
@@ -113,16 +126,10 @@ Deno.serve(async (req) => {
         entity_id: op.id,
       });
 
-      // Resolve email from the operator's original application record.
-      let email: string | null = null;
-      if (op.application_id) {
-        const { data: app } = await supabase
-          .from('applications')
-          .select('email')
-          .eq('id', op.application_id)
-          .maybeSingle();
-        email = app?.email ?? null;
-      }
+      // Email comes from the operator's original application record, embedded above.
+      const app = (op as any).applications ?? null;
+      const email: string | null = app?.email ?? null;
+
 
       const resendKey = Deno.env.get('RESEND_API_KEY');
       if (email && resendKey) {
@@ -130,7 +137,7 @@ Deno.serve(async (req) => {
         const html = buildEmail(
           subject,
           `Quarterly DOT inspection — ${label}`,
-          `<p>Hi ${op.first_name ?? 'there'},</p><p>${message}</p>
+          `<p>Hi ${app?.first_name ?? 'there'},</p><p>${message}</p>
            <p>SUPERTRANSPORT covers the inspection fee up to $${Number(settings?.reimbursement_cap ?? 150).toFixed(0)}.
            Send the inspection report, the itemised invoice and your unit number within seven days of the inspection.</p>`,
         );
