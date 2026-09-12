@@ -7,7 +7,8 @@ import StaffLayout from '@/components/layouts/StaffLayout';
 import { DeactivationWizardContent } from '@/components/management/DeactivationWizardContent';
 import OffboardingGuidePanel from '@/components/management/OffboardingGuidePanel';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, UserMinus } from 'lucide-react';
+import PageHeading from '@/components/shared/PageHeading';
 import {
   LayoutDashboard, Users, ClipboardList, Briefcase, MessageSquare, BellRing, ShieldCheck, Container, Users2, Truck, Shield, Library, HardDrive, Car, BookOpen, UserPlus, HelpCircle, LifeBuoy, Settings2, ScrollText, LayoutTemplate, FileText, Megaphone, Mail, MailPlus, Pen, FileSignature, GraduationCap,
 } from 'lucide-react';
@@ -214,6 +215,14 @@ export default function DeactivationPage() {
             <ArrowLeft className="h-4 w-4" /> Back
           </Button>
         </div>
+        {/* Reached from a driver, so it has no menu item of its own — the name
+            of the page is still shown, per the standing rule. */}
+        <PageHeading
+          title="Deactivate Driver"
+          description={`${operatorName}${operator.unit_number ? ` · Unit ${operator.unit_number}` : ''} — every offboarding step, saved as you go.`}
+          icon={<UserMinus className="h-6 w-6 text-gold shrink-0" />}
+        />
+        <div className="mb-4" />
         <OffboardingGuidePanel />
         <div className="flex-1 min-h-0 min-w-0 overflow-hidden border border-border rounded-xl bg-card p-4 lg:p-6 shadow-sm">
           <DeactivationWizardContent

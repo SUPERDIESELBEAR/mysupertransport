@@ -1,3 +1,4 @@
+import PageHeading from '@/components/shared/PageHeading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -124,15 +125,11 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold flex items-center gap-2">
-          <CalendarClock className="h-5 w-5 text-primary" /> Inspection Program
-        </h2>
-        <p className="text-xs text-muted-foreground">
-          Quarterly inspection completion, fee reimbursements and clean roadside bonuses.
-          Nothing is paid until it is approved here; approvals are picked up by the next settlement.
-        </p>
-      </div>
+      <PageHeading
+        title="Inspection Program"
+        description="Quarterly inspections, fee reimbursements and clean roadside bonuses — nothing is paid until it is approved here."
+        icon={<CalendarClock className="h-6 w-6 text-gold shrink-0" />}
+      />
 
       <Tabs defaultValue="review">
         <TabsList>

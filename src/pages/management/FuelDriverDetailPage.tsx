@@ -30,7 +30,14 @@ import {
 } from '@/lib/fuel/fuelDeductionCard';
 
 import { formatCurrency } from '@/lib/loadFormat';
-import { fetchOperatorOptions, operatorLabel } from '@/lib/fuel/fuelOperators';
+import DriverCombobox from '@/components/shared/DriverCombobox';
+import PageHeading from '@/components/shared/PageHeading';
+/**
+ * THE PICKER USES THE SHARED SET-UP FILTER, not every active operator. Five
+ * applicants and unfinished onboarding records were listed here until 2026-09-12
+ * because this screen read its own list. The rule lives in `setupDriverFilter`.
+ */
+import { fetchSetUpOperatorOptions } from '@/lib/fuel/fuelOperators';
 import { downloadFuelPdf } from '@/lib/fuel/fuelDriverPdf';
 import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
 import { loadSettlementSettings } from '@/lib/settlementRun';
@@ -190,7 +197,7 @@ export default function FuelDriverDetailPage() {
   const [operatorId, setOperatorId] = useState<string | null>(null);
   const [period, setPeriod] = useState<string>('all');
 
-  const operators = useQuery({ queryKey: ['fuel-operator-options'], queryFn: fetchOperatorOptions });
+  const operators = useQuery({ queryKey: ['fuel-setup-operator-options'], queryFn: fetchSetUpOperatorOptions });
   const dow = useQuery({ queryKey: ['settlement-work-week-dow'], queryFn: fetchWorkWeekStartDow });
 
   /**
@@ -257,17 +264,25 @@ export default function FuelDriverDetailPage() {
 
   return (
     <div className="space-y-4">
+      <PageHeading
+        title="Driver Fuel Detail"
+        description="One driver's fuel card purchases, what was deducted and what has not been yet."
+        icon={<Fuel className="h-6 w-6 text-gold shrink-0" />}
+      />
+
       <div className="flex flex-wrap items-end gap-3">
-        <div className="min-w-[240px]">
+        <div className="min-w-[260px]">
           <label className="mb-1 block text-xs text-muted-foreground">Driver</label>
-          <Select value={operatorId ?? ''} onValueChange={(v) => { setOperatorId(v); setPeriod('all'); }}>
-            <SelectTrigger><SelectValue placeholder="Select a driver" /></SelectTrigger>
-            <SelectContent>
-              {(operators.data ?? []).map((o) => (
-                <SelectItem key={o.id} value={o.id}>{operatorLabel(o)}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Type-ahead, the same picker Onboard Systems → Assign Device uses. */}
+          <DriverCombobox
+            operators={(operators.data ?? []).map((o) => ({
+              userId: o.id, name: o.name, unitNumber: o.unit,
+            }))}
+            value={operatorId ?? ''}
+            onChange={(id) => { setOperatorId(id); setPeriod('all'); }}
+            placeholder="Select a driver"
+            triggerClassName="w-full"
+          />
         </div>
         <div className="min-w-[240px]">
           <label className="mb-1 block text-xs text-muted-foreground">Settlement period</label>

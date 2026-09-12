@@ -6,6 +6,7 @@
  * panel only collects the criteria and shows what came back, so there is no
  * client path that produces an unaudited copy of a federal record.
  */
+import PageHeading from '@/components/shared/PageHeading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,6 +168,11 @@ export default function RetentionArchivePanel() {
 
   return (
     <div className="space-y-6">
+      <PageHeading
+        title="Retention Archive"
+        description="Search every retained ELD record and export a combined PDF."
+        icon={<Archive className="h-6 w-6 text-gold shrink-0" />}
+      />
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">

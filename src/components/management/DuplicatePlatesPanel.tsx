@@ -1,3 +1,4 @@
+import PageHeading from '@/components/shared/PageHeading';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -214,14 +215,12 @@ export default function DuplicatePlatesPanel() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-xl font-semibold">Duplicate Plates</h2>
-        <p className="text-sm text-muted-foreground">
-          {groups.length === 0
-            ? 'No plate is on more than one driver.'
-            : `${groups.length} plate${groups.length === 1 ? '' : 's'} on more than one driver.`}
-        </p>
-      </div>
+      <PageHeading
+        title="Duplicate Plates"
+        description={groups.length === 0
+          ? 'No plate is on more than one driver.'
+          : `${groups.length} plate${groups.length === 1 ? '' : 's'} on more than one driver.`}
+      />
 
       {!canWrite && groups.length > 0 && (
         <div className="rounded-lg border p-3 text-sm text-muted-foreground">

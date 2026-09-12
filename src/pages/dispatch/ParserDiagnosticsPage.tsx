@@ -57,7 +57,7 @@ export default function ParserDiagnosticsPage() {
     <div className="mx-auto max-w-5xl space-y-4 p-4">
       <div className="flex flex-wrap items-center gap-3">
         <div>
-          <h1 className="text-xl font-semibold text-[#2C2C2C]">Parser diagnostics</h1>
+          <h1 className="text-xl font-semibold text-[#2C2C2C]">Parser Diagnostics</h1>
           <p className="text-sm text-[#555555]">
             Headings and reference labels the rate-confirmation parser did not recognise.
           </p>

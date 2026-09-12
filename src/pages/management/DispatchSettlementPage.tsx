@@ -156,7 +156,7 @@ export default function DispatchSettlementPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-center gap-2">
         <Wallet className="h-5 w-5 text-primary" />
-        <h1 className="text-xl font-semibold">Dispatch Company Settlement</h1>
+        <h1 className="text-xl font-semibold">Dispatch Settlement</h1>
       </div>
       <p className="text-sm text-muted-foreground max-w-3xl">
         One vendor, one settlement per calendar month, paid on or around the 10th of the

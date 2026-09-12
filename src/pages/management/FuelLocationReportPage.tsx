@@ -148,7 +148,7 @@ export default function FuelLocationReportPage() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-xl font-semibold flex items-center gap-2">
-            <Fuel className="h-5 w-5" /> Cost per gallon by location
+            <Fuel className="h-5 w-5" /> Fuel Cost by Location
           </h1>
           <p className="text-sm text-muted-foreground">
             Fuel purchases only — cash advances, repairs and other card charges are excluded.
