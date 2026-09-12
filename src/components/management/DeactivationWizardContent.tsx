@@ -949,9 +949,26 @@ export function DeactivationWizardContent({
       if (error) throw error;
 
       // A departed driver is no longer "departing" — leaving the flag set
-      // would keep him in the leaving-soon queue forever.
-      const { error: departErr } = await (supabase as any).rpc('clear_operator_departing', { p_operator_id: operatorId });
-      if (departErr) console.error('Failed to clear departing flag', departErr);
+      // would keep him in the leaving-soon queue forever AND keep the
+      // departing settlement hold applied to a fully offboarded driver.
+      // Argument names must match the function signature exactly
+      // (`_operator_id`, `_note`) — RPC passes named arguments, so a wrong key
+      // is not a no-op, it is an error. Same call shape as DepartingControl.
+      let departingClearFailed: string | null = null;
+      const { error: departErr } = await (supabase as any).rpc('clear_operator_departing', {
+        _operator_id: operatorId,
+        _note: 'Cleared automatically on deactivation',
+      });
+      if (departErr) {
+        // Never swallowed: the wizard must not report success for a step that
+        // failed, because the visible damage is a held settlement weeks later.
+        departingClearFailed = departErr.message ?? 'Unknown error';
+        toast({
+          title: 'Leaving-soon flag not cleared',
+          description: `${operatorName} was deactivated, but he is still flagged as departing, which holds his settlement. Clear it from his driver record: ${departingClearFailed}`,
+          variant: 'destructive',
+        });
+      }
 
       // Login retention is a decision that has to actually take effect, not
       // just a note in the audit trail.
