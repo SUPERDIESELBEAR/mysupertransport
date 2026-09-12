@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import {
-  AlertTriangle, Check, FileText, Loader2, Sparkles, Upload, X,
+  AlertTriangle, Check, FileText, Loader2, Sparkles, X,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
@@ -408,17 +408,7 @@ export default function RateConfirmationParser({
   const isPdf = file?.type === 'application/pdf';
 
   return (
-    <section className="rounded-lg border border-gold/40 bg-gold/5 p-4 sm:p-5 space-y-4">
-      <div className="flex flex-wrap items-start gap-3">
-        <Sparkles className="h-5 w-5 text-gold shrink-0 mt-0.5" />
-        <div className="min-w-0 flex-1">
-          <h2 className="text-base font-semibold text-foreground">Parse Rate Confirmation</h2>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Upload the broker&rsquo;s rate confirmation and the form fills itself. Nothing saves until you review it.
-          </p>
-        </div>
-      </div>
-
+    <section className="space-y-4">
       <input
         ref={inputRef}
         type="file"
@@ -427,11 +417,28 @@ export default function RateConfirmationParser({
         onChange={e => pickFile(e.target.files?.[0] ?? null)}
       />
 
+      <div className="rounded-md border border-dashed border-gold/60 bg-gold/5 px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-xs text-foreground">
+            <Sparkles className="h-3.5 w-3.5 shrink-0 text-gold" />
+            <span>Scan a rate confirmation with AI to auto-fill the fields.</span>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-7 gap-1.5 border-gold bg-background px-2.5 text-xs hover:bg-gold/10"
+            onClick={() => inputRef.current?.click()}
+            disabled={parsing}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            Scan Rate Con with AI
+          </Button>
+        </div>
+        <p className="mt-1 text-xs text-muted-foreground">Nothing saves until you review it.</p>
+      </div>
+
       <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" className="gap-1.5" onClick={() => inputRef.current?.click()}>
-          <Upload className="h-4 w-4" />
-          {file ? 'Choose a different file' : 'Choose PDF or image'}
-        </Button>
         {file && (
           <>
             <Button
