@@ -25,23 +25,28 @@ Both behave the same way:
 | Gate unsatisfied, local | Boxed banner naming the reason, plus a **named, counted** skipped test. |
 | Gate unsatisfied, CI (or `required: true`) | **Fails.** CI never skips silently. |
 
-## EXPECTED RED: the three reachability guards (added 2026-09-10)
+## EXPECTED RED: the reachability guards (added 2026-09-10)
 
 Read this before anything else if you are looking at a red suite.
 
-`function-reachability`, `view-reachability` and `nav-target` **ship failing on
-purpose**. They shipped with **16 findings**; **13** remain:
+`function-reachability` and `view-reachability` **ship failing on purpose**. The
+three guards shipped with **16 findings**; **12** remain. **`nav-target` is now
+GREEN** — anything it reports is new.
 
 | Guard | Findings (shipped -> now) | What it means |
 |---|---|---|
 | `src/test/function-reachability.test.ts` | 14 -> 11 | Database functions any signed-in client may EXECUTE that nothing calls — no trigger, policy, default, other function, view, or quoted literal in source. |
 | `src/test/view-reachability.test.ts` | 1 | Management `app-errors`: declared in the view union and in `ALLOWED_VIEWS`, but no render branch and no way in. |
-| `src/test/nav-target.test.ts` | 1 | `FleetRoster.tsx:617` navigates to `/management/drivers`; Management parses only `?view=`, so the click silently lands on the overview. |
+| `src/test/nav-target.test.ts` | 1 -> 0 | **GREEN.** Its one finding (`FleetRoster.tsx:732` navigating to `/management/drivers` instead of `/management?view=drivers`) was fixed on 2026-09-12. A new report is a live defect. |
 
 The function guard moved 14 -> 13 (`get_inspection_doc_by_token` dropped),
 13 -> 12 (search scope corrected, below) and 12 -> 11
 (`can_driver_message_staff` dropped). Every step was a deletion or a guard fix;
 none was an allowlist entry.
+
+**Every red guard needs a trigger.** `nav-target` sat red for nine days with its
+defect diagnosed and attributed in three places, and no date, event or condition
+saying when it had to be fixed. A guard left red carries one, or it is fixed now.
 
 These are a **backlog made visible**, not broken tests. Every finding is a real
 gap; each will go green when the gap is closed.

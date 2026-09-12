@@ -226,8 +226,9 @@ describe("nav target validity — every destination exists", () => {
     expect(
       ids,
       `${ids.length} navigation destination(s) do not resolve.\n` +
-        `EXPECTED RED: this guard shipped on 2026-09-10 with 1 known finding ` +
-        `(FleetRoster -> /management/drivers). Do not make it pass by allowlisting it.\n` +
+        `THIS GUARD IS GREEN as of 2026-09-12: every destination above is NEW. ` +
+        `It is a live defect introduced by recent work, not an inherited finding. ` +
+        `Fix the destination — do not make it pass by allowlisting it.\n` +
         failures.join("\n" + "-".repeat(74) + "\n"),
     ).toEqual([]);
   });
