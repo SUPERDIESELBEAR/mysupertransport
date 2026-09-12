@@ -1,6 +1,29 @@
 import { supabase } from '@/integrations/supabase/client';
 
 /**
+ * SIZE LIMIT — one of three declared tiers in this codebase. Do not add a fourth
+ * without a reason recorded here and in the other two:
+ *   10 MB  `validateFile.ts`        — driver/applicant phone photos and scans
+ *   20 MB  `rateConfirmation.ts`    — multi-page broker rate confirmations
+ *   25 MB  `loadDocuments.ts` and this file — staff-scanned paperwork, which is
+ *          routinely a long flatbed-scanner PDF of a whole inspection report.
+ * The `inspection-documents` bucket carries a matching 25 MB cap, so a file that
+ * slips past this check is still refused by storage rather than stored.
+ */
+export const MAX_BINDER_BYTES = 25 * 1024 * 1024;
+
+/** Human sentence for every binder upload control, so the screen states what it enforces. */
+export const BINDER_FILE_HINT = 'PDF, JPG or PNG · up to 25 MB';
+
+/** Returns an error sentence, or null when the file may be uploaded. */
+export function validateBinderFile(file: File): string | null {
+  if (file.size > MAX_BINDER_BYTES) {
+    return `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB. The limit is 25 MB.`;
+  }
+  return null;
+}
+
+/**
  * Duplicate protection for binder uploads.
  *
  * Layer 1 — recognise a file by its contents, not its name: a SHA-256 digest of the

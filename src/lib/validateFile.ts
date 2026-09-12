@@ -1,4 +1,12 @@
-/** Max allowed upload size: 10 MB */
+/**
+ * SIZE LIMIT — one of three declared tiers in this codebase. Do not add a fourth
+ * without a reason recorded here and in the other two:
+ *   10 MB  this file               — driver/applicant phone photos and scans, and
+ *          the maintenance invoice scan, all single-page captures
+ *   20 MB  `rateConfirmation.ts`   — multi-page broker rate confirmations
+ *   25 MB  `loadDocuments.ts` / `binderUpload.ts` — staff-scanned paperwork
+ * Every screen using this validator must state 10 MB.
+ */
 export const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 /** MIME types that are always accepted for document uploads */
