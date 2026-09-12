@@ -51,7 +51,7 @@ Deno.serve(async (req) => {
 
     const now = new Date();
 
-    const [{ data: operators }, { data: cycles }, { data: settings }] = await Promise.all([
+    const [opsRes, cyclesRes, setRes] = await Promise.all([
       // NAMES AND EMAIL LIVE ON `applications`. `operators` has no name column;
       // asking for one made PostgREST reject the read, so this job silently sent
       // nothing at all.
@@ -61,6 +61,16 @@ Deno.serve(async (req) => {
       supabase.from('inspection_cycles').select('*'),
       supabase.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
     ]);
+
+    // A REJECTED READ MUST NOT LOOK LIKE "NOBODY NEEDED A REMINDER".
+    const readError = opsRes.error ?? cyclesRes.error ?? setRes.error;
+    if (readError) {
+      console.error('[cron-inspection-reminders] read failed', readError);
+      return new Response(JSON.stringify({ error: readError.message, sent: 0 }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const operators = opsRes.data, cycles = cyclesRes.data, settings = setRes.data as any;
 
     const offsets: number[] = settings?.reminder_offsets_days ?? [30, 14, 3];
     const [preMonth, midMonth, lateMonth] = [offsets[0] ?? 30, offsets[1] ?? 14, offsets[2] ?? 3];
