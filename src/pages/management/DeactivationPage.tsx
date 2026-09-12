@@ -115,10 +115,10 @@ export default function DeactivationPage() {
     : 'Driver';
 
   const navItems = [
-    { label: 'Management Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
+    { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
     { label: 'Applications', icon: <ClipboardList className="h-4 w-4" />, path: 'applications' },
     { label: 'Onboarding Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
-    { label: 'PEI Queue', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' },
+    { label: 'PEI Q', icon: <Briefcase className="h-4 w-4" />, path: 'pei-queue' },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadMsgCount },
     { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
     { label: 'Fleet Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
@@ -147,10 +147,10 @@ export default function DeactivationPage() {
 
   const mobileNavItems = [
     { label: 'Overview', icon: <LayoutDashboard className="h-4 w-4" />, path: 'overview' },
-    { label: 'Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
+    { label: 'Onboarding Pipeline', icon: <Users className="h-4 w-4" />, path: 'pipeline', badge: criticalExpiryCount || undefined },
     { label: 'Messages', icon: <MessageSquare className="h-4 w-4" />, path: 'messages', badge: unreadMsgCount },
-    { label: 'Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
-    { label: 'Notifs', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
+    { label: 'Fleet Compliance', icon: <ShieldCheck className="h-4 w-4" />, path: 'compliance', badge: criticalExpiryCount || undefined },
+    { label: 'Notifications', icon: <BellRing className="h-4 w-4" />, path: 'notifications', badge: unreadNotifCount },
   ];
 
   const handleNavigate = (path: string) => {
