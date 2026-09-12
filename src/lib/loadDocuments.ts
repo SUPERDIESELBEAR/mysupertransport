@@ -11,7 +11,19 @@ export const LOAD_DOCUMENTS_BUCKET = 'load-documents';
 /** Short window — every URL is minted at the moment it is needed. */
 export const SIGNED_URL_TTL_SECONDS = 300;
 
+/**
+ * SIZE LIMIT — one of three declared tiers in this codebase. Do not add a fourth
+ * without a reason recorded here and in the other two:
+ *   10 MB  `validateFile.ts`     — driver/applicant phone photos and scans
+ *   20 MB  `rateConfirmation.ts` — multi-page broker rate confirmations
+ *   25 MB  this file and `binderUpload.ts` — scanned load paperwork and binder
+ *          documents, routinely a whole multi-page scanner PDF
+ * Every screen using this validator must state 25 MB.
+ */
 export const MAX_LOAD_DOC_BYTES = 25 * 1024 * 1024; // 25 MB
+
+/** Human sentence for load-document upload controls, so the screen states the limit. */
+export const LOAD_DOC_FILE_HINT = 'PDF, JPG, PNG, HEIC or WebP · up to 25 MB';
 
 export const ALLOWED_LOAD_DOC_MIME = [
   'application/pdf',
