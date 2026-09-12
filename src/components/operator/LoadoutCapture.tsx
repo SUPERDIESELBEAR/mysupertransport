@@ -222,6 +222,10 @@ export function LoadoutCapture({ loadId, onUploaded }: Props) {
 
   return (
     <div className="space-y-4">
+      {/* 25 MB tier — see MAX_LOAD_DOC_BYTES. Photos only, so the wording names images. */}
+      <p className="text-[11px] text-muted-foreground" data-testid="loadout-file-hint">
+        JPG, PNG, HEIC or WebP · up to 25 MB each
+      </p>
       {LOADOUT_STAGES.map(stage => {
         const slots = LOADOUT_SLOTS[stage];
         const required = slots.filter(s => s.required && s.kind === 'photo');

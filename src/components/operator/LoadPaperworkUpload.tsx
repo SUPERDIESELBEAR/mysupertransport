@@ -10,7 +10,7 @@ import {
   type PaperworkRequirement, type PaperworkStatus,
 } from '@/lib/loadPaperwork';
 import {
-  uploadLoadDocument, validateLoadDocumentFile, type LoadDocumentType,
+  uploadLoadDocument, validateLoadDocumentFile, LOAD_DOC_FILE_HINT, type LoadDocumentType,
 } from '@/lib/loadDocuments';
 
 /**
