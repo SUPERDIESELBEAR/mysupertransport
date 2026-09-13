@@ -11941,3 +11941,106 @@ The six single-carrier readers, by category:
   no first-carrier row, carries no COALESCE and no `'America/Chicago'` literal, resolves by
   `carrier_usdot`/`usdot_number`, raises at least twice, that `carrier_profile_usdot_unique` is
   a GLOBAL unique index, and that the function is unreachable by anon and authenticated.
+
+---
+
+## 2026-09-13 — Tenancy step 2, batch B2 part one: `operators`, `brokers`, `facilities`
+
+Three tables received `company_id`. Nothing else did: no `equipment_items`, `loads`,
+`applications` or `user_roles`, no RLS change, no fictitious company.
+
+### Two contradictions found, reported not reconciled
+
+1. **`profiles` in the batching plan.** §2 lists `profiles` inside batch B2; §3 of the same
+   document recommends it stay GLOBAL — one row per auth user, company reach via
+   `company_members`. The two sections disagree. `profiles` was left out of this pass, on §3.
+   §2's table list is the one that needs correcting.
+2. **Policy count.** The plan's baseline is 553 public policies. Live count before the DDL was
+   **554**, and 554 after — so this pass added none. The +1 predates it and is not explained by
+   it. The 554 figure is the measured baseline from here.
+
+### What was applied
+
+Nullable column → backfill → `NOT NULL`, no default at any point, FK to
+`carrier_profile(id) ON DELETE RESTRICT` (the Module 7 shape). The backfill reads
+`(SELECT id FROM public.carrier_profile)` as a bare scalar subquery, so it raises `21000` rather
+than picking arbitrarily if a second carrier ever exists. `brokers` is backfilled from the
+company row and NOT through `broker_documents` — that is the schema's one FK cycle and
+`broker_documents` has no `company_id` yet.
+
+All user triggers on the three tables were disabled for the duration of the backfill so the
+UPDATE touched exactly one column; none of them is an immutability or federal-record lock, and
+all 16 are back at `tgenabled = 'O'`. Zero rows in any of the three have an `updated_at` inside
+the last hour, which is the evidence that the backfill changed nothing but `company_id`.
+
+### The stamp, and where it deviates
+
+`stamp_tenant_company_id()` — definer, `search_path` pinned to `public, extensions`, execute
+revoked from `PUBLIC`/`anon`/`authenticated`, `BEFORE INSERT` on all three tables. Order:
+
+1. Membership resolves → `NEW.company_id := current_company_id()`, **overwriting whatever
+   arrived**. A browser can never choose its company.
+2. Membership does not resolve, caller is `service_role`, row names a company → accepted.
+3. Anything else → `RAISE ... 42501`. No fallback to "the first carrier row".
+
+Step 2 is a **deliberate deviation** from the eight billing tables, which stamp unconditionally.
+`operators` has four service-role insert paths (`invite-operator`, `provision-demo-driver`,
+`provision-test-driver`, `create-test-operator`) where `auth.uid()` is absent; an unconditional
+stamp would make every driver invitation fail the `NOT NULL` constraint. `service_role` is a
+server context, never a browser, so this is not client-supplied tenancy — but it is a second
+shape, and it is recorded as one rather than described as the same rule.
+
+All four functions now name the company server-side through
+`supabase/functions/_shared/tenancy.ts`: `companyIdForUser()` for the two with an authenticated
+staff caller, `soleCompanyId()` for the two bootstrap tools, which **refuse once a second
+carrier row exists** rather than picking one. The browser paths
+(`FacilityDialog.tsx`, `BrokerDialog.tsx`) send no `company_id` at all.
+
+### Index decisions, declared per the standing rule
+
+| Constraint | Decision | Rationale |
+| --- | --- | --- |
+| `uq_facilities_name_city_state_active` → `uq_facilities_company_name_city_state_active` | **PER-COMPANY** | Each carrier keeps its own facility list; two carriers may both haul out of a same-named facility in the same city. |
+| `operators_user_id_key` | **GLOBAL** | One auth user is one operator record. A person leased to two carriers would need a second auth identity. Revisit only if that becomes real. |
+| `brokers` | n/a | No unique index other than the primary key. |
+
+Plus `idx_operators_company_id`, `idx_brokers_company_id`, `idx_facilities_company_id`.
+
+### Verification (live, 2026-09-13)
+
+| Check | Result |
+| --- | --- |
+| `attnotnull` / `atthasdef` / default expression | `true` / `false` / none, all three |
+| Null `company_id` | 0 / 0 / 0 |
+| Distinct companies | 1 / 1 / 1, all `= 6b54d0e6-…` |
+| Row counts before → after | 154 → 154, 12 → 12, 2 → 2 |
+| Rows with `updated_at` inside the last hour | 0 / 0 / 0 |
+| `grant_parity_report()` | 0 rows |
+| Public policies | 554 → 554 |
+
+Rolled-back probes, all four:
+
+- Member session inserting a facility with a spoofed `company_id` of
+  `00000000-…-0001` → stored as `6b54d0e6-…`. The supplied value was discarded.
+- Owner (`5cca4f77-…`) doing the same → also `6b54d0e6-…`. Owner access intact.
+- Session with no membership row → refused, verbatim: `Cannot resolve a company for this
+  public.brokers row: the caller holds no company_members row and no server-side company was
+  named. Refusing rather than defaulting to a carrier.`
+- `service_role` naming the company → accepted; `service_role` naming none → refused with the
+  same message. Counts after rollback unchanged: 2 facilities, 12 brokers, 154 operators.
+
+### Guard
+
+`src/test/tenancy-resolver.test.ts` gained six live-catalog assertions: `NOT NULL` with no
+default on all three, every row on the live carrier with no nulls, the enabled stamp trigger on
+each table, the stamp being definer/pinned/raising/with no `carrier_profile` read and unreachable
+by clients, the facilities uniqueness leading with `company_id`, and the operators/brokers unique
+index set being exactly `{brokers_pkey, operators_pkey, operators_user_id_key}` — so adding a
+company-blind unique index to either table fails the suite.
+
+### Suites run
+
+`tenancy-resolver`, `policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
+`definer-fail-open`, `purge-path-coverage`, `payments-schema` — 7 files, 52 tests, all passed.
+`npx tsgo --noEmit` clean. The Supabase linter reports the same 170 pre-existing issues; none is
+new to this migration and none was addressed here.
