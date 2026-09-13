@@ -238,3 +238,12 @@ Fails if any screen maps a driver roster into a plain `<SelectItem>` instead of 
 `src/components/shared/DriverCombobox.tsx`. Allowlist is empty; an entry needs a reason.
 Shipped green on 2026-09-13 after the last hand-built picker was converted, so any file it
 names is NEW. Demonstrated red the same day.
+
+### `return-sheet-device-enum.test.ts` — GREEN
+
+Fails if any device type the deactivation wizard's return list can offer (or any live
+`equipment_items.device_type`) is not storable in `public.osas_device_type`, if a
+`onboard_assignment_sheets` row exists with no items, or if the wizard stops writing the
+sheet `draft` -> items -> `signed`. Shipped green on 2026-09-13 after `fuel_card` was added
+to the sheet enum and the one orphaned signed sheet was deleted, so any name it reports is
+NEW drift. Live checks need `PGHOST`; the ordering check runs anywhere.
