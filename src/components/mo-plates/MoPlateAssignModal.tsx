@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -169,18 +169,13 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate, tran
                   Enter name manually
                 </button>
               </div>
-              <Select value={selectedOperatorId} onValueChange={setSelectedOperatorId} disabled={loadingOps}>
-                <SelectTrigger>
-                  <SelectValue placeholder={loadingOps ? 'Loading…' : 'Select a driver'} />
-                </SelectTrigger>
-                <SelectContent>
-                  {operators.map(op => (
-                    <SelectItem key={op.id} value={op.id}>
-                      {op.name}{op.unit_number ? ` — Unit #${op.unit_number}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <DriverCombobox
+                operators={operators.map(op => ({ userId: op.id, name: op.name, unitNumber: op.unit_number }))}
+                value={selectedOperatorId}
+                onChange={setSelectedOperatorId}
+                placeholder={loadingOps ? 'Loading…' : 'Select a driver'}
+                triggerClassName="w-full"
+              />
             </div>
           ) : (
             <div>

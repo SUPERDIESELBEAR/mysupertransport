@@ -189,17 +189,22 @@ export default function RetentionArchivePanel() {
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div className="space-y-1">
               <Label>Driver</Label>
-              <Select value={operatorId} onValueChange={setOperatorId}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All drivers</SelectItem>
-                  {operators.map((o) => (
-                    <SelectItem key={o.id} value={o.id}>
-                      {o.name}{o.unit ? ` — Unit ${o.unit}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              {/*
+                The roster is 150+ names, so this is the shared searchable
+                picker. "All drivers" is carried as the first option rather
+                than a separate control, so the filter keeps one value.
+                Deliberately UNFILTERED: retention is a compliance scope and
+                must reach every driver who ever had records.
+              */}
+              <DriverCombobox
+                operators={[
+                  { userId: 'all', name: 'All drivers' },
+                  ...operators.map((o) => ({ userId: o.id, name: o.name, unitNumber: o.unit })),
+                ]}
+                value={operatorId}
+                onChange={setOperatorId}
+                triggerClassName="w-full"
+              />
             </div>
             <div className="space-y-1">
               <Label>From</Label>
