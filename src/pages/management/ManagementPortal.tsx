@@ -120,7 +120,7 @@ type StaffWorkload = {
   lastUpdatedAt: string | null;
 };
 
-type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'inspection-program' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'ownership-transfer' | 'settings' | 'help';
+type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'inspection-program' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'fuel-exceptions' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'ownership-transfer' | 'settings' | 'help';
 type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
 
 type ApplicationInvite = {
@@ -194,7 +194,7 @@ const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
-const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','inspection-program','duplicate-plates','carrier-signature','terminations','broadcast','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','ownership-transfer','settings','help'];
+const ALLOWED_VIEWS: ManagementView[] = ['overview','pipeline','operator-detail','applications','dispatch','dispatch-board','loads','load-edit','rate-con-inbox','facilities','brokers','staff','faq','staff-help','resource-center','activity','notifications','docs-hub','inspection-binder','drivers','operator-preview','pipeline-config','messages','compliance','equipment','eld-malfunctions','eld-device-models','eld-logs','eld-retention','email-catalog','email-log','content-manager','forms-catalog','mo-plates','whats-new','vehicle-hub','inspection-program','duplicate-plates','carrier-signature','terminations','broadcast','pei-queue','demo-accounts','parser-diagnostics','fuel-import','fuel-driver-detail','fuel-location-report','fuel-exceptions','settlement-run','dispatch-settlement','billing-queue','late-accessorials','settlement-settings','ownership-transfer','settings','help'];
 
 export default function ManagementPortal() {
   const { toast } = useToast();
@@ -1093,6 +1093,7 @@ export default function ManagementPortal() {
         { label: 'Fuel Import', icon: <Fuel className="h-4 w-4" />, path: 'fuel-import' },
         { label: 'Driver Fuel Detail', icon: <Fuel className="h-4 w-4" />, path: 'fuel-driver-detail' },
         { label: 'Fuel Cost by Location', icon: <Fuel className="h-4 w-4" />, path: 'fuel-location-report' },
+        { label: 'Fuel Exceptions', icon: <Fuel className="h-4 w-4" />, path: 'fuel-exceptions' },
         { label: 'Billing Queue', icon: <FileText className="h-4 w-4" />, path: 'billing-queue' },
         { label: 'Late Accessorials', icon: <FileWarning className="h-4 w-4" />, path: 'late-accessorials', badgeNode: <LateAccessorialBadge /> },
         { label: 'Settlement Run', icon: <Wallet className="h-4 w-4" />, path: 'settlement-run' },
@@ -2190,6 +2191,7 @@ export default function ManagementPortal() {
         {view === 'fuel-import' && <FuelImportPage />}
         {view === 'fuel-driver-detail' && <FuelDriverDetailPage />}
         {view === 'fuel-location-report' && <FuelLocationReportPage />}
+        {view === 'fuel-exceptions' && <FuelExceptionsPage />}
         {view === 'settlement-run' && <SettlementRunPage />}
         {view === 'dispatch-settlement' && <DispatchSettlementPage />}
         {view === 'billing-queue' && <BillingQueuePage />}
