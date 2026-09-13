@@ -169,8 +169,11 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       .select('entity_kind, operator_id, operator_name, doc_key, inspection_doc_id, expires_at, days_until, file_path, uploaded_at, expires_updated_at');
 
     // DOT inspections live in a separate table; merge them client-side so the
-    // view definition can stay unchanged. Driver names are NOT columns on
-    // `operators` — they live on `applications`, reached through
+    // view definition can stay unchanged. `operators` has NO first_name/last_name
+    // and no FK to `profiles` — names come through the `applications` embed, which
+    // is what the select below already does, and `postgrestEmbeds.test.ts` guards it.
+    // An embed naming those columns on `operators` was reported twice; both were
+    // stale against this query. They live on `applications`, reached through
     // `operators.application_id`. Getting that embed wrong makes PostgREST
     // reject the whole request, and a swallowed error here empties every DOT
     // Inspection row out of the summary with no other visible sign, so the

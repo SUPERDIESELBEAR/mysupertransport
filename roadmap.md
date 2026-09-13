@@ -176,3 +176,9 @@
   same size may compress differently and prove nothing.
   TRIGGER: before either label is changed to say 20 MB, or the next time a large rate
   confirmation arrives naturally — whichever comes first.
+
+## 2026-09-13 — monitoring triage
+- [x] Resolve the 2026-09-11 monitoring batch in the tool (stale/fixed/false_positive)
+- [x] Add the six pre-emptive comments at the sites the findings cite
+- [x] Record the 2026-09-11 occurrences in the stale-issues table, plus the two missing rows
+- [x] Report the `.lovable/drafts/` contents (report only — never delete the owner's drafts)

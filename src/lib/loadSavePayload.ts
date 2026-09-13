@@ -7,6 +7,12 @@ import { naiveToIso } from '@/lib/carrierTimezone';
  *
  * Extracted verbatim out of the load form so the form and the revised-rate-confirmation
  * apply path emit byte-identical payloads. Nothing here is UI-aware.
+ *
+ * NOT the 100-argument bug (SQLSTATE 54023). Migration 20260827230239 split the
+ * change-history snapshot across two `jsonb_build_object` calls; the live function
+ * carries 8 such calls, not one. 20260827222017 is SUPERSEDED — read the newest
+ * migration for this function, not the one that introduced the keys. Reported three
+ * times against the superseded definition; closed stale each time.
  */
 export interface LoadSavePayload {
   load: Record<string, unknown>;

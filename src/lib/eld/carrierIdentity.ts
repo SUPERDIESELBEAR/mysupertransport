@@ -1,6 +1,11 @@
 /**
  * Carrier identity for record creation.
  *
+ * `authenticated` HOLDS SELECT on `carrier_profile` (verified live). A historical
+ * "permission denied for table carrier_profile" in the logs predates the grant
+ * restoration — check the live grant, or `grant-parity-live.test.ts`, before
+ * treating a recurrence as new.
+ *
  * The record of truth is the `carrier_profile` singleton. Nothing that creates
  * a federal record reads it live: a driver keying a log during a malfunction is
  * frequently offline, and a live read there either fails or — worse — succeeds

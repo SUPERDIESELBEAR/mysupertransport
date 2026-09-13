@@ -3289,13 +3289,35 @@ found to be stale, false, or already fixed.
 
 | Reported issue | First reported / closed | Reason |
 |---|---|---|
-| InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20; **re-reported 2026-09-03** | Fixed before report; the embed error predates the 2026-08-20 redesign. Current query reads names through `applications`; embed guard green over 1014 selects, 3526 column references, 181 embed hops. |
-| Permission-denied errors on operator/document paths | 2026-08-27 / closed 2026-08-27 | `grant_parity_report` was clean; the proposed GRANT would reverse a deliberate revoke. |
-| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27; **re-reported 2026-09-03** | Fixed in the same 2026-08-27 pass that introduced the reclassification path. `buildRevisionDiff` carries a `reclassified` op; `saveLoadReferences` applies class moves in place before the upsert. Zero duplicate rows live; 0 of 13 reference rows carry a class the current classifier would not assign. |
-| `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03** | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
-| Per-ton load edit wipes scale-ticket total | 2026-08-29 / closed 2026-09-02; **re-reported 2026-09-03** | Re-verified live 2026-09-02: `recompute_load_total_value` returned 6750 unchanged with confirmed tons present. The finding described a corrected state. |
-| Driver ELD `carrier_profile` permission denied | 2026-09-03 / closed 2026-09-03 | Grants restored in a prior pass; live `carrier_profile` grants present. |
-| Equipment serial guard blocks assign/return/archive | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03** | Described the trigger as it stood for roughly 24 hours between 2026-08-28 and 2026-08-29. The live function carries two early exits before the uniqueness check; live data has ZERO conflicting pairs; partial unique index `idx_equipment_items_canonical_serial_uniq` makes a conflicting pair unstorable. |
+| InspectionComplianceSummary embed broken | 2026-08-20 / closed 2026-08-20; **re-reported 2026-09-03**; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Fixed before report; the embed error predates the 2026-08-20 redesign. Current query reads names through `applications`; embed guard green over 1014 selects, 3526 column references, 181 embed hops. |
+| Permission-denied errors on operator/document paths | 2026-08-27 / closed 2026-08-27; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | `grant_parity_report` was clean; the proposed GRANT would reverse a deliberate revoke. |
+| Reference reclassification creates duplicate rows | 2026-08-27 / closed 2026-08-27; **re-reported 2026-09-03**; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Fixed in the same 2026-08-27 pass that introduced the reclassification path. `buildRevisionDiff` carries a `reclassified` op; `saveLoadReferences` applies class moves in place before the upsert. Zero duplicate rows live; 0 of 13 reference rows carry a class the current classifier would not assign. |
+| `update_load_with_stops` fails with 54023 (100-argument limit) | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03**; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | **False.** The live function splits the change-history snapshot across two `jsonb_build_object` calls (34 keys and 18 keys). Corrective migration `20260827230239` is present in `supabase/migrations` and is byte-identical to the live definition. Three real UI saves against ST26015 returned HTTP 200 with no 54023; the probe edit was reverted. The report cited `20260827222017` as the latest migration touching the function, but `20260827230239` superseded it 34 minutes later. |
+| Per-ton load edit wipes scale-ticket total | 2026-08-29 / closed 2026-09-02; **re-reported 2026-09-03**; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Re-verified live 2026-09-02: `recompute_load_total_value` returned 6750 unchanged with confirmed tons present. The finding described a corrected state. |
+| Driver ELD `carrier_profile` permission denied | 2026-09-03 / closed 2026-09-03; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Grants restored in a prior pass; live `carrier_profile` grants present. |
+| Equipment serial guard blocks assign/return/archive | 2026-08-29 / closed 2026-08-29; **re-reported 2026-09-03**; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Described the trigger as it stood for roughly 24 hours between 2026-08-28 and 2026-08-29. The live function carries two early exits before the uniqueness check; live data has ZERO conflicting pairs; partial unique index `idx_equipment_items_canonical_serial_uniq` makes a conflicting pair unstorable. |
+| `profiles` permission denied (`useAuth` role/profile reads) | 2026-09-11 / closed 2026-09-13 | Six log entries from 2026-09-03 with no current emitter: `has_table_privilege('authenticated','public.profiles','select')` is true today, and `grant-parity-live.test.ts` asserts it on every DB-attached run. **Not previously recorded anywhere** — a new object in an old class. Resolved `stale` in Project monitoring 2026-09-13. |
+| `loads` / `user_roles` / `current_profile_id` permission denied | 2026-08-24 / closed 2026-08-27; **re-reported 2026-09-11 and RESOLVED `stale` in Project monitoring 2026-09-13** | Closed in prose in 2026-08 but **never given a row here until 2026-09-13**. `grant_parity_report()` returns zero rows; `authenticated` holds SELECT on both tables. `current_profile_id` EXECUTE is revoked from `authenticated` DELIBERATELY (2026-08-20, reaffirmed in migration `20260824134718`) — the proposed GRANT would reverse a closed security decision to silence a stale symptom. |
+
+### The table is human memory. It suppresses nothing. (2026-09-13)
+
+Eight of these were closed in this document, which **the scanner does not read**.
+They arrived again — several for the third and fourth time — and the 2026-09-11 batch
+left no trace in the table above until today, so those repeat reports were triaged
+without the occurrence ever being written down.
+
+The mechanism that actually suppresses a finding is `project_monitoring--resolve_finding`:
+claim the finding, record `fixed`, `stale` or `false_positive` with a reason, and it stops
+appearing in the pending list. It had **never been used** before 2026-09-13, when all
+eleven triaged findings of the 2026-09-11 batch were recorded through it.
+
+**Standing rule: closing a finding in prose is not closing it.** Every finding triaged
+from now on gets both — a resolve call in the tool, and a row here with the occurrence
+date. The row is for the human reading the code six months from now; the resolve call is
+what stops the report arriving a fourth time. Where the finding cites a code site, add a
+short comment there too: `InspectionProgramPanel.tsx` carried one and its finding was
+closed in minutes, while `InspectionComplianceSummary.tsx` did not and drew the same
+class of finding twice.
 
 ## The look-alike serial guard blocked its own cleanup (2026-08-29)
 

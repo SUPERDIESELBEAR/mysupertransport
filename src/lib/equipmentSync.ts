@@ -42,6 +42,13 @@ async function auditEquipment(
  * record, and marks the device Archived. Shared by the fuel-card deactivate
  * modal and the Edit Device danger zone so both behave identically.
  */
+/**
+ * Deactivating a look-alike duplicate is ALLOWED. `enforce_equipment_serial_uniqueness`
+ * exits early when `NEW.status = 'deactivated'`, and again on any UPDATE that changes
+ * neither `device_type` nor the canonical serial — so this pure status write never
+ * consults the serial guard. Reported three times as a blocked archive; closed stale
+ * each time against the live trigger definition.
+ */
 export async function archiveEquipmentItem(
   item: { id: string; device_type: DeviceType; serial_number: string; current_assignment_id?: string | null },
   reason?: string | null,

@@ -489,6 +489,11 @@ const sameText = (a: unknown, b: unknown) => text(a).trim() === text(b).trim();
  * Every field where the revised document disagrees with the load as it stands.
  * `resolutions` carries the dispatcher's answers for stops the matcher could not place,
  * so the diff can be rebuilt as they resolve them.
+ *
+ * Reclassification does NOT duplicate reference rows. The diff carries a
+ * `reclassified` op, and `saveLoadReferences` moves the class in place before the
+ * upsert — so an existing `other` row and a newly `unclassified` one are one row, not
+ * an add plus a remove. Reported three times; closed stale each time.
  */
 export function buildRevisionDiff(
   current: LoadFormValues,
