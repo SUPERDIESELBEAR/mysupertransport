@@ -11401,3 +11401,34 @@ VERIFICATION was SQL, not a browser run: a scratch return sheet for Cortez took 
 item and reached `signed`, then was deleted (0 rows left). A forced-failure run inserted a
 draft, was refused an invalid `device_type`, deleted the draft, and left 0 sheets behind. No
 live driver could be offboarded for real to test this.
+
+## 2026-09-13 (later) — the SHAPE behind the fuel_card gap, guarded
+
+`fuel_card` was one instance. The shape is that a device type is defined in **three**
+places, not two: the `equipment_items_device_type_check` CHECK (`eld`, `dash_cam`,
+`bestpass`, `fuel_card`), the `osas_device_type` enum, and `RETURN_DEVICE_LABELS` in the
+wizard. Nothing connects them, so the next device type added to inventory breaks offboarding
+again. The conversion to one definition is recorded as KNOWN DEBT in docs/tms-wish-list.md
+with its trigger — it belongs with the queued deactivation and lease-termination work, and
+was deliberately NOT done here.
+
+`src/test/return-sheet-device-enum.test.ts` now carries three live arms against the enum:
+the CHECK's permitted list, the distinct values live in `equipment_items`, and the wizard's
+offered list. **The CHECK arm is the earliest warning** — no `equipment_items` row can carry
+a value the CHECK does not permit, so the data arm cannot go red until the CHECK is widened,
+and widening it is the first thing anyone adding a device type does. The guard fires there,
+before a row exists and before an offboarding fails.
+
+PREDICTED 5 tests, 0 findings, green. ACTUAL 5 passed, 0 findings.
+
+DEMONSTRATED RED TWICE, both reverted:
+1. `toll_transponder` added to `RETURN_DEVICE_LABELS` —
+   `offered by the wizard, rejected by osas_device_type: toll_transponder: expected [ 'toll_transponder' ] to deeply equal []`
+2. the CHECK widened by migration and one scratch `equipment_items` row inserted — BOTH live
+   arms named it: `held in equipment_items, rejected by osas_device_type: toll_transponder`
+   and `permitted by the inventory CHECK, rejected by osas_device_type: toll_transponder`.
+   Scratch row deleted, CHECK restored to the original four values, 0 scratch rows remain.
+
+Note for the next person: the harness role cannot insert into `equipment_items` at all
+(`permission denied for function canonical_equipment_serial`, the unique-index expression),
+so a scratch inventory row has to be written with service-role access, not psql.

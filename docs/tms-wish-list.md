@@ -386,6 +386,30 @@ Do not add fuzzy or partial matching to compensate.
 
 TRIGGER: Module 11, driver app guided photo capture.
 
+### A device type is defined in THREE places — KNOWN DEBT, TRIGGER RECORDED
+
+`equipment_items.device_type` is plain `text` with its own CHECK constraint
+(`eld`, `dash_cam`, `bestpass`, `fuel_card`). `onboard_assignment_sheet_items.device_type`
+is the enum `public.osas_device_type` (those four plus `license_plate`, `registration`,
+`ifta_decal`). `RETURN_DEVICE_LABELS` in `DeactivationWizardContent.tsx` is a third list.
+Nothing connects the three, so inventory can hold a value the return sheet cannot store —
+and the failure surfaces as an offboarding that will not complete, which is a poor place to
+learn about a schema mismatch. That is exactly what `fuel_card` did on 2026-09-11.
+
+THE REAL FIX is ONE definition: convert `equipment_items.device_type` to
+`osas_device_type` (or a shared `device_type` enum) and derive the wizard's labels from it,
+dropping the CHECK. That is a data migration on 219 live rows plus a unique index and a
+uniqueness trigger that both reference the column, so it is NOT a drive-by.
+
+TRIGGER: do it as part of the queued deactivation and lease-termination work, not before
+it. Until then `src/test/return-sheet-device-enum.test.ts` holds the line — three live arms
+(the CHECK's permitted list, the distinct values in inventory, and the wizard's offered
+list) all compared to the enum. The CHECK arm is the earliest warning: no row can carry a
+value the CHECK does not list, so widening the CHECK — the first step anyone adding a device
+type takes — goes red before a single row exists and before any offboarding fails.
+Demonstrated red 2026-09-13 by widening the CHECK, inserting one scratch
+`toll_transponder` row, and reverting both.
+
 ### Storage objects leak whenever a row is deleted by any route but the app
 
 Cleanup lives in TypeScript call sites, so cascades, direct SQL and edge
