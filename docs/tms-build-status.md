@@ -11949,15 +11949,20 @@ The six single-carrier readers, by category:
 Three tables received `company_id`. Nothing else did: no `equipment_items`, `loads`,
 `applications` or `user_roles`, no RLS change, no fictitious company.
 
-### Two contradictions found, reported not reconciled
+### Corrections applied to the 2026-09-13 batching plan
 
-1. **`profiles` in the batching plan.** §2 lists `profiles` inside batch B2; §3 of the same
-   document recommends it stay GLOBAL — one row per auth user, company reach via
-   `company_members`. The two sections disagree. `profiles` was left out of this pass, on §3.
-   §2's table list is the one that needs correcting.
-2. **Policy count.** The plan's baseline is 553 public policies. Live count before the DDL was
-   **554**, and 554 after — so this pass added none. The +1 predates it and is not explained by
-   it. The 554 figure is the measured baseline from here.
+The plan governs five remaining batches; these two corrections keep it consistent with the
+database shape discovered while executing B2 part one.
+
+1. **`profiles` removed from batch B2.** §2 listed `profiles` (170 rows) in batch B2; §3 of the
+   same document recommends it stay GLOBAL — one row per auth user, company reach via
+   `company_members`. Both cannot hold. **§3 is correct and was followed.** A person is one person;
+   their company reach is a membership row, not a column on their identity record. Batch B2 is
+   therefore **seven tables, not eight**.
+2. **Policy baseline corrected to 554.** The plan's verification checklist said 553 public
+   policies. Live count before the DDL was **554**, and 554 after — this pass added none. The +1
+   predates it and is not explained by it. **554 is the measured baseline from 2026-09-13.**
+   A verification checklist with a wrong baseline fails a correct pass or passes a wrong one.
 
 ### What was applied
 
