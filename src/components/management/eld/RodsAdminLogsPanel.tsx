@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -196,16 +197,22 @@ export default function RodsAdminLogsPanel({
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
-          <Select value={operatorId} onValueChange={(v) => { setOperatorId(v); setSelectedId(null); }}>
-            <SelectTrigger><SelectValue placeholder="Choose a driver" /></SelectTrigger>
-            <SelectContent>
-              {operators.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.driver_name || 'Driver'}{o.unit_number ? ` — Unit ${o.unit_number}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/*
+            Full roster, so the shared searchable picker. Deliberately
+            UNFILTERED — paper logs are a compliance record and must be
+            readable for any driver who ever recorded duty status.
+          */}
+          <DriverCombobox
+            operators={operators.map((o) => ({
+              userId: o.id,
+              name: o.driver_name || 'Driver',
+              unitNumber: o.unit_number,
+            }))}
+            value={operatorId}
+            onChange={(v) => { setOperatorId(v); setSelectedId(null); }}
+            placeholder="Choose a driver"
+            triggerClassName="w-full"
+          />
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </CardContent>
