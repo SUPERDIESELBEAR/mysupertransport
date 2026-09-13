@@ -1837,9 +1837,21 @@ brokers, loads and settlements. To demo, you log into that company's portal.
 RECORD THIS PRECISELY, because an earlier framing got it wrong: there is NO "this is
 demo" marker on any row, and nothing in SUPERTRANSPORT is marked as anything. The
 column added to the revenue tables is `company_id`, and it is not a demo mechanism —
-it is the TENANCY BOUNDARY. Every query is already scoped to the company the user is
-logged into. Demo data is simply the data belonging to a company that happens to be
-fictitious.
+it is the TENANCY BOUNDARY. Demo data is simply the data belonging to a company that
+happens to be fictitious.
+
+CURRENT STATE (verified live 2026-09-13): `company_id` is stamped on eight billing
+tables — `invoices`, `invoice_line_items`, `invoice_batches`, `invoice_number_config`,
+`payments`, `factoring_remittances`, `ar_aging_snapshots` and `accessorial_adjustments`
+— by a `SECURITY DEFINER` trigger that calls `current_company_id()`. That function is
+`SELECT id FROM public.carrier_profile ORDER BY created_at LIMIT 1`. It does not read
+`auth.uid()` and it does not consult any membership table. It returns the first carrier
+row regardless of who is asking. `carrier_profile` holds exactly one row today, so the
+stamp has been correct by accident, not by boundary. NO query is scoped by company
+today: 553 policies exist in `public` and 8 mention `company_id`. The boundary is a
+stamp, not a boundary — a column nothing filters on. The fictitious-company decision and
+the reasoning below are sound; only the claim that the boundary was already enforced
+was wrong.
 
 Consequences that make this the right shape:
 
