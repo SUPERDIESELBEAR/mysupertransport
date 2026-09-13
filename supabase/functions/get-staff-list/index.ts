@@ -1,6 +1,7 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -424,7 +425,9 @@ Deno.serve(async (req) => {
 
       if (action === 'add') {
         await supabaseAdmin.from('user_roles').upsert(
-          { user_id, role },
+          // Service-role write: no auth.uid(), so the company is named from the
+          // requesting management user's membership.
+          { user_id, role, company_id: await companyIdForUser(supabaseAdmin, callerUser.id) },
           { onConflict: 'user_id,role' }
         );
       } else if (action === 'remove') {

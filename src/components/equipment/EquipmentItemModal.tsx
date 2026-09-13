@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -184,7 +185,8 @@ export default function EquipmentItemModal({ open, item, isManagement, defaultDe
     if (item) {
       ({ error } = await supabase.from('equipment_items').update(payload).eq('id', item.id));
     } else {
-      ({ error } = await supabase.from('equipment_items').insert(payload));
+      // company_id is stamped server-side from membership; the browser never names it.
+      ({ error } = await supabase.from('equipment_items').insert(insertPayload('equipment_items', payload)));
     }
     setSaving(false);
     if (error) {

@@ -81,7 +81,9 @@ Deno.serve(async (req) => {
 
     await admin.from('applications').update({ user_id: userId }).eq('id', application_id);
     await admin.from('user_roles').upsert(
-      { user_id: userId!, role: 'operator' },
+      // Service-role write with no signed-in caller: the sole carrier, which
+      // refuses once a second company exists.
+      { user_id: userId!, role: 'operator', company_id: await soleCompanyId(admin) },
       { onConflict: 'user_id,role' }
     );
     await admin.from('profiles').update({

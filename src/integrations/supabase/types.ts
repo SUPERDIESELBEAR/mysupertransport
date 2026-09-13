@@ -4279,6 +4279,7 @@ export type Database = {
       }
       equipment_items: {
         Row: {
+          company_id: string
           created_at: string
           device_type: string
           id: string
@@ -4288,6 +4289,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           device_type: string
           id?: string
@@ -4297,6 +4299,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           device_type?: string
           id?: string
@@ -4305,7 +4308,15 @@ export type Database = {
           status?: string
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "equipment_items_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       equipment_receipts: {
         Row: {
@@ -7103,6 +7114,7 @@ export type Database = {
           broker_terms_verbatim: string | null
           co_driver_name: string | null
           commodity: string | null
+          company_id: string
           confirmed_tons: number | null
           created_at: string
           created_by: string | null
@@ -7183,6 +7195,7 @@ export type Database = {
           broker_terms_verbatim?: string | null
           co_driver_name?: string | null
           commodity?: string | null
+          company_id: string
           confirmed_tons?: number | null
           created_at?: string
           created_by?: string | null
@@ -7263,6 +7276,7 @@ export type Database = {
           broker_terms_verbatim?: string | null
           co_driver_name?: string | null
           commodity?: string | null
+          company_id?: string
           confirmed_tons?: number | null
           created_at?: string
           created_by?: string | null
@@ -7342,6 +7356,13 @@ export type Database = {
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "loads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -12382,24 +12403,35 @@ export type Database = {
       }
       user_roles: {
         Row: {
+          company_id: string
           created_at: string
           id: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           id?: string
           role: Database["public"]["Enums"]["app_role"]
           user_id: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           id?: string
           role?: Database["public"]["Enums"]["app_role"]
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_roles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_view_preferences: {
         Row: {

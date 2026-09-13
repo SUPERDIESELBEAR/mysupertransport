@@ -236,7 +236,8 @@ describe('tenancy batch B2 part one — operators, brokers, facilities', () => {
   itLive('each table stamps company_id server-side on insert', () => {
     const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
       WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
-        AND t.tgenabled = 'O' ORDER BY 1`);
+        AND t.tgenabled = 'O' AND t.tgrelid IN ('public.operators'::regclass,
+          'public.brokers'::regclass, 'public.facilities'::regclass) ORDER BY 1`);
     expect(rows.sort()).toEqual(['brokers', 'facilities', 'operators']);
   });
 
@@ -267,5 +268,118 @@ describe('tenancy batch B2 part one — operators, brokers, facilities', () => {
     const idx = psql(`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
       AND tablename IN ('operators', 'brokers') AND indexdef ILIKE '%UNIQUE%' ORDER BY 1`);
     expect(idx).toEqual(['brokers_pkey', 'operators_pkey', 'operators_user_id_key']);
+  });
+});
+
+/**
+ * BATCH B2 PART TWO — `company_id` on user_roles, loads, equipment_items.
+ *
+ * `applications` is deliberately NOT here: it is written by unauthenticated
+ * applicants, who hold neither a membership row nor service_role, so neither
+ * sanctioned stamping shape fits it. It stays global until that is decided.
+ *
+ * The three uniqueness rules below are the ones that made a second tenant
+ * impossible: one owner globally, one ST- load number globally, one device
+ * serial globally.
+ */
+describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () => {
+  const TABLES = ['user_roles', 'loads', 'equipment_items'] as const;
+
+  itLive('company_id is NOT NULL with no default on all three', () => {
+    const rows = psql(`SELECT a.attrelid::regclass::text || ' ' || a.attnotnull::text || ' ' ||
+        a.atthasdef::text
+      FROM pg_attribute a
+      WHERE a.attname = 'company_id'
+        AND a.attrelid IN ('public.user_roles'::regclass, 'public.loads'::regclass,
+                           'public.equipment_items'::regclass)
+      ORDER BY 1`);
+    expect(rows.sort()).toEqual(
+      ['equipment_items true false', 'loads true false', 'user_roles true false'],
+    );
+  });
+
+  itLive('every row carries the live carrier id, and none is null', () => {
+    for (const t of TABLES) {
+      const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(DISTINCT company_id)::text || ' ' ||
+          bool_and(company_id = (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toEqual(['0 1 true']);
+    }
+  });
+
+  itLive('all six B2 tables share one stamp trigger name, sorting ahead of validation', () => {
+    const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
+      WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
+        AND t.tgenabled = 'O' ORDER BY 1`);
+    expect(rows.sort()).toEqual([
+      'brokers', 'equipment_items', 'facilities', 'loads', 'operators', 'user_roles',
+    ]);
+    // The equipment serial guard reads NEW.company_id, so the stamp must fire
+    // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
+    const before = psql(`SELECT t.tgname FROM pg_trigger t
+      WHERE NOT t.tgisinternal AND t.tgrelid = 'public.equipment_items'::regclass
+        AND (t.tgtype & 2) = 2 AND (t.tgtype & 4) = 4 ORDER BY t.tgname`);
+    expect(before[0]).toBe('aa_stamp_tenant_company_id');
+  });
+
+  itLive('one owner PER COMPANY, not one owner globally', () => {
+    const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND indexname = 'user_roles_single_owner'`);
+    expect(idx).toMatch(/\(company_id, role\)/);
+    expect(idx).toMatch(/WHERE \(role = 'owner'/);
+  });
+
+  itLive('load numbers restart per company', () => {
+    const idx = psql(`SELECT indexname || ' ' || indexdef FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'loads' AND indexdef ILIKE '%UNIQUE%'
+      ORDER BY 1`);
+    expect(idx.some(i => i.startsWith('loads_pkey'))).toBe(true);
+    // The old global load_number key must be gone, not merely shadowed.
+    expect(idx.some(i => i.startsWith('loads_load_number_key'))).toBe(false);
+    const scoped = idx.find(i => i.startsWith('loads_company_load_number_key'));
+    expect(scoped).toBeTruthy();
+    expect(scoped).toMatch(/\(company_id, load_number\)/);
+  });
+
+  itLive('both equipment serial indexes lead with company_id', () => {
+    const idx = psql(`SELECT indexname || ' ' || indexdef FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'equipment_items'
+        AND indexname IN ('idx_equipment_items_canonical_serial_uniq',
+                          'idx_equipment_items_serial_type') ORDER BY 1`);
+    expect(idx.length).toBe(2);
+    for (const i of idx) expect(i).toMatch(/\(company_id,/);
+  });
+
+  itLive('the serial collision trigger is scoped to the company too', () => {
+    const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'enforce_equipment_serial_uniqueness'`).join('\n');
+    // An index scoped per company plus a trigger scoped globally would report a
+    // collision against inventory the caller cannot see.
+    expect(code).toMatch(/ei\.company_id\s*=\s*NEW\.company_id/);
+    expect(code).toMatch(/OLD\.company_id\s*=\s*NEW\.company_id/);
+  });
+
+  itLive('the owner functions assign and transfer within one company', () => {
+    for (const fn of ['bootstrap_assign_owner', 'transfer_owner']) {
+      const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
+      expect(code, fn).toMatch(/company_id/);
+      // No "ORDER BY created_at LIMIT 1" carrier pick: bootstrap uses a bare
+      // scalar subquery, which raises 21000 once a second carrier exists.
+      expect(code, fn).not.toMatch(/ORDER BY created_at\s+LIMIT 1/i);
+    }
+  });
+
+  itLive('applications is still GLOBAL, and its email rule is untouched', () => {
+    const cols = psql(`SELECT a.attname FROM pg_attribute a
+      WHERE a.attrelid = 'public.applications'::regclass AND a.attname = 'company_id'`);
+    expect(cols).toEqual([]);
+    const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND indexname = 'applications_email_non_draft_unique'`);
+    expect(idx).toBeTruthy();
+    expect(idx).not.toMatch(/company_id/);
   });
 });

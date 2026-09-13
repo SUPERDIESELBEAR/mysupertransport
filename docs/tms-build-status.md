@@ -11944,6 +11944,129 @@ The six single-carrier readers, by category:
 
 ---
 
+## 2026-09-13 — Tenancy step 2, batch B2 part two: `user_roles`, `loads`, `equipment_items`
+
+Three of the four planned tables received `company_id` (182 / 17 / 219 rows), nullable →
+bare-scalar backfill → `NOT NULL`, no default surviving, FK to `carrier_profile(id) ON DELETE
+RESTRICT`. **`applications` was NOT migrated — see the blocker below.** No RLS change, no
+fictitious company.
+
+### STOP AND REPORT — `applications` fits neither sanctioned stamping shape
+
+`applications` (338 rows) is written by **unauthenticated applicants**: policy
+`Public can submit application with email` grants INSERT to `{anon, authenticated}`, and
+`validate_public_application_insert()` normalises the row with no company input anywhere. An
+anonymous applicant holds no `company_members` row and is not `service_role`, so:
+
+- the billing shape (unconditional `current_company_id()`) refuses the insert, and
+- the service-role shape refuses it too.
+
+A third shape would have to accept tenancy from the client or fall back to a carrier, and both
+are forbidden by the standing rule. **No third shape was invented; the table was left global.**
+It needs a product decision first: the public apply form must carry the carrier it is applying
+to (a per-company apply URL or invite token), resolved server-side from that token.
+`applications_email_non_draft_unique (lower(email)) WHERE NOT is_draft` therefore stays GLOBAL
+and still blocks one driver applying to two carriers — recorded as a consequence, not a fix.
+
+### Unique indexes on the four tables and their disposition
+
+| Index | Before | After |
+| --- | --- | --- |
+| `user_roles_pkey` | global | unchanged — GLOBAL (surrogate key) |
+| `user_roles_single_owner (role) WHERE role='owner'` | one owner globally | rebuilt `(company_id, role) WHERE role='owner'` — PER-COMPANY |
+| `user_roles_user_id_role_key (user_id, role)` | global | unchanged — GLOBAL: a person holds a role once; cross-company role duplication is a step-5 question, not a B2 one |
+| `loads_pkey` | global | unchanged — GLOBAL |
+| `loads_load_number_key (load_number)` | global | dropped, replaced by `loads_company_load_number_key (company_id, load_number)` — PER-COMPANY |
+| `equipment_items_pkey` | global | unchanged — GLOBAL |
+| `idx_equipment_items_canonical_serial_uniq (device_type, canonical_serial) WHERE status<>'deactivated'` | global | rebuilt leading with `company_id` — PER-COMPANY |
+| `idx_equipment_items_serial_type` | global | rebuilt leading with `company_id` — PER-COMPANY |
+| `applications_pkey`, `applications_draft_token_key`, `applications_email_non_draft_unique` | global | untouched — table not migrated |
+
+`load_number_config` is in a later batch. It matters only for *allocation*: until it carries
+`company_id`, two companies would draw from one counter. The uniqueness rule is already
+per-company, so a collision fails loudly rather than mixing two carriers' loads.
+
+### The triggers moved with the indexes
+
+- `enforce_owner_role_writes` is a **gate only** — it refuses any owner INSERT/DELETE/UPDATE
+  unless `owner_role_writer_active()`. It reads no `company_id`, so it needed no change and its
+  refusal is unchanged: `Owner role changes must use an approved ownership function.` (42501).
+  Per-company owner uniqueness is enforced by the index, not the trigger.
+- `bootstrap_assign_owner` and `transfer_owner` were rewritten per company: bootstrap resolves
+  the carrier with a **bare scalar subquery** (raises `21000` on a second carrier) and checks
+  for an existing owner *within that company*; transfer resolves `current_company_id()`, refuses
+  without membership, and scopes its owner check, delete and insert to that company.
+- `enforce_equipment_serial_uniqueness` **had to move and did**: its collision query now filters
+  `ei.company_id = NEW.company_id`, and its unchanged-UPDATE early exit compares `company_id`
+  too. An index scoped per company with a trigger scoped globally would report a collision
+  against inventory the caller cannot see.
+
+### Stamping shape chosen per table
+
+- `user_roles` — **service-role shape**. Roles are written by service-role edge functions where
+  `auth.uid()` is absent (`get-staff-list`, `bootstrap-admin`, `provision-demo-driver`,
+  `provision-test-driver`); all four now name the company through `_shared/tenancy.ts`.
+- `loads` — **membership shape**. Every load is created by a signed-in dispatcher through
+  `create_load_with_stops`; no service-role insert path exists.
+- `equipment_items` — **membership shape**. Inventory is created in the browser only
+  (`EquipmentItemModal.tsx`, `src/lib/equipmentSync.ts`, both now using `insertPayload`); edge
+  functions read and update inventory but never insert it.
+
+All three stamp triggers were renamed `aa_stamp_tenant_company_id`, matching part one. BEFORE
+triggers fire alphabetically and the serial guard reads `NEW.company_id`, so the stamp must sort
+first — the `aa_` prefix is load-bearing, not cosmetic, and is now guarded.
+
+### What this unblocks, and what still waits
+
+The three owner-sequence constraints are resolved: a second company can now have its own owner
+(demonstrated below). Still waiting, both on tables outside this pass:
+`pay_policies_single_company_default` needs `pay_policies.company_id` (batch B3) and
+`owner_transfers_single_pending` needs `owner_transfers.company_id` — neither can be scoped yet.
+
+### Verification (live, 2026-09-13)
+
+- `company_id` `NOT NULL`, no default, zero nulls, one distinct company on all three tables;
+  counts unchanged 182 / 17 / 219 / 338 applications / 219 equipment; owner rows 1; policies
+  **554 before and after**; no row's `updated_at` moved (user triggers were disabled for the
+  backfill only, then re-enabled).
+- Linter total 170, unchanged.
+
+### Verbatim refusals, all inside rolled-back transactions
+
+- Member session, unauthorised owner insert: `Owner role changes must use an approved ownership
+  function.`
+- Second owner in the same company with the gate open:
+  `duplicate key value violates unique constraint "user_roles_single_owner"`
+- Duplicate serial inside the company: `That device is already on file as ABED32JG310816 — only
+  look-alike characters differ.`
+- Non-member insert into `loads`: `Cannot resolve a company for this public.loads row: the caller
+  holds no company_members row and no server-side company was named. Refusing rather than
+  defaulting to a carrier.` (same text for `user_roles` and `equipment_items`)
+- service_role naming no company: same refusal. service_role naming the company: accepted and
+  stored as `6b54d0e6-8743-4284-b55b-8cd094b093dd`.
+- Member spoofing `company_id = 00000000-…-0001` on both `equipment_items` and `loads`: stored
+  as `6b54d0e6-8743-4284-b55b-8cd094b093dd` — the supplied value was overwritten, never trusted.
+
+### Scratch second company (created and rolled back)
+
+A second `carrier_profile` row accepted **its own owner**, an equipment serial **identical** to
+an existing SUPERTRANSPORT serial, and load number **`ST-TEST-005`, already in use** by the
+first company. All three would have failed before this pass. Rolled back; final counts one
+carrier, 15 memberships, one owner.
+
+### Structural guards
+
+`src/test/tenancy-resolver.test.ts` gained a B2-part-two block reading the live catalog: column
+shape, no nulls/one company, all six B2 tables carrying `aa_stamp_tenant_company_id` with the
+stamp sorting first on `equipment_items`, per-company owner index, the old global
+`loads_load_number_key` **absent** rather than merely shadowed, both serial indexes leading with
+`company_id`, the serial trigger's two company comparisons, no `ORDER BY created_at LIMIT 1` in
+either owner function, and that `applications` still has **no** `company_id` — so the blocker
+cannot be quietly forgotten.
+
+---
+
+
 ## 2026-09-13 — Tenancy step 2, batch B2 part one: `operators`, `brokers`, `facilities`
 
 Three tables received `company_id`. Nothing else did: no `equipment_items`, `loads`,
