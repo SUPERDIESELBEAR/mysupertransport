@@ -62,7 +62,15 @@ export interface RateInput {
   additionalCharges?: unknown[];
 }
 
-/** Live "Total Load Value" for the create form. Loadout uses the relocation fee. */
+/**
+ * Live "Total Load Value" for the create form. Loadout uses the relocation fee.
+ *
+ * `confirmed_tons` wins over `estimated_tons`, on BOTH sides. This client math
+ * prefers it, `loadSavePayload.ts` sends it, and the live `update_load_with_stops`
+ * references `confirmed_tons` and calls `recompute_load_total_value` itself — so a
+ * per-ton total is never rebuilt from the estimate and a scale-ticket total is never
+ * overwritten by an edit. Reported three times; closed stale each time.
+ */
 export function calcTotalLoadValue(input: RateInput): number {
   if (input.loadType === 'loadout') return num(input.relocationFee);
 
