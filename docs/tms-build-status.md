@@ -1854,6 +1854,24 @@ stamp, not a boundary — a column nothing filters on. The fictitious-company de
 the reasoning below are sound; only the claim that the boundary was already enforced
 was wrong.
 
+### Guard added — claims about current state must name their source
+
+This is the **fifth instance** of a sentence describing intended or expected behaviour,
+written in the present tense, entering a document that is then read as authoritative:
+
+1. The 2026-09-05 fuel period bound, recorded as current when it was a design intent.
+2. The `delete-user-account` self-deletion claim, corrected in the owner-transfer pass.
+3. The unit-ordering reading, corrected by re-reading the source.
+4. The 2026-09-11 batch mis-mapping, caught by STOP AND REPORT.
+5. This entry: "Every query is already scoped to the company the user is logged into."
+
+The pattern is the same in all five. The guard against it: **a claim about CURRENT
+STATE must name the query or file it came from** — a table name, a function definition,
+a policy count, a source line. A claim that cannot name its source is a claim about
+intent and must be written as such ("will be", "must become", "design intent"). The
+correction above was produced by live catalog queries against `pg_policy`,
+`pg_attribute`, `pg_trigger` and `pg_proc`; the source lines are named.
+
 Consequences that make this the right shape:
 
 - There is no demo concept in the code at all. No demo filter on any screen. Less
