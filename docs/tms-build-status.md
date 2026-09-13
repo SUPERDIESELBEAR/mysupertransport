@@ -8950,11 +8950,11 @@ owner's, which is why it renders My Fuel empty and proves nothing.
 ### Driver App Preview picker shows wrong unit state (2026-09-10)
 
 The Driver App Preview picker shows "No unit assigned" for most drivers and
-"Unit 000" for one, while 48 of 60 active operators have their unit on the
-`onboarding_status` record rather than the `operators` record. The fuel screens
-were fixed on 2026-09-09 to resolve both sources via `src/lib/fuel/operatorUnit.ts`;
-this picker reads only one place and shows the same gap the fuel screens had
-before that fix.
+"Unit 000" for one, while 48 of 59 active operators have their unit on the
+`onboarding_status` record rather than the `operators` record. Verified live
+2026-09-13. The fuel screens were fixed on 2026-09-09 to resolve both sources via
+`src/lib/fuel/operatorUnit.ts`; this picker reads only one place and shows the
+same gap the fuel screens had before that fix.
 
 Not urgent, and not a fuel defect — it is the same reader inconsistency in a
 different screen. TRIGGER: alongside any pass touching the operator picker, or the
