@@ -1,6 +1,8 @@
 import { describe, expect, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
+import { withCompanyMember } from '@/test/helpers/tenancy';
+
 
 /**
  * MODULE 5, PASS 4 / PASS 1 — the accessorial adjustment record (`-A1`).
