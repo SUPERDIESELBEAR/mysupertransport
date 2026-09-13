@@ -914,21 +914,18 @@ export default function ResourceLibraryManager() {
               </RadioGroup>
 
               {emailMode === 'operator' ? (
-                <Select value={emailOperatorId} onValueChange={setEmailOperatorId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an operator…" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-56">
-                    {operators.map(op => (
-                      <SelectItem key={op.id} value={op.id}>
-                        {op.name} — {op.email}
-                      </SelectItem>
-                    ))}
-                    {operators.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-muted-foreground">No active operators found</div>
-                    )}
-                  </SelectContent>
-                </Select>
+                /*
+                  Shared searchable picker — a resource can be emailed to any
+                  driver, so the list stays UNFILTERED.
+                */
+                <DriverCombobox
+                  operators={operators.map(op => ({ userId: op.id, name: op.name }))}
+                  value={emailOperatorId}
+                  onChange={setEmailOperatorId}
+                  placeholder="Select an operator…"
+                  emptyText="No active operators found."
+                  triggerClassName="w-full"
+                />
               ) : (
                 <Input
                   type="email"
