@@ -19,6 +19,9 @@ const CONSUMERS = [
   'src/lib/fuel/fuelDriverDetail.ts',
   'src/lib/fuel/fuelLocationReport.ts',
   'src/lib/settlementRun.ts',
+  // The weekly exception view decides what counts as a CATEGORY. It is the
+  // newest place that could quietly grow a second bucket map.
+  'src/lib/fuel/fuelExceptions.ts',
 ];
 
 /**

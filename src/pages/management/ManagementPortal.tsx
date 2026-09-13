@@ -13,6 +13,7 @@ import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import FuelImportPage from '@/pages/management/FuelImportPage';
 import FuelDriverDetailPage from '@/pages/management/FuelDriverDetailPage';
 import FuelLocationReportPage from '@/pages/management/FuelLocationReportPage';
+import FuelExceptionsPage from '@/pages/management/FuelExceptionsPage';
 import SettlementSettingsPage from '@/pages/management/SettlementSettingsPage';
 // Same component the Staff portal renders — one Operator Preview, two placements.
 import OperatorPreviewPicker from '@/components/operator/OperatorPreviewPicker';
