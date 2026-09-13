@@ -11364,3 +11364,40 @@ FUEL IMPORT NOT VERIFIED IN A BROWSER: there are no unmatched fuel transactions 
 (69 rows, all matched), so the assign picker cannot be rendered without seeding data. Its
 list is still `fetchOperatorOptions` — 59 rows, matching the live active count — and
 `setUpOperatorOptions.test.ts` asserts that screen must not use the filtered list.
+
+## 2026-09-13 — Equipment return step failed for any driver holding a fuel card
+
+Two enums describe device types and they had drifted. The deactivation wizard's return
+list is built from `equipment_items.device_type` (plain **text**, live values `bestpass`,
+`dash_cam`, `eld`, `fuel_card`) plus `license_plate`, while
+`onboard_assignment_sheet_items.device_type` is `public.osas_device_type`
+(`eld`, `dash_cam`, `bestpass`, `license_plate`, `registration`, `ifta_decal`).
+`fuel_card` was the ONLY missing value — every other device the wizard can offer was
+already storable. Added it: `ALTER TYPE public.osas_device_type ADD VALUE 'fuel_card'`.
+Linter findings unchanged at 170.
+
+ORDERING WAS THE MULTIPLIER. `handleBuildReturnSheet` wrote the parent sheet as
+`status: 'signed'` BEFORE inserting the items. The insert threw, the sheet survived, and an
+item-less sheet makes `sheets.length > 0` — which replaces the return-candidate UI, so the
+sheet then HID the list it failed to record. Chosen fix: **write `draft`, insert the items,
+then mark `signed`**, and delete the draft if the item insert fails. A single statement was
+not available from the client, and a draft with no items is not a record, so unsigned-first
+gives the same guarantee without an RPC.
+
+DAMAGE: exactly ONE orphan, `8173f0a5` — Cortez Nelson, unit 210, 2026-09-11 20:37:51 UTC.
+He was deactivated four minutes later (20:42:35) and his real return sheet, `d0172fe3`
+(20:38:02, eld / dash_cam / license_plate), was written on the retry after staff dropped the
+fuel card. The orphan recorded nothing, was superseded within eleven seconds, and belongs to
+a driver already deactivated, so it was DELETED rather than repaired — repairing it would
+invent an item list nobody confirmed. Live orphan count 1 -> 0. The window was one day: the
+return-only path shipped 2026-09-11.
+
+NEW GUARD, GREEN: `src/test/return-sheet-device-enum.test.ts` — every device the wizard
+offers and every `equipment_items.device_type` live must be storable on a sheet, no sheet may
+exist without items, and the draft -> items -> signed ordering is pinned in source. Any name
+it reports is new drift.
+
+VERIFICATION was SQL, not a browser run: a scratch return sheet for Cortez took a `fuel_card`
+item and reached `signed`, then was deleted (0 rows left). A forced-failure run inserted a
+draft, was refused an invalid `device_type`, deleted the draft, and left 0 sheets behind. No
+live driver could be offboarded for real to test this.
