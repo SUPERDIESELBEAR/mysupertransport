@@ -1222,6 +1222,7 @@ export type Database = {
           carrier_packet_completed_at: string | null
           carrier_packet_completed_by: string | null
           city: string | null
+          company_id: string
           company_name: string
           created_at: string
           created_by: string | null
@@ -1260,6 +1261,7 @@ export type Database = {
           carrier_packet_completed_at?: string | null
           carrier_packet_completed_by?: string | null
           city?: string | null
+          company_id: string
           company_name: string
           created_at?: string
           created_by?: string | null
@@ -1298,6 +1300,7 @@ export type Database = {
           carrier_packet_completed_at?: string | null
           carrier_packet_completed_by?: string | null
           city?: string | null
+          company_id?: string
           company_name?: string
           created_at?: string
           created_by?: string | null
@@ -1343,6 +1346,13 @@ export type Database = {
             columns: ["carrier_packet_completed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "brokers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -4468,6 +4478,7 @@ export type Database = {
           address_line1: string | null
           address_line2: string | null
           city: string | null
+          company_id: string
           contact_email: string | null
           contact_name: string | null
           contact_phone: string | null
@@ -4492,6 +4503,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           city?: string | null
+          company_id: string
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -4516,6 +4528,7 @@ export type Database = {
           address_line1?: string | null
           address_line2?: string | null
           city?: string | null
+          company_id?: string
           contact_email?: string | null
           contact_name?: string | null
           contact_phone?: string | null
@@ -4536,6 +4549,13 @@ export type Database = {
           zip?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "facilities_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "facilities_created_by_fkey"
             columns: ["created_by"]
@@ -8739,6 +8759,7 @@ export type Database = {
           anticipated_start_date: string | null
           application_id: string | null
           assigned_onboarding_staff: string | null
+          company_id: string
           created_at: string
           deactivated_at: string | null
           deactivated_by: string | null
@@ -8785,6 +8806,7 @@ export type Database = {
           anticipated_start_date?: string | null
           application_id?: string | null
           assigned_onboarding_staff?: string | null
+          company_id: string
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -8831,6 +8853,7 @@ export type Database = {
           anticipated_start_date?: string | null
           application_id?: string | null
           assigned_onboarding_staff?: string | null
+          company_id?: string
           created_at?: string
           deactivated_at?: string | null
           deactivated_by?: string | null
@@ -8879,6 +8902,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operators_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
         ]
