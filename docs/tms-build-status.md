@@ -11432,3 +11432,44 @@ DEMONSTRATED RED TWICE, both reverted:
 Note for the next person: the harness role cannot insert into `equipment_items` at all
 (`permission denied for function canonical_equipment_serial`, the unique-index expression),
 so a scratch inventory row has to be written with service-role access, not psql.
+
+## 2026-09-13 (later still) — Fuel Exceptions, BUILT AND UNEVALUATED
+
+The weekly exception view the owner opens before running settlements. Management/owner only,
+Accounting group, `Fuel Exceptions` in the menu and in its `PageHeading` — the pairing is
+asserted by `src/test/navigation-title-invariant.test.ts` (now 14 arms).
+
+TWO EXCEPTIONS ONLY, as the owner decided: a category that has never appeared on that CARD
+before, and unmatched rows. Everything on the HELD list — cost per gallon, MPG, fuel as a
+share of earnings, cash-advance patterns, purchases away from a route, week-over-week change —
+stays parked and is named on the screen as deliberately absent.
+
+THE BASELINE IS PER CARD, not per driver, because Ali Mohamed's card changed 212 → 224: a new
+card is a new baseline, and a category routine on 212 is not an exception on 224. The first
+import for a card is a baseline; flagging starts at that card's second import.
+
+`src/lib/fuel/fuelExceptions.ts` holds all of it and reuses the shared modules rather than
+restating them — `bucketOf`/`fuelBucketLines` from `fuelBuckets.ts` decide categories,
+`operatorUnit.ts` resolves units. The file is now listed in BOTH source guards
+(`fuelBucketSourceGuard.test.ts`, `fuelUnitSourceGuard.test.ts`), so a second bucket map or a
+raw `unit_number` read in it fails a test.
+
+VERIFIED ON TODAY'S DATA (screen opened as owner, verbatim):
+> Insufficient history — 1 import (08/28/2026 to 09/01/2026), and every card is still on its
+> baseline. A first import is a baseline, not a set of exceptions: on it every category is a
+> first appearance for every card, so there is nothing earlier to compare against.
+> New-category exceptions begin with the second import for a card. This section is quiet
+> because it has no history, not because nothing was checked.
+
+and `None. Every imported fuel row resolved to a driver.` — 0 unmatched. It does NOT flag the
+69 baseline rows.
+
+DEMONSTRATED IT WOULD WORK: a scratch second batch with one `oil` line on card 187 inserted
+inside a transaction, the report built from the rows read in that same transaction, then
+ROLLBACK. One exception out of 70 rows:
+`Unit 187 · Scratch Driver — first Oil charge on card 187 (Other fuel-card charges), $42.10 on 09/09/2026. No earlier import for this card carries it.`
+The other 28 cards stayed on baseline. After rollback: 1 batch, 69 transactions — unchanged.
+
+BUILT AND UNEVALUATED. **Trigger: after the NEXT REAL FUEL IMPORT**, open it and confirm the
+exceptions it raises are ones worth raising. One import cannot judge it. Not a date — the
+import is the event.

@@ -26,6 +26,7 @@ const CONSUMERS = [
   'src/pages/management/FuelImportPage.tsx',
   'src/pages/management/InspectionProgramPanel.tsx',
   'src/pages/management/InspectionCalendar.tsx',
+  'src/lib/fuel/fuelExceptions.ts',
 ];
 
 describe('unit number resolution is centralised', () => {

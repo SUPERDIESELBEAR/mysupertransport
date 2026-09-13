@@ -21,6 +21,7 @@ const identicalPageNames: Placement[] = [
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /label: 'Document Hub'.*view: 'docs-hub'|view: 'docs-hub'.*label: 'Document Hub'/, pageFile: 'src/components/documents/DocumentHub.tsx', title: /Document Hub/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'pay-setup'.*label: 'Pay Setup'/, pageFile: 'src/pages/operator/OperatorPortal.tsx', title: /title="Pay Setup"/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'dispatch'.*label: 'Dispatch'/, pageFile: 'src/components/operator/OperatorDispatchStatus.tsx', title: /title="Dispatch"/ },
+  { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Fuel Exceptions'.*path: 'fuel-exceptions'/, pageFile: 'src/pages/management/FuelExceptionsPage.tsx', title: /title="Fuel Exceptions"/ },
 ];
 
 const deliberateExceptions = [
