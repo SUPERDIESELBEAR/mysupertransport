@@ -18,6 +18,7 @@ import { FileText, Loader2, MessageSquareWarning, RefreshCw } from 'lucide-react
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import { orderVersionsByDate } from '../../../../supabase/functions/_shared/eld/amendmentChain';
 import {
   CORRECTION_STATUS_LABEL, fetchCorrectionRequests, raiseCorrectionRequest,
@@ -64,10 +65,21 @@ export default function RodsAdminLogsPanel({
         .select('id, user_id, unit_number')
         .eq('is_active', true);
       const rows = (data ?? []) as Array<{ id: string; user_id: string | null; unit_number: string | null }>;
-      const names = await fetchProfileNames(rows.map((r) => r.user_id));
+      // The unit is RESOLVED, not read. `operators.unit_number` is null for
+      // every active driver today; the number lives on the onboarding record,
+      // so the picker's unit search would match nothing without the shared
+      // resolver. Same rule as the fuel screens.
+      const [names, units] = await Promise.all([
+        fetchProfileNames(rows.map((r) => r.user_id)),
+        fetchOperatorUnits(rows.map((r) => r.id)),
+      ]);
       setOperators(
         rows
-          .map((r) => ({ ...r, driver_name: formatProfileName(names.get(r.user_id ?? '')) }))
+          .map((r) => ({
+            ...r,
+            unit_number: resolveOperatorUnit(units.get(r.id) ?? null),
+            driver_name: formatProfileName(names.get(r.user_id ?? '')),
+          }))
           .sort((a, b) => a.driver_name.localeCompare(b.driver_name)),
       );
     })();
