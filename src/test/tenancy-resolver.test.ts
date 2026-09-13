@@ -236,7 +236,8 @@ describe('tenancy batch B2 part one — operators, brokers, facilities', () => {
   itLive('each table stamps company_id server-side on insert', () => {
     const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
       WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
-        AND t.tgenabled = 'O' ORDER BY 1`);
+        AND t.tgenabled = 'O' AND t.tgrelid IN ('public.operators'::regclass,
+          'public.brokers'::regclass, 'public.facilities'::regclass) ORDER BY 1`);
     expect(rows.sort()).toEqual(['brokers', 'facilities', 'operators']);
   });
 
