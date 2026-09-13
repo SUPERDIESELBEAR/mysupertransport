@@ -1,0 +1,18 @@
+-- TENANCY STEP 2 PRECURSOR: the company table may hold more than one company.
+--
+-- `carrier_profile_singleton` (UNIQUE on ((true))) allowed exactly one row. It
+-- was correct while SUPERDRIVE was single-tenant and is the one line that makes
+-- the recorded fictitious-company decision impossible to execute.
+--
+-- Dropped alone, deliberately. Nothing gains `company_id` in this migration and
+-- no data moves. Callers that read `carrier_profile ... LIMIT 1` are inventoried
+-- in docs/tms-build-status.md and are NOT changed here: with one row live they
+-- keep returning the same answer they return today, and each needs its own
+-- decision in step 5 rather than a blanket rewrite now.
+--
+-- NOT touched, on purpose: `user_roles_single_owner` and
+-- `pay_policies_single_company_default`. Both must become per-company, and
+-- neither table has `company_id` yet. Dropping them now would leave a window
+-- with NO enforcement of one owner at all — strictly worse than an index that
+-- is too strict.
+DROP INDEX IF EXISTS public.carrier_profile_singleton;
