@@ -11606,3 +11606,81 @@ hardcoded — for the transaction only. `billing-schema` and
 `definer-fail-open` fails on `public.grant_inspection_grace(uuid, integer, text, boolean)`
 returning NULL on its refusal path; that is a 2026-09-11 migration, untouched by this
 pass, and it is PRE-EXISTING open debt, not a regression here.
+
+---
+
+## `definer-fail-open` red on `grant_inspection_grace` — WHAT IS ACTUALLY WRONG (2026-09-13)
+
+READ FROM THE LIVE CATALOG, not the migration file. `pg_get_functiondef` for
+`public.grant_inspection_grace(uuid, integer, text, boolean)` matches the definition in
+`20260911160234_a607ae70` — one migration defines it, no later migration re-authored it,
+and no migration rewrote it via `pg_get_functiondef`.
+
+### The four protections — it has all four
+
+1. `SECURITY DEFINER` — yes (`prosecdef = true`).
+2. Pinned search path — yes, live `proconfig` is `search_path=public, extensions`.
+3. Not reachable by `anon`/`PUBLIC` — yes. Live ACL is
+   `{postgres, authenticated, service_role}` (+ the read-only sandbox role); the
+   migration issues `REVOKE EXECUTE ... FROM PUBLIC, anon`.
+4. Positive refuse on the authorization path — yes.
+   `IF NOT public.is_staff(auth.uid()) THEN RAISE EXCEPTION ... ERRCODE 42501`. And it
+   cannot be NULL-poisoned: `is_staff` is `SELECT EXISTS (...)`, which returns
+   `false` — never NULL — even for a NULL argument. So an anonymous caller is refused,
+   not silently permitted.
+
+### So the guard is red on something that is not the defect it names
+
+The offender is not the `IF NOT` at all. It is this, inside the `UPDATE ... SET` list:
+
+```sql
+grace_override_by = CASE WHEN v_used >= COALESCE(...) THEN auth.uid() ELSE NULL END
+```
+
+`benignAuthzDefaults()` treats any CASE expression mentioning an authorization source
+(`auth.uid()` here) whose ELSE is a benign value (`NULL`) as an authorization check that
+refuses by returning nothing. This CASE is not an authorization check — it is an AUDIT
+COLUMN WRITE recording who performed an override, and NULL is the correct value when
+there was no override. The guard's message ("the caller cannot distinguish 'not
+permitted' from 'no rows'") does not describe this code.
+
+**This shape occurs exactly once in the whole migration set.** So the guard has been red
+for two days on its only instance of a false positive.
+
+### NOT FIXED — this is a decision, not a correction
+
+It is neither a missing search_path pin nor a missing revoke, so the standing exception
+does not apply. Both available fixes trade something:
+
+- **Narrow the heuristic** so a CASE inside an `UPDATE SET` / `INSERT VALUES` list is
+  read as a value written to a column rather than a value returned to a caller. Cost: a
+  real fail-open that hides its refusal inside a write list stops being caught, and the
+  guard is one line weaker for a defect it was written to catch four times over.
+- **Rewrite the function** so the override actor is resolved into a declared variable
+  before the UPDATE. Behaviour-identical, guard stays at full strength. Cost: shipped,
+  correct SQL is edited to satisfy a heuristic — the precedent being that the guard
+  dictates the code rather than describing it.
+
+### THE TRIGGER, which is what was missing for two days
+
+Per the 2026-09-12 rule, a red guard carries a trigger. **Trigger: the owner's answer to
+the two options above, and no later than the next pass that touches
+`20260911160234_a607ae70` or the quarterly inspection grace path.** Until then
+`definer-fail-open` is KNOWN RED with ONE known offender, and the count is the guard:
+if it ever reports two, the second is unread and real.
+
+### The rest of that migration pair — every function it created
+
+All six carry all four protections, verified live (`prosecdef`, `proconfig`, `proacl`):
+
+| Function | Definer | search_path pinned | anon/PUBLIC revoked | Positive refuse |
+|---|---|---|---|---|
+| `grant_inspection_grace(uuid,int,text,bool)` | yes | yes | yes | yes (`is_staff`, EXISTS — non-NULL) |
+| `inspection_grace_used(uuid)` | yes | yes | yes | read-only count, no authz branch |
+| `touch_inspection_program_row()` | yes | yes | yes — also revoked from `authenticated` (trigger-only) | trigger, no authz branch |
+| `request_inspection_grace(int,text)` | yes | yes | yes | yes |
+| `review_inspection_grace_request(uuid,bool,text,bool)` | yes | yes | yes | yes |
+| `store_settlement_run(date,date,date,jsonb,text)` | yes | yes | yes | yes |
+
+The 2026-09-09 search-path authoring defect did NOT recur here: every one of the six was
+authored with `SET search_path = public, extensions` in its original migration.
