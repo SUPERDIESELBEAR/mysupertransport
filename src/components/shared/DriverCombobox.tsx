@@ -140,8 +140,15 @@ export default function DriverCombobox({
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[260px]" align="start">
         <Command
+          /**
+           * The id is carried in each item's value only to keep values unique;
+           * it must NOT be searchable. Typing a unit number like `243` matched
+           * two unrelated drivers whose UUIDs happened to contain those digits,
+           * so everything from the marker onward is cut before matching.
+           */
           filter={(itemValue, search) => {
-            return itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            const haystack = itemValue.split(ID_MARKER)[0].toLowerCase();
+            return haystack.includes(search.toLowerCase()) ? 1 : 0;
           }}
         >
           <CommandInput placeholder="Search name or unit #…" className="h-9" />
