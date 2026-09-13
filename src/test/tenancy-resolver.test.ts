@@ -94,7 +94,7 @@ describe('company_members — membership is not a user assertion', () => {
   });
 
   itLive('is unique on (user_id, company_id) and points at carrier_profile', () => {
-    const cons = psql(`SELECT conname || '|' || contype || '|' || coalesce(confrelid::regclass::text, '')
+    const cons = psql(`SELECT conname || '|' || contype::text || '|' || coalesce(confrelid::regclass::text, '')
       FROM pg_constraint WHERE conrelid = 'public.company_members'::regclass ORDER BY conname`);
     expect(cons.some(c => c.includes('|u|'))).toBe(true);
     expect(cons.some(c => c.endsWith('|f|carrier_profile'))).toBe(true);
@@ -106,22 +106,47 @@ describe('company_members — membership is not a user assertion', () => {
     expect(Number(count)).toBeGreaterThan(0);
   });
 
-  itLive('a session with no membership resolves to NO company, not to SUPERTRANSPORT', () => {
-    const [resolved] = psql(`BEGIN;
-      SELECT set_config('request.jwt.claims',
-        json_build_object('sub', '00000000-0000-0000-0000-0000000000ff', 'role', 'authenticated')::text, true);
-      SELECT coalesce(public.current_company_id()::text, 'NULL');
-      ROLLBACK;`).filter(l => l === 'NULL' || /^[0-9a-f-]{36}$/.test(l));
-    expect(resolved).toBe('NULL');
+  /**
+   * HARNESS LIMIT, stated rather than worked around: this role may not call
+   * `current_company_id()` directly (`permission denied for function
+   * current_company_id` — only `authenticated` and `service_role` hold EXECUTE)
+   * and may not `SET ROLE authenticated`. So the resolver's answer is observed
+   * where it actually matters — through the definer stamp trigger on a real
+   * insert. Both probes run inside a transaction that is rolled back.
+   */
+  itLive('a session with no membership cannot write a billing row — the stamp is NULL and refused', () => {
+    let err = '';
+    try {
+      execFileSync('psql', ['-At', '-v', 'ON_ERROR_STOP=1', '-c', `BEGIN;
+        SELECT set_config('request.jwt.claims',
+          json_build_object('sub', '00000000-0000-0000-0000-0000000000ff', 'role', 'authenticated')::text, true);
+        INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount)
+        VALUES ((SELECT l.id FROM public.loads l
+                  WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) LIMIT 1),
+                'ST-SCRATCH-TENANCY', 'factored', 1);
+        ROLLBACK;`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    } catch (e) {
+      const x = e as { stderr?: string; stdout?: string };
+      err = `${x.stderr ?? ''}${x.stdout ?? ''}`;
+    }
+    expect(err).toContain('null value in column "company_id"');
+    expect(err).toContain('violates not-null constraint');
   });
 
-  itLive('a member resolves to that member’s company', () => {
-    const [resolved] = psql(`BEGIN;
+  itLive('a member IS stamped with that member’s company, and a supplied company is overridden', () => {
+    const [stamped] = psql(`BEGIN;
       SELECT set_config('request.jwt.claims',
         json_build_object('sub', (SELECT user_id FROM public.company_members ORDER BY created_at LIMIT 1),
                           'role', 'authenticated')::text, true);
-      SELECT coalesce(public.current_company_id()::text, 'NULL');
-      ROLLBACK;`).filter(l => l === 'NULL' || /^[0-9a-f-]{36}$/.test(l));
-    expect(resolved).toMatch(/^[0-9a-f-]{36}$/);
+      INSERT INTO public.invoices (company_id, load_id, invoice_number, billing_path, amount)
+      VALUES ((SELECT id FROM public.carrier_profile ORDER BY created_at LIMIT 1),
+              (SELECT l.id FROM public.loads l
+                WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) LIMIT 1),
+              'ST-SCRATCH-TENANCY', 'factored', 1)
+      RETURNING company_id::text;
+      ROLLBACK;`).filter(l => /^[0-9a-f-]{36}$/.test(l));
+    const [expected] = psql(`SELECT company_id::text FROM public.company_members ORDER BY created_at LIMIT 1`);
+    expect(stamped).toBe(expected);
   });
 });
+
