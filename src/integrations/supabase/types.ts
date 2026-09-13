@@ -14125,6 +14125,7 @@ export type Database = {
         | "license_plate"
         | "registration"
         | "ifta_decal"
+        | "fuel_card"
       osas_status: "draft" | "sent" | "signed" | "void"
       pandadoc_status: "sent" | "viewed" | "completed"
       pei_applicant_status: "not_started" | "in_progress" | "complete"
@@ -14552,6 +14553,7 @@ export const Constants = {
         "license_plate",
         "registration",
         "ifta_decal",
+        "fuel_card",
       ],
       osas_status: ["draft", "sent", "signed", "void"],
       pandadoc_status: ["sent", "viewed", "completed"],
