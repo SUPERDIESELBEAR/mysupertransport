@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { companyIdForUser } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -151,6 +152,9 @@ Deno.serve(async (req) => {
           user_id: invitedUserId,
           application_id: application_id,
           assigned_onboarding_staff: callerUser.id,
+          // Service-role insert: auth.uid() is absent, so the company is named
+          // from the caller's membership. The DB trigger refuses otherwise.
+          company_id: await companyIdForUser(supabaseAdmin, callerUser.id),
         })
         .select('id')
         .single();

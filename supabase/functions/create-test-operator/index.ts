@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { soleCompanyId } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,6 +98,8 @@ Deno.serve(async (req) => {
         user_id: TEST_USER_ID,
         application_id: app.id,
         is_active: true,
+        // Bootstrap tool, no signed-in caller: refuses once a second company exists.
+        company_id: await soleCompanyId(supabaseAdmin),
       })
       .select('id')
       .single();
