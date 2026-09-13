@@ -11684,3 +11684,61 @@ All six carry all four protections, verified live (`prosecdef`, `proconfig`, `pr
 
 The 2026-09-09 search-path authoring defect did NOT recur here: every one of the six was
 authored with `SET search_path = public, extensions` in its original migration.
+
+## RESOLVED (2026-09-13) — `definer-fail-open` green, by a reasoned allowlist (OPTION 3)
+
+The trigger recorded above is CLOSED. The owner chose neither option: neither narrowing the
+heuristic nor rewriting the shipped SQL. Instead `grant_inspection_grace` is exempted by a
+counted, reasoned allowlist in `src/test/definer-fail-open.test.ts`, in the same shape as
+`KNOWN_ANON_EXECUTABLE_ENTRIES` — an entry with a written reason, never a bare name.
+
+**Red period: 2026-09-11 (migration `20260911160234_a607ae70`) to 2026-09-13 — two days with
+no trigger.** That is the FleetRoster/`app-errors` state the 2026-09-12 rule exists to prevent;
+recorded here as the shortest instance so far, and the first caught by the rule itself.
+
+### The entry as shipped
+
+```
+signature: "public.grant_inspection_grace(uuid, integer, text, boolean)"
+reason:    "`grace_override_by = CASE WHEN … THEN auth.uid() ELSE NULL END` is an AUDIT
+            COLUMN recording who performed an override, written into an UPDATE. NULL is the
+            correct value when nobody overrode. It is not an authorization decision and hides
+            no refusal: the function refuses positively with `IF NOT public.is_staff(auth.uid())
+            THEN RAISE EXCEPTION 'Only staff may grant an inspection grace period.' USING
+            ERRCODE = '42501'`, and `is_staff` is `SELECT EXISTS (…)`, which returns false and
+            never NULL. Verified live 2026-09-13; one migration (20260911160234) defines it and
+            the live definition matches."
+```
+
+`BENIGN_DEFAULT_EXEMPTIONS_MAX = 1`, in the same shape as the other ceilings: it may fall
+freely and rise only for a new entry carrying its justification. Two further tests hold it —
+the shrink-only ceiling with duplicate and reason-length checks, and a staleness check that
+fails if an exempted signature no longer resolves in the migration set (so a rename cannot
+leave a silent exemption behind).
+
+### Why an allowlist rather than the two options
+
+- **Narrowing the check** would stop it catching a genuine fail-open hidden inside a write
+  list — the defect it was written for, four occurrences over.
+- **Rewriting correct shipped SQL** to satisfy a heuristic sets the precedent that the check
+  dictates the code, and leaves no trace of why the code looks as it does — so the next audit
+  column trips the guard and gets rewritten again.
+- **An allowlist entry** keeps the guard at full strength, leaves correct code alone, and makes
+  the NEXT occurrence a decision: someone reads the entry and either adds theirs with a reason
+  or realises theirs is genuinely a fail-open.
+
+### The allowlist does not widen — demonstrated, not asserted
+
+A scratch migration (`29999999999999_scratch_failopen_probe.sql`, deleted after the run) defined
+two real fail-opens: one classic `SELECT CASE WHEN is_staff(...) THEN count(*) ELSE 0 END`, and
+one deliberately hidden INSIDE AN UPDATE SET write list — the exact shape option 1 would have
+blinded the guard to. Both were caught, verbatim:
+
+```
+29999999999999_scratch_failopen_probe.sql: public.scratch_failopen_probe(uuid) — authorization
+check yields 0 on the refusal path instead of raising. …
+29999999999999_scratch_failopen_probe.sql: public.scratch_failopen_write_probe(uuid) —
+authorization check yields NULL on the refusal path instead of raising. …
+```
+
+Predicted before running: 5 tests, 5 passing, 0 offenders. Actual: 5 passed, 0 offenders.
