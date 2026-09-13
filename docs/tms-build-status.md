@@ -5692,10 +5692,10 @@ what else the change reaches.** Both defects shipped green.
 
 ## OPERATIONAL follow-up — app installs (measured 2026-09-01)
 
-**48 of 61** active operators have installed the PWA. **11 are web-only** and
-**2 have never signed in**. Not a code task: the install reminder path exists
-(daily cron plus a manual per-driver reminder with a 24h cooldown). The two who
-have never signed in cannot receive an in-app anything and need a phone call.
+**48 of 59** active operators have installed the PWA. **11 are web-only** and
+**2 have never signed in**. Verified live 2026-09-13. Not a code task: the install
+reminder path exists (daily cron plus a manual per-driver reminder with a 24h cooldown).
+The two who have never signed in cannot receive an in-app anything and need a phone call.
 
 ---
 
