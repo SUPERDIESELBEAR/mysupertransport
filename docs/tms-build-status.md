@@ -11742,3 +11742,84 @@ authorization check yields NULL on the refusal path instead of raising. …
 ```
 
 Predicted before running: 5 tests, 5 passing, 0 offenders. Actual: 5 passed, 0 offenders.
+
+---
+
+## 2026-09-13 — Tenancy step 2 precursor: the singleton indexes
+
+Scope: `carrier_profile_singleton` dropped. Nothing else. No `company_id` on any table, no
+backfill, no batches. Migration `20260913…` contains exactly one `DROP INDEX`.
+
+### What relied on exactly one carrier row
+
+Every reader below returns the same answer while one row is live, so none of them breaks
+*today*. Each is listed because each needs a step-5 decision, not a rewrite now.
+
+| Reader | Shape | With two rows |
+|---|---|---|
+| `public.recompute_eld_extension_projection` (`20260802215306:233`) | `SELECT home_terminal_timezone INTO v_tz FROM carrier_profile LIMIT 1` | **Wrong answer, silently.** A driver at company B gets company A's terminal timezone, and the value lands on a federal record. Must resolve via the request's company in step 5. Only live definer function that reads the table. |
+| `current_company_id()`'s predecessor (`20260904123758:17`) | `SELECT id FROM carrier_profile ORDER BY created_at LIMIT 1` | Already replaced 2026-09-13 by the membership resolver. Historic only. |
+| `20260913203001:34` (step-1 membership seed) | same `ORDER BY created_at LIMIT 1` | One-shot seed, already executed. Harmless. |
+| `send-officer-packet`, `generate-application-pdf`, `process-eld-escalations`, `src/lib/application/identity.ts`, `ELDExtensionRequests.tsx`, `src/lib/eld/offline/hydrate.ts` | `.from('carrier_profile').select(...).limit(1).maybeSingle()` | Six client/edge readers, all returning "the" carrier. Each becomes the wrong carrier for the second company. These are the step-5 rewrite list. |
+| `src/lib/eld/carrierIdentity.ts`, `supabase/functions/_shared/application/identity.ts` | comments naming "the `carrier_profile` singleton"; values come from the Dexie cache | Behaviour is cache-driven, so no query breaks; the wording becomes false and the cache becomes per-company. |
+| RLS `"Authenticated users can read the carrier profile"` | `USING (true)` | **Cross-company read.** Every signed-in user of either company reads both carrier records. Not a defect today (one row, no secrets) and a hard step-5 blocker. |
+
+### The two dependent indexes — NOT changed in this pass
+
+- `user_roles_single_owner` — live: `UNIQUE (role) WHERE role = 'owner'`. Must become
+  `UNIQUE (company_id, role) WHERE role = 'owner'`.
+- `pay_policies_single_company_default` — live: `UNIQUE (is_company_default) WHERE
+  is_company_default`. Must become `UNIQUE (company_id, is_company_default) WHERE
+  is_company_default`.
+
+Neither table has `company_id`, and this pass does not add it. Neither was dropped: dropping
+now would leave a window with **no** enforcement of one owner, which is the single thing the
+owner sequence exists to guarantee.
+
+**HARD DEPENDENCY — step 5 cannot complete without these.** The fictitious company cannot be
+given an owner, and cannot be given a default pay policy, until `user_roles` and `pay_policies`
+land in batch B2 and both indexes are rebuilt per-company. Trigger: batch B2.
+
+### A third singleton, found by the sweep
+
+`carrier_signature_settings_singleton` — `UNIQUE ((true))` on `carrier_signature_settings`. Same
+shape as the carrier one and not named in the batching plan. The second company cannot have its
+own signature settings until it becomes per-company. Same dependency, same trigger.
+
+Two more of the same family, weaker:
+
+- `settlement_settings_singleton_check` — `CHECK (singleton)` with `singleton` as the key, so
+  one settlement-settings row globally. Must become per-company; the whole point of the settings
+  table is that pay rules differ.
+- `owner_transfers_single_pending` — `UNIQUE (status) WHERE status = 'pending'` means one pending
+  ownership transfer **across all companies**. Company B's transfer would be refused because
+  company A has one open. Per-company.
+- `email_send_state_id_check` — `CHECK (id = 1)`. Deliberately global: it is send-queue infra
+  keyed to the shared sending domain, not carrier data. No change.
+
+### The lesson this exposes
+
+`user_roles_single_owner` was built four days ago (2026-09-11), reasoned about carefully, and
+recorded — while the tenancy sequence was already written down. Nobody asked what "exactly one
+owner" means with two companies.
+
+**Standing rule, from now on: every new uniqueness constraint must state in its migration whether
+it is GLOBAL or PER-COMPANY, and why.** A constraint enforcing "exactly one X" is correct in a
+single-tenant database and wrong in a multi-tenant one, and this project is mid-transition — the
+default answer during the transition is per-company, and global needs the argument. The index
+table in the 2026-09-13 batching plan is the model for the reasoning.
+
+### Verification
+
+- `carrier_profile_singleton` present in `pg_indexes`: 0 rows. Gone.
+- A second `carrier_profile` row inserted inside a transaction and rolled back:
+  `INSERTED_SECOND_ROW e09d9e8a-…`, `rows_in_txn=2`, then `ROLLBACK` and
+  `carrier_rows_after=1`. That is the proof the blocker is removed. (First attempt was refused
+  for a missing `main_office_address` — a NOT NULL column, unrelated to the index; the retry
+  supplied it.)
+- Owner still resolves: `psql` may not call `current_company_id()` directly (`permission denied
+  for function current_company_id` — the documented harness limit), so the resolver was observed
+  through the definer stamp on a real insert as the owner:
+  `owner_stamped_company=6b54d0e6-8743-4284-b55b-8cd094b093dd`, `is_supertransport=true`,
+  rolled back, `invoices_after=1`.
+- Nothing else changed: `carrier_rows_after=1`, `members=15`, `owners=1`.
