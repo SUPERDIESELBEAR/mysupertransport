@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import DriverCombobox from '@/components/shared/DriverCombobox';
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import { toast } from 'sonner';
 import { Loader2, Send } from 'lucide-react';
 
@@ -51,7 +52,11 @@ export default function SendPassengerAuthModal({ open, onOpenChange, initialOper
           unit_number: (r.unit_number as string) || null,
         };
       }).filter(r => r.email);
-      setOperators(rows);
+      // The unit is RESOLVED, not read: `operators.unit_number` is null for
+      // every active driver, so the searchable picker needs the shared
+      // resolver for its unit search to match anything.
+      const units = await fetchOperatorUnits(rows.map(r => r.id));
+      setOperators(rows.map(r => ({ ...r, unit_number: resolveOperatorUnit(units.get(r.id) ?? null) })));
     })();
   }, [open]);
 
