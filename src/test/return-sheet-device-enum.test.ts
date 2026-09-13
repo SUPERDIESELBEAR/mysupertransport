@@ -75,6 +75,30 @@ describe("equipment return sheet device types", () => {
     expect(missing, `held in equipment_items, rejected by osas_device_type: ${missing.join(", ")}`).toEqual([]);
   });
 
+  /**
+   * A device type is defined in THREE places, not two: this CHECK constraint, the
+   * `osas_device_type` enum, and RETURN_DEVICE_LABELS in the wizard. The CHECK is
+   * the EARLIEST warning — no `equipment_items` row can carry a value it does not
+   * list, so the data arm above cannot go red until this constraint is widened.
+   * Widening it is exactly the moment a new device type is introduced, so this arm
+   * fires before a single row exists and before any offboarding fails.
+   */
+  itLive("every device type the inventory CHECK permits is storable on a sheet", () => {
+    const enumValues = psql(
+      "select e.enumlabel from pg_type t join pg_enum e on e.enumtypid = t.oid where t.typname = 'osas_device_type'",
+    );
+    const [definition] = psql(
+      "select pg_get_constraintdef(oid) from pg_constraint " +
+        "where conname = 'equipment_items_device_type_check'",
+    );
+    expect(definition, "the equipment_items device_type CHECK is gone — this arm asserts nothing").toBeTruthy();
+    const permitted = [...definition.matchAll(/'([a-z_]+)'::text/g)].map((m) => m[1]);
+    expect(permitted.length, "no values parsed out of the CHECK — the arm asserts nothing").toBeGreaterThan(0);
+    const missing = permitted.filter((d) => !enumValues.includes(d));
+    expect(missing, `permitted by the inventory CHECK, rejected by osas_device_type: ${missing.join(", ")}`).toEqual([]);
+  });
+
+
   itLive("no return sheet exists without items", () => {
     const orphans = psql(
       "select s.id from public.onboard_assignment_sheets s where not exists " +
