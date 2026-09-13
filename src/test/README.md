@@ -231,3 +231,10 @@ env -u PGHOST -u PGUSER -u PGPASSWORD -u PGDATABASE -u PGPORT bunx vitest run --
 The `certify_rods_day` execute arm cannot run here at all: the sandbox psql role
 is deliberately barred from `EXECUTE` on database functions, and granting it is
 forbidden. It belongs on a disposable instance with a real driver session.
+
+### `driver-picker-shared.test.ts` — GREEN
+
+Fails if any screen maps a driver roster into a plain `<SelectItem>` instead of the shared
+`src/components/shared/DriverCombobox.tsx`. Allowlist is empty; an entry needs a reason.
+Shipped green on 2026-09-13 after the last hand-built picker was converted, so any file it
+names is NEW. Demonstrated red the same day.
