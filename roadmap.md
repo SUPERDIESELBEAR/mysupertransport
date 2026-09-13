@@ -178,7 +178,7 @@
   confirmation arrives naturally — whichever comes first.
 
 ## 2026-09-13 — monitoring triage
-- [ ] Resolve the 2026-09-11 monitoring batch in the tool (stale/fixed/false_positive)
-- [ ] Add the six pre-emptive comments at the sites the findings cite
-- [ ] Record the 2026-09-11 occurrences in the stale-issues table, plus the two missing rows
-- [ ] Report the `.lovable/drafts/` contents (report only — never delete the owner's drafts)
+- [x] Resolve the 2026-09-11 monitoring batch in the tool (stale/fixed/false_positive)
+- [x] Add the six pre-emptive comments at the sites the findings cite
+- [x] Record the 2026-09-11 occurrences in the stale-issues table, plus the two missing rows
+- [x] Report the `.lovable/drafts/` contents (report only — never delete the owner's drafts)
