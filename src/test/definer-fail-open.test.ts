@@ -226,10 +226,40 @@ describe("SECURITY DEFINER guards are not fail-open", () => {
     expect(offenders, offenders.join("\n")).toEqual([]);
   });
 
+  it("the benign-default exemption list may only shrink", () => {
+    expect(
+      EXEMPT_SIGNATURES.length,
+      `BENIGN_DEFAULT_EXEMPTIONS_MAX is ${BENIGN_DEFAULT_EXEMPTIONS_MAX}. ` +
+        `Growing it means exempting another CASE from the fail-open check — ` +
+        `write the reason first.`,
+    ).toBeLessThanOrEqual(BENIGN_DEFAULT_EXEMPTIONS_MAX);
+    expect(
+      new Set(EXEMPT_SIGNATURES).size,
+      "duplicate entries in BENIGN_DEFAULT_EXEMPTIONS",
+    ).toBe(EXEMPT_SIGNATURES.length);
+    for (const e of BENIGN_DEFAULT_EXEMPTIONS) {
+      expect(
+        e.reason.length,
+        `${e.signature} carries no written reason`,
+      ).toBeGreaterThan(80);
+    }
+  });
+
+  it("every exempted signature still resolves in the migration set", () => {
+    const known = definers.map((f) => f.signature);
+    const stale = EXEMPT_SIGNATURES.filter((s) => !known.includes(s));
+    expect(
+      stale,
+      `exempted signatures no longer defined — remove them and lower ` +
+        `BENIGN_DEFAULT_EXEMPTIONS_MAX:\n  ${stale.join("\n  ")}`,
+    ).toEqual([]);
+  });
+
   it("no authorization check refuses by returning a benign value", () => {
     const offenders: string[] = [];
 
     for (const fn of definers) {
+      if (EXEMPT_SIGNATURES.includes(fn.signature)) continue;
       for (const value of benignAuthzDefaults(fn.block)) {
         offenders.push(
           `${fn.file}: ${fn.signature} — authorization check yields ` +
