@@ -4,7 +4,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import DriverCombobox from '@/components/shared/DriverCombobox';
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import { toast } from 'sonner';
 import { Loader2, Send } from 'lucide-react';
 
@@ -51,7 +52,11 @@ export default function SendPassengerAuthModal({ open, onOpenChange, initialOper
           unit_number: (r.unit_number as string) || null,
         };
       }).filter(r => r.email);
-      setOperators(rows);
+      // The unit is RESOLVED, not read: `operators.unit_number` is null for
+      // every active driver, so the searchable picker needs the shared
+      // resolver for its unit search to match anything.
+      const units = await fetchOperatorUnits(rows.map(r => r.id));
+      setOperators(rows.map(r => ({ ...r, unit_number: resolveOperatorUnit(units.get(r.id) ?? null) })));
     })();
   }, [open]);
 
@@ -167,16 +172,17 @@ export default function SendPassengerAuthModal({ open, onOpenChange, initialOper
         <div className="space-y-4 py-2">
           <div>
             <Label>Contractor / Driver</Label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger><SelectValue placeholder="Select a driver (or fill in manually below)" /></SelectTrigger>
-              <SelectContent>
-                {operators.map(o => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.unit_number ? `Unit ${o.unit_number} — ` : ''}{o.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/*
+              Shared searchable picker. Deliberately UNFILTERED — a passenger
+              authorization can be sent to a driver who is still onboarding.
+            */}
+            <DriverCombobox
+              operators={operators.map(o => ({ userId: o.id, name: o.name, unitNumber: o.unit_number }))}
+              value={operatorId}
+              onChange={setOperatorId}
+              placeholder="Select a driver (or fill in manually below)"
+              triggerClassName="w-full"
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>

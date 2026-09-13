@@ -9,6 +9,7 @@ import { Textarea } from '@/components/ui/textarea';
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -17,6 +18,7 @@ import { FileText, Loader2, MessageSquareWarning, RefreshCw } from 'lucide-react
 import RoadsideDayRender from '@/components/eld/RoadsideDayRender';
 import type { RodsDay, RodsEvent } from '@/lib/eld/rodsTypes';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 import { orderVersionsByDate } from '../../../../supabase/functions/_shared/eld/amendmentChain';
 import {
   CORRECTION_STATUS_LABEL, fetchCorrectionRequests, raiseCorrectionRequest,
@@ -63,10 +65,21 @@ export default function RodsAdminLogsPanel({
         .select('id, user_id, unit_number')
         .eq('is_active', true);
       const rows = (data ?? []) as Array<{ id: string; user_id: string | null; unit_number: string | null }>;
-      const names = await fetchProfileNames(rows.map((r) => r.user_id));
+      // The unit is RESOLVED, not read. `operators.unit_number` is null for
+      // every active driver today; the number lives on the onboarding record,
+      // so the picker's unit search would match nothing without the shared
+      // resolver. Same rule as the fuel screens.
+      const [names, units] = await Promise.all([
+        fetchProfileNames(rows.map((r) => r.user_id)),
+        fetchOperatorUnits(rows.map((r) => r.id)),
+      ]);
       setOperators(
         rows
-          .map((r) => ({ ...r, driver_name: formatProfileName(names.get(r.user_id ?? '')) }))
+          .map((r) => ({
+            ...r,
+            unit_number: resolveOperatorUnit(units.get(r.id) ?? null),
+            driver_name: formatProfileName(names.get(r.user_id ?? '')),
+          }))
           .sort((a, b) => a.driver_name.localeCompare(b.driver_name)),
       );
     })();
@@ -196,16 +209,22 @@ export default function RodsAdminLogsPanel({
           </Button>
         </CardHeader>
         <CardContent className="grid gap-3 sm:grid-cols-3">
-          <Select value={operatorId} onValueChange={(v) => { setOperatorId(v); setSelectedId(null); }}>
-            <SelectTrigger><SelectValue placeholder="Choose a driver" /></SelectTrigger>
-            <SelectContent>
-              {operators.map((o) => (
-                <SelectItem key={o.id} value={o.id}>
-                  {o.driver_name || 'Driver'}{o.unit_number ? ` — Unit ${o.unit_number}` : ''}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/*
+            Full roster, so the shared searchable picker. Deliberately
+            UNFILTERED — paper logs are a compliance record and must be
+            readable for any driver who ever recorded duty status.
+          */}
+          <DriverCombobox
+            operators={operators.map((o) => ({
+              userId: o.id,
+              name: o.driver_name || 'Driver',
+              unitNumber: o.unit_number,
+            }))}
+            value={operatorId}
+            onChange={(v) => { setOperatorId(v); setSelectedId(null); }}
+            placeholder="Choose a driver"
+            triggerClassName="w-full"
+          />
           <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
         </CardContent>

@@ -8,6 +8,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
+/** Separates the searchable label from the id inside a CommandItem value. */
+const ID_MARKER = '\u241F';
+
 export type DriverComboboxStatus = 'eligible' | 'warning' | 'blocked';
 
 export interface DriverComboboxOption {
@@ -140,8 +143,15 @@ export default function DriverCombobox({
       </PopoverTrigger>
       <PopoverContent className="p-0 w-[--radix-popover-trigger-width] min-w-[260px]" align="start">
         <Command
+          /**
+           * The id is carried in each item's value only to keep values unique;
+           * it must NOT be searchable. Typing a unit number like `243` matched
+           * two unrelated drivers whose UUIDs happened to contain those digits,
+           * so everything from the marker onward is cut before matching.
+           */
           filter={(itemValue, search) => {
-            return itemValue.toLowerCase().includes(search.toLowerCase()) ? 1 : 0;
+            const haystack = itemValue.split(ID_MARKER)[0].toLowerCase();
+            return haystack.includes(search.toLowerCase()) ? 1 : 0;
           }}
         >
           <CommandInput placeholder="Search name or unit #…" className="h-9" />
@@ -158,7 +168,7 @@ export default function DriverCombobox({
               {visible.map(op => (
                 <CommandItem
                   key={op.userId}
-                  value={`${op.name} ${op.unitNumber ?? ''} ${op.userId}`}
+                  value={`${op.name} ${op.unitNumber ?? ''}${ID_MARKER}${op.userId}`}
                   onSelect={() => {
                     onChange(op.userId);
                     setOpen(false);

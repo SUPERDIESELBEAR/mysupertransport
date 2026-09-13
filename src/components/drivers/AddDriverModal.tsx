@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import StateSelect from '@/components/shared/StateSelect';
 import { Switch } from '@/components/ui/switch';
 import { useToast } from '@/hooks/use-toast';
 import { UserPlus, Loader2, Truck } from 'lucide-react';
@@ -15,12 +16,6 @@ import DemoLockIcon from '@/components/DemoLockIcon';
 import { DateInput } from '@/components/ui/date-input';
 import { syncDeviceToInventory } from '@/lib/equipmentSync';
 import { saveTruckSpecs } from '@/lib/truckSync';
-
-const US_STATES = [
-  'AL','AK','AZ','AR','CA','CO','CT','DE','FL','GA','HI','ID','IL','IN','IA','KS','KY','LA',
-  'ME','MD','MA','MI','MN','MS','MO','MT','NE','NV','NH','NJ','NM','NY','NC','ND','OH','OK',
-  'OR','PA','RI','SC','SD','TN','TX','UT','VT','VA','WA','WV','WI','WY',
-];
 
 interface AddDriverModalProps {
   open: boolean;
@@ -294,14 +289,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-home-state">Home State</Label>
-              <Select value={form.home_state} onValueChange={v => set('home_state', v)}>
-                <SelectTrigger id="add-home-state">
-                  <SelectValue placeholder="State" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <StateSelect id="add-home-state" value={form.home_state} onChange={v => set('home_state', v)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-unit">Unit #</Label>
@@ -326,14 +314,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-cdl-state">CDL State</Label>
-              <Select value={form.cdl_state} onValueChange={v => set('cdl_state', v)}>
-                <SelectTrigger id="add-cdl-state">
-                  <SelectValue placeholder="State" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <StateSelect id="add-cdl-state" value={form.cdl_state} onChange={v => set('cdl_state', v)} />
             </div>
           </div>
 
@@ -395,14 +376,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-truck-plate-state">Plate State</Label>
-              <Select value={form.truck_plate_state} onValueChange={v => set('truck_plate_state', v)}>
-                <SelectTrigger id="add-truck-plate-state">
-                  <SelectValue placeholder="State" />
-                </SelectTrigger>
-                <SelectContent className="max-h-60">
-                  {US_STATES.map(s => <SelectItem key={s} value={s}>{s}</SelectItem>)}
-                </SelectContent>
-              </Select>
+              <StateSelect id="add-truck-plate-state" value={form.truck_plate_state} onChange={v => set('truck_plate_state', v)} />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="add-trailer">Trailer #</Label>

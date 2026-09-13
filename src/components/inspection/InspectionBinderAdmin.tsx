@@ -2347,16 +2347,19 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                     </div>
                     <div className="space-y-1.5">
                       <p className="text-xs font-medium text-foreground">Choose driver:</p>
-                      <Select value={bulkShareTarget} onValueChange={setBulkShareTarget}>
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select a driver…" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {operators.map(op => (
-                            <SelectItem key={op.userId} value={op.userId}>{op.name}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      {/*
+                        The per-document pickers on this screen were already the
+                        shared searchable one; bulk share was the last plain
+                        Select. Unfiltered, like the rest of the binder — binders
+                        are handed to drivers who are still onboarding.
+                      */}
+                      <DriverCombobox
+                        operators={operators}
+                        value={bulkShareTarget}
+                        onChange={setBulkShareTarget}
+                        placeholder="Select a driver…"
+                        triggerClassName="w-full"
+                      />
                     </div>
                   </>
                 )}

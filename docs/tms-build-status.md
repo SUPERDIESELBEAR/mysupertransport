@@ -11292,3 +11292,53 @@ RLS.
 STILL OPEN, RECORDED IN THE DOCUMENT: `service-logos` and the quarterly-inspection path
 into `fleet-documents` have no client check at all, so an oversized file there gets a
 storage error instead of a sentence on screen. The bucket cap is now behind both.
+
+## 2026-09-13 — searchable driver pickers adopted, and three audit entries that were not real
+
+CONVERTED to the shared `DriverCombobox` (name + unit search). Every one stays UNFILTERED
+— none of these lists is pay-facing, and each has a recorded reason to reach a driver who
+is still onboarding:
+
+  Assign Plate               `MoPlateAssignModal.tsx`        59 options, verified live
+  Paper Logs (RODS) filter   `RodsAdminLogsPanel.tsx`        59 options, verified live
+  Retention Archive filter   `RetentionArchivePanel.tsx`     155 options, verified live
+  Fuel Import unmatched row  `FuelImportPage.tsx`            SEARCH ONLY, list unchanged
+  Send Passenger Auth        `SendPassengerAuthModal.tsx`
+  Inspection Binder bulk     `InspectionBinderAdmin.tsx`     last plain Select there
+  Resource email             `ResourceLibraryManager.tsx`    NOT in the audit; found by the new guard
+
+Add Driver's three hand-built 51-option state lists (home, CDL, truck plate) now point at
+the shared `StateSelect`. Fourth shared component rebuilt by hand this week.
+
+THREE AUDIT ENTRIES DID NOT EXIST. Reported, not reconciled:
+  - ELD Malfunction wizard — its `Select` is DEVICE MODELS. No driver picker.
+  - ELD Device Data Quality — same: per-row device model.
+  - Roadside Stop — receives `operatorId` as context; its selects are state, stop type,
+    load and inspection level. No driver roster.
+  Staff Availability already had a searchable multi-select; left alone.
+  ICA Amendment's unit list is scoped to ONE operator via `v_operator_active_units`
+  (`.eq('operator_id', …)`), so it is short by construction and was not converted. The
+  live view returned zero rows, so its size could not be measured — that is why it was
+  not converted blind.
+
+TWO DEFECTS THE CONVERSION EXPOSED, both fixed:
+  1. Unit search matched UUIDs. The `CommandItem` value was `name unit id`, and the id is
+     searched too, so typing `243` matched two drivers whose UUIDs contained those digits.
+     The id now sits behind a `ID_MARKER` separator that the filter cuts off first.
+  2. Unit search matched NOTHING on three screens. `operators.unit_number` is null for
+     ALL 59 active drivers — the number lives on the onboarding record. Paper Logs,
+     Retention Archive and Send Passenger Auth read the raw column, so their unit labels
+     were blank and unit search was dead. They now use the shared
+     `fetchOperatorUnits`/`resolveOperatorUnit`, the same rule the fuel screens follow.
+     Before: `243` → 0 results. After: `243` → Dale Erickson, Unit 243.
+
+NEW GUARD, GREEN, WITH A TRIGGER BY CONSTRUCTION: `src/test/driver-picker-shared.test.ts`
+matches a driver collection mapped straight into `<SelectItem>`. Empty allowlist. It found
+the Resource email picker the audit had missed, and it was demonstrated red by rebuilding
+the Send Passenger Auth picture as a plain Select:
+`expected [ Array(1) ] to deeply equal []` naming `SendPassengerAuthModal.tsx`. Restored.
+
+FUEL IMPORT NOT VERIFIED IN A BROWSER: there are no unmatched fuel transactions live
+(69 rows, all matched), so the assign picker cannot be rendered without seeding data. Its
+list is still `fetchOperatorOptions` — 59 rows, matching the live active count — and
+`setUpOperatorOptions.test.ts` asserts that screen must not use the filtered list.

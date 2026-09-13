@@ -12,6 +12,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import { Skeleton } from '@/components/ui/skeleton';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import { toast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
@@ -1098,16 +1099,20 @@ function ReviewRow({
 
         {isUnmatched && (
           <div className="flex flex-wrap items-center gap-2">
-            <Select value={choice} onValueChange={setChoice}>
-              <SelectTrigger className="w-72"><SelectValue placeholder="Assign to a driver" /></SelectTrigger>
-              <SelectContent>
-                {operators.map((o) => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.name}{o.unit ? ` · Unit ${o.unit}` : ''}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/*
+              SEARCH ONLY. The list stays `fetchOperatorOptions` — unfiltered
+              on purpose, because the file matches a whole card file including
+              rows belonging to drivers who never finished onboarding.
+              Narrowing it here would hide real transactions.
+            */}
+            <DriverCombobox
+              operators={operators.map((o) => ({ userId: o.id, name: o.name, unitNumber: o.unit }))}
+              value={choice}
+              onChange={setChoice}
+              placeholder="Assign to a driver"
+              size="sm"
+              triggerClassName="w-72"
+            />
             <Button size="sm" disabled={!choice || busy} onClick={() => onAssign(choice)}>Assign</Button>
           </div>
         )}
