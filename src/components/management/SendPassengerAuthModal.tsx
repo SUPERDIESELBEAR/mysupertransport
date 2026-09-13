@@ -167,16 +167,17 @@ export default function SendPassengerAuthModal({ open, onOpenChange, initialOper
         <div className="space-y-4 py-2">
           <div>
             <Label>Contractor / Driver</Label>
-            <Select value={operatorId} onValueChange={setOperatorId}>
-              <SelectTrigger><SelectValue placeholder="Select a driver (or fill in manually below)" /></SelectTrigger>
-              <SelectContent>
-                {operators.map(o => (
-                  <SelectItem key={o.id} value={o.id}>
-                    {o.unit_number ? `Unit ${o.unit_number} — ` : ''}{o.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {/*
+              Shared searchable picker. Deliberately UNFILTERED — a passenger
+              authorization can be sent to a driver who is still onboarding.
+            */}
+            <DriverCombobox
+              operators={operators.map(o => ({ userId: o.id, name: o.name, unitNumber: o.unit_number }))}
+              value={operatorId}
+              onChange={setOperatorId}
+              placeholder="Select a driver (or fill in manually below)"
+              triggerClassName="w-full"
+            />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
