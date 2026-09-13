@@ -150,3 +150,51 @@ describe('company_members — membership is not a user assertion', () => {
   });
 });
 
+
+/**
+ * CROSS-TENANT READ IN A FEDERAL RECORD PATH (2026-09-13).
+ *
+ * `recompute_eld_extension_projection` used to read the terminal timezone with
+ * `SELECT home_terminal_timezone FROM carrier_profile LIMIT 1` and then
+ * `COALESCE(v_tz, 'America/Chicago')`. With two companies that stamps one
+ * company's timezone onto the other's §395.8 record, changing when a driver's
+ * hours are calculated to have started. It now resolves the timezone from the
+ * USDOT snapshotted on the event itself and REFUSES when it cannot — the same
+ * fail-closed shape as the step-1 resolver.
+ */
+describe('recompute_eld_extension_projection — the record’s own company, or refusal', () => {
+  const projectionDef = () => psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname = 'recompute_eld_extension_projection'`).join('\n');
+
+  itLive('does not read the first carrier row and does not default the timezone', () => {
+    const code = projectionDef().replace(/--[^\n]*/g, '');
+    expect(code).not.toMatch(/FROM\s+public\.carrier_profile\s+LIMIT\s+1/i);
+    expect(code).not.toMatch(/COALESCE\s*\(\s*v_tz/i);
+    expect(code).not.toContain("'America/Chicago'");
+  });
+
+  itLive('resolves the carrier by the USDOT snapshotted on the event, and RAISEs when it cannot', () => {
+    const code = projectionDef();
+    expect(code).toMatch(/carrier_usdot/);
+    expect(code).toMatch(/usdot_number\s*=/i);
+    // Two refusals: no snapshot, and no carrier matching the snapshot.
+    expect(code.match(/RAISE EXCEPTION/g)?.length ?? 0).toBeGreaterThanOrEqual(2);
+  });
+
+  itLive('USDOT is GLOBALLY unique, so the lookup can only ever match one company', () => {
+    const idx = psql(`SELECT indexdef FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'carrier_profile'
+        AND indexname = 'carrier_profile_usdot_unique'`);
+    expect(idx.length).toBe(1);
+    expect(idx[0]).toMatch(/UNIQUE INDEX .* \(usdot_number\)/);
+  });
+
+  itLive('is not reachable by anon or authenticated — service_role and triggers only', () => {
+    const grantees = psql(`SELECT DISTINCT grantee FROM information_schema.role_routine_grants
+      WHERE routine_schema = 'public' AND routine_name = 'recompute_eld_extension_projection'`);
+    expect(grantees).not.toContain('PUBLIC');
+    expect(grantees).not.toContain('anon');
+    expect(grantees).not.toContain('authenticated');
+  });
+});

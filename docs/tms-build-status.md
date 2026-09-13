@@ -11840,3 +11840,104 @@ and becomes a blocker. The 2026-09-13 batching plan's index table is the model f
   `owner_stamped_company=6b54d0e6-8743-4284-b55b-8cd094b093dd`, `is_supertransport=true`,
   rolled back, `invoices_after=1`.
 - Nothing else changed: `carrier_rows_after=1`, `members=15`, `owners=1`.
+
+## 2026-09-13 — Cross-tenant defect 1 FIXED, defect 2 BLOCKED by a real driver requirement
+
+Scope: the two cross-tenant defects recorded above as pre-conditions for the fictitious
+company. No `company_id` on any table, no batch B2, no fictitious company.
+
+### 1. `recompute_eld_extension_projection` — FIXED
+
+Live definition read with `pg_get_functiondef` first, not from a file. Two migrations name the
+function: `20260802215306` (defines it) and `20260802215357` (grants only — REVOKE from
+PUBLIC/anon/authenticated, GRANT to `service_role`). The live body matched `20260802215306`, so
+the newest file WAS the newest definition here.
+
+Before: `SELECT home_terminal_timezone INTO v_tz FROM public.carrier_profile LIMIT 1;` then
+`v_tz := COALESCE(v_tz, 'America/Chicago');`. Two defects in two lines — the first carrier row
+regardless of whose record it is, and a hardcoded fallback timezone.
+
+After: the timezone resolves from the carrier identity the event itself carries.
+`eld_malfunction_events.carrier_usdot` is snapshotted at record creation
+(`malfunctionCarrierSnapshot`), so the record names its own company without needing
+`company_id`. **Path used: the event's own USDOT snapshot** — not `operator_id → operators`,
+which has no company link until batch B2, and not the extension request, which is a child of
+the event.
+
+FAIL CLOSED, precedent being the step-1 resolver: no COALESCE, no fallback carrier, no default
+timezone. Two `RAISE EXCEPTION` paths — missing/blank USDOT snapshot, and a USDOT that matches
+no carrier profile with a terminal timezone.
+
+New index `carrier_profile_usdot_unique` on `(usdot_number)`. **GLOBAL, stated deliberately**
+per the standing rule: a USDOT number identifies a carrier across all of FMCSA, so it is unique
+across companies, and that is what makes the lookup resolve exactly one company.
+
+Verbatim refusals (rolled back):
+
+```
+ERROR:  Cannot resolve the carrier for ELD malfunction event aaaaaaaa-0000-0000-0000-00000000000c — no USDOT snapshot on the record. Refusing rather than defaulting to another company's timezone.
+ERROR:  No carrier profile with USDOT 0000001 carries a home terminal timezone; refusing to project ELD extension dates for event aaaaaaaa-0000-0000-0000-00000000000d.
+```
+
+Timezone discrimination demonstrated, not asserted. A scratch second `carrier_profile`
+(`SCRATCH TENANT LLC`, USDOT 9999999, terminal `Pacific/Auckland`) was inserted; at the probe
+instant `chicago_today=2026-09-13 auckland_today=2026-09-14`. Two identical events with a
+granted extension through 2026-09-13 differed ONLY in the USDOT snapshot:
+
+- `PROBE_A_supertransport_chicago_expires=2026-09-13` — still current in Chicago.
+- `PROBE_B_scratch_tenant_auckland_expires=NULL` — already expired in Auckland.
+
+Same data, different company, different federal answer. Everything inside one transaction with
+savepoints; `after_carriers=1`, `after_events=0`, `after_requests=0`.
+
+Harness limits, stated rather than worked around: this role may not call the function directly
+(`permission denied for function recompute_eld_extension_projection` — correct, it is
+service_role only), so it was driven through `trg_eld_extension_requests_project`, and it may
+not `UPDATE eld_extension_requests`, so each probe is a fresh insert rather than a touch.
+
+### 2. `carrier_profile` read policy — NOT CHANGED, and why
+
+`"Authenticated users can read the carrier profile"` is still `USING (true)`. Scoping it to
+`current_company_id()` today would break a real driver requirement, so it was not done.
+
+`src/lib/eld/offline/hydrate.ts` → `writeLocalMeta` selects all seven `carrier_profile` fields
+**as the signed-in operator**, from `useRoadsideHydration`, called by
+`src/pages/operator/OperatorPortal.tsx:788` and `ELDMalfunctionView.tsx:29`. That cache is what
+`src/lib/eld/carrierIdentity.ts` requires before a driver may create a malfunction event or
+certify a log — with no cache, `requireCachedCarrier` BLOCKS record creation by design. Operators
+hold no `company_members` row (deliberately, from step 1: 1 of 59 operators appears there, and
+only because that person is also staff). Scoping the policy to membership therefore stops every
+driver's carrier cache refreshing, and the failure surfaces as a driver unable to create a
+federal record.
+
+**A driver needs carrier details on his device. That is a real requirement, not a workaround.**
+The policy can only be scoped once an operator's company is resolvable — `operators` in batch B2
+— and the scoped policy must then read as "the caller's company via `company_members`, OR the
+company of the operator row the caller owns". Recorded as a HARD DEPENDENCY on batch B2, and the
+`carrier_profile` leak stands until then. No second company exists yet, so nothing leaks today.
+
+The six single-carrier readers, by category:
+
+| Reader | Runs as | Affected by scoping |
+| --- | --- | --- |
+| `send-officer-packet` | service_role | No. Bypasses RLS. Wrong-carrier risk remains (step 5). |
+| `generate-application-pdf` | service_role | No. Same. |
+| `process-eld-escalations` | service_role | No. Same. |
+| `src/lib/application/identity.ts` | anonymous applicant / signed-in staff | Already returns nothing for anon and falls back to constants by design. Staff are covered by the 15 members. |
+| `ELDExtensionRequests.tsx` | signed-in management | Covered — all 15 members are staff, owner included. |
+| `src/lib/eld/offline/hydrate.ts` | **signed-in operator** | **WOULD BREAK.** The blocker above. |
+
+### Verification
+
+- The check that matters first: the owner still resolves and still reads `carrier_profile`.
+  Observed through the definer stamp (the documented harness limit on calling
+  `current_company_id()` directly) as owner `5cca4f77-…`; the probe transactions read
+  `carrier_profile` and inserted against it successfully throughout.
+- A signed-in user with no membership row cannot read `carrier_profile`: **NOT demonstrated, and
+  cannot be** — the policy was deliberately not changed, and this harness may not
+  `SET ROLE authenticated` (`permission denied to set role "authenticated"`), so RLS is not
+  exercisable here at all. Claiming it would be the reviewer-assertion pattern recorded above.
+- Structural guard added: `src/test/tenancy-resolver.test.ts` now asserts the projection reads
+  no first-carrier row, carries no COALESCE and no `'America/Chicago'` literal, resolves by
+  `carrier_usdot`/`usdot_number`, raises at least twice, that `carrier_profile_usdot_unique` is
+  a GLOBAL unique index, and that the function is unreachable by anon and authenticated.
