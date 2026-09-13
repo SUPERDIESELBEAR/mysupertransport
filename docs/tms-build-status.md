@@ -11504,3 +11504,105 @@ The other 28 cards stayed on baseline. After rollback: 1 batch, 69 transactions 
 BUILT AND UNEVALUATED. **Trigger: after the NEXT REAL FUEL IMPORT**, open it and confirm the
 exceptions it raises are ones worth raising. One import cannot judge it. Not a date — the
 import is the event.
+
+---
+
+## Tenancy step 1 — `company_members` and the resolver rewrite (2026-09-13)
+
+STEP 1 ONLY. No `company_id` on any other table, no backfill, no NOT NULL, no RLS
+change, no fictitious company. Steps 2–6 of the 2026-09-13 proposal are untouched.
+
+WHY FIRST. The live resolver was `SELECT id FROM public.carrier_profile ORDER BY
+created_at LIMIT 1` — no `auth.uid()`, no membership input. Landing `company_id` on
+185 tables against that resolver stamps every backfilled row from the first carrier
+row: the right answer for the wrong reason, and unverifiable afterwards.
+
+### `company_members`
+
+`user_id`, `company_id`, `UNIQUE (user_id, company_id)`, FK to `auth.users` (CASCADE)
+and to `carrier_profile` (RESTRICT). `carrier_profile.id` IS the company identity — no
+`companies` table, because `current_company_id()`, the eight billing FKs and
+`invoice_number_config`'s `UNIQUE (company_id, year)` already point at it.
+
+Grants: `SELECT` to `authenticated`, `ALL` to `service_role`. One policy, SELECT only,
+`user_id = auth.uid()`. **There is no user-writable policy and no write grant to
+`authenticated`** — membership is not something a user asserts.
+
+REJECTED: `company_id` on `user_roles` (182 rows, several roles per user — ambiguous by
+construction) · on `profiles` (a mutable column on a table users hold update paths
+into) · a JWT claim (client-adjacent, and tenancy is never accepted from the client).
+
+### The resolver, and the four protections asserted on it
+
+```sql
+SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid() LIMIT 1
+```
+
+1. **SECURITY DEFINER** — the caller needs no grant on `company_members`.
+2. **`SET search_path = public, extensions`** — pinned, not caller-controlled.
+3. **FAILS CLOSED** — no `COALESCE`, no fallback company. An unresolvable caller gets
+   NULL. `carrier_profile` is not named in the body at all.
+4. **Not reachable by `anon` or `PUBLIC`** — `REVOKE ALL ... FROM PUBLIC, anon`;
+   EXECUTE to `authenticated` (the billing policies call it, and a policy expression is
+   evaluated as the caller) and `service_role`.
+
+WHAT A NON-MEMBER GETS — verified, not reasoned: NULL is not written. Two refusals, one
+per path.
+
+- As `authenticated`, the billing policy predicate `company_id = current_company_id()`
+  is NULL, so the row is refused before the constraint is reached:
+  `ERROR: 42501: new row violates row-level security policy for table "invoices"`
+- With RLS bypassed, the definer stamp writes NULL and the column refuses it:
+  `ERROR: 23502: null value in column "company_id" of relation "invoices" violates not-null constraint`
+
+### Membership written in the SAME migration as the rewrite
+
+Not after. The moment the fallback goes, anyone without a row cannot insert a billing
+row — so the rows and the rewrite are one transaction: if the migration fails partway,
+it fails as a whole and the old resolver is still in place. There is no window in which
+the resolver is live and the owner has no membership.
+
+**15 rows, all → SUPERTRANSPORT `6b54d0e6`.** The owner first: Marcus Mueller
+(`5cca4f77`) — his profile `a9f93d0a` created the one existing invoice and its line
+item. Then everyone who *could*: the billing policies admit `management` and `owner`,
+and `accessorial_adjustments` was written by Steve Maxwell (`58d9b91b`, dispatcher), so
+the population is every ACTIVE user holding `owner`, `management`, `onboarding_staff` or
+`dispatcher`: Marcus Mueller, Emma Mueller, Erika Iroma, Eric Iroma, Momin Rohail, Omar
+Tarar, James Hill, Craig Pate, Mae Lauron, Yasir Nawaz, Steve Maxwell, Jason Jamal,
+Daniel Brown, Jack Barney, Leo Wallace. Operators got none: no billing policy admits
+them, so a membership row would grant nothing.
+
+### Verified
+
+- **The owner resolves.** As `sub = 5cca4f77…`, `current_company_id()` returned
+  `6b54d0e6-8743-4284-b55b-8cd094b093dd`, whose `carrier_profile` row is
+  `SUPERTRANSPORT, LLC`, USDOT 2309365, MC 788425.
+- Non-member: both refusals above, each in an aborted transaction.
+- A member's insert still stamps: an invoice supplying
+  `company_id = '00000000-…-0001'` came back stamped `6b54d0e6…`. The client value is
+  overridden, unchanged from Module 7's behaviour.
+- Untouched: 1 invoice, 1 invoice line item, 0 payments, 2 adjustments, all still
+  `6b54d0e6…`; `carrier_profile` still 1 row, unchanged; 0 rows matching `SCRATCH`.
+
+### A harness limit the rewrite exposed, stated rather than worked around
+
+The psql test role (`sandbox_exec`) holds no EXECUTE on `current_company_id()`
+(`ERROR: permission denied for function current_company_id`) and may not `SET ROLE
+authenticated`. So the resolver's answer cannot be read directly from the harness; it is
+observed where it matters — through the definer stamp trigger on a real insert, inside a
+rolled-back transaction.
+
+The same limit broke 24 previously-green billing tests the moment the fallback went: an
+anonymous psql session now resolves to no company, so every scratch billing insert hit
+the NOT NULL. That is CORRECT behaviour, not a harness bug. `src/test/helpers/tenancy.ts`
+adds `withCompanyMember()`, which adopts an existing member — resolved live, never
+hardcoded — for the transaction only. `billing-schema` and
+`accessorial-adjustment-schema` route their psql through it.
+
+**Suites run:** `tenancy-resolver` (new, 9 tests), `billing-schema`,
+`accessorial-adjustment-schema`, `payments-schema`, `invoice-dispatch-reconciliation`,
+`definer-live-catalog`, `definer-search-path`, `caller-evaluated-functions`,
+`function-reachability`, `grant-parity-live`, `policy-grant-parity` — 154 tests green.
+`definer-fail-open` fails on `public.grant_inspection_grace(uuid, integer, text, boolean)`
+returning NULL on its refusal path; that is a 2026-09-11 migration, untouched by this
+pass, and it is PRE-EXISTING open debt, not a regression here.

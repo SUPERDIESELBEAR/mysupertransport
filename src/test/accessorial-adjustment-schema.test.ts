@@ -1,6 +1,8 @@
 import { describe, expect, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
+import { withCompanyMember } from '@/test/helpers/tenancy';
+
 
 /**
  * MODULE 5, PASS 4 / PASS 1 — the accessorial adjustment record (`-A1`).
@@ -43,15 +45,18 @@ const itLive = gatedIt({
   details: ['Only this file asserts the Module 5 Pass 4 adjustment schema.'],
 });
 
+// Every transaction below adopts a company_members identity: since the
+// 2026-09-13 resolver rewrite an anonymous psql session resolves to NO company
+// and the NOT NULL company_id refuses the insert. See helpers/tenancy.ts.
 function psql(sql: string): string[] {
-  return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  return execFileSync('psql', ['-At', '-c', withCompanyMember(sql)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     .split('\n').map(l => l.trim()).filter(Boolean);
 }
 
 /** Runs SQL expected to FAIL; returns the error text. */
 function psqlExpectError(sql: string): string {
   try {
-    execFileSync('psql', ['-At', '-v', 'ON_ERROR_STOP=1', '-c', sql], {
+    execFileSync('psql', ['-At', '-v', 'ON_ERROR_STOP=1', '-c', withCompanyMember(sql)], {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
@@ -60,6 +65,7 @@ function psqlExpectError(sql: string): string {
   }
   throw new Error('expected the statement to be refused, but it succeeded');
 }
+
 
 const T = 'accessorial_adjustments';
 
