@@ -60,12 +60,15 @@ describe('current_company_id — the four protections', () => {
     expect(config).toContain('search_path=public');
   });
 
-  itLive('FAILS CLOSED — no COALESCE and no fallback company in the body', () => {
-    const def = resolverDef();
-    expect(def.toLowerCase()).not.toContain('coalesce');
-    // A fallback is exactly what hid the defect for a week.
-    expect(def).not.toMatch(/carrier_profile/i);
+  itLive('FAILS CLOSED — no COALESCE and no fallback company in the executable body', () => {
+    // Comments are stripped: the body's own comment NAMES the protections, and
+    // asserting against commentary would pass on a function that says the right
+    // thing and does the wrong one — the exact shape of the defect being guarded.
+    const code = resolverDef().replace(/--[^\n]*/g, '');
+    expect(code.toLowerCase()).not.toContain('coalesce');
+    expect(code).not.toMatch(/carrier_profile/i);
   });
+
 
   itLive('is not reachable by anon or PUBLIC, only by signed-in roles', () => {
     const grantees = psql(`SELECT DISTINCT grantee FROM information_schema.role_routine_grants
