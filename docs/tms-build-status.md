@@ -9111,7 +9111,7 @@ operator picker read `operators.unit_number` ALONE. Both were right about what e
 read, and nothing in the codebase could notice they had read different things. The blank
 PDF header was the only symptom, and it surfaced by accident.
 
-Scope of the divergence, verified live across 60 active operators:
+Scope of the divergence, verified live across 59 active operators:
 - 48 have a unit in onboarding only — every one of them a blank header on the old readers.
 - 12 have no unit in either record.
 - 0 have both recorded and different, so unifying the readers changed no displayed value
