@@ -1769,13 +1769,14 @@ Expected: `1`; no row (or `2026, 1`); `0`.
 
 #### 4. What must not be deleted, and scoping
 
-- **60 active non-demo operators** (154 total, 1 demo). No step deletes from
-  `operators` except the single Pate-linked row in Step 10, addressed by literal id.
+- **59 active non-demo operators** (154 total, 1 demo). Verified live 2026-09-13.
+  No step deletes from `operators` except the single Pate-linked row in Step 10,
+  addressed by literal id.
 - **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
   `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
   Deleting "the operator that owns the test loads" deletes a live driver. Never
   delete by joining through loads.
-- **326 real applications.** Step 10 touches one literal id.
+- **338 real applications.** Verified live 2026-09-13. Step 10 touches one literal id.
 - **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
 - **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 7 names
   bucket ids explicitly.
@@ -1837,9 +1838,39 @@ brokers, loads and settlements. To demo, you log into that company's portal.
 RECORD THIS PRECISELY, because an earlier framing got it wrong: there is NO "this is
 demo" marker on any row, and nothing in SUPERTRANSPORT is marked as anything. The
 column added to the revenue tables is `company_id`, and it is not a demo mechanism —
-it is the TENANCY BOUNDARY. Every query is already scoped to the company the user is
-logged into. Demo data is simply the data belonging to a company that happens to be
-fictitious.
+it is the TENANCY BOUNDARY. Demo data is simply the data belonging to a company that
+happens to be fictitious.
+
+CURRENT STATE (verified live 2026-09-13): `company_id` is stamped on eight billing
+tables — `invoices`, `invoice_line_items`, `invoice_batches`, `invoice_number_config`,
+`payments`, `factoring_remittances`, `ar_aging_snapshots` and `accessorial_adjustments`
+— by a `SECURITY DEFINER` trigger that calls `current_company_id()`. That function is
+`SELECT id FROM public.carrier_profile ORDER BY created_at LIMIT 1`. It does not read
+`auth.uid()` and it does not consult any membership table. It returns the first carrier
+row regardless of who is asking. `carrier_profile` holds exactly one row today, so the
+stamp has been correct by accident, not by boundary. NO query is scoped by company
+today: 553 policies exist in `public` and 8 mention `company_id`. The boundary is a
+stamp, not a boundary — a column nothing filters on. The fictitious-company decision and
+the reasoning below are sound; only the claim that the boundary was already enforced
+was wrong.
+
+### Guard added — claims about current state must name their source
+
+This is the **fifth instance** of a sentence describing intended or expected behaviour,
+written in the present tense, entering a document that is then read as authoritative:
+
+1. The 2026-09-05 fuel period bound, recorded as current when it was a design intent.
+2. The `delete-user-account` self-deletion claim, corrected in the owner-transfer pass.
+3. The unit-ordering reading, corrected by re-reading the source.
+4. The 2026-09-11 batch mis-mapping, caught by STOP AND REPORT.
+5. This entry: "Every query is already scoped to the company the user is logged into."
+
+The pattern is the same in all five. The guard against it: **a claim about CURRENT
+STATE must name the query or file it came from** — a table name, a function definition,
+a policy count, a source line. A claim that cannot name its source is a claim about
+intent and must be written as such ("will be", "must become", "design intent"). The
+correction above was produced by live catalog queries against `pg_policy`,
+`pg_attribute`, `pg_trigger` and `pg_proc`; the source lines are named.
 
 Consequences that make this the right shape:
 
@@ -5679,10 +5710,10 @@ what else the change reaches.** Both defects shipped green.
 
 ## OPERATIONAL follow-up — app installs (measured 2026-09-01)
 
-**48 of 61** active operators have installed the PWA. **11 are web-only** and
-**2 have never signed in**. Not a code task: the install reminder path exists
-(daily cron plus a manual per-driver reminder with a 24h cooldown). The two who
-have never signed in cannot receive an in-app anything and need a phone call.
+**48 of 59** active operators have installed the PWA. **11 are web-only** and
+**2 have never signed in**. Verified live 2026-09-13. Not a code task: the install
+reminder path exists (daily cron plus a manual per-driver reminder with a 24h cooldown).
+The two who have never signed in cannot receive an in-app anything and need a phone call.
 
 ---
 
@@ -8937,11 +8968,11 @@ owner's, which is why it renders My Fuel empty and proves nothing.
 ### Driver App Preview picker shows wrong unit state (2026-09-10)
 
 The Driver App Preview picker shows "No unit assigned" for most drivers and
-"Unit 000" for one, while 48 of 60 active operators have their unit on the
-`onboarding_status` record rather than the `operators` record. The fuel screens
-were fixed on 2026-09-09 to resolve both sources via `src/lib/fuel/operatorUnit.ts`;
-this picker reads only one place and shows the same gap the fuel screens had
-before that fix.
+"Unit 000" for one, while 48 of 59 active operators have their unit on the
+`onboarding_status` record rather than the `operators` record. Verified live
+2026-09-13. The fuel screens were fixed on 2026-09-09 to resolve both sources via
+`src/lib/fuel/operatorUnit.ts`; this picker reads only one place and shows the
+same gap the fuel screens had before that fix.
 
 Not urgent, and not a fuel defect — it is the same reader inconsistency in a
 different screen. TRIGGER: alongside any pass touching the operator picker, or the
@@ -9098,7 +9129,7 @@ operator picker read `operators.unit_number` ALONE. Both were right about what e
 read, and nothing in the codebase could notice they had read different things. The blank
 PDF header was the only symptom, and it surfaced by accident.
 
-Scope of the divergence, verified live across 60 active operators:
+Scope of the divergence, verified live across 59 active operators:
 - 48 have a unit in onboarding only — every one of them a blank header on the old readers.
 - 12 have no unit in either record.
 - 0 have both recorded and different, so unifying the readers changed no displayed value
