@@ -11949,15 +11949,20 @@ The six single-carrier readers, by category:
 Three tables received `company_id`. Nothing else did: no `equipment_items`, `loads`,
 `applications` or `user_roles`, no RLS change, no fictitious company.
 
-### Two contradictions found, reported not reconciled
+### Corrections applied to the 2026-09-13 batching plan
 
-1. **`profiles` in the batching plan.** §2 lists `profiles` inside batch B2; §3 of the same
-   document recommends it stay GLOBAL — one row per auth user, company reach via
-   `company_members`. The two sections disagree. `profiles` was left out of this pass, on §3.
-   §2's table list is the one that needs correcting.
-2. **Policy count.** The plan's baseline is 553 public policies. Live count before the DDL was
-   **554**, and 554 after — so this pass added none. The +1 predates it and is not explained by
-   it. The 554 figure is the measured baseline from here.
+The plan governs five remaining batches; these two corrections keep it consistent with the
+database shape discovered while executing B2 part one.
+
+1. **`profiles` removed from batch B2.** §2 listed `profiles` (170 rows) in batch B2; §3 of the
+   same document recommends it stay GLOBAL — one row per auth user, company reach via
+   `company_members`. Both cannot hold. **§3 is correct and was followed.** A person is one person;
+   their company reach is a membership row, not a column on their identity record. Batch B2 is
+   therefore **seven tables, not eight**.
+2. **Policy baseline corrected to 554.** The plan's verification checklist said 553 public
+   policies. Live count before the DDL was **554**, and 554 after — this pass added none. The +1
+   predates it and is not explained by it. **554 is the measured baseline from 2026-09-13.**
+   A verification checklist with a wrong baseline fails a correct pass or passes a wrong one.
 
 ### What was applied
 
@@ -11983,18 +11988,31 @@ revoked from `PUBLIC`/`anon`/`authenticated`, `BEFORE INSERT` on all three table
 2. Membership does not resolve, caller is `service_role`, row names a company → accepted.
 3. Anything else → `RAISE ... 42501`. No fallback to "the first carrier row".
 
-Step 2 is a **deliberate deviation** from the eight billing tables, which stamp unconditionally.
-`operators` has four service-role insert paths (`invite-operator`, `provision-demo-driver`,
-`provision-test-driver`, `create-test-operator`) where `auth.uid()` is absent; an unconditional
-stamp would make every driver invitation fail the `NOT NULL` constraint. `service_role` is a
-server context, never a browser, so this is not client-supplied tenancy — but it is a second
-shape, and it is recorded as one rather than described as the same rule.
+Step 2 is a **second sanctioned stamping shape**, not an exception to the billing rule. The
+billing shape is: every insert is from a signed-in staff user, so `company_id` is stamped
+unconditionally from membership. The service-role shape is: the table has server-side insert
+paths where `auth.uid()` is absent, so membership cannot resolve; `service_role` may name the
+company explicitly, and only `service_role`. The browser never names a company in either shape.
+
+Scope of the service-role shape: tables written by service-role paths. Today that is `operators`
+(`invite-operator`, `provision-demo-driver`, `provision-test-driver`, `create-test-operator`).
+If a future batch adds a table with a service-role insert path, that table uses this shape
+rather than the unconditional billing shape.
 
 All four functions now name the company server-side through
 `supabase/functions/_shared/tenancy.ts`: `companyIdForUser()` for the two with an authenticated
 staff caller, `soleCompanyId()` for the two bootstrap tools, which **refuse once a second
 carrier row exists** rather than picking one. The browser paths
 (`FacilityDialog.tsx`, `BrokerDialog.tsx`) send no `company_id` at all.
+
+### Backfill pattern for remaining batches
+
+Every remaining batch backfills with a bare scalar subquery:
+`(SELECT id FROM public.carrier_profile)`. With exactly one company today this looks the same as
+any other backfill; with a second company it raises `21000` (more than one row returned by a
+subquery used as an expression) instead of silently picking a carrier. That is the fail-closed
+behaviour wanted for a tenancy column. The backfill disables only non-immunity user triggers,
+touches exactly one column, and re-enables triggers before `NOT NULL` is applied.
 
 ### Index decisions, declared per the standing rule
 
