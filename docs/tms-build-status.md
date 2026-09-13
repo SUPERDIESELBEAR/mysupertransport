@@ -1769,13 +1769,14 @@ Expected: `1`; no row (or `2026, 1`); `0`.
 
 #### 4. What must not be deleted, and scoping
 
-- **60 active non-demo operators** (154 total, 1 demo). No step deletes from
-  `operators` except the single Pate-linked row in Step 10, addressed by literal id.
+- **59 active non-demo operators** (154 total, 1 demo). Verified live 2026-09-13.
+  No step deletes from `operators` except the single Pate-linked row in Step 10,
+  addressed by literal id.
 - **TRAP — the ST-TEST loads and the Pratt settlement both reference operator
   `f2051752-5311-4c1f-b88c-79773e7ed9e5`, who is a REAL active non-demo operator.**
   Deleting "the operator that owns the test loads" deletes a live driver. Never
   delete by joining through loads.
-- **326 real applications.** Step 10 touches one literal id.
+- **338 real applications.** Verified live 2026-09-13. Step 10 touches one literal id.
 - **Real ELD, compliance, equipment, inspection, vault data.** No step reaches those.
 - **19 storage buckets besides `load-documents` and `rate-con-ingest`.** Step 7 names
   bucket ids explicitly.
