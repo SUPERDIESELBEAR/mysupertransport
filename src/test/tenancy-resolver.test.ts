@@ -198,3 +198,74 @@ describe('recompute_eld_extension_projection — the record’s own company, or 
     expect(grantees).not.toContain('authenticated');
   });
 });
+
+/**
+ * BATCH B2 PART ONE — `company_id` on operators, brokers, facilities.
+ *
+ * The column is only a boundary if nothing can write it and nothing can leave
+ * it null. These assertions are live-catalog, not migration-text: a column
+ * altered out of band reads correct in the files and wrong here.
+ */
+describe('tenancy batch B2 part one — operators, brokers, facilities', () => {
+  const TABLES = ['operators', 'brokers', 'facilities'] as const;
+
+  itLive('company_id is NOT NULL with no default on all three', () => {
+    const rows = psql(`SELECT a.attrelid::regclass::text || ' ' || a.attnotnull::text || ' ' ||
+        a.atthasdef::text || ' ' || COALESCE(pg_get_expr(d.adbin, d.adrelid), 'none')
+      FROM pg_attribute a
+      LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+      WHERE a.attname = 'company_id'
+        AND a.attrelid IN ('public.operators'::regclass, 'public.brokers'::regclass,
+                           'public.facilities'::regclass)
+      ORDER BY 1`);
+    expect(rows.sort()).toEqual(
+      ['brokers true false none', 'facilities true false none', 'operators true false none'],
+    );
+  });
+
+  itLive('every row carries the live carrier id, and none is null', () => {
+    for (const t of TABLES) {
+      const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(DISTINCT company_id)::text || ' ' ||
+          bool_and(company_id = (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toEqual(['0 1 true']);
+    }
+  });
+
+  itLive('each table stamps company_id server-side on insert', () => {
+    const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
+      WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
+        AND t.tgenabled = 'O' ORDER BY 1`);
+    expect(rows.sort()).toEqual(['brokers', 'facilities', 'operators']);
+  });
+
+  itLive('the stamp refuses rather than defaulting, and clients cannot call it', () => {
+    const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'stamp_tenant_company_id'`).join('\n');
+    expect(code).toMatch(/SECURITY DEFINER/);
+    expect(code).toMatch(/search_path TO 'public', 'extensions'/);
+    expect(code).toMatch(/RAISE\s+EXCEPTION/);
+    // No fallback to "the first carrier row".
+    expect(code).not.toMatch(/FROM\s+public\.carrier_profile/i);
+    const grantees = psql(`SELECT DISTINCT grantee FROM information_schema.role_routine_grants
+      WHERE routine_schema = 'public' AND routine_name = 'stamp_tenant_company_id'`);
+    expect(grantees).not.toContain('anon');
+    expect(grantees).not.toContain('authenticated');
+  });
+
+  itLive('the facilities duplicate rule is PER-COMPANY, leading with company_id', () => {
+    const idx = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND tablename = 'facilities' AND indexdef ILIKE '%UNIQUE%' AND indexname <> 'facilities_pkey'`);
+    expect(idx.length).toBe(1);
+    expect(idx[0]).toMatch(/uq_facilities_company_name_city_state_active/);
+    expect(idx[0]).toMatch(/\(company_id,/);
+  });
+
+  itLive('operators keeps exactly one GLOBAL unique index besides its key', () => {
+    const idx = psql(`SELECT indexname FROM pg_indexes WHERE schemaname = 'public'
+      AND tablename IN ('operators', 'brokers') AND indexdef ILIKE '%UNIQUE%' ORDER BY 1`);
+    expect(idx).toEqual(['brokers_pkey', 'operators_pkey', 'operators_user_id_key']);
+  });
+});
