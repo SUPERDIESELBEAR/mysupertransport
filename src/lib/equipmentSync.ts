@@ -526,11 +526,14 @@ export async function syncDeviceToInventory(
     // Create new device
     const { data: newDevice, error } = await supabase
       .from('equipment_items')
-      .insert({
-        serial_number: serial,
-        device_type: deviceType,
-        status: 'assigned',
-      })
+      // company_id is stamped server-side from membership; the browser never names it.
+      .insert(
+        insertPayload('equipment_items', {
+          serial_number: serial,
+          device_type: deviceType,
+          status: 'assigned',
+        }),
+      )
       .select('id')
       .single();
 
