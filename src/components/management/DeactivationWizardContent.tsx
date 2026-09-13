@@ -777,6 +777,12 @@ export function DeactivationWizardContent({
    * Staff confirm the list first — nothing is emailed until they do. The row
    * created is marked return-only so it is never mistaken for a sheet that was
    * issued and signed at onboarding.
+   *
+   * ORDERING IS DELIBERATE. The sheet is written as `draft`, the items are
+   * inserted, and only then is it marked `signed`. Writing `signed` first left
+   * an orphaned signed sheet with no items behind on any item failure — and an
+   * itemless signed sheet HIDES the return list, so each retry made it worse.
+   * On item failure the draft is deleted, so a failed attempt leaves nothing.
    */
   const handleBuildReturnSheet = async () => {
     const chosen = returnCandidates.filter(c => returnSelection[c.key] && c.serial);
@@ -791,7 +797,7 @@ export function DeactivationWizardContent({
         .insert({
           operator_id: operatorId,
           unit_number: truckSnapshot?.unit_number ?? unitNumber ?? null,
-          status: 'signed',
+          status: 'draft',
           bestpass_included: chosen.some(c => c.deviceType === 'bestpass'),
           is_paper_original: false,
           is_return_only: true,
@@ -807,7 +813,17 @@ export function DeactivationWizardContent({
           device_type: c.deviceType,
           serial_snapshot: c.serial,
         })));
-      if (itemsErr) throw itemsErr;
+      if (itemsErr) {
+        // Leave nothing behind: the draft carried no items, so it is not a record.
+        await (supabase as any).from('onboard_assignment_sheets').delete().eq('id', sheet.id);
+        throw itemsErr;
+      }
+
+      const { error: signErr } = await (supabase as any)
+        .from('onboard_assignment_sheets')
+        .update({ status: 'signed' })
+        .eq('id', sheet.id);
+      if (signErr) throw signErr;
 
       toast({ title: 'Return list saved', description: 'Now email the return instructions to the driver.' });
       await fetchAllData();
@@ -817,6 +833,7 @@ export function DeactivationWizardContent({
       setBuildingReturnSheet(false);
     }
   };
+
 
   const handleSendReturnInstructions = async (sheetId: string) => {
     setSendingInstructions(prev => ({ ...prev, [sheetId]: true }));
