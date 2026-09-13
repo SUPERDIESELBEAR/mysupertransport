@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import DriverCombobox from '@/components/shared/DriverCombobox';
 import { supabase } from '@/integrations/supabase/client';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { Button } from '@/components/ui/button';
