@@ -136,6 +136,68 @@ function benignAuthzDefaults(block: string): string[] {
   return out;
 }
 
+/**
+ * REASONED EXEMPTIONS to the benign-default check, in the shape
+ * KNOWN_ANON_EXECUTABLE_ENTRIES uses in definer-live-catalog.test.ts: an
+ * entry carries its justification, never a bare name.
+ *
+ * WHY AN ALLOWLIST, and not the two alternatives considered on 2026-09-13:
+ *
+ *  - NARROWING THE HEURISTIC (treat a CASE inside an UPDATE SET / INSERT
+ *    VALUES list as a stored value, not an authorization branch) would stop
+ *    the check catching a genuine fail-open hidden inside a write list. That
+ *    is the defect it was written for, four occurrences over.
+ *
+ *  - REWRITING THE SHIPPED SQL (resolve the actor into a variable first) sets
+ *    the precedent that the check dictates the code, changes correct
+ *    behaviour-preserving SQL for a heuristic's benefit, and leaves no trace
+ *    of why the code looks as it does — so the next audit column trips the
+ *    guard and gets rewritten again.
+ *
+ * An allowlist entry keeps the guard at full strength, leaves correct code
+ * alone, and makes the NEXT occurrence a decision: someone reads this entry
+ * and either adds theirs with a reason, or realises theirs is genuinely a
+ * fail-open.
+ *
+ * This list may only SHRINK, save for a new entry carrying its own
+ * justification and a raised MAX in the same diff.
+ */
+type BenignDefaultExemption = {
+  /** `schema.name(argtypes)` as the resolver renders it. */
+  readonly signature: string;
+  /** Why the flagged CASE is not an authorization decision. */
+  readonly reason: string;
+};
+
+const BENIGN_DEFAULT_EXEMPTIONS: readonly BenignDefaultExemption[] = [
+  {
+    signature: "public.grant_inspection_grace(uuid,integer,text,boolean)",
+    reason:
+      "`grace_override_by = CASE WHEN … THEN auth.uid() ELSE NULL END` is an " +
+      "AUDIT COLUMN recording who performed an override, written into an " +
+      "UPDATE. NULL is the correct value when nobody overrode. It is not an " +
+      "authorization decision and hides no refusal: the function refuses " +
+      "positively with `IF NOT public.is_staff(auth.uid()) THEN RAISE " +
+      "EXCEPTION 'Only staff may grant an inspection grace period.' USING " +
+      "ERRCODE = '42501'`, and `is_staff` is `SELECT EXISTS (…)`, which " +
+      "returns false and never NULL. Verified live 2026-09-13; one migration " +
+      "(20260911160234) defines it and the live definition matches.",
+  },
+];
+
+/**
+ * Asserted, not advisory. Adding an entry above requires editing this number
+ * in the same diff — a deliberate act, rather than a quiet append while
+ * chasing a red test. It may fall freely and rise only for a new entry
+ * carrying its justification.
+ */
+// 1 = grant_inspection_grace, the grace-override audit column (2026-09-13).
+const BENIGN_DEFAULT_EXEMPTIONS_MAX = 1;
+
+const EXEMPT_SIGNATURES: readonly string[] = BENIGN_DEFAULT_EXEMPTIONS.map(
+  (e) => e.signature,
+);
+
 describe("SECURITY DEFINER guards are not fail-open", () => {
   const definers = resolvedDefiners();
 
