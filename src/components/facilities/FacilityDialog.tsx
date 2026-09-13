@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -113,7 +114,9 @@ export default function FacilityDialog({
     setSaving(true);
     const query = facility
       ? supabase.from('facilities').update(payload).eq('id', facility.id).select('*').single()
-      : supabase.from('facilities').insert(payload).select('*').single();
+      // company_id is stamped server-side by aa_stamp_tenant_company_id and is
+      // never sent from the browser, so it is absent from this payload.
+      : supabase.from('facilities').insert(insertPayload('facilities', payload)).select('*').single();
     const { data, error } = await query;
     setSaving(false);
 

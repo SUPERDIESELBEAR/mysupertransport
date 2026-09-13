@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient, useQuery } from '@tanstack/react-query';
 import { AlertTriangle, Loader2, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -272,7 +273,9 @@ export default function BrokerDialog({
     setSaving(true);
     const query = broker
       ? supabase.from('brokers').update(writePayload).eq('id', broker.id).select('id, company_name').single()
-      : supabase.from('brokers').insert(writePayload).select('id, company_name').single();
+      // company_id is stamped server-side by aa_stamp_tenant_company_id and is
+      // never sent from the browser, so it is absent from this payload.
+      : supabase.from('brokers').insert(insertPayload('brokers', writePayload)).select('id, company_name').single();
     const { data, error } = await query;
     setSaving(false);
 
