@@ -62,7 +62,9 @@ Deno.serve(withErrorEnvelope(async (req) => {
   }).eq('user_id', demoUserId!)
 
   await admin.from('user_roles').upsert(
-    { user_id: demoUserId!, role: 'operator' },
+    // Service-role write: no auth.uid(), so the company is named from the
+    // requesting staff member's membership.
+    { user_id: demoUserId!, role: 'operator', company_id: await companyIdForUser(admin, userId) },
     { onConflict: 'user_id,role' },
   )
 

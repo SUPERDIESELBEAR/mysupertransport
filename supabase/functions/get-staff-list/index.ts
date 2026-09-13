@@ -424,7 +424,9 @@ Deno.serve(async (req) => {
 
       if (action === 'add') {
         await supabaseAdmin.from('user_roles').upsert(
-          { user_id, role },
+          // Service-role write: no auth.uid(), so the company is named from the
+          // requesting management user's membership.
+          { user_id, role, company_id: await companyIdForUser(supabaseAdmin, callerUser.id) },
           { onConflict: 'user_id,role' }
         );
       } else if (action === 'remove') {
