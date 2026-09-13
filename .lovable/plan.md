@@ -1,184 +1,207 @@
-# The tenancy boundary — design proposal
+# Tenancy step 2 — batching plan for `company_id`
 
-Read-only. No code, no migrations. Every figure below is from a live catalog query in this
-session; the query is named with the claim.
+Read-only. Every figure below is from a live query run 2026-09-13, not from the record.
 
----
-
-## 1. What already has `company_id`, and what does not
-
-**Has it — 8 tables, all NOT NULL, no column default** (`pg_attribute` + `pg_trigger` join):
-
-| Table | Stamping trigger |
-|---|---|
-| `invoices`, `invoice_line_items`, `invoice_batches`, `invoice_number_config`, `payments`, `factoring_remittances`, `ar_aging_snapshots` | `aa_stamp_billing_company_id` |
-| `accessorial_adjustments` | `aa_stamp_company_id` |
-
-Both triggers call the same `stamp_billing_company_id()` — definer, `NEW.company_id :=
-public.current_company_id()` with no COALESCE. Nothing outside Module 7 and the accessorial
-adjustment table carries the column.
-
-**Does not have it — 185 tables** (`query_to_xml` exact counts):
-
-- 56 hold **zero rows** — free to change.
-- 89 hold 1–50 rows.
-- 40 hold more than 50 rows, **34,133 rows in total across all 185**.
-
-The largest, in order: `notifications` 10,752 · `dispatch_daily_log` 5,772 · `audit_log`
-3,969 · `email_send_log` 2,043 · `dispatch_status_history` 1,466 · `operator_documents`
-1,180 · `eld_cron_runs` 1,029 · `driver_vault_documents` 822 · `inspection_documents` 773 ·
-`share_tokens` 693. Then the identity core: `applications` 338, `equipment_assignments` 278,
-`equipment_items` 219, `user_roles` 182, `profiles` 170, `operators` 154, `onboarding_status`
-154. Revenue-layer tables are small: `loads` 17, `load_stops` 35, `fuel_transactions` 69,
-`settlements` 1, `invoices` 1.
-
-**The single most important finding.** `current_company_id()` is
-`SELECT id FROM public.carrier_profile ORDER BY created_at LIMIT 1` — it does not read
-`auth.uid()` at all. `carrier_profile` holds **1 row**. So the stamp is correct today by
-accident of there being one company, and the boundary has **no membership input whatsoever**.
-Everything in section 3 follows from that.
+**Live baseline.** 193 tables in `public`. Nine already carry `company_id`: the eight billing
+tables plus `company_members` (added in step 1). So **184 tables lack it**, not 185 — the
+difference is `company_members` itself, which arrived after the proposal was written.
+Of those 184, **56 are empty**, which matches expectation exactly.
 
 ---
 
-## 2. What `is_demo` does today
+## 1. FK dependency order
 
-Ten tables carry it, not ten of equal weight: `operators`, `applications`, `profiles`, plus
-the seven ELD tables `rods_days`, `rods_correction_requests`, `rods_divergences`,
-`eld_extension_requests`, `eld_malfunction_events`, `eld_revoked_list_checks`,
-`eld_sync_alerts`.
+**There is one cycle, and it is real:** `brokers.primary_document_id → broker_documents →
+brokers`. Every other cycle the catalog reports (68 paths) routes through that same pair —
+`loads → brokers → broker_documents → brokers`, and so on. There is no second independent
+cycle.
 
-Live demo rows: `operators` **1** · `profiles` **1** · `rods_correction_requests` **3 of 3** ·
-every other one **0**. The single demo operator is `8c0ccadb…`, label *ELD Test Harness*,
-with **no `application_id`** — so nothing in `applications` is demo, and the three-table
-"operator + application + profile" flip that `set-demo-flag` performs has only ever had two
-tables to flip for this row. **52 files** reference the column (`rg -c`), across the staff
-roster, dispatch board, fleet, equipment, `managementMetrics`, the roadside render, and nine
-edge functions including `provision-demo-driver`, `reset-demo-driver`, `set-demo-flag`.
+The cycle does **not** block adding the column: `ALTER TABLE ADD COLUMN` has no ordering
+constraint. It only matters for a backfill that derives a child's company from its parent,
+and there the pair must be broken by hand: backfill `brokers` from the single company row
+directly, then `broker_documents` from `brokers`.
 
-**Proposal: `is_demo` stays for this pass and is retired in its own pass, last.** It is not
-the same distinction as `company_id` and should stop being described as one: `is_demo` marks a
-*watermarked ELD sandbox record that may never become a real §395.8 log* — an immutability
-and export-exclusion rule enforced by `enforce_record_is_demo` and the `set-demo-flag` 409.
-`company_id` marks *whose data this is*. The fictitious company subsumes the demo **portal
-walkthrough**, not the ELD watermark.
+Order that matters for derivation, parents first:
 
-Rejected: retiring `is_demo` in the same pass that introduces `company_id`. It would move 52
-call sites and the ELD immutability guarantee while the boundary is still unenforced — and
-would delete the only sandbox that currently works, to get isolation that at that moment is
-structural only. Also rejected: adding demo semantics to `company_id` (e.g. an `is_demo`
-column on `companies`) — the recorded decision is that nothing is marked.
+```text
+tier 0  carrier_profile (the company itself), profiles, company_members
+tier 1  operators, applications, brokers, equipment_items, facilities, pay_policies,
+        eld_device_models, truck_owners, fuel_import_batches, mo_plates, services
+tier 2  loads, ica_contracts, onboarding_status, contractor_pay_setup, broker_documents,
+        driver_documents, inspection_documents, settlements, dispatch_settlements,
+        equipment_assignments, fuel_transactions, invoices*
+tier 3  load_stops, load_documents, load_charges, load_references, claim_flags,
+        settlement_line_items, dispatch_settlement_* , deductions, ica_amendments,
+        inspection_cycles, roadside_stops, rods_days, fuel_transaction_lines
+tier 4+ everything hanging off tier 3 (history, citations, verdicts, installments,
+        acknowledgments, notifications, violations, documents-of-documents)
+```
 
-Two mechanisms for one distinction is indeed the shape this project keeps finding defects in.
-The answer is to narrow `is_demo` to ELD watermarking and delete its roster/metrics uses once
-the fictitious company holds those drivers — a P6 step below, with the trigger being "the
-fictitious company has drivers on the roster".
+**No FK to any other business table** (order irrelevant, backfill is the single company id):
+`audit_log`, `notifications`, `share_tokens`, `email_send_log`, `email_send_state`,
+`email_templates`, `email_unsubscribe_tokens`, `suppressed_emails`, `eld_cron_runs`,
+`preview_sessions`, `pipeline_config`, `company_settings`, `fleet_settings`,
+`settlement_settings`, `load_number_config`, `notification_role_defaults`,
+`inspection_binder_order`, `release_notes`, `staff_help_knowledge`, `faq_history`,
+`resource_history`, `mo_plates`, `carrier_notification_settings`,
+`insurance_email_settings`, `dot_consultant_email_settings`, `pei_cadence_settings`,
+`inspection_program_settings`, `staff_ui_preferences`, `user_view_preferences`,
+`revert_courtesy_email_defaults`, `staff_messaging_settings`, `equipment_items`.
+
+**Honest limit:** with one company in `carrier_profile`, every backfill resolves to the same
+literal id whatever the join. The derivation logic is therefore *written* but not *tested* by
+this step. Only the fictitious company (step 5) can test it.
+
+## 2. Batches by risk
+
+Seven batches. The row counts are live.
+
+| # | What | Tables | Rows | Why grouped |
+|---|---|---|---|---|
+| B1 | Empty tables | 56 | 0 | No backfill, no trigger can fire, no index rebuild. Column + `NOT NULL` + stamp trigger in one migration. |
+| B2 | Spine parents with identity uniqueness | 8 | ~750 | The real work: `equipment_items` (219, two serial indexes), `loads` (17, `load_number`), `applications` (338, `lower(email)`), `operators` (154), `profiles` (170), `user_roles` (182), `brokers` (12), `facilities` (2). Each needs an index decision from §4. |
+| B3 | Rows, no identity-bearing unique index | ~70 | ~2,900 | Mechanical. `load_stops` 35, `load_charges` 4, `ica_contracts` 64, `contractor_pay_setup` 56, `cert_reminders` 50, `forecast_*` 544, `mo_plate_assignments` 60, `active_dispatch` 79, etc. |
+| B4 | Immutability-locked | 13 | ~50 | §5. Small but each needs its own unlock; keep them apart from mechanical work. |
+| B5 | The four large logs | 4 | 22,030 | `notifications` 10,752 · `dispatch_daily_log` 5,772 · `audit_log` 3,969 · `email_send_log` 2,043. Own batch on size alone — the `NOT NULL` validation and the rewrite are the only long locks in step 2. |
+| B6 | Mid-large children | ~14 | ~6,300 | `operator_documents` 1,182 · `eld_cron_runs` 1,030 · `driver_vault_documents` 822 · `inspection_documents` 774 · `share_tokens` 693 · `pei_request_events` 527 · `document_acknowledgments` 361 · `equipment_assignments` 278 · others. |
+| B7 | Close-out | — | — | `NOT NULL` on anything left nullable, stamp-trigger parity sweep, unique-index diff, guard tests. No DDL on new tables. |
+
+Correction to expectation: `dispatch_daily_log` belongs in B5 on size **and** carries a
+duplicated unique index (`dispatch_daily_log_op_date_uniq` and `unique_operator_log_date`
+are the same two columns) — two indexes to rebuild, not one.
+
+## 3. Tables that should NOT get the column
+
+Recommended global:
+
+- **`carrier_profile`** — it *is* the company. Its `carrier_profile_singleton` unique index
+  (`btree ((true))`) must be dropped before a second company can exist. This is the single
+  hardest blocker in step 2 and it is one line.
+- **`company_members`** — already the join; a second `company_id` would be circular.
+- **`profiles`** — one row per auth user (`profiles_user_id_key` on `user_id`). A person is
+  one person; their company reach is membership, not a column here.
+- **`eld_device_models`** — the FMCSA registered/revoked device catalogue. Federal reference
+  data; duplicating it per tenant means one tenant misses a revocation.
+- **`suppressed_emails`, `email_unsubscribe_tokens`** — deliverability state belongs to the
+  sending domain, which is shared. A bounce is a bounce for every tenant.
+- **`release_notes`** — SUPERDRIVE product notes, not carrier data.
+
+Recommended tenant data despite looking global: `company_settings`, `fleet_settings`,
+`settlement_settings`, `load_number_config`, `pay_policies`, `carrier_signature_settings`,
+`inspection_program_settings`, `pei_cadence_settings`, `inspection_binder_order`,
+`email_templates`, `notification_role_defaults`, `audit_log`, `share_tokens`. Every one of
+these is a business rule or an audit trail that must differ between carriers.
+
+**Needs your decision, not mine:** `faq`, `services`, `service_resources`,
+`staff_help_knowledge`, `pipeline_config`. These are content SUPERTRANSPORT authored. Global
+means every tenant sees SUPERTRANSPORT's FAQ; per-tenant means seeding it for each. My lean
+is per-tenant with a nullable "global" row set, but that is a product choice.
+
+## 4. Unique indexes
+
+Live unique indexes (non-PK) on tables gaining the column, with a recommendation each:
+
+**Must become per-company (leading `company_id`):**
+- `loads_load_number_key (load_number)` — ST-numbering restarts per carrier.
+- `applications_email_non_draft_unique (lower(email)) WHERE NOT is_draft` — one driver may
+  apply to two carriers.
+- `idx_equipment_items_canonical_serial_uniq (device_type, canonical_serial) WHERE status <> 'deactivated'`
+  and `idx_equipment_items_serial_type` — **the named hard case.** Real serials do not
+  collide across carriers, but the fictitious company will use fabricated ones that do. Go
+  per-company; global uniqueness here buys nothing and blocks demo seeding.
+- `user_roles_single_owner (role) WHERE role = 'owner'` — as it stands a second tenant
+  **cannot have an owner**. This is a hard multi-tenant blocker and easy to miss.
+- `pay_policies_single_company_default (is_company_default) WHERE is_company_default` — same
+  shape, same fix.
+- `carrier_signature_settings_singleton ((true))`, `settlement_settings` singleton,
+  `company_settings_setting_key_key`, `load_number_config`, `pipeline_config_stage_key_key`,
+  `email_templates_milestone_key_key`, `notification_role_defaults (role, category)`,
+  `inspection_binder_order_scope_key`, `carrier_notification_settings_email_key`.
+- `uq_facilities_name_city_state_active` — each carrier keeps its own facility list.
+- `fuel_transactions_dedup_key (invoice_no, invoice_date, card_no)` — two carriers can
+  receive the same provider invoice number.
+- `rate_con_ingest_queue_attachment_sha256_key` — the same rate con is emailed to both
+  carriers on a co-brokered load; today the second one silently dedupes away.
+
+**Must stay global:** every token and idempotency index —
+`share_tokens_scope_resource_unique`, `binder_share_bundles_token_key`,
+`document_short_links_share_token_key`, `ica_review_links_token_key`,
+`applications_draft_token_key`, `application_correction_requests_token_key`,
+`onboard_assignment_sheets_access_token_key`, `rods_days_certification_token_key`,
+`inspection_documents_share_token_idx`, `passenger_authorizations_response_token_key`,
+`idx_pei_requests_token`, `preview_sessions_code_hash_key`,
+`rods_divergences_idempotency_key_key`, `rods_unlock_events_idempotency_key_key`,
+`rate_con_ingest_queue_resend_email_id_key`, `idx_email_send_log_message_sent_unique`.
+A token is resolved *before* the tenant is known; scoping it per company would either break
+resolution or make two tenants able to mint the same token.
+
+**No change needed:** anything already keyed on an entity that is itself company-scoped —
+`settlements_operator_id_period_start_key`, `contractor_pay_setup_operator_unique`,
+`onboarding_status_operator_id_key`, `active_dispatch_operator_id_key`,
+`load_stops_load_sequence_unique`, `deduction_installments (deduction_id, …)`,
+`dispatch_settlement_*` pairs, `truck_state_permits (operator_id, state_code)`,
+`inspection_cycles (operator_id, cycle_year, cycle_month)`. Scoping the parent scopes these.
+
+**Precedent held:** `invoice_number_config_company_id_year_key`, `invoices_company_number_key`,
+`invoice_batches_company_number_key`, `accessorial_adjustments_company_reference_key` and
+`ar_aging_snapshots_daily_uniq` already lead with `company_id`. Follow that shape.
+
+## 5. Immutability triggers
+
+Live triggers on tables gaining the column, and whether an `UPDATE … SET company_id = …`
+would be refused:
+
+**Refused unconditionally — append-only, no escape clause in the function body:**
+`application_document_history` (`RAISE EXCEPTION 'application_document_history is append-only'`,
+12 rows), `fuel_disagreement_acceptances` (0), `eld_revoked_list_checks` (0),
+`rods_divergences` (0), `inspection_document_versions` (8).
+
+**Refused conditionally:** `settlements` (1 row) and `settlement_line_items` /
+`settlement_withheld_loads` refuse when the settlement is `paid` unless
+`settlement_writer_active()` is set; `dispatch_settlements` (1) and its two children refuse
+the same way via `dispatch_settlement_writer_active()`. `rods_days` (2) refuses when the day
+is certified or locked; `rods_events` (0) refuses when its day is locked, with a
+`rods.privileged` escape. `messages` (18) restricts recipient-side updates only — a
+service-role backfill is unaffected. `onboarding_status` (154) and `inspection_documents`
+(774) only pin specific columns (ELD signature, share token) and will pass.
+
+**The unlock, per shape:**
+1. Locked/append-only tables: `ADD COLUMN company_id uuid NOT NULL DEFAULT '<company>'`
+   followed by `ALTER COLUMN … DROP DEFAULT` **in the same migration**. This is a table
+   rewrite, fires **no row triggers**, and needs no `UPDATE` at all. Needs your sign-off
+   because the standing rule bans defaults — the rule is about a *persisting* default, and
+   this one does not survive the migration. That reading is yours to confirm.
+2. If you prefer no default at any moment: `ALTER TABLE … DISABLE TRIGGER <name>`, update,
+   re-enable, all inside the migration. Rejected as the primary route because it opens a
+   window in which any concurrent write bypasses a federal-record lock.
+3. Settlement families already have the sanctioned route — set the writer-active flag around
+   the update. Use it there rather than either of the above.
+
+## 6. Verification per batch
+
+Beyond `count(*) WHERE company_id IS NULL = 0`:
+
+- **Column shape:** `attnotnull` true, `atthasdef` false, and `pg_get_expr` null for every
+  table in the batch — proves no default survived.
+- **Value correctness:** `count(DISTINCT company_id) = 1` and that value equals the live
+  `carrier_profile.id`; zero rows whose `company_id` is absent from `carrier_profile`.
+- **Nothing else changed:** row count per table captured before and after and compared, not
+  eyeballed; `553` policy count unchanged; `grant_parity_report()` still zero rows; the
+  unique-index inventory diffed against the pre-batch snapshot so a rebuilt index is proved
+  to have gained `company_id` and nothing else was dropped.
+- **Stamping actually works:** an insert as an authenticated member with a *spoofed*
+  `company_id` comes back stamped with the real one; the same insert by a non-member is
+  refused. This is the step-1 probe repeated per batch, rolled back.
+- **Locked tables still locked:** after the batch, the append-only refusal still raises its
+  verbatim message. A backfill that quietly left a trigger disabled must fail here.
+- **Batch 5 only:** the `NOT NULL` validation timed, and confirmation the four indexes on
+  those tables are still `indisvalid`.
+- **Every batch:** `npx tsgo --noEmit`, plus `tenancy-resolver`, `policy-grant-parity`,
+  `grant-parity-live`, `definer-search-path`, `definer-fail-open`, `purge-path-coverage`
+  (step 2 adds tables the 13-step purge must reach).
 
 ---
 
-## 3. How `company_id` is set, and how RLS uses it
-
-**Membership lives in a new `company_members` table** (`user_id`, `company_id`, unique on the
-pair), and `carrier_profile.id` is promoted to the company identity it already de facto is —
-no new `companies` table, because `current_company_id()`, the billing FKs and
-`invoice_number_config`'s `UNIQUE (company_id, year)` already point at it. `current_company_id()`
-is rewritten to `SELECT company_id FROM company_members WHERE user_id = auth.uid()`, definer,
-one row, **no fallback to the first carrier row** — an unresolvable user must fail closed, not
-silently inherit SUPERTRANSPORT.
-
-Rejected: a JWT claim (client-adjacent, needs an auth hook, and the recorded rule is that
-tenancy is never accepted from the client) · a column DEFAULT (already failed live with
-`permission denied for function current_company_id`) · `company_id` on `user_roles` (182 rows,
-multiple roles per user — ambiguous by construction) · `company_id` on `profiles` (works, but
-makes the boundary a mutable field on a table users can update paths into; a dedicated join
-table with no user-writable policy is the safer object).
-
-Stamping stays exactly as Module 7 does it: one definer `BEFORE INSERT` trigger per table,
-unconditional assignment, `company_id` never in any client payload and never in an
-`UPDATE` whitelist.
-
-**RLS scale, from `pg_policy`:** **553 policies** exist in `public`; **8** currently mention
-`company_id`. So on the order of **300–400 policies would gain a company predicate** — every
-policy on a table that ends up carrying the column, minus the self-scoped operator policies
-where `auth.uid()` already implies the company through membership. That number is the reason
-section 4 is staged rather than one pass.
-
----
-
-## 4. The order of work
-
-1. **`company_members` + resolver rewrite.** No other table changes. Out of order: if the
-   column lands first, it is stamped from `ORDER BY created_at LIMIT 1` and every backfilled
-   row silently gets the right answer for the wrong reason — untestable later.
-2. **Nullable `company_id` + stamp trigger on business tables, backfilled to SUPERTRANSPORT,
-   in FK dependency order** (parents before children). No policy changes. Out of order:
-   NOT NULL before backfill blocks every insert; children before parents leaves rows whose
-   parent has no company.
-   *Unique keys move with it* — any unique index that must become per-company gains
-   `company_id` as the leading column, the `UNIQUE (company_id, year)` precedent. This is
-   where the 219-row `equipment_items` serial index is real work and the 56 empty tables are
-   free.
-3. **NOT NULL, per table, only after a `count(*) WHERE company_id IS NULL = 0` check.**
-4. **Create the fictitious company + its members.** Nothing else.
-5. **Flip RLS to filter by company, one table group at a time**, each followed by the owner
-   access check. Out of order: a global flip while any table still lacks the column, or lacks
-   a backfill, locks staff out of their own data — the exact failure the boundary is meant to
-   prevent.
-6. **Narrow `is_demo` to ELD watermarking** and remove its roster/metrics uses.
-
-**When the boundary becomes enforced:** at step 5, per group, never globally, and never before
-that group's step 3 has passed. A column nothing filters on is a *stamp*; the boundary exists
-only where a policy reads it. Staging it per group means the answer to "is it enforced?" is
-per-table and written down, rather than a single flag day.
-
----
-
-## 5. What must not break
-
-- **59 active operators, 338 applications, 154 `operators` rows** (live counts — see
-  Contradictions), plus ELD and compliance records: steps 2–3 are `ADD COLUMN` + `UPDATE` +
-  `SET NOT NULL` only. No row is deleted, no value other than `company_id` is written.
-- **69 fuel transactions, the retained settlement, the 1 invoice:** already-immutable rows.
-  `company_id` is added *before* any immutability trigger can see it as a change, because the
-  backfill runs as a privileged migration, not through the app's UPDATE paths. Each
-  immutability trigger's column whitelist must be re-read at that step — a trigger that
-  rejects any change will reject the backfill too.
-- **The owner:** after every step, the owner sequence check runs — sign in, open Management,
-  Dispatch and Staff, confirm the roster count and the settlement are visible. Step 1 is the
-  dangerous one: if the owner has no `company_members` row when the resolver stops falling
-  back, the owner's own inserts fail. So the owner's membership row is written **in the same
-  migration** as the resolver rewrite, not after it.
-
----
-
-## 6. What cannot be verified
-
-One `carrier_profile` row exists. Until a second does, **every isolation claim is structural**:
-that a policy names `company_id`, that a trigger stamps it, that no client payload carries it.
-Demonstrable now: the stamp is not client-settable; a hand-asserted `company_id` is overwritten;
-`company_id IS NULL` counts reach zero. **Not** demonstrable: that company A cannot read company
-B's row — with one company that query has nothing to fail on.
-
-**Create the fictitious company at step 4** — after backfill and NOT NULL, before the RLS flip.
-Rejected *early* (step 0): its rows would ride through 185 `ADD COLUMN`/backfill/NOT NULL
-migrations, and a backfill that has to distinguish two companies is a different, riskier
-statement than one that writes a constant. Rejected *late* (after step 5): the RLS flip is the
-one step that genuinely needs a second tenant to be verified rather than asserted, and flipping
-it blind is how people get locked out.
-
----
-
-## CONTRADICTIONS
-
-Two, both worth your read before anything is built:
-
-1. **The brief's figures do not match the live database.** You state 61 active operators and
-   326 applications. Live: `operators where is_active` = **59**, `applications` = **338**.
-   `fuel_transactions` = 69 and `carrier_profile` = 1 row both match. I have not reconciled
-   these — reporting as instructed.
-2. **The record describes the boundary as already resolving per user; the live function does
-   not.** `current_company_id()` reads the first `carrier_profile` row by `created_at` and
-   ignores `auth.uid()`. Nothing about the Module 7 stamping is wrong — with one company the
-   value is correct — but "every query is already scoped to the company the user is in" is not
-   true of any code path today. If that line was meant as intent rather than current state,
-   nothing further is needed; if it was meant as state, it is the defect this proposal's step 1
-   fixes.
+CONTRADICTIONS: none found. Two reconciliations, neither a conflict: the proposal's "185
+tables" is 184 today because `company_members` was created afterward and carries the column;
+and the record's `equipment_items` count of 219 and the largest-table figures all match live.
