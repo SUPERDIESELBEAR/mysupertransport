@@ -171,7 +171,7 @@ type BenignDefaultExemption = {
 
 const BENIGN_DEFAULT_EXEMPTIONS: readonly BenignDefaultExemption[] = [
   {
-    signature: "public.grant_inspection_grace(uuid,integer,text,boolean)",
+    signature: "public.grant_inspection_grace(uuid, integer, text, boolean)",
     reason:
       "`grace_override_by = CASE WHEN … THEN auth.uid() ELSE NULL END` is an " +
       "AUDIT COLUMN recording who performed an override, written into an " +
