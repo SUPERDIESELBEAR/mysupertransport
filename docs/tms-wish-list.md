@@ -547,6 +547,10 @@ and HELD (deliberately parked, not rejected, not scheduled).
 clean and itemised by the categories a driver will ask about.
 - A **weekly exception view before settlements** — outliers and anything unusual,
 answering "does anything look wrong before I pay them".
+  BUILT 2026-09-13 as `Fuel Exceptions` and UNEVALUATED: two exceptions only (a category new
+  to that card, and unmatched rows), baselined per card. It cannot be judged on the single
+  import that exists. TRIGGER: after the next real fuel import, open it and confirm the
+  exceptions it raises are worth raising.
 - **Monthly trend for the business** — total cost, month over month, and average
 cost per gallon.
 - **Cost per gallon by location**.
