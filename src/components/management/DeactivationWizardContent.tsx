@@ -128,6 +128,7 @@ const RETURN_DEVICE_LABELS: Record<string, string> = {
   bestpass: 'BestPass',
   fuel_card: 'Fuel Card',
   license_plate: 'License Plate',
+  toll_transponder: 'Toll Transponder',
 };
 
 const DOT_SETTINGS_ROW_ID = '00000000-0000-0000-0000-000000000001';
