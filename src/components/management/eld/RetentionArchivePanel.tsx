@@ -22,6 +22,7 @@ import DriverCombobox from '@/components/shared/DriverCombobox';
 import { toast } from 'sonner';
 import { Archive, Download, FileText, Loader2, Search } from 'lucide-react';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
+import { fetchOperatorUnits, resolveOperatorUnit } from '@/lib/fuel/operatorUnit';
 
 type ArtifactRow = {
   artifact_type: string;
@@ -82,14 +83,23 @@ export default function RetentionArchivePanel() {
     (async () => {
       const { data } = await supabase.from('operators').select('id, user_id, unit_number');
       const list = data ?? [];
-      const names = await fetchProfileNames(list.map((o) => o.user_id).filter(Boolean) as string[]);
+      // The unit is RESOLVED, not read — `operators.unit_number` is null for
+      // every active driver, so the picker's unit search needs the shared
+      // resolver to have anything to match on.
+      const [names, units] = await Promise.all([
+        fetchProfileNames(list.map((o) => o.user_id).filter(Boolean) as string[]),
+        fetchOperatorUnits(list.map((o) => o.id)),
+      ]);
       setOperators(
         list
-          .map((o) => ({
-            id: o.id,
-            unit: o.unit_number,
-            name: formatProfileName(names.get(o.user_id ?? ''), `Unit ${o.unit_number ?? '—'}`),
-          }))
+          .map((o) => {
+            const unit = resolveOperatorUnit(units.get(o.id) ?? null);
+            return {
+              id: o.id,
+              unit,
+              name: formatProfileName(names.get(o.user_id ?? ''), `Unit ${unit ?? '—'}`),
+            };
+          })
           .sort((a, b) => a.name.localeCompare(b.name)),
       );
     })();
