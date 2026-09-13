@@ -11988,18 +11988,31 @@ revoked from `PUBLIC`/`anon`/`authenticated`, `BEFORE INSERT` on all three table
 2. Membership does not resolve, caller is `service_role`, row names a company → accepted.
 3. Anything else → `RAISE ... 42501`. No fallback to "the first carrier row".
 
-Step 2 is a **deliberate deviation** from the eight billing tables, which stamp unconditionally.
-`operators` has four service-role insert paths (`invite-operator`, `provision-demo-driver`,
-`provision-test-driver`, `create-test-operator`) where `auth.uid()` is absent; an unconditional
-stamp would make every driver invitation fail the `NOT NULL` constraint. `service_role` is a
-server context, never a browser, so this is not client-supplied tenancy — but it is a second
-shape, and it is recorded as one rather than described as the same rule.
+Step 2 is a **second sanctioned stamping shape**, not an exception to the billing rule. The
+billing shape is: every insert is from a signed-in staff user, so `company_id` is stamped
+unconditionally from membership. The service-role shape is: the table has server-side insert
+paths where `auth.uid()` is absent, so membership cannot resolve; `service_role` may name the
+company explicitly, and only `service_role`. The browser never names a company in either shape.
+
+Scope of the service-role shape: tables written by service-role paths. Today that is `operators`
+(`invite-operator`, `provision-demo-driver`, `provision-test-driver`, `create-test-operator`).
+If a future batch adds a table with a service-role insert path, that table uses this shape
+rather than the unconditional billing shape.
 
 All four functions now name the company server-side through
 `supabase/functions/_shared/tenancy.ts`: `companyIdForUser()` for the two with an authenticated
 staff caller, `soleCompanyId()` for the two bootstrap tools, which **refuse once a second
 carrier row exists** rather than picking one. The browser paths
 (`FacilityDialog.tsx`, `BrokerDialog.tsx`) send no `company_id` at all.
+
+### Backfill pattern for remaining batches
+
+Every remaining batch backfills with a bare scalar subquery:
+`(SELECT id FROM public.carrier_profile)`. With exactly one company today this looks the same as
+any other backfill; with a second company it raises `21000` (more than one row returned by a
+subquery used as an expression) instead of silently picking a carrier. That is the fail-closed
+behaviour wanted for a tenancy column. The backfill disables only non-immunity user triggers,
+touches exactly one column, and re-enables triggers before `NOT NULL` is applied.
 
 ### Index decisions, declared per the standing rule
 
