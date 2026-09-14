@@ -12626,3 +12626,128 @@ the one table where a silent field clear is hardest to notice.
 A driver refusal probe needs no rollback because it writes nothing. A probe that might
 succeed does. The distinction is whether the operation is expected to be **REFUSED** or
 expected to **WORK**.
+
+---
+
+## 2026-09-14 — `carrier_profile` read policy SCOPED. The last non-bulk tenancy blocker is closed.
+
+The 2026-09-13 blocker is discharged. It was held open because scoping the read would
+have stopped a driver's offline carrier cache refreshing, and without that cache
+`requireCachedCarrier` blocks him from creating a malfunction event or certifying a
+log. Driver tenancy removed that dependency.
+
+### The policy, before and after
+
+Before — `"Authenticated users can read the carrier profile"`, `FOR SELECT`,
+`TO authenticated`:
+
+```sql
+USING (true)
+```
+
+After — `"Callers read only their own carrier profile"`, `FOR SELECT`,
+`TO authenticated`:
+
+```sql
+USING (id = public.current_company_id())
+```
+
+The recorded eventual shape was "the caller's company via `company_members`, OR the
+company of the operator row the caller owns". CONFIRMED against the live body of
+`current_company_id()` (`pg_get_functiondef`, not the migration) that the resolver
+already does both internally —
+`COALESCE((company_members WHERE user_id = auth.uid()), (operators WHERE user_id = auth.uid()))`
+— so the single predicate above IS that shape. It is not an assumption: the hydrate's
+caller is the signed-in operator, and live `operators` shows **154 rows with a login,
+0 of them with a NULL `company_id`**, so every driver who can reach `hydrate.ts`
+resolves. That count is now a structural guard — if an operator with a login ever
+lacks a company, the suite fails before a driver discovers it at signing time.
+
+Fail-closed is preserved: a caller who is neither a member nor an operator resolves to
+NULL, and `id = NULL` is never true.
+
+The three management write policies were not touched. Editing the carrier profile
+still requires management or owner.
+
+### Service-role readers — confirmed, not assumed
+
+`send-officer-packet`, `generate-application-pdf` and `process-eld-escalations` read
+`carrier_profile` with the service key. Unaffected, for two reasons read live:
+`pg_roles.rolbypassrls` is **true** for `service_role`, and
+`pg_class.relforcerowsecurity` is **false** on `carrier_profile`, so no policy is
+evaluated for them at all. Their pre-existing wrong-carrier risk in a multi-company
+database is unchanged by this pass and remains recorded.
+
+### The anonymous applicant — confirmed before shipping
+
+`src/lib/application/identity.ts` sets state only `if (data)`, so any error or empty
+result leaves `DEFAULT_COMPANY_IDENTITY` in place. Live `relacl` shows **no `anon`
+grant** on `carrier_profile`, so an anonymous applicant does not even reach RLS — the
+read returns `permission denied for table carrier_profile` and the constants stand.
+That is the same outcome he had before this pass.
+
+Verified in the browser, not reasoned about: `/apply` loaded anonymously and rendered
+`SUPERTRANSPORT, LLC` and USDOT `2309365` from the constants. Only pre-existing React
+`forwardRef` warnings in the console.
+
+### Verification — real signed-in sessions over the API
+
+Four minted sessions, read as `GET /rest/v1/carrier_profile?select=id,legal_name`:
+
+| Caller | Resolves via | Result |
+| --- | --- | --- |
+| **Steve Figueroa** (driver, `878be880-…`) | his own `operators` row — no membership | `[{"id":"6b54d0e6-…","legal_name":"SUPERTRANSPORT, LLC"}]` |
+| Marcus Mueller (owner, `5cca4f77-…`) | membership (also an operator; membership first) | same one row |
+| `omar@mysupertransport.com` (staff, `27b7803e-…`) | membership | same one row |
+| `teststaff@example.com` (`46927022-…`, neither) | nothing | `[]` |
+| anonymous | no grant | `{"code":"42501","message":"permission denied for table carrier_profile"}` |
+
+The driver read is the check that mattered: without it he cannot certify a log.
+
+### The second-company proof
+
+A scratch carrier `SCRATCH TENANCY CO` (USDOT `9999999`, `85de7d75-…`) was inserted,
+every session above was re-probed, and it was deleted. **All three signed-in callers
+returned exactly one row — SUPERTRANSPORT — and none of them saw the scratch
+carrier.** This cannot be demonstrated any other way; with one company, `USING (true)`
+and a scoped policy return identical results.
+
+Honest note on method: this insert was NOT rolled back in a transaction, because the
+readers are separate HTTP sessions and cannot see an uncommitted row. It was committed
+and then explicitly deleted, and `carrier_profile` is back to **1 row,
+`SUPERTRANSPORT, LLC`**. `carrier_profile` holds no money; the 2026-09-14 money-table
+probe rule is not weakened.
+
+### The structural guard, and a narrowed one
+
+`src/test/tenancy-resolver.test.ts` gained a `carrier_profile read scope` block: the
+SELECT policy is company-scoped and is not `true`, every policy on the table is
+`authenticated`-only, `anon` holds no table grant, `service_role` bypasses RLS, and no
+operator with a login lacks a company.
+
+The existing guard "no policy admits a caller merely because a company resolves" went
+RED on the new policy, correctly — it is company-scoped with no `has_role` test. Rather
+than deleting the guard it gained a **reasoned allowlist** with one entry, plus a
+second test asserting every allowlisted policy is SELECT-only. Reading your own
+company's name, USDOT and terminal address confers no capability; nothing touching
+money, loads or settlements may be added to that list.
+
+### Can the fictitious company be created now?
+
+**Yes, as far as the non-bulk blockers go.** It can have its own row, its own owner,
+its own default pay policy, its own pending owner transfer, and its carrier row is
+invisible to another company's driver and to SUPERTRANSPORT's owner.
+
+What still stands in the way of it being USEFUL, restated as scope rather than as a
+blocker in this pass: the ~69 driver-written tables of batch B3 still carry no
+`company_id`, so a demo driver's loads, logs, notifications and messages are not yet
+separable from a real driver's. Creating the company is unblocked; populating it is
+the bulk batch.
+
+### Suites
+
+`tenancy-resolver`, `policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
+`definer-live-catalog`, `definer-fail-open`, `caller-evaluated-functions`,
+`operator-fuel-isolation`, `operator-settlement-isolation`, `operator-pay-exposure`,
+`notification-isolation`, `load-charge-gate-order` — 12 files / 114 tests, all green.
+`npx tsgo --noEmit` clean. Security linter unchanged at its 170 pre-existing issues.
