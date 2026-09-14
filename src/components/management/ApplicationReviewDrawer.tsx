@@ -107,7 +107,14 @@ export interface FullApplication {
   medical_cert_expiration: string | null;
   signature_image_url: string | null;
   mvr_status?: string;
+  psp_status?: string;
   ch_status?: string;
+  mvr_requested_date?: string | null;
+  mvr_received_date?: string | null;
+  psp_requested_date?: string | null;
+  psp_received_date?: string | null;
+  ch_requested_date?: string | null;
+  ch_received_date?: string | null;
   background_verification_notes?: string | null;
   revision_requested_at?: string | null;
   revision_request_message?: string | null;
