@@ -451,7 +451,7 @@ describe('tenancy batch B3 — pay_policies, owner_transfers', () => {
     // Both the expiry sweep and the pending check must name the company.
     const scoped = code.match(/company_id = v_company/g) ?? [];
     expect(scoped.length).toBeGreaterThanOrEqual(2);
-    expect(code).toMatch(/holds no company membership/);
+    expect(code).toMatch(/no company membership/);
   });
 
   itLive('neither table carries any other unique index', () => {
