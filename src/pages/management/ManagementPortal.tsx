@@ -2061,10 +2061,12 @@ export default function ManagementPortal() {
                   ) : (
                     <div className="divide-y divide-border">
                       <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        <span className="col-span-4">Applicant</span>
-                        <span className="col-span-3">Contact</span>
-                        <span className="col-span-2">Submitted</span>
-                        <span className="col-span-2">Status</span>
+                        <span className="col-span-3">Applicant</span>
+                        <span className="col-span-2">Contact</span>
+                        <span className="col-span-1">Submitted</span>
+                        <span className="col-span-2">Screening</span>
+                        <span className="col-span-2">Interview</span>
+                        <span className="col-span-1">Status</span>
                         <span className="col-span-1 text-right">Action</span>
                       </div>
                       {filteredApps.map(app => {
@@ -2072,10 +2074,16 @@ export default function ManagementPortal() {
                         const denialPreview = app.review_status === 'denied' && app.reviewer_notes
                           ? app.reviewer_notes.replace(/^\[Archived from pipeline\]\s*/i, '')
                           : null;
+                        const notes = noteSummary[app.id];
+                        const notesOpen = expandedNotesAppId === app.id;
+                        const toggleNotes = (e: React.MouseEvent) => {
+                          e.stopPropagation();
+                          setExpandedNotesAppId(notesOpen ? null : app.id);
+                        };
                         return (
                           <div key={app.id} className="cursor-pointer group hover:bg-secondary/20 transition-colors" onClick={() => setSelectedApp(app)}>
                             <div className="hidden sm:grid grid-cols-12 items-center px-5 py-4">
-                              <div className="col-span-4">
+                              <div className="col-span-3">
                                 <p className="text-sm font-medium text-foreground group-hover:text-gold transition-colors">{name}</p>
                                 {(app.cdl_state || app.cdl_class) && <p className="text-xs text-muted-foreground mt-0.5">CDL {app.cdl_class ?? '?'} · {app.cdl_state ?? '?'}</p>}
                                 {denialPreview && (
@@ -2087,14 +2095,29 @@ export default function ManagementPortal() {
                                   </p>
                                 )}
                               </div>
-                              <div className="col-span-3">
+                              <div className="col-span-2 min-w-0">
                                 <p className="text-xs text-foreground truncate">{app.email}</p>
                                 <p className="text-xs text-muted-foreground">{app.phone ?? '—'}</p>
                               </div>
-                              <div className="col-span-2">
+                              <div className="col-span-1">
                                 <p className="text-xs text-foreground">{app.submitted_at ? new Date(app.submitted_at).toLocaleDateString() : '—'}</p>
                               </div>
                               <div className="col-span-2">
+                                <ScreeningChips checks={screeningChecksFromApp(app)} />
+                              </div>
+                              <div className="col-span-2">
+                                <button
+                                  type="button"
+                                  onClick={toggleNotes}
+                                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold transition-colors text-left"
+                                >
+                                  {notesOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
+                                  {notes
+                                    ? <span className="truncate">{notes.count} note{notes.count !== 1 ? 's' : ''} · {notes.latest}</span>
+                                    : <span>Add note</span>}
+                                </button>
+                              </div>
+                              <div className="col-span-1">
                                 <Badge className={`text-xs border ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
                                 {app.revisions_handled_by_staff_at && (
                                   <Badge variant="outline" className="mt-1 text-[10px] gap-1 font-normal text-muted-foreground">
