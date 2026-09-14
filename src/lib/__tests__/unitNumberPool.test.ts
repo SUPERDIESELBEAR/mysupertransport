@@ -3,6 +3,7 @@ import {
   formatPoolOption,
   holderWarning,
   isHardCollision,
+  isPoolMissing,
   poolKindFor,
   sortPool,
   type UnitHolder,
@@ -109,5 +110,18 @@ describe('poolKindFor', () => {
     expect(poolKindFor('163', pool)).toBe('manual');
     expect(poolKindFor('', pool)).toBe('manual');
     expect(poolKindFor('ABC', pool)).toBe('manual');
+  });
+});
+
+describe('isPoolMissing', () => {
+  it('recognises the function-not-found error', () => {
+    expect(isPoolMissing({ code: 'PGRST202', message: 'Could not find the function' })).toBe(true);
+    expect(isPoolMissing({ message: 'Could not find the function public.unit_number_pool' })).toBe(true);
+    expect(isPoolMissing({ message: 'Could not find the function public.unit_number_holders' })).toBe(true);
+  });
+
+  it('does not swallow a real failure', () => {
+    expect(isPoolMissing({ code: '42501', message: 'permission denied for function' })).toBe(false);
+    expect(isPoolMissing(null)).toBe(false);
   });
 });
