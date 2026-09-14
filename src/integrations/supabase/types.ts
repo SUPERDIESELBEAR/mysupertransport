@@ -8940,6 +8940,7 @@ export type Database = {
           accepted_by: string | null
           cancelled_at: string | null
           cancelled_by: string | null
+          company_id: string
           created_at: string
           expires_at: string
           from_user_id: string
@@ -8956,6 +8957,7 @@ export type Database = {
           accepted_by?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          company_id: string
           created_at?: string
           expires_at: string
           from_user_id: string
@@ -8972,6 +8974,7 @@ export type Database = {
           accepted_by?: string | null
           cancelled_at?: string | null
           cancelled_by?: string | null
+          company_id?: string
           created_at?: string
           expires_at?: string
           from_user_id?: string
@@ -8996,6 +8999,13 @@ export type Database = {
             columns: ["cancelled_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "owner_transfers_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -9286,6 +9296,7 @@ export type Database = {
       pay_policies: {
         Row: {
           charge_pay_classes: Json
+          company_id: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -9310,6 +9321,7 @@ export type Database = {
         }
         Insert: {
           charge_pay_classes?: Json
+          company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -9334,6 +9346,7 @@ export type Database = {
         }
         Update: {
           charge_pay_classes?: Json
+          company_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -9357,6 +9370,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pay_policies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pay_policies_created_by_fkey"
             columns: ["created_by"]

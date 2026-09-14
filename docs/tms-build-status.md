@@ -12246,3 +12246,99 @@ through the actual onboarding flow, not by SQL seeding or a seeding tool.
 
 After `pay_policies` and `owner_transfers` gain `company_id` in batch B3. Until then the fictitious
 company cannot have an owner or a default pay policy, so it cannot be created.
+
+---
+
+## 2026-09-14 — Batch B3 STOPPED at the two singletons; the mechanical bulk does not fit either sanctioned shape
+
+### What was applied
+
+`pay_policies` (1 row) and `owner_transfers` (0 rows) gained `company_id`: nullable → bare-scalar
+backfill `(SELECT id FROM public.carrier_profile)` → `NOT NULL`, no default at any point, FK to
+`carrier_profile(id) ON DELETE RESTRICT`, `idx_<table>_company_id`, and
+`aa_stamp_tenant_company_id` — the **billing shape** on both. Neither table has a service-role
+insert path: `pay_policies` is written only by management/owner through RLS
+(`pay_policies_insert_management`), and `owner_transfers` has no INSERT policy at all — every row
+comes from `initiate_owner_transfer`, a definer function whose caller is the signed-in owner, who
+holds a membership row.
+
+Both singletons are now per company:
+
+| Constraint | Decision | Rationale |
+| --- | --- | --- |
+| `pay_policies_single_company_default` → `(company_id, is_company_default) WHERE is_company_default` | **PER-COMPANY** | Each carrier sets its own default pay percentages. |
+| `owner_transfers_single_pending` → `(company_id, status) WHERE status = 'pending'` | **PER-COMPANY** | Company A initiating a transfer must not block company B. |
+| `pay_policies_pkey`, `owner_transfers_pkey` | **UNCHANGED** | Surrogate keys. |
+
+`initiate_owner_transfer` carried the same rule a second time in its body: a global pending
+check and a global expiry sweep. Both now name `current_company_id()`, and the function refuses
+with `42501` when membership does not resolve. `update_updated_at_column` on both tables needed
+nothing — it touches no tenancy column. No other trigger enforces either rule.
+
+### STOP AND REPORT — the ~70-table mechanical bulk
+
+Three findings contradict the record and stopped the bulk before any DDL:
+
+1. **Scale.** The plan says roughly seventy tables and about 2,900 rows. Live: tables with rows,
+   no `company_id`, and no non-primary unique index are **69 tables and 21,861 rows** — dominated
+   by `notifications` (10,752), `dispatch_daily_log` (5,772), `audit_log` (3,969) and
+   `email_send_log` (2,043), none of which the plan's row estimate accounts for.
+2. **Membership coverage.** 154 operators hold logins; **1** of them holds a `company_members`
+   row. The membership resolver therefore returns NULL for essentially every driver.
+3. **Consequence: neither sanctioned shape fits a large part of the batch.** Driver-written
+   tables — `driver_uploads`, `driver_vault_documents`, `rods_days`, `rods_events`,
+   `ica_driver_acknowledgments`, `blank_log_acknowledgments`, `contractor_pay_setup`,
+   `document_acknowledgments`, `operator_documents`, `load_documents`, `equipment_receipts`,
+   `forecast_loads` / `forecast_expenses` / `forecast_deductions`, `notification_preferences`,
+   `staff_ui_preferences`, `user_view_preferences`, `service_resource_*`, `service_help_requests`
+   — are written by an authenticated caller who is not a member and is not `service_role`.
+   Anonymous `share_token_access_log` is worse still. Stamping them would refuse with `42501` on
+   the next driver action. No third shape was invented.
+
+### The prerequisite B3 actually has
+
+Driver tenancy must be resolvable before any driver-written table gains `company_id`. Two
+candidates, neither chosen here: give every operator a `company_members` row, or extend
+`current_company_id()` to fall back to `operators.company_id` for the calling user (which
+`operators` already has, from B2). This is a design decision, not mechanical work, and it belongs
+in its own pass.
+
+### Also unswept: the default-pay-policy readers
+
+`src/lib/settlementRun.ts`, `src/lib/dispatchSettlementRun.ts`, `src/lib/payTreatment.ts`,
+`src/lib/fuel/discountPassthrough.ts` and `FuelDiscountPassthroughSettings.tsx` read
+`.eq('is_company_default', true).maybeSingle()`. With one company that is exact. With two it
+returns two rows and `maybeSingle()` errors — correctly loud, not silently wrong. These close
+when RLS becomes company-scoped; until then they are a **blocker for a second company**, not a
+defect today.
+
+### Verification (live, 2026-09-14)
+
+| Check | Result |
+| --- | --- |
+| `attnotnull` / `atthasdef` | `true` / `false`, both tables |
+| Null `company_id` / rows off the live carrier | 0 / 0, both |
+| Row counts before → after | `pay_policies` 1 → 1, `owner_transfers` 0 → 0 |
+| Public policies | 554 → 554 |
+| `grant_parity_report()` | 0 rows |
+| Owner | `5cca4f77-…` Marcus Mueller, company `6b54d0e6-…`, still the only owner |
+
+Rolled-back probes: a scratch second carrier holding its own default pay policy alongside
+SUPERTRANSPORT's (a second default *inside* the scratch company still refused with
+`pay_policies_single_company_default`); a pending owner transfer in each company simultaneously
+(a second one inside the scratch company refused with `owner_transfers_single_pending`); a
+member session inserting `pay_policies` with a spoofed `company_id` stored `6b54d0e6-…`. After
+rollback: 1 carrier, 1 pay policy, 0 transfers, 1 owner.
+
+### Fictitious company status
+
+It can now have an **owner** and its **own default pay policy** — the two constraints named as
+blockers are gone. It still cannot be walked through onboarding, because driver-written tables
+have no tenancy and drivers are not members; that is the prerequisite above.
+
+### Suites run
+
+`tenancy-resolver` (35 tests, with six new B3 assertions and the stamp-trigger list widened to
+eight tables), `policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
+`definer-fail-open`, `purge-path-coverage`. `npx tsgo --noEmit` clean. Linter: the same 170
+pre-existing issues, none new.
