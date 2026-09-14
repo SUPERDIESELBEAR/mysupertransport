@@ -13209,3 +13209,91 @@ tripped the "no company-scoped policy without a role test" guard, because it gat
 2. **`email_templates`.** The request cites an earlier plan calling it tenant data. No
    such statement exists in the record. Declared GLOBAL on the re-cut's authority and
    flagged.
+
+---
+
+## 2026-09-14 — Tenancy disposition sort and owner's decisions
+
+### The sort
+
+Live catalog, measured 2026-09-14: **196 public base tables**. **51 carry `company_id`**.
+**145 do not**. The 145 are the set this sort addresses.
+
+| Pile | Count | What it is |
+| --- | --- | --- |
+| Structural, scopable by inheritance | 56 | Reachable from an already-scoped parent through an unbroken chain of NOT NULL foreign keys. 46 at depth 1, 10 at depth 2. |
+| Structural in intent, but not scopable as they stand | 33 | Nullable FK to a scoped parent, owner column with no FK, or owner is a person (`user_id`) rather than a scoped row. |
+| Genuine business decisions | 13 | Settings, defaults, templates and shared pools whose tenant boundary is not forced by a foreign key. |
+
+The 137 "tables needing disposition" from the 2026-09-14 audit is the same set counted differently: 145 lack the column, 137 lack a recorded disposition. The 9 tables that already have `company_id` but no recorded batch explain the gap.
+
+### Recommendation for the structural pile
+
+Every structural table gets its **own `company_id`**, stamped from the parent by the
+existing `aa_stamp_tenant_company_id` trigger. Parent joins are rejected as the primary
+mechanism because:
+
+1. **Uniqueness cannot be scoped through a join.** Per-carrier unique indexes need the column locally.
+2. **Immutability triggers and audit reads need the value locally** to fail closed.
+3. **A parent-join policy costs a join on every read forever;** the column costs one migration.
+
+### The nine obvious per-carrier settings
+
+Decided per-carrier: `company_settings`, `fleet_settings`, `load_number_config`,
+`dot_consultant_email_settings`, `insurance_email_settings`,
+`carrier_notification_settings`, `inspection_program_settings`,
+`pei_cadence_settings`, `dispatch_settlement_rates`.
+
+Several are **leaks if global**, not merely inconvenient:
+- A global `dot_consultant_email_settings` would send one carrier's DOT compliance mail to another carrier's consultant.
+- A global `insurance_email_settings` would route one carrier's insurance notices to another carrier's contact.
+- A global `dispatch_settlement_rates` would apply one carrier's dispatcher pay rate to another carrier's settlements.
+
+### The owner's five decisions, 2026-09-14
+
+1. **`notification_role_defaults` — PER-CARRIER.** Each carrier decides which of its roles gets which alerts.
+
+2. **`mo_plates` — PER-CARRIER.** The current pool is SUPERTRANSPORT's. Each future carrier will have its own Missouri plate pool.
+
+3. **`inspection_binder_order` — PER-CARRIER.** Each carrier controls the preferred order of documents in an officer's binder. The owner also wants a drag-and-drop control for this; that is recorded as a wish-list item separate from the tenancy column.
+
+4. **ONE PERSON, ONE CARRIER.** A person cannot work for two carriers at once. This settles the eleven person-owned tables: `notifications`, `notification_preferences`, `staff_ui_preferences`, `user_view_preferences`, `thread_participants`, `message_reactions`, `document_acknowledgments`, `service_resource_bookmarks`, `service_resource_completions`, `service_resource_views`, `message_notification_throttle`. Their company is resolved through the person (`company_members` for staff, `operators` for drivers), not by a column on each row.
+
+   Recorded as an **assumption the schema now depends on**. Supporting dual employment later requires changing this assumption and adding per-person-per-carrier complexity.
+
+5. **`message_templates` and `email_templates` — JOIN THE DEFERRED CONTENT GROUP.** The owner asked for "a template each carrier can edit": the row starts as SUPERDRIVE's product default (null `company_id`) and becomes that carrier's version when they change it. This is the same nullable shape as the deferred content tables: `faq`, `faq_history`, `services`, `service_resources`, `staff_help_knowledge`, `pipeline_config`. One design problem, eight tables, one decision.
+
+   The 2026-09-14 GLOBAL declaration for `email_templates` is **SUPERSEDED**. It was made from an incomplete record and the owner has now answered differently.
+
+### Still open: `share_tokens`
+
+`share_tokens` was in the ambiguous pile and is **not** among the five decisions. The question remains: are public share links a carrier's own space or a shared one? The constraint already recorded is that a token must be globally unique or lookup is ambiguous, because it is resolved before the tenant is known.
+
+### The three federal breaks — priority
+
+These hold federal inspection and hours-of-service data and **cannot be scoped by inheritance**:
+
+- `eld_sync_alerts` — links to `operators(operator_id)`, but the column is nullable.
+- `eld_malfunction_notifications` — links to `eld_malfunction_events(event_id)`, but the column is nullable.
+- `inspection_documents` and `inspection_document_versions` — `driver_id` has no foreign key at all, so the chain never reaches a scoped table.
+
+This is the same class as the ELD timezone defect. They need their own `company_id` explicitly, ahead of the mechanical structural work.
+
+### The disposition guard (proposed, not built)
+
+A guard that reads the live table list and asserts every public table has a recorded
+disposition — PER-COMPANY, GLOBAL, DEFERRED or INHERITS-parent — from a checked-in
+registry, failing on any table absent from it.
+
+**Predicted first run:** 114 failures — the 114 tables with neither a column nor a
+disposition. If the guard also requires a disposition for tables that already have the
+column but no recorded batch, the first run reports **123**.
+
+**Why it is worth building:** the structural guards have caught draft-area work reaching
+the database three times; the record has caught it none. A disposition guard turns
+"nobody decided" into a failing test instead of an audit.
+
+### No file outside docs/ was modified
+
+This entry is documentation only. No migration, schema change, test, or application code
+was edited.
