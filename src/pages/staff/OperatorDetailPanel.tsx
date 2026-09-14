@@ -73,6 +73,8 @@ import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryP
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { getOnboardingProgress } from '@/lib/onboardingProgress';
 import { UnitNumberConflictAlert } from '@/components/operator/UnitNumberConflictAlert';
+import UnitNumberPicker from '@/components/operator/UnitNumberPicker';
+
 
 interface OperatorDetailPanelProps {
   operatorId: string;
