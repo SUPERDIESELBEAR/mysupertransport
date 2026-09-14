@@ -89,7 +89,14 @@ export interface SaveTruckSpecsOptions {
   skipIcaMirror?: boolean;
   /** Display label for audit log */
   entityLabel?: string;
+  /**
+   * How the unit number was arrived at: reused from a pre-Go-Live wash-out,
+   * a never-issued gap, the next in sequence, or typed by hand. Recorded so a
+   * recycled number stays attributable later.
+   */
+  unitPoolKind?: 'recycled' | 'gap' | 'next' | 'manual';
 }
+
 
 export interface SaveTruckSpecsResult {
   ok: boolean;
