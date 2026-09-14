@@ -2109,24 +2109,13 @@ export default function ManagementPortal() {
                                 <ScreeningChips checks={screeningChecksFromApp(app)} />
                               </div>
                               <div className="col-span-2">
-                                <button
-                                  type="button"
-                                  onClick={toggleNotes}
-                                  aria-label={notes
-                                    ? `See ${notes.count} interview note${notes.count !== 1 ? 's' : ''} for ${name}, most recent by ${notes.latest}`
-                                    : `Add interview note for ${name}`}
-                                  className="flex items-center gap-1.5 text-xs text-left transition-colors"
-                                >
-                                  {notesOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
-                                  {notes ? (
-                                    <span className="flex items-center gap-1.5 min-w-0">
-                                      <span className="text-gold font-medium shrink-0">See note{notes.count !== 1 ? 's' : ''}</span>
-                                      <span className="text-muted-foreground truncate">{notes.count} · {notes.latest}</span>
-                                    </span>
-                                  ) : (
-                                    <span className="text-muted-foreground hover:text-gold">Add note</span>
-                                  )}
-                                </button>
+                                <ApplicationInterviewNotesButton
+                                  applicationId={app.id}
+                                  applicantName={name}
+                                  notes={notes}
+                                  expanded={notesOpen}
+                                  onToggle={toggleNotes}
+                                />
                               </div>
                               <div className="col-span-1">
                                 <Badge className={`text-xs border ${STATUS_COLORS[app.review_status] ?? ''}`}>{app.review_status}</Badge>
