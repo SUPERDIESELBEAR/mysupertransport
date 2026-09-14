@@ -8,7 +8,7 @@
 ## Suggestions worth taking
 
 1. **Stamp request and receive dates for PSP**, as MVR and Clearinghouse already do on the onboarding record. Free to add now, painful to backfill later, and it is what answers "when did we pull this?" during an audit.
-2. **Don't gate historical approvals.** The requirement applies when Approve & Invite is pressed. The 139 already-verified applications and everyone already onboarded stay untouched.
+2. **Confirmed: no historical gating.** The requirement applies only when Approve & Invite is pressed on an application that is not yet approved. Already-approved applications and everyone already onboarded stay untouched — no re-blocking, no retroactive PSP demand.
 3. **Log the changes.** Status changes and note edits/deletes write to the activity log with the staff member's name, the same as other application actions.
 4. **One filter, not four.** Rather than three status filters, add a single "Verification" filter with Complete / In progress / Not started, computed from the three checks. Keeps the toolbar clean.
 5. **Notes are staff-only.** Applicants never see them, and they stay out of the applicant PDF and any shared packet.
