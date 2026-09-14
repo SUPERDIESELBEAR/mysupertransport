@@ -63,13 +63,20 @@ const MIN_HEIGHT = 380;
 /** Vertical space reserved at the bottom-right for the Jump-to-bottom pill. */
 const JUMP_BUTTON_CLEARANCE = 80;
 
+/** Bottom-right anchor next to the gold bubble, above the Jump-to-bottom pill. */
+function defaultPosition() {
+  return {
+    x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
+    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
+  };
+}
+
 function getDefaultState(): WindowState {
   return {
     open: false,
     railCollapsed: false,
     railFilter: 'chats',
-    x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
-    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
+    ...defaultPosition(),
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
     selectedUserId: null,
