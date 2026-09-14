@@ -12492,6 +12492,50 @@ export type Database = {
           },
         ]
       }
+      unit_number_config: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          excluded_units: string[]
+          id: string
+          sequence_max_offered: number
+          sequence_min: number
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          excluded_units?: string[]
+          id?: string
+          sequence_max_offered?: number
+          sequence_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          excluded_units?: string[]
+          id?: string
+          sequence_max_offered?: number
+          sequence_min?: number
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "unit_number_config_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -14070,6 +14114,26 @@ export type Database = {
       unassign_load_driver: {
         Args: { p_load_id: string; p_reason?: string }
         Returns: Json
+      }
+      unit_number_holders: {
+        Args: { _unit: string }
+        Returns: {
+          deactivated_at: string
+          driver_name: string
+          go_live_date: string
+          is_active: boolean
+          operator_id: string
+          state: string
+        }[]
+      }
+      unit_number_pool: {
+        Args: never
+        Returns: {
+          freed_at: string
+          kind: string
+          note: string
+          unit: number
+        }[]
       }
       update_load_charge: {
         Args: {
