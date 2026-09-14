@@ -8,11 +8,13 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils';
 import {
   KIND_GROUP_LABEL,
+  POOL_UNAVAILABLE_MESSAGE,
   fetchUnitHolders,
   fetchUnitNumberPool,
   formatPoolOption,
   holderWarning,
   isHardCollision,
+  isPoolMissing,
   type UnitPoolEntry,
   type UnitPoolKind,
 } from '@/lib/unitNumberPool';
@@ -50,8 +52,13 @@ export default function UnitNumberPicker({
     let cancelled = false;
     if (!open || pool) return;
     fetchUnitNumberPool()
-      .then(p => { if (!cancelled) { setPool(p); setPoolError(null); } })
-      .catch(e => { if (!cancelled) setPoolError(e?.message ?? 'Could not load available numbers'); });
+      .then(p => { if (!cancelled) { setPool(p); setPoolError(null); setPoolMissing(false); } })
+      .catch(e => {
+        if (cancelled) return;
+        // Not switched on yet is not a failure — say it plainly, stay quiet.
+        setPoolMissing(isPoolMissing(e));
+        setPoolError(isPoolMissing(e) ? POOL_UNAVAILABLE_MESSAGE : (e?.message ?? 'Could not load available numbers'));
+      });
     return () => { cancelled = true; };
   }, [open, pool]);
 

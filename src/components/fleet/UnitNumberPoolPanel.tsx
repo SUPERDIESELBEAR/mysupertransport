@@ -21,7 +21,9 @@ import {
   fetchUnitHolders,
   formatPoolOption,
   holderWarning,
+  isPoolMissing,
   KIND_GROUP_LABEL,
+  POOL_UNAVAILABLE_MESSAGE,
   type UnitPoolEntry,
   type UnitPoolKind,
   type UnitHolder,
@@ -56,10 +58,9 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
         if (cancelled) return;
         // Until this draft is accepted the pool function does not exist yet —
         // say that plainly instead of showing a schema-cache error.
-        const raw = String(err?.message ?? '');
-        setError(/unit_number_pool/.test(raw)
-          ? 'The unit number pool is not available yet. Accept this draft to turn it on.'
-          : raw || 'Could not load the unit number pool.');
+        setError(isPoolMissing(err)
+          ? POOL_UNAVAILABLE_MESSAGE
+          : String(err?.message ?? '') || 'Could not load the unit number pool.');
       })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
