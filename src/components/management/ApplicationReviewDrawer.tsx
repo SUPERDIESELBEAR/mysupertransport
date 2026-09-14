@@ -1266,6 +1266,14 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 </Section>
               )}
 
+              {/* Interview Notes — staff only, never shown to the applicant
+                  and excluded from the printed application. */}
+              {canLogInterview && (
+                <Section title="Interview Notes" icon={<MessageSquare className="h-4 w-4" />} className="print:hidden">
+                  <InterviewNotesPanel applicationId={app.id} applicantName={fullName} />
+                </Section>
+              )}
+
               {/* Employment */}
               <Section title="Employment History" icon={<Briefcase className="h-4 w-4" />}>
                 {Array.isArray(app.employers) && app.employers.map((emp, i) => (
