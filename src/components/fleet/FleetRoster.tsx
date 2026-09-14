@@ -126,6 +126,7 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [backfilling, setBackfilling] = useState(false);
+  const [showUnitPool, setShowUnitPool] = useState(false);
   const [showDeactivated, setShowDeactivated] = useState(false);
   // Set when the user explicitly clicks a tab while a search is active — that
   // narrows the cross-fleet search results back down to the chosen group.
