@@ -33,6 +33,8 @@ import { Button } from '@/components/ui/button';
 import PipelineDashboard from '../staff/PipelineDashboard';
 import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
+import { ScreeningChips, screeningChecksFromApp } from '@/components/management/ScreeningChips';
+import { InterviewNotesPanel } from '@/components/management/InterviewNotesPanel';
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import StaffHelpPortal from '@/components/management/StaffHelpPortal';
