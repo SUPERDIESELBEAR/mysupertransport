@@ -1204,6 +1204,21 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                       </div>
                     </div>
                     <div className="grid grid-cols-5 gap-2 text-sm">
+                      <span className="col-span-2 text-muted-foreground self-center">PSP Status</span>
+                      <div className="col-span-3">
+                        <Select value={bgPspStatus} onValueChange={setBgPspStatus}>
+                          <SelectTrigger className="h-8 text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="not_started">Not Started</SelectItem>
+                            <SelectItem value="requested">Requested</SelectItem>
+                            <SelectItem value="received">Received</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-5 gap-2 text-sm">
                       <span className="col-span-2 text-muted-foreground self-center">Clearinghouse Status</span>
                       <div className="col-span-3">
                         <Select value={bgChStatus} onValueChange={setBgChStatus}>
