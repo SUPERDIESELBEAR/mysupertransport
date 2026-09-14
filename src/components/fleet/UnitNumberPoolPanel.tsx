@@ -52,7 +52,15 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
     setError(null);
     fetchUnitNumberPool()
       .then(rows => { if (!cancelled) setPool(rows); })
-      .catch(err => { if (!cancelled) setError(err?.message ?? 'Could not load the unit number pool.'); })
+      .catch(err => {
+        if (cancelled) return;
+        // Until this draft is accepted the pool function does not exist yet —
+        // say that plainly instead of showing a schema-cache error.
+        const raw = String(err?.message ?? '');
+        setError(/unit_number_pool/.test(raw)
+          ? 'The unit number pool is not available yet. Accept this draft to turn it on.'
+          : raw || 'Could not load the unit number pool.');
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [open]);
