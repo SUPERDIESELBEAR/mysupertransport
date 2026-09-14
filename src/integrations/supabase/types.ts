@@ -374,6 +374,47 @@ export type Database = {
           },
         ]
       }
+      application_interview_notes: {
+        Row: {
+          application_id: string
+          author_id: string
+          author_name: string
+          body: string
+          created_at: string
+          edited_at: string | null
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          application_id: string
+          author_id: string
+          author_name: string
+          body: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          application_id?: string
+          author_id?: string
+          author_name?: string
+          body?: string
+          created_at?: string
+          edited_at?: string | null
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "application_interview_notes_application_id_fkey"
+            columns: ["application_id"]
+            isOneToOne: false
+            referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       application_invites: {
         Row: {
           created_at: string
@@ -519,6 +560,8 @@ export type Database = {
           cdl_expiration: string | null
           cdl_number: string | null
           cdl_state: string | null
+          ch_received_date: string | null
+          ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           created_at: string
           current_step: number
@@ -548,6 +591,8 @@ export type Database = {
           medical_cert_url: string | null
           moving_violations: boolean | null
           moving_violations_description: string | null
+          mvr_received_date: string | null
+          mvr_requested_date: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           pei_archive_category: string | null
           pei_archive_reason: string | null
@@ -565,6 +610,9 @@ export type Database = {
           prev_address_state: string | null
           prev_address_street: string | null
           prev_address_zip: string | null
+          psp_received_date: string | null
+          psp_requested_date: string | null
+          psp_status: Database["public"]["Enums"]["mvr_status"]
           referral_source: string | null
           review_status: Database["public"]["Enums"]["review_status"]
           reviewed_at: string | null
@@ -605,6 +653,8 @@ export type Database = {
           cdl_expiration?: string | null
           cdl_number?: string | null
           cdl_state?: string | null
+          ch_received_date?: string | null
+          ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
           current_step?: number
@@ -634,6 +684,8 @@ export type Database = {
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
+          mvr_received_date?: string | null
+          mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           pei_archive_category?: string | null
           pei_archive_reason?: string | null
@@ -651,6 +703,9 @@ export type Database = {
           prev_address_state?: string | null
           prev_address_street?: string | null
           prev_address_zip?: string | null
+          psp_received_date?: string | null
+          psp_requested_date?: string | null
+          psp_status?: Database["public"]["Enums"]["mvr_status"]
           referral_source?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewed_at?: string | null
@@ -691,6 +746,8 @@ export type Database = {
           cdl_expiration?: string | null
           cdl_number?: string | null
           cdl_state?: string | null
+          ch_received_date?: string | null
+          ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
           created_at?: string
           current_step?: number
@@ -720,6 +777,8 @@ export type Database = {
           medical_cert_url?: string | null
           moving_violations?: boolean | null
           moving_violations_description?: string | null
+          mvr_received_date?: string | null
+          mvr_requested_date?: string | null
           mvr_status?: Database["public"]["Enums"]["mvr_status"]
           pei_archive_category?: string | null
           pei_archive_reason?: string | null
@@ -737,6 +796,9 @@ export type Database = {
           prev_address_state?: string | null
           prev_address_street?: string | null
           prev_address_zip?: string | null
+          psp_received_date?: string | null
+          psp_requested_date?: string | null
+          psp_status?: Database["public"]["Enums"]["mvr_status"]
           referral_source?: string | null
           review_status?: Database["public"]["Enums"]["review_status"]
           reviewed_at?: string | null
@@ -8167,6 +8229,9 @@ export type Database = {
           pe_scheduled_date: string | null
           pe_screening: Database["public"]["Enums"]["screening_status"]
           pe_screening_result: Database["public"]["Enums"]["screening_result"]
+          psp_received_date: string | null
+          psp_requested_date: string | null
+          psp_status: Database["public"]["Enums"]["mvr_status"]
           qpassport_url: string | null
           registration_status:
             | Database["public"]["Enums"]["registration_type"]
@@ -8299,6 +8364,9 @@ export type Database = {
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          psp_received_date?: string | null
+          psp_requested_date?: string | null
+          psp_status?: Database["public"]["Enums"]["mvr_status"]
           qpassport_url?: string | null
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
@@ -8431,6 +8499,9 @@ export type Database = {
           pe_scheduled_date?: string | null
           pe_screening?: Database["public"]["Enums"]["screening_status"]
           pe_screening_result?: Database["public"]["Enums"]["screening_result"]
+          psp_received_date?: string | null
+          psp_requested_date?: string | null
+          psp_status?: Database["public"]["Enums"]["mvr_status"]
           qpassport_url?: string | null
           registration_status?:
             | Database["public"]["Enums"]["registration_type"]
@@ -12915,6 +12986,8 @@ export type Database = {
           cdl_expiration: string | null
           cdl_number: string | null
           cdl_state: string | null
+          ch_received_date: string | null
+          ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
           created_at: string
           current_step: number
@@ -12944,6 +13017,8 @@ export type Database = {
           medical_cert_url: string | null
           moving_violations: boolean | null
           moving_violations_description: string | null
+          mvr_received_date: string | null
+          mvr_requested_date: string | null
           mvr_status: Database["public"]["Enums"]["mvr_status"]
           pei_archive_category: string | null
           pei_archive_reason: string | null
@@ -12961,6 +13036,9 @@ export type Database = {
           prev_address_state: string | null
           prev_address_street: string | null
           prev_address_zip: string | null
+          psp_received_date: string | null
+          psp_requested_date: string | null
+          psp_status: Database["public"]["Enums"]["mvr_status"]
           referral_source: string | null
           review_status: Database["public"]["Enums"]["review_status"]
           reviewed_at: string | null
