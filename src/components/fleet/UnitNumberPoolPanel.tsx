@@ -98,8 +98,10 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   const warning = holders && holders.length > 0 ? holderWarning(debouncedLookup.trim(), holders) : null;
   const freeTyped = holders !== null && holders.length === 0 && debouncedLookup.trim() !== '';
 
-  const body = (
-    <div className="space-y-4">
+  // The top section (search, lookup result, next-number strip) stays fixed;
+  // only the group lists scroll, so the answer is always on screen.
+  const topSection = (
+    <div className="space-y-3">
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -125,10 +127,45 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
         </p>
       )}
 
+      {!loading && !error && nextEntry && (
+        <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Next available</p>
+            <p className="text-lg font-semibold leading-tight">
+              {nextEntry.unit}
+              <span className="ml-2 text-xs font-normal text-muted-foreground">
+                {freeCount} number{freeCount === 1 ? '' : 's'} free
+              </span>
+            </p>
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="h-8 gap-1.5"
+            onClick={() => copyNumber(nextEntry.unit)}
+          >
+            {copiedUnit === nextEntry.unit ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copiedUnit === nextEntry.unit ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+
+  const listSection = (
+    <div className="space-y-4">
       {loading && (
-        <p className="text-sm text-muted-foreground flex items-center gap-2">
-          <Loader2 className="h-4 w-4 animate-spin" /> Loading the pool…
-        </p>
+        <div className="space-y-3" aria-label="Loading the pool">
+          <Skeleton className="h-4 w-28" />
+          <div className="flex flex-wrap gap-1.5">
+            <Skeleton className="h-6 w-16" /><Skeleton className="h-6 w-16" /><Skeleton className="h-6 w-16" />
+          </div>
+          <Skeleton className="h-4 w-36" />
+          <div className="flex flex-wrap gap-1.5">
+            <Skeleton className="h-6 w-12" /><Skeleton className="h-6 w-12" />
+          </div>
+        </div>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
 
@@ -142,12 +179,18 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
               <Badge
                 key={`${entry.kind}-${entry.unit}`}
                 variant="outline"
-                className={`text-xs font-normal ${entry.kind === 'next' ? 'border-primary text-primary' : ''}`}
+                className={`text-xs font-normal gap-1 ${entry.kind === 'next' ? 'border-primary text-primary' : 'cursor-pointer hover:bg-accent'}`}
                 title={`${entry.note} · ${formatPoolOption(entry)}`}
+                onClick={entry.kind === 'next' ? undefined : () => copyNumber(entry.unit)}
               >
                 {entry.unit}
                 {entry.kind === 'recycled' && (
-                  <span className="ml-1.5 text-[10px] text-muted-foreground">{formatPoolOption(entry)}</span>
+                  <span className="text-[10px] text-muted-foreground">{formatPoolOption(entry)}</span>
+                )}
+                {entry.kind !== 'next' && (
+                  copiedUnit === entry.unit
+                    ? <Check className="h-3 w-3 text-emerald-600" />
+                    : <Copy className="h-3 w-3 text-muted-foreground" />
                 )}
               </Badge>
             ))}
@@ -158,6 +201,18 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
       {!loading && !error && groups.length === 0 && (
         <p className="text-sm text-muted-foreground">No numbers are free right now.</p>
       )}
+      {!loading && !error && groups.length > 0 && !groups.some(g => g.kind === 'recycled') && nextEntry && (
+        <p className="text-xs text-muted-foreground">
+          No recycled numbers — next available is {nextEntry.unit}.
+        </p>
+      )}
+    </div>
+  );
+
+  const body = (
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      {topSection}
+      <div className="min-h-0 flex-1 overflow-y-auto pr-1">{listSection}</div>
     </div>
   );
 
