@@ -1,7 +1,7 @@
 # Roadmap
 
 ## In progress
-- Load-charge gate ordering + record correction (2026-09-14): correct the false
+- [done 2026-09-14] Load-charge gate ordering + record correction (2026-09-14): correct the false
   "add_load_charge is ungated" note in `docs/tms-build-status.md` from the LIVE catalog,
   count it as the FIFTH reviewer present-tense misreading, and move
   `assert_charge_entry_allowed` ahead of the charge lookup in `update_load_charge` /
