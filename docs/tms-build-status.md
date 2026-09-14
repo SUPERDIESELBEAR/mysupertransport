@@ -12952,3 +12952,62 @@ neither.
 Practical rule: a verification checklist must state its baselines as AS MEASURED ON A
 DATE, not as fixed values; and a pass reporting a baseline contradiction should check
 whether a draft migration moved it before treating it as a defect.
+
+## 2026-09-14 — Deferred decision: six content tables, and a sixth instance of the source-citation pattern (inverted)
+
+### The six content tables are UNDECIDED
+
+`faq`, `faq_history`, `services`, `service_resources`, `staff_help_knowledge` and
+`pipeline_config` have NO tenancy decision. They are neither global nor per-tenant;
+they are **DEFERRED**.
+
+SUPERDRIVE was built for SUPERTRANSPORT and is becoming SaaS, so this content splits
+in two — how SUPERDRIVE works (true for every carrier, written once, product
+content) and how THIS CARRIER works (its pay terms, detention policy, escalation
+contacts). Pure per-tenant means every new carrier starts empty and someone seeds
+it. Pure global means a carrier is shown SUPERTRANSPORT's policies as their own.
+Neither is right.
+
+The likely shape: a **NULLABLE `company_id`** — null is product content visible to all,
+a value is that carrier's own. A tenant sees both; only its own is editable.
+
+Two things that shape needs and per-tenant does not:
+
+- The existing content must be **sorted into product versus carrier**, which only the
+  owner can do.
+- Nullable **breaks the pattern**. Every other tenancy column is NOT NULL with a stamp
+  that refuses when it cannot resolve. "Null means global" would be enforced by
+  convention rather than by the column.
+
+**TRIGGER:** before the first real tenant other than SUPERTRANSPORT. NOT before the
+fictitious company — a demo the owner drives himself showing SUPERTRANSPORT's FAQ is
+tolerable; a paying carrier seeing it is not.
+
+Until then these six tables are left **ENTIRELY ALONE**: no `company_id`, no global
+declaration. That is deliberate, because a table with no column and no declaration is
+otherwise indistinguishable from one that was missed.
+
+### How this was almost lost — a sixth instance, inverted
+
+On 2026-09-13 the reviewer told the owner these six were per-tenant and moved on.
+That decision entered no document. On 2026-09-14 a pass was instructed to treat it as
+recorded, could not find it, and correctly STOPPED.
+
+The previous five instances were **false claims entering the record**. This is the
+**inverse** — a real decision that never entered it. Both produce the same failure:
+a pass reading the doc gets the wrong answer.
+
+Both shapes are now under the existing guard:
+
+- **A claim about current state must name its source.**
+- **A decision taken in conversation is not taken until it is written down.**
+
+The reviewer had also stated it as settled when the owner had not actually agreed.
+
+### The five prior instances, now counted
+
+1. the fuel period bound
+2. the `delete-user-account` self-deletion claim
+3. the unit-ordering reading
+4. the monitoring batch mis-mapping
+5. `add_load_charge` described as ungated from a partial read of the migration, while the catalog had the gate as the first statement all along
