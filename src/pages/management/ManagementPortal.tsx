@@ -818,8 +818,28 @@ export default function ManagementPortal() {
     }
 
     const { data } = await query;
-    setApplications((data as FullApplication[]) ?? []);
+    const rows = (data as FullApplication[]) ?? [];
+    setApplications(rows);
     setLoadingApps(false);
+
+    // Interview-note counts for the visible rows, so the list can show how many
+    // interviewers have weighed in without opening each application.
+    if (rows.length > 0) {
+      const { data: noteRows } = await (supabase as unknown as { from: (t: string) => any })
+        .from('application_interview_notes')
+        .select('application_id, author_name, created_at')
+        .in('application_id', rows.map(r => r.id))
+        .order('created_at', { ascending: false });
+      const summary: Record<string, { count: number; latest: string }> = {};
+      for (const n of (noteRows ?? []) as { application_id: string; author_name: string }[]) {
+        const entry = summary[n.application_id];
+        if (entry) entry.count += 1;
+        else summary[n.application_id] = { count: 1, latest: n.author_name };
+      }
+      setNoteSummary(summary);
+    } else {
+      setNoteSummary({});
+    }
   }, [statusFilter]);
 
   useEffect(() => {
