@@ -146,8 +146,9 @@ export default function QuickTruckEditModal({
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs">Unit #</Label>
-              <Input className="h-9 text-sm" value={unit} onChange={e => setUnit(e.target.value)} placeholder="e.g. 1042" />
+              <UnitNumberPicker value={unit || null} onChange={v => setUnit(v ?? '')} />
             </div>
+
             <div className="space-y-1.5">
               <Label className="text-xs">Year</Label>
               <Input className="h-9 text-sm" value={year} onChange={e => setYear(e.target.value)} placeholder="2022" />

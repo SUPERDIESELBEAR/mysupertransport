@@ -256,8 +256,15 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, ship
                       <X className="h-3.5 w-3.5" />
                     </Button>
                   </div>
+                  <div className="space-y-1">
+                    <Label className="text-xs">Unit Number</Label>
+                    <UnitNumberPicker
+                      size="sm"
+                      value={truckDraft.unit_number ?? null}
+                      onChange={v => setTruckDraft(prev => ({ ...prev, unit_number: v }))}
+                    />
+                  </div>
                   {[
-                    { key: 'unit_number' as const, label: 'Unit Number', placeholder: 'e.g. 1042' },
                     { key: 'truck_year' as const, label: 'Year', placeholder: 'e.g. 2022' },
                     { key: 'truck_vin' as const, label: 'VIN', placeholder: '17-character VIN' },
                     { key: 'truck_plate' as const, label: 'License Plate', placeholder: 'Plate number' },
@@ -272,6 +279,7 @@ export default function TruckInfoCard({ truckInfo, deviceInfo, onTruckEdit, ship
                       />
                     </div>
                   ))}
+
                   <div className="space-y-1">
                     <Label className="text-xs">Plate State</Label>
                     <Select
