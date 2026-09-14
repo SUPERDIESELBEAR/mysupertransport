@@ -13,6 +13,7 @@ import {
   Pencil, Loader2, Download, Archive, HardDrive, FileSignature, Users
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
@@ -80,7 +81,25 @@ const STATUS_RANK: Record<EquipmentStatus, number> = {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
-export function sortEquipment(list: EquipmentItem[]): EquipmentItem[] {
+export type SectionSort = 'default' | 'driver' | 'unit' | 'serial';
+
+/** Values missing on the chosen key sort last in non-default modes. */
+function sortByKey(list: EquipmentItem[], key: (i: EquipmentItem) => string | null | undefined): EquipmentItem[] {
+  return [...list].sort((a, b) => {
+    const av = key(a), bv = key(b);
+    const aEmpty = !av, bEmpty = !bv;
+    if (aEmpty && bEmpty) return collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    const byKey = collator.compare(av!, bv!);
+    return byKey !== 0 ? byKey : collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+  });
+}
+
+export function sortEquipment(list: EquipmentItem[], mode: SectionSort = 'default'): EquipmentItem[] {
+  if (mode === 'driver') return sortByKey(list, i => i.current_operator_name);
+  if (mode === 'unit') return sortByKey(list, i => i.current_unit_number);
+  if (mode === 'serial') return sortByKey(list, i => i.serial_number);
   return [...list].sort((a, b) => {
     const rank = STATUS_RANK[a.status] - STATUS_RANK[b.status];
     if (rank !== 0) return rank;
@@ -169,6 +188,9 @@ export default function EquipmentInventory({
   const [byDriverMounted, setByDriverMounted] = useState(false);
   const [sectionSearch, setSectionSearch] = useState<Record<DeviceType, string>>({
     eld: '', dash_cam: '', bestpass: '', fuel_card: '',
+  });
+  const [sectionSort, setSectionSort] = useState<Record<DeviceType, SectionSort>>({
+    eld: 'default', dash_cam: 'default', bestpass: 'default', fuel_card: 'default',
   });
   const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
@@ -400,7 +422,7 @@ export default function EquipmentInventory({
     eld: [], dash_cam: [], bestpass: [], fuel_card: [],
   };
   for (const item of filtered) grouped[item.device_type].push(item);
-  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key]);
+  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key], sectionSort[key]);
 
   // Summary counts — devices held by demo/test drivers don't count as live stock.
   const liveItems = showDemo ? items : items.filter(i => !i.current_operator_is_demo);
