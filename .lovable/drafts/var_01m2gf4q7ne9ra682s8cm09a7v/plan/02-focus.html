@@ -1,0 +1,54 @@
+<svg viewBox="0 0 640 360" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--font-sans)">
+  <style>
+    text { fill: var(--fg-primary); font-size: 12px; }
+    .note { fill: var(--fg-secondary); }
+    .label { font-size: 14px; font-weight: 480; }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .muted { fill: var(--bg-muted); }
+    .accent { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+    .accentText { fill: var(--fg-accent); }
+    .wire { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+  </style>
+  <defs>
+    <marker id="arrow" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <rect x="18" y="18" width="270" height="324" rx="8" class="box"/>
+  <text x="34" y="44" class="label">Default</text>
+  <rect x="34" y="62" width="238" height="68" rx="8" class="accent"/>
+  <text x="48" y="84" class="accentText">NEXT AVAILABLE</text>
+  <text x="48" y="112" class="label accentText">272</text>
+  <text x="34" y="156" class="note">Recycled</text>
+  <rect x="34" y="166" width="64" height="28" rx="14" class="box"/>
+  <text x="55" y="184">231</text>
+  <rect x="106" y="166" width="64" height="28" rx="14" class="box"/>
+  <text x="127" y="184">248</text>
+  <text x="34" y="222" class="note">Never issued</text>
+  <rect x="34" y="232" width="64" height="28" rx="14" class="box"/>
+  <text x="55" y="250">190</text>
+
+  <path d="M296 180 L340 180" class="wire" marker-end="url(#arrow)"/>
+  <text x="318" y="166" text-anchor="middle" class="note">click or lookup</text>
+
+  <rect x="352" y="18" width="270" height="324" rx="8" class="box"/>
+  <text x="368" y="44" class="label">Number in focus</text>
+  <rect x="368" y="62" width="238" height="82" rx="8" class="accent"/>
+  <text x="382" y="84" class="accentText">SELECTED · RECYCLED</text>
+  <text x="382" y="112" class="label accentText">231</text>
+  <text x="382" y="132" class="accentText">freed Apr 1, 2026</text>
+
+  <rect x="368" y="158" width="238" height="38" rx="8" class="muted"/>
+  <text x="382" y="181" class="note">Next available remains 272</text>
+
+  <text x="368" y="224" class="note">Recycled</text>
+  <rect x="368" y="234" width="64" height="28" rx="14" class="accent"/>
+  <text x="389" y="252" class="accentText">231</text>
+  <rect x="440" y="234" width="64" height="28" rx="14" class="box"/>
+  <text x="461" y="252">248</text>
+
+  <circle cx="582" cy="286" r="12" fill="var(--bg-accent)"/>
+  <text x="582" y="290" text-anchor="middle" fill="var(--fg-emphasis)">1</text>
+  <text x="368" y="314" class="note">Gold follows the active number.</text>
+</svg>
