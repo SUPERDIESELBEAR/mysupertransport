@@ -162,7 +162,8 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       const fileUrl = urlData?.signedUrl ?? null;
       const dbRes = existingId
         ? await supabase.from('inspection_documents').update({ file_url: fileUrl, file_path: path, uploaded_at: new Date().toISOString(), uploaded_by: user.id }).eq('id', existingId)
-        : await supabase.from('inspection_documents').insert({ name: docName, scope: 'per_driver', driver_id: driverUserId, file_url: fileUrl, file_path: path, uploaded_by: user.id });
+        // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+        : await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', { name: docName, scope: 'per_driver', driver_id: driverUserId, file_url: fileUrl, file_path: path, uploaded_by: user.id }));
       if (dbRes.error) {
         await supabase.storage.from('inspection-documents').remove([path]).catch(() => {});
         throw dbRes.error;

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { differenceInDays, format } from 'date-fns';
 import { parseLocalDate, formatDaysHuman } from './InspectionBinderTypes'; 
 import { ShieldCheck, ChevronDown, ChevronUp, CheckCircle2, AlertTriangle, AlertOctagon, Clock, ExternalLink, CalendarIcon, Loader2, Check, MinusCircle, Search, List as ListIcon, LayoutGrid, Download, ArrowUpDown, Bell, Upload, History, Eye } from 'lucide-react';
@@ -470,12 +471,13 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
       } else {
         ({ error } = await supabase
           .from('inspection_documents')
-          .insert({
+          // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+          .insert(insertPayload('inspection_documents', {
             scope: 'per_driver',
             driver_id: driverUserId,
             name: docName,
             expires_at: isoDate,
-          }));
+          })));
       }
     }
 
@@ -637,14 +639,15 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         } else {
           ({ error: dbErr } = await supabase
             .from('inspection_documents')
-            .insert({
+            // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+            .insert(insertPayload('inspection_documents', {
               name: docName,
               scope: entry.operatorId === '__fleet__' ? 'company_wide' : 'per_driver',
               driver_id: driverUserId,
               file_url: fileUrl,
               file_path: path,
               uploaded_by: user?.id ?? null,
-            }));
+            })));
         }
         if (dbErr) throw dbErr;
 

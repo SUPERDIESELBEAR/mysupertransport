@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -59,7 +60,8 @@ export default function StatePermitsEditor({ permits, onChange, driverUserId, up
 
       const { data: inserted, error: dbErr } = await supabase
         .from('inspection_documents')
-        .insert({
+        // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+        .insert(insertPayload('inspection_documents', {
           name: docName,
           scope: 'per_driver',
           driver_id: driverUserId,
@@ -67,7 +69,7 @@ export default function StatePermitsEditor({ permits, onChange, driverUserId, up
           file_path: path,
           uploaded_by: uploaderId,
           expires_at: get(code).expiresAt,
-        })
+        }))
         .select('id')
         .single();
       if (dbErr) {
