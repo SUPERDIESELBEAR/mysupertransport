@@ -1259,7 +1259,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     </div>
                     {!bgVerificationComplete && (
                       <p className="text-xs text-status-progress bg-status-progress/10 rounded-lg px-3 py-2">
-                        ℹ️ Both MVR and Clearinghouse must be <strong>Received</strong> before this application can be approved.
+                        ℹ️ MVR, PSP and Clearinghouse must all be <strong>Received</strong> before this application can be approved.
                       </p>
                     )}
                   </div>
