@@ -63,13 +63,20 @@ const MIN_HEIGHT = 380;
 /** Vertical space reserved at the bottom-right for the Jump-to-bottom pill. */
 const JUMP_BUTTON_CLEARANCE = 80;
 
+/** Bottom-right anchor next to the gold bubble, above the Jump-to-bottom pill. */
+function defaultPosition() {
+  return {
+    x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
+    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
+  };
+}
+
 function getDefaultState(): WindowState {
   return {
     open: false,
     railCollapsed: false,
     railFilter: 'chats',
-    x: Math.max(16, window.innerWidth - DEFAULT_WIDTH - 24),
-    y: Math.max(16, window.innerHeight - DEFAULT_HEIGHT - JUMP_BUTTON_CLEARANCE),
+    ...defaultPosition(),
     width: DEFAULT_WIDTH,
     height: DEFAULT_HEIGHT,
     selectedUserId: null,
@@ -164,7 +171,7 @@ export default function FloatingChatWindow() {
   // ── Open on a driver with a load linked (from Load Detail) ────────────────
   useEffect(() => onOpenLoadChat(({ driverUserId, loadId }) => {
     setLinkedLoadId(loadId);
-    setState(prev => clampToViewport({ ...prev, open: true, selectedUserId: driverUserId }));
+    setState(prev => clampToViewport({ ...prev, ...defaultPosition(), open: true, selectedUserId: driverUserId }));
   }), []);
 
   const openLoadRecord = useCallback((loadId: string) => {
@@ -400,7 +407,7 @@ export default function FloatingChatWindow() {
       {/* Floating bubble — hidden on mobile where bottom nav already has Messages */}
       {!open && (
         <button
-          onClick={() => setState(prev => clampToViewport({ ...prev, open: true }))}
+          onClick={() => setState(prev => clampToViewport({ ...prev, ...defaultPosition(), open: true }))}
           className="hidden lg:flex fixed z-50 bottom-24 right-6 h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 transition-all"
           aria-label="Open chat"
         >
