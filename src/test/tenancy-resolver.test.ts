@@ -788,3 +788,105 @@ describe('tenancy B5 part one — settlement settings and the signature block', 
     expect(DEFERRED_TABLES.length).toBe(6);
   });
 });
+
+/**
+ * THE THREE FEDERAL BREAKS (2026-09-14).
+ *
+ * `inspection_documents` and `inspection_document_versions` hold §396 inspection
+ * records; `eld_sync_alerts` and `eld_malfunction_notifications` hold §395.8
+ * ELD conditions. None of them could reach a company-scoped table through a
+ * NOT NULL foreign key: the inspection pair carries `driver_id` with NO foreign
+ * key at all, and the two ELD tables reach `operators` / `eld_malfunction_events`
+ * only through a NULLABLE column. A wrong answer here is a federal record filed
+ * under the wrong carrier, so each one owns its `company_id` outright.
+ */
+const FEDERAL_TABLES = [
+  'eld_malfunction_notifications', 'eld_sync_alerts',
+  'inspection_document_versions', 'inspection_documents',
+] as const;
+
+describe('the three federal breaks — inspection and ELD records own their carrier', () => {
+  itLive('all four carry a required, undefaulted company with ON DELETE RESTRICT', () => {
+    for (const t of FEDERAL_TABLES) {
+      const [row] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text || ' ' ||
+          (SELECT count(*)::text FROM pg_constraint k
+            WHERE k.conrelid = c.oid AND k.contype = 'f'
+              AND k.confrelid = 'public.carrier_profile'::regclass
+              AND k.confdeltype = 'r' AND k.conkey = ARRAY[a.attnum])
+        FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'company_id'
+        WHERE c.oid = 'public.${t}'::regclass`);
+      expect(row, t).toBe('true false 1');
+    }
+  });
+
+  itLive('every federal row sits under the live carrier, none stranded', () => {
+    for (const t of FEDERAL_TABLES) {
+      const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toBe('0 0');
+    }
+  });
+
+  itLive('each table stamps its own carrier server-side, and the trigger is ENABLED', () => {
+    const expected: Record<string, string> = {
+      inspection_documents: 'stamp_inspection_document_company_id',
+      inspection_document_versions: 'stamp_inspection_document_version_company_id',
+      eld_sync_alerts: 'stamp_eld_sync_alert_company_id',
+      eld_malfunction_notifications: 'stamp_eld_malfunction_notification_company_id',
+    };
+    for (const t of FEDERAL_TABLES) {
+      const rows = psql(`SELECT p.proname || ' ' || t.tgenabled::text
+        FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
+        WHERE NOT t.tgisinternal AND t.tgrelid = 'public.${t}'::regclass
+          AND p.proname = '${expected[t]}'`);
+      // 'O' = enabled for origin. A DISABLED stamp is a silently unstamped table.
+      expect(rows, t).toEqual([`${expected[t]} O`]);
+    }
+  });
+
+  itLive('no stamp defaults to a carrier: each refuses when it cannot derive one', () => {
+    for (const fn of Object.values({
+      d: 'stamp_inspection_document_company_id',
+      v: 'stamp_inspection_document_version_company_id',
+      a: 'stamp_eld_sync_alert_company_id',
+      n: 'stamp_eld_malfunction_notification_company_id',
+    })) {
+      const def = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
+      expect(def, fn).toMatch(/SECURITY DEFINER/);
+      expect(def, fn).toMatch(/SET search_path TO 'public', 'extensions'/);
+      expect(def, fn).toMatch(/RAISE EXCEPTION/);
+      // The defect being guarded: falling back to "the" carrier when the real
+      // owner is unknown — exactly the ELD timezone defect, on federal records.
+      expect(def, fn).not.toMatch(/FROM\s+public\.carrier_profile/i);
+      expect(def, fn).not.toMatch(/LIMIT 1\s*\)?\s*;?\s*$/i);
+    }
+  });
+
+  itLive('the version-history immutability trigger is back on after the backfill', () => {
+    // The backfill could only run with this trigger suspended. Left disabled, the
+    // §396 version history would become editable.
+    const [row] = psql(`SELECT tgname || ' ' || tgenabled::text FROM pg_trigger
+      WHERE NOT tgisinternal
+        AND tgrelid = 'public.inspection_document_versions'::regclass
+        AND tgname = 'trg_inspection_document_versions_immutable'`);
+    expect(row).toBe('trg_inspection_document_versions_immutable O');
+  });
+
+  itLive('a driver still owns his own inspection documents, and only his own', () => {
+    // Compliance check, not a tenancy check: a driver who cannot read or file his
+    // own inspection record cannot comply. The insert policy requires the row to
+    // name him as both subject and uploader.
+    const rows = psql(`SELECT policyname || ' | ' || cmd || ' | ' ||
+        coalesce(qual, '') || ' | ' || coalesce(with_check, '')
+      FROM pg_policies WHERE schemaname = 'public'
+        AND tablename = 'inspection_documents' ORDER BY 1`);
+    const insert = rows.find(r => r.includes('| INSERT |'));
+    expect(insert).toMatch(/driver_id = auth\.uid\(\)/);
+    expect(insert).toMatch(/uploaded_by = auth\.uid\(\)/);
+    const select = rows.find(r => r.includes('| SELECT |'));
+    expect(select).toMatch(/driver_id = auth\.uid\(\)/);
+  });
+});

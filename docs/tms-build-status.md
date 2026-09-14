@@ -13332,3 +13332,53 @@ verified against stale code — which the record already names as a failure mode
 
 This entry is documentation only. No migration, schema change, test, or application code
 was edited.
+
+---
+
+## 2026-09-14 — The three federal breaks are closed
+
+Full pass report: `docs/passes/2026-09-14-2343-federal-breaks-tenancy.md`.
+
+`inspection_documents` (774 rows), `inspection_document_versions` (8),
+`eld_sync_alerts` (0) and `eld_malfunction_notifications` (0) now each carry
+`company_id uuid NOT NULL`, no default, FK to `carrier_profile` `ON DELETE RESTRICT`,
+and a server-side stamp trigger. Backfill: 774/774 and 8/8 to the sole carrier.
+
+Durable findings:
+
+- **The version-history immutability trigger blocks a tenancy backfill.** The first
+  migration failed with `ERROR: P0001: inspection_document_versions rows are
+  immutable` before changing anything. The backfill ran with
+  `trg_inspection_document_versions_immutable` disabled for exactly that statement
+  and re-enabled after. A guard now asserts the trigger is ENABLED (`tgenabled =
+  'O'`), because a trigger left disabled would make §396 version history editable
+  with nothing visible to show it.
+- **`eld_malfunction_events` has no `company_id`,** so the notification stamp derives
+  tenancy from the recipient's membership or operator row, not from the event. When
+  that table is scoped, the stamp should prefer the event. Recorded as a known gap.
+- **`information_schema.role_table_grants` returns 0 rows for these tables from this
+  role.** Reading it alone would have produced a false "no grants" claim. Grants were
+  established with `has_table_privilege`: `authenticated` SELECT+INSERT,
+  `service_role` SELECT, `anon` none. Any future grant check should use
+  `has_table_privilege`, not the information_schema view.
+- **`grant_parity_report()` is not executable from the query role** — `ERROR: 42501:
+  permission denied for function grant_parity_report`. Parity for this pass was
+  established per table instead. The verification checklist should stop naming the
+  report as if it always runs.
+- **A driver's own inspection records still work.** Genuine driver session: 13 rows
+  readable (7 own + 6 company-wide, one carrier), own document insert accepted and
+  stamped server-side, a supplied foreign `company_id` silently overwritten with his
+  real carrier, another driver's `driver_id` refused by RLS. Both accepted probes
+  were deleted, per the aborting-probe rule.
+- **A refusal that looked like a regression was my probe's fault.** The first driver
+  insert was refused because the probe omitted `uploaded_by`, which the pre-existing
+  INSERT policy requires alongside `driver_id = auth.uid()`. The policy was read live
+  before drawing any conclusion. A refused probe is not evidence of a defect until
+  the policy behind it has been read.
+
+Baselines unchanged: policies 560 (as measured 2026-09-14), one carrier, 15 members,
+one owner. `src/test/tenancy-resolver.test.ts` 59/59 green; typecheck clean.
+
+Not demonstrable: cross-carrier invisibility in steady state, with one real carrier.
+Shown only by scratch companies created and rolled back.
+
