@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Upload, FileText, CheckCircle2, Loader2, Eye, AlertCircle, Clock, Camera, Image, Shield, Download, Plus, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -220,7 +220,8 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
             if (opErr) throw opErr;
 
             if (opRow?.user_id) {
-              const { error: binderErr } = await supabase.from('inspection_documents').insert({
+              // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+              const { error: binderErr } = await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', {
                 name: binderName!,
                 scope: 'per_driver',
                 driver_id: opRow.user_id,
@@ -231,7 +232,7 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
                 inspection_date: inspectionDetails?.inspection_date ?? null,
                 inspection_result: inspectionDetails?.inspection_result ?? null,
                 inspector_name: inspectionDetails?.inspector_name ?? null,
-              });
+              }));
               if (binderErr) throw binderErr;
             }
           }

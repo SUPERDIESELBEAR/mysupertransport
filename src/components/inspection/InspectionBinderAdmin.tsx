@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
@@ -537,7 +538,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         return;
       }
 
-      await supabase.from('inspection_documents').insert({
+      // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+      await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', {
         name: doc.name,
         scope: 'per_driver',
         driver_id: shareToDriverTarget,
@@ -546,7 +548,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         expires_at: doc.expires_at,
         uploaded_by: user.id,
         shared_with_fleet: false,
-      });
+      }));
 
       // Send in-app notification to the driver (respects their document_update preference)
       const { data: pref } = await supabase
@@ -631,7 +633,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
         if (existing) { skipped++; return; }
 
-        await supabase.from('inspection_documents').insert({
+        // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+        await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', {
           name: doc.name,
           scope: 'per_driver',
           driver_id: bulkShareTarget,
@@ -640,7 +643,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           expires_at: doc.expires_at,
           uploaded_by: user.id,
           shared_with_fleet: false,
-        });
+        }));
         shared++;
       }));
 
@@ -703,7 +706,8 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const { data: urlData } = await supabase.storage.from('inspection-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
       const fileUrl = urlData?.signedUrl ?? null;
 
-      await supabase.from('inspection_documents').insert({
+      // company_id is stamped server-side by stamp_inspection_document_company_id and never sent from here.
+      await supabase.from('inspection_documents').insert(insertPayload('inspection_documents', {
         name: label.trim(),
         scope: 'per_driver',
         driver_id: null,
@@ -711,7 +715,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         file_path: path,
         uploaded_by: user.id,
         shared_with_fleet: false,
-      });
+      }));
 
       toast({ title: 'Document staged', description: `${label} is ready to assign to a driver.` });
       setNewStagedLabel('');

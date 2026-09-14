@@ -4160,6 +4160,7 @@ export type Database = {
       eld_malfunction_notifications: {
         Row: {
           channel: string
+          company_id: string
           created_at: string
           day_number: number | null
           event_id: string | null
@@ -4171,6 +4172,7 @@ export type Database = {
         }
         Insert: {
           channel: string
+          company_id: string
           created_at?: string
           day_number?: number | null
           event_id?: string | null
@@ -4182,6 +4184,7 @@ export type Database = {
         }
         Update: {
           channel?: string
+          company_id?: string
           created_at?: string
           day_number?: number | null
           event_id?: string | null
@@ -4192,6 +4195,13 @@ export type Database = {
           sent_on?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "eld_malfunction_notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "eld_malfunction_notifications_event_id_fkey"
             columns: ["event_id"]
@@ -4255,6 +4265,7 @@ export type Database = {
         Row: {
           acknowledged_at: string | null
           acknowledged_by: string | null
+          company_id: string
           created_at: string
           detail: string
           id: string
@@ -4271,6 +4282,7 @@ export type Database = {
         Insert: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          company_id: string
           created_at?: string
           detail?: string
           id?: string
@@ -4287,6 +4299,7 @@ export type Database = {
         Update: {
           acknowledged_at?: string | null
           acknowledged_by?: string | null
+          company_id?: string
           created_at?: string
           detail?: string
           id?: string
@@ -4301,6 +4314,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "eld_sync_alerts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "eld_sync_alerts_operator_id_fkey"
             columns: ["operator_id"]
@@ -6035,6 +6055,7 @@ export type Database = {
       }
       inspection_document_versions: {
         Row: {
+          company_id: string
           created_at: string
           document_id: string
           expires_at: string | null
@@ -6047,6 +6068,7 @@ export type Database = {
           version: number
         }
         Insert: {
+          company_id: string
           created_at?: string
           document_id: string
           expires_at?: string | null
@@ -6059,6 +6081,7 @@ export type Database = {
           version: number
         }
         Update: {
+          company_id?: string
           created_at?: string
           document_id?: string
           expires_at?: string | null
@@ -6072,6 +6095,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "inspection_document_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "inspection_document_versions_document_id_fkey"
             columns: ["document_id"]
             isOneToOne: false
@@ -6082,6 +6112,7 @@ export type Database = {
       }
       inspection_documents: {
         Row: {
+          company_id: string
           content_hash: string | null
           driver_id: string | null
           expires_at: string | null
@@ -6102,6 +6133,7 @@ export type Database = {
           uploaded_by: string | null
         }
         Insert: {
+          company_id: string
           content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
@@ -6122,6 +6154,7 @@ export type Database = {
           uploaded_by?: string | null
         }
         Update: {
+          company_id?: string
           content_hash?: string | null
           driver_id?: string | null
           expires_at?: string | null
@@ -6141,7 +6174,15 @@ export type Database = {
           uploaded_at?: string
           uploaded_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "inspection_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inspection_program_payments: {
         Row: {
