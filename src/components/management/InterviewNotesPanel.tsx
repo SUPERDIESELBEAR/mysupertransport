@@ -68,6 +68,11 @@ export function InterviewNotesPanel({ applicationId, applicantName, onCountChang
   const [editBody, setEditBody] = useState('');
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
+  // Held in a ref so a caller passing an inline callback cannot retrigger the
+  // load effect on every render.
+  const onCountChangeRef = useRef(onCountChange);
+  onCountChangeRef.current = onCountChange;
+
   const load = useCallback(async () => {
     const { data, error } = await notesTable()
       .select('id, application_id, author_id, author_name, body, created_at, edited_at')
