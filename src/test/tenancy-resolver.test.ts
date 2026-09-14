@@ -42,6 +42,39 @@ const B2_B3_STAMPED = [
 ] as const;
 
 /**
+ * BATCH B5 PART ONE — the two carrier-data singletons. `email_send_state` is
+ * NOT here: the record declares its `CHECK (id = 1)` deliberately GLOBAL
+ * infrastructure keyed to the shared sending domain.
+ */
+const B5_SINGLETONS = ['carrier_signature_settings', 'settlement_settings'] as const;
+
+/**
+ * Declared GLOBAL — no `company_id`, ever. A table with no column and no
+ * declaration is indistinguishable from one that was missed, so the
+ * declaration lives here as an assertion, not only in prose.
+ */
+const GLOBAL_TABLES = [
+  'applications', 'application_correction_requests', 'application_correction_fields',
+  'application_document_history', 'application_interview_notes',
+  'application_resume_tokens', 'application_invites', 'application_revision_attachments',
+  'profiles', 'carrier_profile', 'resource_documents', 'resource_history',
+  'release_notes', 'email_templates', 'eld_device_models', 'eld_revoked_list_checks',
+  'notification_role_defaults', 'revert_courtesy_email_defaults',
+  'email_unsubscribe_tokens', 'suppressed_emails',
+] as const;
+
+/**
+ * DEFERRED, not global: the six content tables await the product-versus-carrier
+ * split (2026-09-14). They are deliberately left with no column and no global
+ * declaration, and this list is what distinguishes them from an oversight.
+ */
+const DEFERRED_TABLES = [
+  'faq', 'faq_history', 'services', 'service_resources', 'staff_help_knowledge',
+  'pipeline_config',
+] as const;
+
+
+/**
  * BATCH B4 — the 31 tables that held no rows. Empty means no backfill could
  * fail, which is why they went first; it does not make the column optional, so
  * every one of them is asserted the same way as a populated table.
