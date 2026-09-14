@@ -12913,3 +12913,42 @@ the ceiling moved 131 → 133.
    per-company index. It has 4 rows and is not in B4.
 2. The requested check was "policies 554 → 554". Live count is 560, from the two
    accepted draft migrations of the same day, not from B4.
+
+## 2026-09-14 — Three corrections to the B4 record, and a pattern named
+
+### 1. `equipment_serial_conflict_dismissals` is not in B4
+
+The 2026-09-14 re-cut lists it as a B4 table needing a per-company index. It holds
+4 rows, so it belongs in B5. B4 is empty tables only; a table with rows would have
+required a backfill in a batch defined as having none.
+
+### 2. The policy baseline is 560, not 554
+
+Live count is 560 as measured 2026-09-14. B4 added none. The six extra policies are
+from draft-area migrations accepted 2026-09-14: application interview notes (4) and
+unit-number config (2). The earlier correction from 553 to 554 was made 2026-09-13
+for the same reason: a baseline figure in a verification checklist goes stale whenever
+anything reaches the database outside a recorded pass.
+
+### 3. The pattern, third occurrence: draft-area work reaches the live database without passing through the record
+
+- the 54023 monitoring finding cited a `.lovable/drafts/` migration as the
+  authoritative fix while the real one had been in `supabase/migrations` since
+  2026-08-31
+- four inspection-grace RPCs from the 2026-09-11 quarterly-inspection work shipped
+  unregistered in the definer inventory, found days later by a guard
+- three migrations on 2026-09-14 added six policies and two unregistered functions,
+  found by B4's guard rather than by the record
+
+The work itself is not the problem — it is accepted deliberately and it is the
+owner's. The problem is that the record does not know about it, so every baseline in
+a verification checklist silently goes stale and the next pass reports a contradiction
+against a figure that was correct when written.
+
+What actually catches it is the structural guards, every time: `definer-live-catalog`
+found both the inspection-grace RPCs and the unit-number lookups. The record found
+neither.
+
+Practical rule: a verification checklist must state its baselines as AS MEASURED ON A
+DATE, not as fixed values; and a pass reporting a baseline contradiction should check
+whether a draft migration moved it before treating it as a defect.
