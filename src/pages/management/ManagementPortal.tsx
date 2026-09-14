@@ -242,6 +242,10 @@ export default function ManagementPortal() {
   const [operatorHasUnsavedChanges, setOperatorHasUnsavedChanges] = useState(false);
   const [pendingNavPath, setPendingNavPath] = useState<string | null>(null);
   const [applications, setApplications] = useState<FullApplication[]>([]);
+  // Interview-note count + most recent interviewer, keyed by application id.
+  const [noteSummary, setNoteSummary] = useState<Record<string, { count: number; latest: string }>>({});
+  // Only one application's interview notes are expanded at a time.
+  const [expandedNotesAppId, setExpandedNotesAppId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
     return (s && ['pending','revisions_requested','approved','denied','all','invited'].includes(s)) ? s : 'pending';
