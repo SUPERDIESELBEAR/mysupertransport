@@ -2115,7 +2115,7 @@ export default function ManagementPortal() {
                                 >
                                   {notesOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
                                   {notes
-                                    ? <span className="truncate">{notes.count} note{notes.count !== 1 ? 's' : ''} · {notes.latest}</span>
+                                    ? <span className="truncate">{notes.count} note{notes.count !== 1 ? 's' : ''}{notes.latest ? ` · ${notes.latest}` : ''}</span>
                                     : <span>Add note</span>}
                                 </button>
                               </div>
