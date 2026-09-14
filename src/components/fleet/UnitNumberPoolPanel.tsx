@@ -48,6 +48,14 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   const debouncedLookup = useDebouncedValue(lookup, 350);
   const [holders, setHolders] = useState<UnitHolder[] | null>(null);
   const [holderLoading, setHolderLoading] = useState(false);
+  const [copiedUnit, setCopiedUnit] = useState<number | null>(null);
+
+  const copyNumber = (unit: number) => {
+    navigator.clipboard?.writeText(String(unit)).then(() => {
+      setCopiedUnit(unit);
+      setTimeout(() => setCopiedUnit(prev => (prev === unit ? null : prev)), 1500);
+    }).catch(() => {});
+  };
 
   useEffect(() => {
     if (!open) return;
