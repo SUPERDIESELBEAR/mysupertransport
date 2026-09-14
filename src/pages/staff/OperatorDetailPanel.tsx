@@ -5953,14 +5953,13 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   {/* Assigned Unit Number — placed above Truck Decals */}
                   <div className="space-y-1.5">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Assigned Unit Number</Label>
-                    <Input
-                      value={status.unit_number ?? ''}
-                      onChange={e => updateStatus('unit_number', e.target.value || null)}
-                      placeholder="e.g. 301"
-                      className="h-9 text-sm"
+                    <UnitNumberPicker
+                      value={status.unit_number ?? null}
+                      onChange={v => updateStatus('unit_number', v)}
                     />
                     <UnitNumberConflictAlert operatorId={operatorId} onboardingUnit={status.unit_number ?? null} />
                   </div>
+
 
                   {/* Truck Decals section */}
                   <div className="space-y-3">
