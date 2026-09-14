@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { Card } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -135,7 +136,7 @@ export default function StaffAvailabilityCard() {
     } else {
       const { error } = await supabase
         .from('driver_staff_contact_suppressions')
-        .insert({ staff_id: user.id, driver_id: row.driver_id, created_by: user.id });
+        .insert(insertPayload('driver_staff_contact_suppressions', { staff_id: user.id, driver_id: row.driver_id, created_by: user.id }));
       if (error) { toast.error(error.message); return; }
     }
     setAutoRows((prev) => prev.map((r) => r.driver_id === row.driver_id ? { ...r, suppressed: !includeOn } : r));
@@ -146,13 +147,13 @@ export default function StaffAvailabilityCard() {
     setSaving(true);
 
     // 1. Upsert settings
-    const { error: settingsErr } = await supabase.from('staff_messaging_settings').upsert({
+    const { error: settingsErr } = await supabase.from('staff_messaging_settings').upsert(insertPayload('staff_messaging_settings', {
       staff_id: user.id,
       availability_mode: mode,
       availability_note: note || null,
       updated_by: user.id,
       updated_at: new Date().toISOString(),
-    });
+    }));
     if (settingsErr) { setSaving(false); toast.error(settingsErr.message); return; }
 
     // 2. If in specific_drivers, diff and sync driver_staff_contacts
@@ -160,7 +161,7 @@ export default function StaffAvailabilityCard() {
       const toAdd = [...selectedIds].filter((id) => !initialIds.has(id));
       const toRemove = [...initialIds].filter((id) => !selectedIds.has(id));
       if (toAdd.length) {
-        const rows = toAdd.map((driver_id) => ({ driver_id, staff_id: user.id, created_by: user.id }));
+        const rows = toAdd.map((driver_id) => insertPayload('driver_staff_contacts', { driver_id, staff_id: user.id, created_by: user.id }));
         const { error } = await supabase.from('driver_staff_contacts').insert(rows);
         if (error) { setSaving(false); toast.error(error.message); return; }
       }

@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import type { BrokerContactRole } from '@/lib/brokers';
 
@@ -91,7 +92,10 @@ async function clearOtherPrimaries(brokerId: string, exceptId?: string) {
 export async function insertBrokerContact(brokerId: string, input: BrokerContactInput) {
   if (input.is_primary) await clearOtherPrimaries(brokerId);
   // created_by / updated_by are stamped server-side and never sent from here.
-  const { error } = await supabase.from('broker_contacts').insert({ broker_id: brokerId, ...input });
+  // company_id is stamped server-side by aa_stamp_tenant_company_id and never sent from here.
+  const { error } = await supabase
+    .from('broker_contacts')
+    .insert(insertPayload('broker_contacts', { broker_id: brokerId, ...input }));
   if (error) throw error;
 }
 
@@ -138,7 +142,9 @@ export async function fetchBrokerNotes(brokerId: string): Promise<BrokerNote[]> 
 }
 
 export async function addBrokerNote(brokerId: string, body: string) {
-  const { error } = await supabase.from('broker_notes').insert({ broker_id: brokerId, body });
+  const { error } = await supabase
+    .from('broker_notes')
+    .insert(insertPayload('broker_notes', { broker_id: brokerId, body }));
   if (error) throw error;
 }
 
@@ -171,12 +177,12 @@ export async function uploadBrokerDocument(
   });
   if (upErr) throw upErr;
 
-  const { data, error } = await supabase.from('broker_documents').insert({
+  const { data, error } = await supabase.from('broker_documents').insert(insertPayload('broker_documents', {
     broker_id: brokerId,
     document_category: category,
     document_name: file.name,
     file_path: path,
-  }).select('id, broker_id, document_category, document_name, file_path, file_url, created_at').single();
+  })).select('id, broker_id, document_category, document_name, file_path, file_url, created_at').single();
   if (error) throw error;
   return data as BrokerDocument;
 }

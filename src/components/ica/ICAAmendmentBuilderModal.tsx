@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
@@ -177,7 +178,7 @@ export default function ICAAmendmentBuilderModal({ operatorId, operatorName, onC
       // 1. Insert amendment row
       const { data: amendRow, error: aErr } = await supabase
         .from('ica_amendments')
-        .insert({
+        .insert(insertPayload('ica_amendments', {
           operator_id: operatorId,
           parent_ica_id: parentIcaId!,
           action,
@@ -191,7 +192,7 @@ export default function ICAAmendmentBuilderModal({ operatorId, operatorName, onC
           carrier_signed_by: carrierSigPath ? user?.id ?? null : null,
           carrier_typed_name: carrierSigPath ? carrierTypedName || null : null,
           carrier_title: carrierSigPath ? carrierTitle || null : null,
-        })
+        }))
         .select()
         .single();
       if (aErr || !amendRow) throw aErr ?? new Error('Amendment insert failed');

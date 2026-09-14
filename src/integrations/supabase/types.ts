@@ -992,6 +992,7 @@ export type Database = {
       broker_contacts: {
         Row: {
           broker_id: string
+          company_id: string
           created_at: string
           created_by: string | null
           email: string | null
@@ -1006,6 +1007,7 @@ export type Database = {
         }
         Insert: {
           broker_id: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -1020,6 +1022,7 @@ export type Database = {
         }
         Update: {
           broker_id?: string
+          company_id?: string
           created_at?: string
           created_by?: string | null
           email?: string | null
@@ -1038,6 +1041,13 @@ export type Database = {
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -1061,6 +1071,7 @@ export type Database = {
           broker_id: string
           changed_at: string
           changed_by: string | null
+          company_id: string
           id: string
           new_value: boolean
           previous_value: boolean | null
@@ -1070,6 +1081,7 @@ export type Database = {
           broker_id: string
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           id?: string
           new_value: boolean
           previous_value?: boolean | null
@@ -1079,6 +1091,7 @@ export type Database = {
           broker_id?: string
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           id?: string
           new_value?: boolean
           previous_value?: boolean | null
@@ -1099,11 +1112,19 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "broker_do_not_load_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       broker_documents: {
         Row: {
           broker_id: string
+          company_id: string
           created_at: string
           created_by: string | null
           document_category: string
@@ -1119,6 +1140,7 @@ export type Database = {
         }
         Insert: {
           broker_id: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           document_category: string
@@ -1134,6 +1156,7 @@ export type Database = {
         }
         Update: {
           broker_id?: string
+          company_id?: string
           created_at?: string
           created_by?: string | null
           document_category?: string
@@ -1156,6 +1179,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "broker_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "broker_documents_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
@@ -1169,6 +1199,7 @@ export type Database = {
           broker_id: string
           changed_at: string
           changed_by: string | null
+          company_id: string
           documentation_url: string | null
           id: string
           new_status: Database["public"]["Enums"]["broker_factoring_status"]
@@ -1181,6 +1212,7 @@ export type Database = {
           broker_id: string
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           documentation_url?: string | null
           id?: string
           new_status: Database["public"]["Enums"]["broker_factoring_status"]
@@ -1193,6 +1225,7 @@ export type Database = {
           broker_id?: string
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           documentation_url?: string | null
           id?: string
           new_status?: Database["public"]["Enums"]["broker_factoring_status"]
@@ -1216,12 +1249,20 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "broker_factoring_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       broker_notes: {
         Row: {
           body: string
           broker_id: string
+          company_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -1231,6 +1272,7 @@ export type Database = {
         Insert: {
           body: string
           broker_id: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1240,6 +1282,7 @@ export type Database = {
         Update: {
           body?: string
           broker_id?: string
+          company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1252,6 +1295,13 @@ export type Database = {
             columns: ["broker_id"]
             isOneToOne: false
             referencedRelation: "brokers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "broker_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -1536,6 +1586,7 @@ export type Database = {
       cash_advances: {
         Row: {
           amount: number
+          company_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -1550,6 +1601,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1564,6 +1616,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -1577,6 +1630,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cash_advances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cash_advances_created_by_fkey"
             columns: ["created_by"]
@@ -1843,6 +1903,7 @@ export type Database = {
       company_documents: {
         Row: {
           category: Database["public"]["Enums"]["company_document_category"]
+          company_id: string
           created_at: string | null
           created_by: string | null
           description: string | null
@@ -1862,6 +1923,7 @@ export type Database = {
         }
         Insert: {
           category?: Database["public"]["Enums"]["company_document_category"]
+          company_id: string
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -1881,6 +1943,7 @@ export type Database = {
         }
         Update: {
           category?: Database["public"]["Enums"]["company_document_category"]
+          company_id?: string
           created_at?: string | null
           created_by?: string | null
           description?: string | null
@@ -1899,6 +1962,13 @@ export type Database = {
           version_number?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "company_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "company_documents_created_by_fkey"
             columns: ["created_by"]
@@ -2088,6 +2158,7 @@ export type Database = {
       deduction_installments: {
         Row: {
           amount: number
+          company_id: string
           created_at: string
           created_by: string | null
           deduction_id: string
@@ -2102,6 +2173,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id: string
           created_at?: string
           created_by?: string | null
           deduction_id: string
@@ -2116,6 +2188,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string
           created_at?: string
           created_by?: string | null
           deduction_id?: string
@@ -2129,6 +2202,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "deduction_installments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deduction_installments_created_by_fkey"
             columns: ["created_by"]
@@ -2163,6 +2243,7 @@ export type Database = {
         Row: {
           amount: number
           category: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           end_payday: string | null
@@ -2179,6 +2260,7 @@ export type Database = {
         Insert: {
           amount: number
           category?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           end_payday?: string | null
@@ -2195,6 +2277,7 @@ export type Database = {
         Update: {
           amount?: number
           category?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           end_payday?: string | null
@@ -2209,6 +2292,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "deductions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "deductions_created_by_fkey"
             columns: ["created_by"]
@@ -2235,6 +2325,7 @@ export type Database = {
       detention_claims: {
         Row: {
           broker_notified_at: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           driver_reported_at: string
@@ -2254,6 +2345,7 @@ export type Database = {
         }
         Insert: {
           broker_notified_at?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           driver_reported_at: string
@@ -2273,6 +2365,7 @@ export type Database = {
         }
         Update: {
           broker_notified_at?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           driver_reported_at?: string
@@ -2291,6 +2384,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "detention_claims_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "detention_claims_created_by_fkey"
             columns: ["created_by"]
@@ -2383,6 +2483,7 @@ export type Database = {
       dispatch_deductions: {
         Row: {
           amount: number
+          company_id: string
           created_at: string
           created_by: string | null
           effective_from: string
@@ -2395,6 +2496,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id: string
           created_at?: string
           created_by?: string | null
           effective_from: string
@@ -2407,6 +2509,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string
           created_at?: string
           created_by?: string | null
           effective_from?: string
@@ -2418,6 +2521,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "dispatch_deductions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dispatch_deductions_created_by_fkey"
             columns: ["created_by"]
@@ -2717,6 +2827,7 @@ export type Database = {
         Row: {
           changed_at: string
           changed_by: string | null
+          company_id: string
           field: string
           id: string
           new_value: string | null
@@ -2725,6 +2836,7 @@ export type Database = {
         Insert: {
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           field: string
           id?: string
           new_value?: string | null
@@ -2733,6 +2845,7 @@ export type Database = {
         Update: {
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           field?: string
           id?: string
           new_value?: string | null
@@ -2744,6 +2857,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dispatch_settlement_rates_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -3041,6 +3161,7 @@ export type Database = {
         Row: {
           broker_id: string | null
           company_document_id: string
+          company_id: string
           id: string
           message_body: string | null
           notes: string | null
@@ -3054,6 +3175,7 @@ export type Database = {
         Insert: {
           broker_id?: string | null
           company_document_id: string
+          company_id: string
           id?: string
           message_body?: string | null
           notes?: string | null
@@ -3067,6 +3189,7 @@ export type Database = {
         Update: {
           broker_id?: string | null
           company_document_id?: string
+          company_id?: string
           id?: string
           message_body?: string | null
           notes?: string | null
@@ -3090,6 +3213,13 @@ export type Database = {
             columns: ["company_document_id"]
             isOneToOne: false
             referencedRelation: "company_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "document_send_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -3326,6 +3456,7 @@ export type Database = {
       }
       driver_staff_contact_suppressions: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           driver_id: string
@@ -3333,6 +3464,7 @@ export type Database = {
           staff_id: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           driver_id: string
@@ -3340,16 +3472,26 @@ export type Database = {
           staff_id: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           driver_id?: string
           id?: string
           staff_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_staff_contact_suppressions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_staff_contacts: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           driver_id: string
@@ -3357,6 +3499,7 @@ export type Database = {
           staff_id: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           driver_id: string
@@ -3364,13 +3507,22 @@ export type Database = {
           staff_id: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           driver_id?: string
           id?: string
           staff_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_staff_contacts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_uploads: {
         Row: {
@@ -5297,6 +5449,7 @@ export type Database = {
         Row: {
           amendment_id: string
           change_type: string
+          company_id: string
           created_at: string
           id: string
           is_primary: boolean
@@ -5313,6 +5466,7 @@ export type Database = {
         Insert: {
           amendment_id: string
           change_type: string
+          company_id: string
           created_at?: string
           id?: string
           is_primary?: boolean
@@ -5329,6 +5483,7 @@ export type Database = {
         Update: {
           amendment_id?: string
           change_type?: string
+          company_id?: string
           created_at?: string
           id?: string
           is_primary?: boolean
@@ -5350,6 +5505,13 @@ export type Database = {
             referencedRelation: "ica_amendments"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "ica_amendment_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       ica_amendments: {
@@ -5362,6 +5524,7 @@ export type Database = {
           carrier_signed_by: string | null
           carrier_title: string | null
           carrier_typed_name: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           effective_date: string | null
@@ -5388,6 +5551,7 @@ export type Database = {
           carrier_signed_by?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           effective_date?: string | null
@@ -5414,6 +5578,7 @@ export type Database = {
           carrier_signed_by?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           effective_date?: string | null
@@ -5432,6 +5597,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "ica_amendments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "ica_amendments_operator_id_fkey"
             columns: ["operator_id"]
@@ -5704,6 +5876,7 @@ export type Database = {
           assigned_group: string
           billed_to_company_account: boolean
           closed_at: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           credited_reason: string | null
@@ -5745,6 +5918,7 @@ export type Database = {
           assigned_group: string
           billed_to_company_account?: boolean
           closed_at?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           credited_reason?: string | null
@@ -5786,6 +5960,7 @@ export type Database = {
           assigned_group?: string
           billed_to_company_account?: boolean
           closed_at?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           credited_reason?: string | null
@@ -5824,6 +5999,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inspection_cycles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inspection_cycles_inspection_id_fkey"
             columns: ["inspection_id"]
@@ -5953,6 +6135,7 @@ export type Database = {
       inspection_program_payments: {
         Row: {
           amount: number
+          company_id: string
           created_at: string
           created_by: string | null
           cycle_id: string | null
@@ -5972,6 +6155,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id: string
           created_at?: string
           created_by?: string | null
           cycle_id?: string | null
@@ -5991,6 +6175,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string
           created_at?: string
           created_by?: string | null
           cycle_id?: string | null
@@ -6009,6 +6194,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "inspection_program_payments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "inspection_program_payments_cycle_id_fkey"
             columns: ["cycle_id"]
@@ -9090,6 +9282,7 @@ export type Database = {
       }
       pandadoc_documents: {
         Row: {
+          company_id: string
           document_name: string
           id: string
           operator_id: string
@@ -9100,6 +9293,7 @@ export type Database = {
           signed_at: string | null
         }
         Insert: {
+          company_id: string
           document_name: string
           id?: string
           operator_id: string
@@ -9110,6 +9304,7 @@ export type Database = {
           signed_at?: string | null
         }
         Update: {
+          company_id?: string
           document_name?: string
           id?: string
           operator_id?: string
@@ -9120,6 +9315,13 @@ export type Database = {
           signed_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pandadoc_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pandadoc_documents_operator_id_fkey"
             columns: ["operator_id"]
@@ -9466,6 +9668,7 @@ export type Database = {
       }
       pay_policy_assignments: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           effective_end_date: string | null
@@ -9477,6 +9680,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           effective_end_date?: string | null
@@ -9488,6 +9692,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           effective_end_date?: string | null
@@ -9499,6 +9704,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pay_policy_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pay_policy_assignments_created_by_fkey"
             columns: ["created_by"]
@@ -10431,6 +10643,7 @@ export type Database = {
         Row: {
           amount: number
           balance_after: number | null
+          company_id: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -10442,6 +10655,7 @@ export type Database = {
         Insert: {
           amount: number
           balance_after?: number | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -10453,6 +10667,7 @@ export type Database = {
         Update: {
           amount?: number
           balance_after?: number | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -10462,6 +10677,13 @@ export type Database = {
           transaction_type?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "rm_deposit_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rm_deposit_transactions_created_by_fkey"
             columns: ["created_by"]
@@ -10487,6 +10709,7 @@ export type Database = {
       }
       rm_deposits: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           current_balance: number
@@ -10501,6 +10724,7 @@ export type Database = {
           weekly_deduction: number | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           current_balance?: number
@@ -10515,6 +10739,7 @@ export type Database = {
           weekly_deduction?: number | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           current_balance?: number
@@ -10529,6 +10754,13 @@ export type Database = {
           weekly_deduction?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rm_deposits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rm_deposits_created_by_fkey"
             columns: ["created_by"]
@@ -11583,6 +11815,7 @@ export type Database = {
         Row: {
           changed_at: string
           changed_by: string | null
+          company_id: string
           field: string
           id: string
           new_value: string | null
@@ -11591,6 +11824,7 @@ export type Database = {
         Insert: {
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           field: string
           id?: string
           new_value?: string | null
@@ -11599,6 +11833,7 @@ export type Database = {
         Update: {
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           field?: string
           id?: string
           new_value?: string | null
@@ -11610,6 +11845,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "settlement_settings_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -11872,6 +12114,7 @@ export type Database = {
       staff_email_overrides: {
         Row: {
           category: string
+          company_id: string
           email_enabled: boolean
           id: string
           updated_at: string
@@ -11879,6 +12122,7 @@ export type Database = {
         }
         Insert: {
           category: string
+          company_id: string
           email_enabled: boolean
           id?: string
           updated_at?: string
@@ -11886,12 +12130,21 @@ export type Database = {
         }
         Update: {
           category?: string
+          company_id?: string
           email_enabled?: boolean
           id?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_email_overrides_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_event_acknowledgments: {
         Row: {
@@ -11978,6 +12231,7 @@ export type Database = {
       }
       staff_help_messages: {
         Row: {
+          company_id: string
           content: string
           created_at: string
           follow_ups: string[]
@@ -11988,6 +12242,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id: string
           content: string
           created_at?: string
           follow_ups?: string[]
@@ -11998,6 +12253,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string
           content?: string
           created_at?: string
           follow_ups?: string[]
@@ -12008,6 +12264,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_help_messages_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_help_messages_thread_id_fkey"
             columns: ["thread_id"]
@@ -12060,6 +12323,7 @@ export type Database = {
       }
       staff_help_threads: {
         Row: {
+          company_id: string
           created_at: string
           id: string
           pinned: boolean
@@ -12068,6 +12332,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           id?: string
           pinned?: boolean
@@ -12076,6 +12341,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           id?: string
           pinned?: boolean
@@ -12083,12 +12349,21 @@ export type Database = {
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_help_threads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_messaging_settings: {
         Row: {
           availability_mode: Database["public"]["Enums"]["staff_availability_mode"]
           availability_note: string | null
+          company_id: string
           staff_id: string
           updated_at: string
           updated_by: string | null
@@ -12096,6 +12371,7 @@ export type Database = {
         Insert: {
           availability_mode?: Database["public"]["Enums"]["staff_availability_mode"]
           availability_note?: string | null
+          company_id: string
           staff_id: string
           updated_at?: string
           updated_by?: string | null
@@ -12103,11 +12379,20 @@ export type Database = {
         Update: {
           availability_mode?: Database["public"]["Enums"]["staff_availability_mode"]
           availability_note?: string | null
+          company_id?: string
           staff_id?: string
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "staff_messaging_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_ui_preferences: {
         Row: {
@@ -12383,6 +12668,7 @@ export type Database = {
           action: string
           changed_by: string | null
           changed_by_name: string | null
+          company_id: string
           created_at: string
           id: string
           operator_id: string
@@ -12397,6 +12683,7 @@ export type Database = {
           action: string
           changed_by?: string | null
           changed_by_name?: string | null
+          company_id: string
           created_at?: string
           id?: string
           operator_id: string
@@ -12411,6 +12698,7 @@ export type Database = {
           action?: string
           changed_by?: string | null
           changed_by_name?: string | null
+          company_id?: string
           created_at?: string
           id?: string
           operator_id?: string
@@ -12430,6 +12718,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "truck_plate_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "truck_plate_history_operator_id_fkey"
             columns: ["operator_id"]
             isOneToOne: false
@@ -12440,6 +12735,7 @@ export type Database = {
       }
       truck_state_permits: {
         Row: {
+          company_id: string
           created_at: string
           document_id: string | null
           expires_at: string | null
@@ -12452,6 +12748,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           document_id?: string | null
           expires_at?: string | null
@@ -12464,6 +12761,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           document_id?: string | null
           expires_at?: string | null
@@ -12476,6 +12774,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "truck_state_permits_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "truck_state_permits_document_id_fkey"
             columns: ["document_id"]
@@ -12609,6 +12914,7 @@ export type Database = {
       }
       vacant_units: {
         Row: {
+          company_id: string
           created_at: string
           disposition: string
           held_at: string
@@ -12633,6 +12939,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           disposition?: string
           held_at?: string
@@ -12657,6 +12964,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           disposition?: string
           held_at?: string
@@ -12681,6 +12989,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "vacant_units_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "vacant_units_operator_id_fkey"
             columns: ["operator_id"]
@@ -13288,6 +13603,7 @@ export type Database = {
           assigned_group: string
           billed_to_company_account: boolean
           closed_at: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           credited_reason: string | null
@@ -13713,6 +14029,7 @@ export type Database = {
           assigned_group: string
           billed_to_company_account: boolean
           closed_at: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           credited_reason: string | null
@@ -13817,6 +14134,7 @@ export type Database = {
           assigned_group: string
           billed_to_company_account: boolean
           closed_at: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           credited_reason: string | null

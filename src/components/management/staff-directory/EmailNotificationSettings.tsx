@@ -1,5 +1,6 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
@@ -92,7 +93,7 @@ export default function EmailNotificationSettings({ staff }: Props) {
       const enabled = state === 'on';
       const { error } = await supabase
         .from('staff_email_overrides')
-        .upsert({ user_id: userId, category, email_enabled: enabled, updated_at: new Date().toISOString() },
+        .upsert(insertPayload('staff_email_overrides', { user_id: userId, category, email_enabled: enabled, updated_at: new Date().toISOString() }),
           { onConflict: 'user_id,category' });
       setSaving(null);
       if (error) {

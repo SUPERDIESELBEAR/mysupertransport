@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -61,7 +62,7 @@ export default function StaffEmailCategoryPrefs() {
       const enabled = next === 'on';
       const { error } = await supabase
         .from('staff_email_overrides')
-        .upsert({ user_id: userId, category, email_enabled: enabled, updated_at: new Date().toISOString() },
+        .upsert(insertPayload('staff_email_overrides', { user_id: userId, category, email_enabled: enabled, updated_at: new Date().toISOString() }),
           { onConflict: 'user_id,category' });
       setSaving(null);
       if (error) return toast({ title: 'Save failed', description: error.message, variant: 'destructive' });

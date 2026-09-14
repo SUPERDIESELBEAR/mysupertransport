@@ -668,6 +668,8 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.inspection_grace_used(uuid)",
   "public.grant_inspection_grace(uuid,integer,text,boolean)",
   "public.review_inspection_grace_request(uuid,boolean,text,boolean)",
+  "public.unit_number_holders(text)",
+  "public.unit_number_pool()",
 ];
 
 // 65 + the interim certify_rods_day overload + get_eld_escalation_ledger
@@ -794,7 +796,13 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // 2026-09-12: 127 + 4 = 131. The four quarterly inspection-bonus grace RPCs,
 //   created by the 2026-09-11 staged migrations and left unregistered by that
 //   pass. Two are driver self-scoped, two check management|owner in-body.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 131;
+// 2026-09-15: 131 + 2 = 133. `unit_number_holders(text)` and
+//   `unit_number_pool()` arrived with the unit-number config migration and were
+//   left unregistered by it. Both are STABLE, search-path pinned, read-only, and
+//   gate in-body on onboarding_staff|management|owner before any read; the pool
+//   reads its bounds from `unit_number_config` for `current_company_id()` only,
+//   so neither is a cross-company reader.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 133;
 
 
 

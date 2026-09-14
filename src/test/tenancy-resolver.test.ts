@@ -35,6 +35,30 @@ function psql(sql: string): string[] {
     .split('\n').map(l => l.trim()).filter(Boolean);
 }
 
+/** The six tables stamped in B2 plus the two singleton carriers from B3. */
+const B2_B3_STAMPED = [
+  'brokers', 'equipment_items', 'facilities', 'loads', 'operators',
+  'owner_transfers', 'pay_policies', 'user_roles',
+] as const;
+
+/**
+ * BATCH B4 — the 31 tables that held no rows. Empty means no backfill could
+ * fail, which is why they went first; it does not make the column optional, so
+ * every one of them is asserted the same way as a populated table.
+ */
+const B4_TABLES = [
+  'broker_contacts', 'broker_do_not_load_history', 'broker_documents',
+  'broker_factoring_history', 'broker_notes', 'cash_advances', 'company_documents',
+  'deduction_installments', 'deductions', 'detention_claims', 'dispatch_deductions',
+  'dispatch_settlement_rates_history', 'document_send_log',
+  'driver_staff_contact_suppressions', 'driver_staff_contacts', 'ica_amendment_units',
+  'ica_amendments', 'inspection_cycles', 'inspection_program_payments',
+  'pandadoc_documents', 'pay_policy_assignments', 'rm_deposit_transactions',
+  'rm_deposits', 'settlement_settings_history', 'staff_email_overrides',
+  'staff_help_messages', 'staff_help_threads', 'staff_messaging_settings',
+  'truck_plate_history', 'truck_state_permits', 'vacant_units',
+] as const;
+
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -365,12 +389,10 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
       WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
         AND t.tgenabled = 'O' ORDER BY 1`);
-    // Six from B2 plus the two singleton carriers from B3. A new stamped table
-    // must be added here deliberately, so an accidental stamp is a red suite.
-    expect(rows.sort()).toEqual([
-      'brokers', 'equipment_items', 'facilities', 'loads', 'operators',
-      'owner_transfers', 'pay_policies', 'user_roles',
-    ]);
+    // Six from B2, the two singleton carriers from B3, the 31 empty tables from
+    // B4. A new stamped table must be added here deliberately, so an accidental
+    // stamp is a red suite.
+    expect(rows.sort()).toEqual([...B2_B3_STAMPED, ...B4_TABLES].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
     const before = psql(`SELECT t.tgname FROM pg_trigger t
@@ -562,5 +584,73 @@ describe('carrier_profile read scope', () => {
     const [withLogin, unresolvable] = row.split(' ').map(Number);
     expect(withLogin).toBeGreaterThan(0);
     expect(unresolvable).toBe(0);
+  });
+});
+
+/**
+ * BATCH B4 — `company_id` on the 31 tables that held no rows.
+ *
+ * All 31 are written on staff-authenticated paths, so Shape 1 (the trigger
+ * resolves the caller's company) applies throughout: no anonymous or
+ * service-role-only writer among them.
+ *
+ * Their unique indexes are deliberately left GLOBAL: each keys on an id that is
+ * itself company-owned (`broker_id`, `operator_id`, `deduction_id`, `cycle_id`,
+ * `user_id`), so a second company cannot collide on one without owning the
+ * parent. That reasoning is asserted rather than trusted — if any of these ever
+ * keys on something a tenant chooses (a name, a code), it must be re-scoped.
+ */
+describe('tenancy batch B4 — the 31 empty tables', () => {
+  itLive('company_id is NOT NULL with no default on all 31', () => {
+    const rows = psql(`SELECT a.attrelid::regclass::text || ' ' || a.attnotnull::text || ' ' ||
+        a.atthasdef::text || ' ' || COALESCE(pg_get_expr(d.adbin, d.adrelid), 'none')
+      FROM pg_attribute a
+      LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+      WHERE a.attname = 'company_id' AND NOT a.attisdropped
+        AND a.attrelid = ANY (ARRAY[${B4_TABLES.map(t => `'public.${t}'::regclass`).join(', ')}])
+      ORDER BY 1`);
+    expect(rows.length).toBe(B4_TABLES.length);
+    for (const r of rows) expect(r).toMatch(/ true false none$/);
+  });
+
+  itLive('all 31 reference carrier_profile with ON DELETE RESTRICT', () => {
+    const rows = psql(`SELECT c.conrelid::regclass::text FROM pg_constraint c
+      WHERE c.contype = 'f' AND c.confrelid = 'public.carrier_profile'::regclass
+        AND c.confdeltype = 'r'
+        AND c.conrelid = ANY (ARRAY[${B4_TABLES.map(t => `'public.${t}'::regclass`).join(', ')}])
+      ORDER BY 1`);
+    expect(rows.length).toBe(B4_TABLES.length);
+  });
+
+  itLive('no B4 table has a unique index keyed on tenant-chosen text', () => {
+    const rows = psql(`SELECT tablename || ' ' || indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND indexdef ILIKE '%UNIQUE%'
+        AND indexname NOT LIKE '%_pkey'
+        AND tablename = ANY (ARRAY[${B4_TABLES.map(t => `'${t}'`).join(', ')}])
+      ORDER BY 1`);
+    // Every one of these keys on an id owned by a company, never on a name or
+    // code a second tenant could pick independently.
+    expect(rows).toEqual([
+      'broker_contacts broker_contacts_one_primary_idx',
+      'deduction_installments deduction_installments_deduction_id_installment_number_key',
+      'driver_staff_contact_suppressions driver_staff_contact_suppressions_driver_id_staff_id_key',
+      'driver_staff_contacts driver_staff_contacts_driver_id_staff_id_key',
+      'ica_amendments ica_amendments_operator_id_amendment_number_key',
+      'inspection_cycles inspection_cycles_operator_id_cycle_year_cycle_month_key',
+      'inspection_program_payments inspection_payments_one_per_cycle',
+      'inspection_program_payments inspection_payments_one_per_stop',
+      'rm_deposits rm_deposits_operator_id_key',
+      'staff_email_overrides staff_email_overrides_user_id_category_key',
+      'truck_state_permits truck_state_permits_operator_id_state_code_key',
+    ]);
+  });
+
+  itLive('no B4 row points off the live carrier', () => {
+    for (const t of B4_TABLES) {
+      const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toBe('0 0');
+    }
   });
 });

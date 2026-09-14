@@ -12751,3 +12751,165 @@ the bulk batch.
 `operator-fuel-isolation`, `operator-settlement-isolation`, `operator-pay-exposure`,
 `notification-isolation`, `load-charge-gate-order` — 12 files / 114 tests, all green.
 `npx tsgo --noEmit` clean. Security linter unchanged at its 170 pre-existing issues.
+
+---
+
+## 2026-09-15 — Tenancy re-cut recorded, two decisions, and batch B4 (31 empty tables)
+
+### The re-cut replaces the 2026-09-13 batching plan from B3 onward
+
+The plan of record is now the 2026-09-14 re-cut: **178 tables still lacking
+`company_id`, 33,833 rows**, in batches **B4 → B5 → B6 → B7 → B8**, with the GLOBAL
+tables declared before B5 begins.
+
+- **B4** — 31 tables with no rows.
+- **B5** — 66 staff-written tables with rows.
+- **B6** — 45 driver-written tables. Unblocked by the 2026-09-14 driver resolver.
+- **B7** — the four large logs: `notifications`, `dispatch_daily_log`, `audit_log`,
+  `email_send_log`.
+- **B8** — 6 token/share tables, including the two anonymous-path writers.
+
+**The superseded plan's three errors, recorded so the corrected version is not read
+as the original:**
+
+1. Its B3 figure (~70 tables, ~2,900 rows) counted only tables that had rows AND no
+   non-primary unique index. It excluded 55 empty tables and mis-sized the batch
+   sevenfold: the real qualifying set was 69 tables and 21,861 rows.
+2. The four large logs were assigned to B5 while actually qualifying for B3.
+3. 45 driver-written tables were described as "mechanical". They are the batch where
+   a mistake surfaces as a driver unable to do his job, and they now have their own
+   batch and their own verification.
+
+### DECISION — a THIRD stamping shape, scope limited to B8
+
+`share_token_access_log` is written by `_share_token_gate` on behalf of an anonymous
+visitor: no membership row, no operator row, not `service_role`. Neither sanctioned
+shape fits. `document_short_links` via `get_or_create_short_link` is the same.
+
+**Shape 3: the company is DERIVED FROM THE PARENT RECORD inside the definer
+function.** Its scope is *tables written by a definer function on an anonymous path* —
+it is a third shape with a stated scope, not an exception carved out of the other two.
+Nothing outside B8 may use it without a new decision.
+
+### DECISION — `suppressed_emails` and `email_unsubscribe_tokens` stay GLOBAL
+
+A hard bounce is a property of the mailbox and is true for every sender; a complaint
+damages the reputation of the shared sending domain. An unsubscribe differs in
+principle, but all mail leaves one domain today, so per-carrier suppression would mean
+two carriers emailing a person from the same domain after one opt-out.
+
+**TRIGGER: revisit when any tenant has its own sending domain.**
+
+### Batch B4 — the 31 empty tables
+
+`broker_contacts`, `broker_do_not_load_history`, `broker_documents`,
+`broker_factoring_history`, `broker_notes`, `cash_advances`, `company_documents`,
+`deduction_installments`, `deductions`, `detention_claims`, `dispatch_deductions`,
+`dispatch_settlement_rates_history`, `document_send_log`,
+`driver_staff_contact_suppressions`, `driver_staff_contacts`, `ica_amendment_units`,
+`ica_amendments`, `inspection_cycles`, `inspection_program_payments`,
+`pandadoc_documents`, `pay_policy_assignments`, `rm_deposit_transactions`,
+`rm_deposits`, `settlement_settings_history`, `staff_email_overrides`,
+`staff_help_messages`, `staff_help_threads`, `staff_messaging_settings`,
+`truck_plate_history`, `truck_state_permits`, `vacant_units`.
+
+Each: nullable column → bare-scalar backfill (no-op, zero rows) → NOT NULL, no default
+surviving, FK to `carrier_profile(id) ON DELETE RESTRICT`, a `company_id` index, and
+the `aa_stamp_tenant_company_id` BEFORE INSERT trigger.
+
+**Stamping shape: Shape 1 for all 31, confirmed per table rather than assumed.** Every
+write path is an authenticated staff/member path or a definer function that itself
+requires staff. None of the 31 has a `service_role`-only writer and none has an
+anonymous writer, so no table in this batch needed Shape 2 or Shape 3.
+
+**Correction to the re-cut:** it named
+`equipment_serial_conflict_dismissals(conflict_key)` as a B4 index needing per-company
+scoping. That table **has 4 rows** and is therefore not in B4 at all. It belongs to a
+populated batch and its index decision moves with it.
+
+**Every unique index on the 31, and its disposition — all UNCHANGED (global), with the
+reason:** each keys on an id that is itself company-owned, so a second company cannot
+collide on one without owning the parent row.
+
+| Index | Key | Disposition |
+| --- | --- | --- |
+| `broker_contacts_one_primary_idx` | `(broker_id) WHERE is_primary` | global — `brokers` is per-company since B2 |
+| `deduction_installments_..._installment_number_key` | `(deduction_id, installment_number)` | global — parent `deductions` is per-company |
+| `driver_staff_contact_suppressions_driver_id_staff_id_key` | `(driver_id, staff_id)` | global — both ids are company-owned |
+| `driver_staff_contacts_driver_id_staff_id_key` | `(driver_id, staff_id)` | global — same |
+| `ica_amendments_operator_id_amendment_number_key` | `(operator_id, amendment_number)` | global — `operators` is per-company since B2 |
+| `inspection_cycles_operator_id_cycle_year_cycle_month_key` | `(operator_id, cycle_year, cycle_month)` | global — same |
+| `inspection_payments_one_per_cycle` | `(cycle_id)` | global — parent cycle is per-company |
+| `inspection_payments_one_per_stop` | `(roadside_stop_id)` | global — parent stop is per-company |
+| `rm_deposits_operator_id_key` | `(operator_id)` | global — one R&M Deposit per operator |
+| `staff_email_overrides_user_id_category_key` | `(user_id, category)` | global — a user belongs to one company |
+| `truck_state_permits_operator_id_state_code_key` | `(operator_id, state_code)` | global — operator-scoped |
+
+**Triggers that had to move with an index: none.** No index in this batch was
+re-scoped, so no rule was left enforced at a different scope than its index. The
+`enforce_equipment_serial_uniqueness` case from B2 has no analogue here.
+
+### Verification
+
+- All 31: `attnotnull` true, `atthasdef` false, no default expression, RESTRICT FK to
+  `carrier_profile`, `aa_stamp_tenant_company_id` present and enabled.
+- Row counts before and after: **0 → 0** on all 31. No backfill could fail.
+- Policies **554 → 560**, and the drift is NOT from B4. B4 created no policy. The six
+  are the two accepted draft migrations applied the same day:
+  `application_interview_notes` (4) and `unit_number_config` (2). **560 is the new
+  baseline.**
+- `grant_parity_report()` — 0 rows. `user_roles` owner count — 1.
+
+All three probes ran inside a transaction that raised at the end, per the money-table
+probe rule; `carrier_profile` is back to one row and all 31 tables back to zero rows.
+
+Shape 2, service-role naming a scratch second company, alongside Shape 1 resolving
+SUPERTRANSPORT in the same transaction:
+
+```
+b4_probe_member  -> 6b54d0e6-8743-4284-b55b-8cd094b093dd (supertransport=t scratch=f)
+b4_probe_scratch -> a247341c-1a46-4011-a0d5-d6f5fd51355a (supertransport=f scratch=t)
+```
+
+A member spoofing another company_id is overwritten, not honoured:
+
+```
+b4_probe_spoof   -> 6b54d0e6-8743-4284-b55b-8cd094b093dd (supertransport=t scratch=f)
+```
+
+A caller who is neither member nor operator, verbatim:
+
+```
+sqlstate=42501 message=Cannot resolve a company for this public.staff_email_overrides
+row: the caller holds no company_members row and no server-side company was named.
+Refusing rather than defaulting to a carrier.
+```
+
+### Client writes
+
+The generated types now require `company_id` on all 31 tables, which turned 13 browser
+insert sites red. Each was wrapped in the existing `insertPayload(table, row)` helper —
+the same treatment B2 gave `facilities`, `brokers` and `equipment_items` — so the
+client keeps sending no `company_id` and the server keeps stamping it. No client now
+names a company.
+
+### Suites
+
+`tenancy-resolver` (45 tests, including the new four-test B4 block),
+`definer-live-catalog`, `definer-search-path`, `definer-fail-open`,
+`grant-parity-live`, `policy-grant-parity`, `notification-isolation`,
+`operator-fuel-isolation`, `operator-settlement-isolation` — all green. `tsc --noEmit`
+clean.
+
+`definer-live-catalog` went RED first, on `unit_number_holders(text)` and
+`unit_number_pool()` — both left unregistered by the accepted unit-number draft
+migration, not by B4. Both are STABLE, search-path pinned, read-only and gate in-body
+on onboarding_staff|management|owner, so they were registered with that rationale and
+the ceiling moved 131 → 133.
+
+### Contradictions
+
+1. The re-cut named `equipment_serial_conflict_dismissals` as a B4 table needing a
+   per-company index. It has 4 rows and is not in B4.
+2. The requested check was "policies 554 → 554". Live count is 560, from the two
+   accepted draft migrations of the same day, not from B4.
