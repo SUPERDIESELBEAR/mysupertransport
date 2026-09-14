@@ -205,7 +205,14 @@ Deno.serve(async (req) => {
           // Carry forward background verification statuses from application
           const onboardingInsert: Record<string, unknown> = { operator_id: newOp.id };
           if (app.mvr_status) onboardingInsert.mvr_status = app.mvr_status;
+          if (app.psp_status) onboardingInsert.psp_status = app.psp_status;
           if (app.ch_status) onboardingInsert.ch_status = app.ch_status;
+          if (app.mvr_requested_date) onboardingInsert.mvr_requested_date = app.mvr_requested_date;
+          if (app.mvr_received_date) onboardingInsert.mvr_received_date = app.mvr_received_date;
+          if (app.psp_requested_date) onboardingInsert.psp_requested_date = app.psp_requested_date;
+          if (app.psp_received_date) onboardingInsert.psp_received_date = app.psp_received_date;
+          if (app.ch_requested_date) onboardingInsert.ch_requested_date = app.ch_requested_date;
+          if (app.ch_received_date) onboardingInsert.ch_received_date = app.ch_received_date;
           if (app.mvr_status === 'received' && app.ch_status === 'received') {
             onboardingInsert.mvr_ch_approval = 'approved';
           }
