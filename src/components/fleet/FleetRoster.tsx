@@ -1188,6 +1188,8 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
         onClose={() => setIntervalDialogOpen(false)}
         onSaved={fetchFleet}
       />
+      <UnitNumberPoolPanel open={showUnitPool} onOpenChange={setShowUnitPool} />
+
       {logUpdateTarget && (
         <LogUpdateModal
           open={!!logUpdateTarget}
