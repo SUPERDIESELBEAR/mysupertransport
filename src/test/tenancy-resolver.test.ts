@@ -425,7 +425,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     // Six from B2, the two singleton carriers from B3, the 31 empty tables from
     // B4. A new stamped table must be added here deliberately, so an accidental
     // stamp is a red suite.
-    expect(rows.sort()).toEqual([...B2_B3_STAMPED, ...B4_TABLES].sort());
+    expect(rows.sort()).toEqual([...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
     const before = psql(`SELECT t.tgname FROM pg_trigger t
