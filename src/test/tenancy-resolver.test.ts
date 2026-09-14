@@ -687,3 +687,98 @@ describe('tenancy batch B4 — the 31 empty tables', () => {
     }
   });
 });
+
+/**
+ * BATCH B5 PART ONE — the two carrier-data singletons, and the declarations.
+ *
+ * `settlement_settings` was one row globally because its PRIMARY KEY was a
+ * boolean column with `CHECK (singleton)`; `carrier_signature_settings` was one
+ * row globally because of `UNIQUE ((true))`. A second carrier could have
+ * neither its own pay rules nor its own signature block until both moved.
+ */
+describe('tenancy B5 part one — settlement settings and the signature block', () => {
+  itLive('both singleton tables carry a required, undefaulted, RESTRICT-ed company', () => {
+    for (const t of B5_SINGLETONS) {
+      const [row] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text || ' ' ||
+          (SELECT count(*)::text FROM pg_constraint k
+            WHERE k.conrelid = c.oid AND k.contype = 'f'
+              AND k.confrelid = 'public.carrier_profile'::regclass
+              AND k.confdeltype = 'r')
+        FROM pg_class c JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'company_id'
+        WHERE c.oid = 'public.${t}'::regclass`);
+      expect(row, t).toBe('true false 1');
+    }
+  });
+
+  itLive('settlement settings are keyed PER COMPANY, and the singleton CHECK is gone', () => {
+    const checks = psql(`SELECT conname FROM pg_constraint
+      WHERE conrelid = 'public.settlement_settings'::regclass
+        AND conname = 'settlement_settings_singleton_check'`);
+    expect(checks).toEqual([]);
+    const [pk] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND indexname = 'settlement_settings_pkey'`);
+    expect(pk).toMatch(/\(company_id\)/);
+  });
+
+  itLive('the signature block is unique PER COMPANY, not UNIQUE ((true))', () => {
+    const idx = psql(`SELECT indexname || ' ' || indexdef FROM pg_indexes
+      WHERE schemaname = 'public' AND tablename = 'carrier_signature_settings'
+        AND indexdef ILIKE '%UNIQUE%' ORDER BY 1`);
+    expect(idx.some(i => i.startsWith('carrier_signature_settings_singleton '))).toBe(false);
+    const scoped = idx.find(i => i.startsWith('carrier_signature_settings_company_unique'));
+    expect(scoped).toBeTruthy();
+    expect(scoped).toMatch(/\(company_id\)/);
+  });
+
+  itLive('every reader of the settings row names the caller company', () => {
+    for (const fn of ['approve_accessorial_adjustment', 'my_rm_deposit', 'my_fuel_transactions']) {
+      const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
+      expect(code, fn).toMatch(/settlement_settings/);
+      // Neither "the" settings row nor "one" settings row: the caller's.
+      expect(code, fn).not.toMatch(/settlement_settings\s+\w*\s*(WHERE singleton|LIMIT 1)/);
+      expect(code, fn).toMatch(/company_id = public\.current_company_id\(\)/);
+    }
+  });
+
+  itLive('policies on both tables scope to the caller company', () => {
+    for (const t of B5_SINGLETONS) {
+      const rows = psql(`SELECT policyname || ' | ' || coalesce(qual, '') || ' | ' ||
+          coalesce(with_check, '') FROM pg_policies
+        WHERE schemaname = 'public' AND tablename = '${t}' ORDER BY 1`);
+      expect(rows.length, t).toBeGreaterThan(0);
+      for (const r of rows) expect(r, t).toMatch(/current_company_id\(\)/);
+    }
+  });
+
+  itLive('email_send_state stays GLOBAL, deliberately', () => {
+    // Declared GLOBAL 2026-09-13: the send cursor belongs to the shared sending
+    // domain, not to a carrier. Adding company_id here needs a new decision.
+    const cols = psql(`SELECT a.attname FROM pg_attribute a
+      WHERE a.attrelid = 'public.email_send_state'::regclass AND a.attname = 'company_id'`);
+    expect(cols).toEqual([]);
+    const [chk] = psql(`SELECT conname FROM pg_constraint
+      WHERE conrelid = 'public.email_send_state'::regclass
+        AND conname = 'email_send_state_id_check'`);
+    expect(chk).toBe('email_send_state_id_check');
+  });
+
+  itLive('the 20 GLOBAL tables carry no company_id', () => {
+    for (const t of GLOBAL_TABLES) {
+      const cols = psql(`SELECT a.attname FROM pg_attribute a
+        WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
+      expect(cols, t).toEqual([]);
+    }
+    expect(GLOBAL_TABLES.length).toBe(20);
+  });
+
+  itLive('the 6 DEFERRED content tables are untouched, and that is deliberate', () => {
+    for (const t of DEFERRED_TABLES) {
+      const cols = psql(`SELECT a.attname FROM pg_attribute a
+        WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
+      expect(cols, t).toEqual([]);
+    }
+    expect(DEFERRED_TABLES.length).toBe(6);
+  });
+});
