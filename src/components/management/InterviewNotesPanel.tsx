@@ -86,9 +86,9 @@ export function InterviewNotesPanel({ applicationId, applicantName, onCountChang
     }
     const rows = (data ?? []) as InterviewNote[];
     setNotes(rows);
-    onCountChange?.(applicationId, rows.length);
+    onCountChangeRef.current?.(applicationId, rows.length);
     setLoading(false);
-  }, [applicationId, onCountChange]);
+  }, [applicationId]);
 
   useEffect(() => {
     setLoading(true);
