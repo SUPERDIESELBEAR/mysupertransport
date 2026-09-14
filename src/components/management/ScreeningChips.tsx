@@ -12,12 +12,8 @@ export interface ScreeningCheck {
   receivedDate?: string | null;
 }
 
-/** Only received carries a mark; requested / not started show the bare label. */
-const MARK: Record<ScreeningStatusValue, string> = {
-  received: '✓',
-  requested: '',
-  not_started: '',
-};
+/** No marks in any state — uniform-width chips stay on one row.
+    State reads from color, and the tooltip carries the full wording. */
 
 const WORDS: Record<ScreeningStatusValue, string> = {
   received: 'Received',
@@ -60,7 +56,6 @@ function Chip({ label, status, title }: { label: string; status: ScreeningStatus
           aria-label={title}
         >
           {label}
-          {MARK[status] && <span aria-hidden="true">{MARK[status]}</span>}
         </span>
       </TooltipTrigger>
       <TooltipContent className="text-xs">{title}</TooltipContent>
