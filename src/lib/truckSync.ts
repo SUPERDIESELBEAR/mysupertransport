@@ -197,7 +197,13 @@ export async function saveTruckSpecs(
       entity_type: 'operator',
       entity_id: operatorId,
       entity_label: options.entityLabel ?? null,
-      metadata: { diff },
+      metadata: {
+        diff,
+        ...('unit_number' in diff && options.unitPoolKind
+          ? { unit_pool_kind: options.unitPoolKind }
+          : {}),
+      },
+
     });
   }
 
