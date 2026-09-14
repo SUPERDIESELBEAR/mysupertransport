@@ -43,7 +43,7 @@ async function logNoteAction(
     entity_label: applicantLabel ?? null,
     actor_id: actorId ?? null,
     actor_name: actorName,
-    metadata,
+    metadata: metadata as never,
   });
 }
 
