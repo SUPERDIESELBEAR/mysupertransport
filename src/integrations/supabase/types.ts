@@ -1558,6 +1558,7 @@ export type Database = {
       }
       carrier_signature_settings: {
         Row: {
+          company_id: string
           id: string
           signature_url: string | null
           title: string
@@ -1566,6 +1567,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          company_id: string
           id?: string
           signature_url?: string | null
           title: string
@@ -1574,6 +1576,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          company_id?: string
           id?: string
           signature_url?: string | null
           title?: string
@@ -1581,7 +1584,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "carrier_signature_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cash_advances: {
         Row: {
@@ -11763,6 +11774,7 @@ export type Database = {
       }
       settlement_settings: {
         Row: {
+          company_id: string
           created_at: string
           dispatcher_accessorial_approval_limit: number | null
           equipment_value_per_driver: number
@@ -11776,6 +11788,7 @@ export type Database = {
           work_week_start_dow: number
         }
         Insert: {
+          company_id: string
           created_at?: string
           dispatcher_accessorial_approval_limit?: number | null
           equipment_value_per_driver?: number
@@ -11789,6 +11802,7 @@ export type Database = {
           work_week_start_dow?: number
         }
         Update: {
+          company_id?: string
           created_at?: string
           dispatcher_accessorial_approval_limit?: number | null
           equipment_value_per_driver?: number
@@ -11802,6 +11816,13 @@ export type Database = {
           work_week_start_dow?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "settlement_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "settlement_settings_updated_by_fkey"
             columns: ["updated_by"]
