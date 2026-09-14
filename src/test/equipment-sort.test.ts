@@ -28,12 +28,12 @@ describe('sortEquipment', () => {
     expect(ids(sortEquipment(fixture))).toEqual(['c', 'a', 'b', 'd']);
   });
 
-  it('driver sorts A-Z by name, unassigned last', () => {
-    expect(ids(sortEquipment(fixture, 'driver'))).toEqual(['c', 'a', 'b', 'd']);
+  it('driver sorts A-Z by name, unassigned last (serial tiebreak)', () => {
+    expect(ids(sortEquipment(fixture, 'driver'))).toEqual(['c', 'a', 'd', 'b']);
   });
 
-  it('unit sorts numerically, missing unit last', () => {
-    expect(ids(sortEquipment(fixture, 'unit'))).toEqual(['c', 'a', 'b', 'd']);
+  it('unit sorts numerically, missing unit last (serial tiebreak)', () => {
+    expect(ids(sortEquipment(fixture, 'unit'))).toEqual(['c', 'a', 'd', 'b']);
   });
 
   it('serial sorts alphanumerically with no status grouping', () => {
