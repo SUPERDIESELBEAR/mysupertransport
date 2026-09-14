@@ -2149,16 +2149,13 @@ export default function ManagementPortal() {
                                 )}
                                 <div className="mt-1.5 flex items-center gap-2 flex-wrap">
                                   <ScreeningChips checks={screeningChecksFromApp(app)} />
-                                  <button
-                                    type="button"
-                                    onClick={toggleNotes}
-                                    aria-label={notes
-                                      ? `See ${notes.count} interview note${notes.count !== 1 ? 's' : ''} for ${name}, most recent by ${notes.latest}`
-                                      : `Add interview note for ${name}`}
-                                    className={`text-[11px] underline underline-offset-2 ${notes ? 'text-gold' : 'text-muted-foreground'}`}
-                                  >
-                                    {notes ? `See note${notes.count !== 1 ? 's' : ''}` : 'Add note'}
-                                  </button>
+                                  <ApplicationInterviewNotesButton
+                                    applicationId={app.id}
+                                    applicantName={name}
+                                    notes={notes}
+                                    expanded={notesOpen}
+                                    onToggle={toggleNotes}
+                                  />
                                 </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors shrink-0" />
