@@ -1,0 +1,63 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); font-size: 12px; }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .bx { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zn { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .greek { fill: var(--border-translucent); }
+    .surf { fill: var(--bg-muted); }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+    .accink { fill: var(--fg-accent); font-size: 12px; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+  </style>
+  <defs>
+    <marker id="ar" viewBox="0 0 8 8" refX="6" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M1 1 L6 4 L1 7" fill="none" stroke="var(--fg-secondary)" stroke-width="1"/>
+    </marker>
+  </defs>
+
+  <!-- Vehicle Hub screen -->
+  <rect class="zn" x="8" y="14" width="300" height="300" rx="8"/>
+  <text class="note" x="20" y="34">vehicle hub</text>
+
+  <rect class="surf" x="24" y="46" width="268" height="34" rx="8"/>
+  <text class="lbl" x="36" y="68">Vehicle Hub</text>
+  <rect class="acc" x="180" y="54" width="100" height="20" rx="10"/>
+  <text class="accink" x="190" y="68">Unit Numbers</text>
+
+  <rect class="bx" x="24" y="94" width="268" height="46" rx="8"/>
+  <text class="lbl" x="36" y="114">Unit 271</text>
+  <rect class="greek" x="36" y="122" width="150" height="7" rx="3"/>
+  <rect class="bx" x="24" y="150" width="268" height="46" rx="8"/>
+  <text class="lbl" x="36" y="170">Unit 270</text>
+  <rect class="greek" x="36" y="178" width="120" height="7" rx="3"/>
+  <rect class="bx" x="24" y="206" width="268" height="46" rx="8"/>
+  <text class="lbl" x="36" y="226">Unit 269</text>
+  <rect class="greek" x="36" y="234" width="170" height="7" rx="3"/>
+  <rect class="greek" x="24" y="266" width="268" height="7" rx="3"/>
+
+  <path class="wire" d="M300 64 L344 64" marker-end="url(#ar)"/>
+
+  <!-- Panel -->
+  <rect class="bx" x="352" y="24" width="276" height="284" rx="8"/>
+  <text class="lbl" x="368" y="48">Unit Numbers</text>
+  <text class="note" x="368" y="66">13 free · next in sequence 272</text>
+
+  <rect class="surf" x="368" y="78" width="244" height="24" rx="8"/>
+  <text class="note" x="378" y="94">search a number…</text>
+
+  <text class="note" x="368" y="126">Recycled — freed before Go-Live</text>
+  <rect class="bx" x="368" y="134" width="52" height="22" rx="11"/><text x="384" y="149">231</text>
+  <rect class="bx" x="428" y="134" width="52" height="22" rx="11"/><text x="444" y="149">248</text>
+
+  <text class="note" x="368" y="186">Never issued</text>
+  <rect class="bx" x="368" y="194" width="52" height="22" rx="11"/><text x="384" y="209">190</text>
+  <rect class="bx" x="428" y="194" width="52" height="22" rx="11"/><text x="444" y="209">192</text>
+  <rect class="bx" x="488" y="194" width="52" height="22" rx="11"/><text x="504" y="209">198</text>
+  <text class="note" x="552" y="209">+9 more</text>
+
+  <text class="note" x="368" y="252">Next in sequence</text>
+  <rect class="acc" x="368" y="260" width="52" height="22" rx="11"/><text class="accink" x="382" y="275">272</text>
+</svg>
