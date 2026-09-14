@@ -154,7 +154,13 @@ describe('current_company_id — the four protections', () => {
     // blocks certifying a log without the cached carrier name, USDOT and
     // terminal address. Writes to this table still require management/owner.
     'carrier_profile | Callers read only their own carrier profile',
+    // Staff-gated, but through `is_staff(auth.uid())` rather than `has_role`,
+    // which is what the query above matches on. Read-only: the typed name,
+    // title and signature image of the caller's own carrier. Every write policy
+    // on this table still requires management or owner.
+    'carrier_signature_settings | Staff can view carrier signature settings',
   ];
+
 
   itLive('no billing policy admits a caller merely because a company resolves', () => {
     // The resolver widened WHO resolves. It must not widen WHAT anyone may do:
