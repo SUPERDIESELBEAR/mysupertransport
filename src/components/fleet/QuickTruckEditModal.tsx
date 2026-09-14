@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { TRUCK_MAKES } from '@/components/operator/TruckInfoCard';
 import { saveTruckSpecs } from '@/lib/truckSync';
+import UnitNumberPicker from '@/components/operator/UnitNumberPicker';
 import StatePermitsEditor from './StatePermitsEditor';
 import { PERMIT_STATES, emptyPermit, type StatePermit, type PermitStateCode } from '@/lib/statePermits';
 

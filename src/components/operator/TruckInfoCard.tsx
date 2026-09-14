@@ -10,6 +10,7 @@ import { US_STATES } from '@/components/application/types';
 import { buildTrackingUrl, shortTracking } from '@/components/equipment/equipmentTracking';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { format, parseISO } from 'date-fns';
+import UnitNumberPicker from '@/components/operator/UnitNumberPicker';
 
 export const TRUCK_MAKES = [
   'Freightliner', 'Kenworth', 'Peterbilt', 'Volvo',
