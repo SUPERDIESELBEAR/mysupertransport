@@ -103,6 +103,24 @@ export function poolKindFor(unit: string, pool: UnitPoolEntry[]): UnitPoolKind |
   return pool.find(e => e.unit === n)?.kind ?? 'manual';
 }
 
+/* ------------------------- not switched on yet -------------------------- */
+
+/**
+ * The pool functions ship with a staged database change, so until that change
+ * is accepted the list simply does not exist. Say so in words a person can act
+ * on — typing a number by hand keeps working either way.
+ */
+export const POOL_UNAVAILABLE_MESSAGE =
+  'The available-number list turns on when this draft is accepted. You can type the unit number in the meantime.';
+
+/** True when the error is "that function does not exist", not a real failure. */
+export function isPoolMissing(error: unknown): boolean {
+  const e = error as { code?: string; message?: string } | null;
+  if (!e) return false;
+  if (e.code === 'PGRST202') return true;
+  return /unit_number_pool|unit_number_holders/.test(String(e.message ?? ''));
+}
+
 /* --------------------------------- data --------------------------------- */
 
 export async function fetchUnitNumberPool(): Promise<UnitPoolEntry[]> {
