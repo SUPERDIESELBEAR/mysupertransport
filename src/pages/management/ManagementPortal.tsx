@@ -35,6 +35,7 @@ import OperatorDetailPanel from '../staff/OperatorDetailPanel';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { ScreeningChips, screeningChecksFromApp } from '@/components/management/ScreeningChips';
 import { InterviewNotesPanel } from '@/components/management/InterviewNotesPanel';
+import { ApplicationInterviewNotesButton } from '@/components/management/ApplicationInterviewNotesButton';
 import StaffDirectory from '@/components/management/StaffDirectory';
 import FaqManager from '@/components/management/FaqManager';
 import StaffHelpPortal from '@/components/management/StaffHelpPortal';
