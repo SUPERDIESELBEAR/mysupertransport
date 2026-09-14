@@ -529,16 +529,60 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     if (!app) return false;
     setSavingBg(true);
     try {
+      const today = new Date().toISOString().slice(0, 10);
+      // Stamp the request / receive date the first time a check reaches that
+      // state, and never overwrite a date that was already recorded.
+      const dateStamps: Record<string, string> = {};
+      const stampDates = (
+        prefix: 'mvr' | 'psp' | 'ch',
+        next: string,
+        prevRequested?: string | null,
+        prevReceived?: string | null,
+      ) => {
+        if ((next === 'requested' || next === 'received') && !prevRequested) {
+          dateStamps[`${prefix}_requested_date`] = today;
+        }
+        if (next === 'received' && !prevReceived) {
+          dateStamps[`${prefix}_received_date`] = today;
+        }
+      };
+      stampDates('mvr', bgMvrStatus, app.mvr_requested_date, app.mvr_received_date);
+      stampDates('psp', bgPspStatus, app.psp_requested_date, app.psp_received_date);
+      stampDates('ch', bgChStatus, app.ch_requested_date, app.ch_received_date);
+
       const patch = {
         mvr_status: bgMvrStatus as any,
+        psp_status: bgPspStatus as any,
         ch_status: bgChStatus as any,
         background_verification_notes: bgNotes || null,
+        ...dateStamps,
       };
       const { error } = await supabase
         .from('applications')
-        .update(patch)
+        .update(updatePayload('applications', patch))
         .eq('id', app.id);
       if (error) throw error;
+
+      // Screening-status changes are audit logged with attribution.
+      const changed: Record<string, { from: string; to: string }> = {};
+      if (bgMvrStatus !== (app.mvr_status ?? 'not_started')) changed.mvr = { from: app.mvr_status ?? 'not_started', to: bgMvrStatus };
+      if (bgPspStatus !== (app.psp_status ?? 'not_started')) changed.psp = { from: app.psp_status ?? 'not_started', to: bgPspStatus };
+      if (bgChStatus !== (app.ch_status ?? 'not_started')) changed.ch = { from: app.ch_status ?? 'not_started', to: bgChStatus };
+      const notesChanged = bgNotes !== (app.background_verification_notes ?? '');
+      if (Object.keys(changed).length > 0 || notesChanged) {
+        await supabase.from('audit_log').insert(insertPayload('audit_log', {
+          actor_id: user?.id ?? null,
+          actor_name: user?.user_metadata?.first_name
+            ? `${user.user_metadata.first_name} ${user.user_metadata.last_name ?? ''}`.trim()
+            : user?.email ?? 'Unknown',
+          action: 'background_verification_updated',
+          entity_type: 'application',
+          entity_id: app.id,
+          entity_label: fullName,
+          metadata: { changed, notes_changed: notesChanged } as never,
+        }));
+      }
+
       onApplicationUpdated?.({ id: app.id, ...patch });
       toast.success('Background verification saved.');
       return true;
