@@ -2111,12 +2111,20 @@ export default function ManagementPortal() {
                                 <button
                                   type="button"
                                   onClick={toggleNotes}
-                                  className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-gold transition-colors text-left"
+                                  aria-label={notes
+                                    ? `See ${notes.count} interview note${notes.count !== 1 ? 's' : ''} for ${name}, most recent by ${notes.latest}`
+                                    : `Add interview note for ${name}`}
+                                  className="flex items-center gap-1.5 text-xs text-left transition-colors"
                                 >
-                                  {notesOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0" />}
-                                  {notes
-                                    ? <span className="truncate">{notes.count} note{notes.count !== 1 ? 's' : ''}{notes.latest ? ` · ${notes.latest}` : ''}</span>
-                                    : <span>Add note</span>}
+                                  {notesOpen ? <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" /> : <ChevronRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />}
+                                  {notes ? (
+                                    <span className="flex items-center gap-1.5 min-w-0">
+                                      <span className="text-gold font-medium shrink-0">See note{notes.count !== 1 ? 's' : ''}</span>
+                                      <span className="text-muted-foreground truncate">{notes.count} · {notes.latest}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="text-muted-foreground hover:text-gold">Add note</span>
+                                  )}
                                 </button>
                               </div>
                               <div className="col-span-1">
