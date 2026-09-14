@@ -2149,9 +2149,41 @@ export default function ManagementPortal() {
                                     "{denialPreview}"
                                   </p>
                                 )}
+                                <div className="mt-1.5 flex items-center gap-2 flex-wrap">
+                                  <ScreeningChips checks={screeningChecksFromApp(app)} />
+                                  <button
+                                    type="button"
+                                    onClick={toggleNotes}
+                                    className="text-[11px] text-muted-foreground underline underline-offset-2"
+                                  >
+                                    {notes ? `${notes.count} note${notes.count !== 1 ? 's' : ''}` : 'Add note'}
+                                  </button>
+                                </div>
                               </div>
                               <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:text-gold transition-colors shrink-0" />
                             </div>
+                            {/* Only the interview notes expand — the row itself
+                                still opens the full review drawer. */}
+                            {notesOpen && (
+                              <div
+                                className="px-5 pb-4 pt-1 bg-secondary/20 border-t border-border"
+                                onClick={e => e.stopPropagation()}
+                              >
+                                <InterviewNotesPanel
+                                  applicationId={app.id}
+                                  applicantName={name}
+                                  compact
+                                  onCountChange={(id, count) =>
+                                    setNoteSummary(prev => {
+                                      const next = { ...prev };
+                                      if (count === 0) delete next[id];
+                                      else next[id] = { count, latest: prev[id]?.latest ?? '' };
+                                      return next;
+                                    })
+                                  }
+                                />
+                              </div>
+                            )}
                           </div>
                         );
                       })}
