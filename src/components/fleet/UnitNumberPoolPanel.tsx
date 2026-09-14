@@ -223,12 +223,12 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   if (isMobile) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[90dvh] overflow-y-auto">
+        <SheetContent side="bottom" className="max-h-[90dvh] flex flex-col overflow-hidden">
           <SheetHeader className="text-left">
             <SheetTitle className="flex items-center gap-2"><Hash className="h-4 w-4" /> Unit Numbers</SheetTitle>
             <SheetDescription>{summary}</SheetDescription>
           </SheetHeader>
-          <div className="mt-4">{body}</div>
+          <div className="mt-4 flex min-h-0 flex-1 flex-col">{body}</div>
         </SheetContent>
       </Sheet>
     );
@@ -236,7 +236,7 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2"><Hash className="h-4 w-4" /> Unit Numbers</DialogTitle>
           <DialogDescription>{summary}</DialogDescription>
