@@ -20,7 +20,7 @@ describe('ApplicationInterviewNotesButton', () => {
 
     const label = screen.getByText('Add note');
     expect(label.className).toContain('text-muted-foreground');
-    expect(label.className.match(/\btext-gold\b/)).toBeNull();
+    expect(label.className.split(' ')).not.toContain('text-gold');
   });
 
   it('renders "See note" in gold for a single note', () => {
