@@ -44,6 +44,7 @@ export default function UnitNumberPicker({
   const [open, setOpen] = useState(false);
   const [pool, setPool] = useState<UnitPoolEntry[] | null>(null);
   const [poolError, setPoolError] = useState<string | null>(null);
+  const [poolMissing, setPoolMissing] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const [hardCollision, setHardCollision] = useState(false);
   const [typed, setTyped] = useState('');
