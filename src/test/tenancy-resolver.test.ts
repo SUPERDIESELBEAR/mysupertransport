@@ -493,3 +493,50 @@ describe('tenancy batch B3 — pay_policies, owner_transfers', () => {
     ]);
   });
 });
+
+/**
+ * `carrier_profile` READ SCOPE — 2026-09-14.
+ *
+ * The read policy was `USING (true)` for as long as a driver could not resolve a
+ * company: `hydrate.ts` caches the seven carrier fields AS THE SIGNED-IN
+ * OPERATOR, and `carrierIdentity.ts` blocks federal record creation without that
+ * cache. Once the resolver gained the operator fallback the policy could be
+ * scoped, and it is the single predicate `id = current_company_id()` — the
+ * resolver does membership-then-operator internally.
+ *
+ * What this guards: someone widening the policy back to `true` (or adding an
+ * anon grant) so a second company's carrier row becomes visible to another
+ * company's driver.
+ */
+describe('carrier_profile read scope', () => {
+  itLive('the SELECT policy is company-scoped and nothing reads USING (true)', () => {
+    const rows = psql(`SELECT policyname || '|' || coalesce(qual, '') FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'carrier_profile' AND cmd = 'SELECT'`);
+    expect(rows).toHaveLength(1);
+    const [, qual] = rows[0].split('|');
+    expect(qual).toMatch(/current_company_id\(\)/);
+    expect(qual.trim()).not.toBe('true');
+  });
+
+  itLive('every carrier_profile policy is authenticated-only, and anon holds no table grant', () => {
+    const roles = psql(`SELECT DISTINCT unnest(roles) FROM pg_policies
+      WHERE schemaname = 'public' AND tablename = 'carrier_profile'`);
+    expect(roles.sort()).toEqual(['authenticated']);
+    const [acl] = psql(`SELECT coalesce(relacl::text, '') FROM pg_class
+      WHERE oid = 'public.carrier_profile'::regclass`);
+    expect(acl).not.toMatch(/\banon=/);
+    // service_role bypasses RLS, so the edge-function readers are unaffected —
+    // that is a property of the ROLE, asserted here so it is not assumed.
+    const [bypass] = psql(`SELECT rolbypassrls::text FROM pg_roles WHERE rolname = 'service_role'`);
+    expect(bypass).toBe('true');
+  });
+
+  itLive('every operator with a login can resolve a company, or drivers lose their carrier cache', () => {
+    const [row] = psql(`SELECT count(*) FILTER (WHERE user_id IS NOT NULL)::text || ' ' ||
+      count(*) FILTER (WHERE user_id IS NOT NULL AND company_id IS NULL)::text
+      FROM public.operators`);
+    const [withLogin, unresolvable] = row.split(' ').map(Number);
+    expect(withLogin).toBeGreaterThan(0);
+    expect(unresolvable).toBe(0);
+  });
+});
