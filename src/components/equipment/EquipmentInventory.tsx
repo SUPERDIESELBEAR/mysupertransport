@@ -13,6 +13,7 @@ import {
   Pencil, Loader2, Download, Archive, HardDrive, FileSignature, Users
 } from 'lucide-react';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import EquipmentItemModal from './EquipmentItemModal';
 import EquipmentAssignModal from './EquipmentAssignModal';
 import EquipmentReturnModal from './EquipmentReturnModal';
@@ -80,7 +81,25 @@ const STATUS_RANK: Record<EquipmentStatus, number> = {
 
 const collator = new Intl.Collator(undefined, { numeric: true, sensitivity: 'base' });
 
-export function sortEquipment(list: EquipmentItem[]): EquipmentItem[] {
+export type SectionSort = 'default' | 'driver' | 'unit' | 'serial';
+
+/** Values missing on the chosen key sort last in non-default modes. */
+function sortByKey(list: EquipmentItem[], key: (i: EquipmentItem) => string | null | undefined): EquipmentItem[] {
+  return [...list].sort((a, b) => {
+    const av = key(a), bv = key(b);
+    const aEmpty = !av, bEmpty = !bv;
+    if (aEmpty && bEmpty) return collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+    if (aEmpty) return 1;
+    if (bEmpty) return -1;
+    const byKey = collator.compare(av!, bv!);
+    return byKey !== 0 ? byKey : collator.compare(a.serial_number ?? '', b.serial_number ?? '');
+  });
+}
+
+export function sortEquipment(list: EquipmentItem[], mode: SectionSort = 'default'): EquipmentItem[] {
+  if (mode === 'driver') return sortByKey(list, i => i.current_operator_name);
+  if (mode === 'unit') return sortByKey(list, i => i.current_unit_number);
+  if (mode === 'serial') return sortByKey(list, i => i.serial_number);
   return [...list].sort((a, b) => {
     const rank = STATUS_RANK[a.status] - STATUS_RANK[b.status];
     if (rank !== 0) return rank;
@@ -169,6 +188,9 @@ export default function EquipmentInventory({
   const [byDriverMounted, setByDriverMounted] = useState(false);
   const [sectionSearch, setSectionSearch] = useState<Record<DeviceType, string>>({
     eld: '', dash_cam: '', bestpass: '', fuel_card: '',
+  });
+  const [sectionSort, setSectionSort] = useState<Record<DeviceType, SectionSort>>({
+    eld: 'default', dash_cam: 'default', bestpass: 'default', fuel_card: 'default',
   });
   const [lastOpened, setLastOpened] = useState<DeviceType | null>(null);
   const sectionRefs = useRef<Record<DeviceType, HTMLDivElement | null>>({ eld: null, dash_cam: null, bestpass: null, fuel_card: null });
@@ -400,7 +422,7 @@ export default function EquipmentInventory({
     eld: [], dash_cam: [], bestpass: [], fuel_card: [],
   };
   for (const item of filtered) grouped[item.device_type].push(item);
-  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key]);
+  for (const key of Object.keys(grouped) as DeviceType[]) grouped[key] = sortEquipment(grouped[key], sectionSort[key]);
 
   // Summary counts — devices held by demo/test drivers don't count as live stock.
   const liveItems = showDemo ? items : items.filter(i => !i.current_operator_is_demo);
@@ -640,6 +662,20 @@ export default function EquipmentInventory({
                         className="pl-8 h-8 text-sm"
                       />
                     </div>
+                    <Select
+                      value={sectionSort[type]}
+                      onValueChange={v => setSectionSort(prev => ({ ...prev, [type]: v as SectionSort }))}
+                    >
+                      <SelectTrigger className="h-8 w-full sm:w-[180px] shrink-0 text-sm" aria-label={`Sort ${cfg.label}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Sort: Default</SelectItem>
+                        <SelectItem value="driver">Sort: Driver name</SelectItem>
+                        <SelectItem value="unit">Sort: Unit number</SelectItem>
+                        <SelectItem value="serial">{type === 'fuel_card' ? 'Sort: Card #' : 'Sort: Serial #'}</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       size="sm"
                       className="gap-1.5 h-8 shrink-0"
@@ -659,6 +695,7 @@ export default function EquipmentInventory({
                 ) : type === 'fuel_card' ? (
                   <FuelCardSections
                     items={typeItems}
+                    sort={sectionSort.fuel_card}
                     statusFilter={statusFilter}
                     viewMode={viewMode}
                     isManagement={isManagement}
@@ -1012,6 +1049,7 @@ function EquipmentCard({
 
 function FuelCardSections({
   items,
+  sort,
   statusFilter,
   viewMode,
   isManagement,
@@ -1023,6 +1061,7 @@ function FuelCardSections({
   onHistory,
 }: {
   items: EquipmentItem[];
+  sort: SectionSort;
   statusFilter: 'all' | EquipmentStatus;
   viewMode: 'cards' | 'table';
   isManagement: boolean;
@@ -1033,10 +1072,10 @@ function FuelCardSections({
   onUnassign: (item: EquipmentItem) => void;
   onHistory: (item: EquipmentItem) => void;
 }) {
-  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'));
-  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'));
-  const lost = sortEquipment(items.filter(i => i.status === 'lost'));
-  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'));
+  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'), sort);
+  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'), sort);
+  const lost = sortEquipment(items.filter(i => i.status === 'lost'), sort);
+  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'), sort);
 
   const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
     { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
