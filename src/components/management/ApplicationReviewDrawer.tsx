@@ -398,6 +398,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
 
   // Background Verification
   const [bgMvrStatus, setBgMvrStatus] = useState(app?.mvr_status ?? 'not_started');
+  const [bgPspStatus, setBgPspStatus] = useState(app?.psp_status ?? 'not_started');
   const [bgChStatus, setBgChStatus] = useState(app?.ch_status ?? 'not_started');
   const [bgNotes, setBgNotes] = useState(app?.background_verification_notes ?? '');
   const [savingBg, setSavingBg] = useState(false);
@@ -406,15 +407,23 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   useEffect(() => {
     if (!app) return;
     setBgMvrStatus(app.mvr_status ?? 'not_started');
+    setBgPspStatus(app.psp_status ?? 'not_started');
     setBgChStatus(app.ch_status ?? 'not_started');
     setBgNotes(app.background_verification_notes ?? '');
   }, [app?.id]);
   const bgIsDirty = bgMvrStatus !== (app?.mvr_status ?? 'not_started')
+    || bgPspStatus !== (app?.psp_status ?? 'not_started')
     || bgChStatus !== (app?.ch_status ?? 'not_started')
     || bgNotes !== (app?.background_verification_notes ?? '');
   // Approval must be based on the saved record, not on-screen dropdowns,
   // and there must be no unsaved background-verification changes.
-  const bgVerificationComplete = (app?.mvr_status === 'received' && app?.ch_status === 'received') && !bgIsDirty;
+  // PSP joined MVR and Clearinghouse as a required check; already-approved
+  // applications are never re-gated because this only guards Approve & Invite.
+  const bgVerificationComplete = (
+    app?.mvr_status === 'received'
+    && app?.psp_status === 'received'
+    && app?.ch_status === 'received'
+  ) && !bgIsDirty;
 
   const cdlFieldRef = useRef<HTMLDivElement>(null);
   const medCertFieldRef = useRef<HTMLDivElement>(null);
