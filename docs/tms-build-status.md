@@ -12399,10 +12399,49 @@ tables no driver can insert into), `allocate_invoice_number` (not `authenticated
 `loads`, `load_stops`, `load_charges`, `settlements` are staff-role gated with operator policies
 scoped to `o.user_id = auth.uid()` — none of them mentions the resolver.
 
-Pre-existing and NOT introduced here, recorded so it is not rediscovered as a regression:
-`add_load_charge` is `SECURITY DEFINER`, `authenticated`-executable and carries no `has_role` test
-of its own (it delegates to `assert_charge_entry_allowed`). It does not read the resolver and
-`load_charges` has no `company_id`, so this pass does not change it. Worth its own look.
+**CORRECTED 2026-09-14 (later, from the LIVE catalog).** The paragraph that stood here said
+`add_load_charge` "carries no `has_role` test of its own" and was "worth its own look". That is
+false, and the investigation that followed it established so from `pg_get_functiondef(oid)` — not
+from any migration file:
+
+- The live body's FIRST statement is `PERFORM public.assert_charge_entry_allowed(p_load_id)`, whose
+  own first two tests are `auth.uid() IS NULL → 'Not authenticated'` and
+  `NOT (has_role management OR owner OR dispatcher) → 'You do not have permission to change charges
+  on a load'`. Only after those does it look the load up and refuse a money-fixed status.
+- `assert_charge_entry_allowed(uuid)` is NOT granted to `authenticated`. Live ACL:
+  `postgres=X, service_role=X` (plus the sandbox role). It runs as owner inside the definer callers
+  only, which is the correct shape — the gate is unreachable from the API and unavoidable from
+  inside.
+- `load_charges` triggers are `stamp_load_charges_actor` and `update_updated_at_column`; neither
+  authorises. The three RLS policies are correctly scoped, but a definer write bypasses them, so
+  the function's own gate is the whole protection — and it is present.
+- ONE migration ever defines `add_load_charge`: `20260831192947_b1cf8884-…sql`, line 112, with the
+  gate call at line 132 in that same original authoring alongside `assert_charge_entry_allowed`
+  (line 60). No later migration redefines it; the catalog body matches. So neither "the gate was
+  added later and never wired in" nor "a call was removed" applies. It was never ungated.
+- Live driver probe (real signed-in session, operator Steve Figueroa `878be880-…`, load `c222d62f`
+  in `delivered`, $250 detention): `{"code":"P0001","message":"You do not have permission to change
+  charges on a load"}`. Zero rows written.
+
+#### THE FIFTH INSTANCE OF THE SAME PATTERN — the source-citation guard has now caught five
+
+All five are reviewer assertions, and all five have the identical shape: **a file was read and then
+described in the present tense, and the live state differed.**
+
+1. the fuel period bound
+2. the `delete-user-account` self-deletion claim
+3. the unit-ordering reading
+4. the monitoring batch mis-mapping
+5. this one — `add_load_charge` described as ungated from a partial read of the migration, while the
+   catalog had the gate as the first statement all along
+
+The guard already in force is unchanged and is what caught each: **a claim about current state must
+name the query it came from.** Migration text is evidence of what was once authored, never of what
+is live — the record separately documents a migration that rewrote a function by transforming its
+live source, so even "the newest file" is not the newest definition. A behavioural claim is recorded
+from `pg_get_functiondef`, `pg_policies`, `proacl`, `pg_trigger` or an executed probe, or it is not
+recorded.
+
 
 ### Verified live (2026-09-14), every probe rolled back
 
@@ -12466,3 +12505,84 @@ tests, plus the 37 above. `npx tsgo --noEmit` clean. Linter: the same 170 pre-ex
 Driver-written tables can now take `company_id` with the membership stamping shape, because a
 signed-in driver resolves. Still outstanding for the fictitious company: that batch itself, and the
 `.eq('is_company_default', true).maybeSingle()` default-pay-policy readers.
+
+## 2026-09-14 (later) — the load-charge gate becomes the first statement
+
+Sequel to the correction above. Nothing about **who** is authorised changed: management, owner or
+dispatcher, and a money-fixed load still refused. What changed is the ORDER, in
+`update_load_charge` and `delete_load_charge` only. `add_load_charge` was already correct and was
+not touched.
+
+### Before → after
+
+Both functions used to `SELECT * INTO v_old FROM load_charges WHERE id = p_charge_id`, raise
+`'Charge not found'`, and only then call the gate. Now:
+
+```text
+1. SELECT load_id INTO v_load FROM load_charges WHERE id = p_charge_id   -- id only
+2. PERFORM assert_charge_entry_allowed(v_load)                           -- authorisation
+3. SELECT * INTO v_old ...; IF v_old.id IS NULL THEN 'Charge not found'
+4. reason / amount validation, the write, change history, recompute — unchanged
+```
+
+Two reasons, both recorded because neither is a bug fix:
+
+- An unauthorised caller used to be told `Charge not found` — a claim about the DATA when the truth
+  is permission. It misleads in the direction that matters: it suggests a different charge id might
+  work.
+- The gate not being the first statement is precisely why the migration read as ungated to a
+  reviewer. With authorisation on the first line, its ABSENCE is visible on sight. That property is
+  the point.
+
+`SECURITY DEFINER`, `SET search_path TO 'public','extensions'`, and the grants
+(`authenticated`, `service_role`; PUBLIC and anon revoked) are restated in the migration and
+unchanged. No frontend change: `src/lib/loadCharges.ts` already surfaces `error.message`.
+
+### The null-load path, made explicit
+
+A made-up charge id yields a NULL `load_id`, and the gate is called with it. Verified from the live
+body that this is safe: `assert_charge_entry_allowed` tests `auth.uid()`, then the three roles, and
+only THEN looks the load up. So the role refusal precedes any load lookup and the reordering
+achieves what it claims.
+
+**Wording consequence, recorded rather than silently changed:** a MANAGER who passes a nonexistent
+charge id now gets `Load not found`, not `Charge not found`, because the gate speaks about loads.
+Demonstrated live as the owner:
+
+```text
+update_load_charge REFUSED 400 {"code":"P0001","message":"Load not found"}
+delete_load_charge REFUSED 400 {"code":"P0001","message":"Load not found"}
+```
+
+This reads wrong to a manager who mistyped an id. It was NOT changed in this pass. The fix, if
+taken, belongs in `assert_charge_entry_allowed` (a role-only assertion these two functions can call
+before the charge lookup), not in the two callers — owner decision pending.
+
+### Verified live (2026-09-14)
+
+Real signed-in driver session, operator Steve Figueroa `878be880-…`, against a REAL existing charge
+(`396a776e-…`, $500 detention on a `delivered` load) and against a nonexistent id. All five verbatim:
+
+```text
+update_load_charge  REAL id  REFUSED 400 {"code":"P0001","message":"You do not have permission to change charges on a load"}
+delete_load_charge  REAL id  REFUSED 400 {"code":"P0001","message":"You do not have permission to change charges on a load"}
+update_load_charge  fake id  REFUSED 400 {"code":"P0001","message":"You do not have permission to change charges on a load"}
+delete_load_charge  fake id  REFUSED 400 {"code":"P0001","message":"You do not have permission to change charges on a load"}
+add_load_charge              REFUSED 400 {"code":"P0001","message":"You do not have permission to change charges on a load"}
+```
+
+The two REAL-id refusals are the ones that matter: before this pass a driver hitting a real charge
+would have been told `Charge not found`. `load_charges` before and after: 4 rows, $1,000 total; the
+probed charge unchanged at `detention / 500 / DETENTION`.
+
+Authorised path still works — owner session, a no-change edit of the same charge returned
+`200 "396a776e-…"`. **Harness note and a self-inflicted write:** that probe omitted `p_description`,
+which cleared `DETENTION` to NULL and logged `charge · description` in `load_change_history`. It was
+restored by a second call with the reason `restore description cleared by 2026-09-14 authorisation
+check`. Both edits stand in the change history; the amount never moved. The staff path could not be
+exercised inside a rolled-back transaction because the psql harness role may not execute these
+functions — which is why a real session was used, and why the probe had a consequence.
+
+Suites: `policy-grant-parity`, `grant-parity-live`, `definer-search-path`, `definer-live-catalog`,
+`definer-fail-open`, `caller-evaluated-functions`, `tenancy-resolver`. Linter: the same 170
+pre-existing issues, unchanged by this migration.
