@@ -10,7 +10,7 @@ interface Props {
   applicantName: string;
   notes?: NoteSummary | null;
   expanded: boolean;
-  onToggle: () => void;
+  onToggle: (e: React.MouseEvent) => void;
 }
 
 /**
