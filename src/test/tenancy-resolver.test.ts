@@ -60,14 +60,43 @@ describe('current_company_id — the four protections', () => {
     expect(config).toContain('search_path=public');
   });
 
-  itLive('FAILS CLOSED — no COALESCE and no fallback company in the executable body', () => {
+  itLive('FAILS CLOSED — the ONLY two sources are membership and the caller’s own operator row', () => {
     // Comments are stripped: the body's own comment NAMES the protections, and
     // asserting against commentary would pass on a function that says the right
     // thing and does the wrong one — the exact shape of the defect being guarded.
     const code = resolverDef().replace(/--[^\n]*/g, '');
-    expect(code.toLowerCase()).not.toContain('coalesce');
+    // 2026-09-14: driver tenancy. A COALESCE now exists, but it may only fall
+    // from membership to the caller's OWN operator row — never to a carrier.
     expect(code).not.toMatch(/carrier_profile/i);
+    const sources = code.match(/FROM\s+public\.(\w+)/gi) ?? [];
+    expect(sources.map(s => s.split('.')[1].toLowerCase()).sort())
+      .toEqual(['company_members', 'operators']);
+    // The operator branch is keyed on the caller, not open.
+    expect(code).toMatch(/operators\s+o\s+WHERE\s+o\.user_id\s*=\s*auth\.uid\(\)/i);
+    // No third fallback smuggled into the COALESCE.
+    expect((code.match(/coalesce/gi) ?? []).length).toBe(1);
   });
+
+  itLive('MEMBERSHIP FIRST — the membership branch precedes the operator branch', () => {
+    // One person (the owner) is both a member and an operator. Their two
+    // companies are identical today, so DATA cannot distinguish precedence;
+    // only the body's order can, which is why it is asserted structurally.
+    const code = resolverDef().replace(/--[^\n]*/g, '');
+    expect(code.indexOf('company_members')).toBeGreaterThan(-1);
+    expect(code.indexOf('company_members')).toBeLessThan(code.search(/public\.operators/i));
+  });
+
+  itLive('no billing policy admits a caller merely because a company resolves', () => {
+    // The resolver widened WHO resolves. It must not widen WHAT anyone may do:
+    // every company-scoped policy must ALSO test a staff role.
+    const offenders = psql(`SELECT tablename || ' | ' || policyname FROM pg_policies
+      WHERE schemaname = 'public'
+        AND (coalesce(qual,'') || coalesce(with_check,'')) LIKE '%current_company_id%'
+        AND (coalesce(qual,'') || coalesce(with_check,'')) NOT LIKE '%has_role%'
+      ORDER BY 1`);
+    expect(offenders, offenders.join('\n')).toEqual([]);
+  });
+
 
 
   itLive('is not reachable by anon or PUBLIC, only by signed-in roles', () => {

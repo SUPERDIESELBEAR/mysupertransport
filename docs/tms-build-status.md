@@ -12342,3 +12342,127 @@ have no tenancy and drivers are not members; that is the prerequisite above.
 eight tables), `policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
 `definer-fail-open`, `purge-path-coverage`. `npx tsgo --noEmit` clean. Linter: the same 170
 pre-existing issues, none new.
+
+---
+
+## 2026-09-14 — Driver tenancy: `current_company_id()` resolves an operator from his own record
+
+RESOLVER ONLY. No `company_id` on any driver-written table; that batch is what this unblocks.
+
+### The decision, and the one rejected
+
+REJECTED: giving the 154 operators `company_members` rows. Membership currently *implies staff
+capability* — every company-scoped billing policy reads `company_id = current_company_id()` AND a
+staff role, and other code treats a member as staff. Adding drivers to that table would require
+re-examining every policy and function phrased as "a member may X" to prove it does not now let a
+driver near billing, invoicing, load creation or load editing. The owner's requirement is explicit:
+drivers must not perform any of those. Cheap-looking, expensive to prove.
+
+CHOSEN: the resolver checks membership FIRST and falls back to the caller's OWN operator row.
+Membership stays a staff concept; nothing about what it grants changed.
+
+### Before → after
+
+```sql
+-- before (step 1, 2026-09-13)
+SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid() LIMIT 1
+
+-- after
+SELECT COALESCE(
+  (SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid() LIMIT 1),
+  (SELECT o.company_id  FROM public.operators o      WHERE o.user_id  = auth.uid() LIMIT 1)
+)
+```
+
+All four step-1 protections survive: `SECURITY DEFINER`, `SET search_path = public, extensions`,
+`REVOKE ALL … FROM PUBLIC, anon` with EXECUTE to `authenticated`/`service_role`, and FAILS CLOSED
+— `carrier_profile` is not named in the body, and a caller who is neither a member nor an operator
+resolves to NULL. The `COALESCE` falls only from one caller-keyed source to another caller-keyed
+source; it is not a fallback company.
+
+BOTH MEMBER AND OPERATOR: membership wins, by the order of the `COALESCE`. Exactly one person is
+both today — Marcus Mueller (`5cca4f77-…`, operator `8c0ccadb-…`) — and his membership company and
+his operator company are the SAME (`6b54d0e6-…`), so the data cannot distinguish precedence. It is
+therefore asserted structurally (branch order in the live body), not claimed from a probe.
+
+### What changed in behaviour — and what did not
+
+Every one of the eight company-scoped policies pairs the company test with `has_role(...)` for
+`management`/`owner` (plus `dispatcher` on `accessorial_adjustments` reads). **No policy admits a
+caller merely because `current_company_id()` returns a value**, so a driver resolving to a company
+gains nothing. A guard now asserts that: any company-scoped policy without a `has_role` test fails
+`tenancy-resolver`.
+
+Functions naming the resolver: `stamp_billing_company_id` and `stamp_tenant_company_id` (stamps, on
+tables no driver can insert into), `allocate_invoice_number` (not `authenticated`-executable),
+`record_factoring_remittance`, `initiate_owner_transfer`, `transfer_owner` (all role-checked).
+`loads`, `load_stops`, `load_charges`, `settlements` are staff-role gated with operator policies
+scoped to `o.user_id = auth.uid()` — none of them mentions the resolver.
+
+Pre-existing and NOT introduced here, recorded so it is not rediscovered as a regression:
+`add_load_charge` is `SECURITY DEFINER`, `authenticated`-executable and carries no `has_role` test
+of its own (it delegates to `assert_charge_entry_allowed`). It does not read the resolver and
+`load_charges` has no `company_id`, so this pass does not change it. Worth its own look.
+
+### Verified live (2026-09-14), every probe rolled back
+
+Resolution observed through the definer stamp trigger on a scratch `equipment_items` insert (the
+psql harness role may not call `current_company_id()` directly, and may not `SET ROLE
+authenticated` — the documented harness limits). The rejected-row DETAIL carries the stamped value:
+
+| Caller | Stamped `company_id` |
+| --- | --- |
+| Owner Marcus Mueller `5cca4f77-…` (member **and** operator) | `6b54d0e6-…` |
+| Staff member `27b7803e-…`, not an operator | `6b54d0e6-…` |
+| Operator **Steve Figueroa** `878be880-…`, no membership | `6b54d0e6-…` (was NULL before this pass) |
+
+Neither member nor operator (`11111111-…`), verbatim:
+
+```
+ERROR:  Cannot resolve a company for this public.equipment_items row: the caller holds no
+company_members row and no server-side company was named. Refusing rather than defaulting to a carrier.
+HINT:  Staff must have a company_members row; service-role callers must pass company_id explicitly.
+ERROR:  null value in column "company_id" of relation "invoices" violates not-null constraint
+```
+
+### THE CHECK THAT MATTERS: an operator still cannot write billing, loads or invoices
+
+Run over the Data API as a genuine signed-in session for driver Steve Figueroa (minted, one-off),
+so RLS applied as `authenticated` — not simulated in psql. Verbatim:
+
+```
+POST invoices                403 {"code":"42501","message":"new row violates row-level security policy for table \"invoices\""}
+POST invoice_line_items      403 {"code":"42501","message":"new row violates row-level security policy for table \"invoice_line_items\""}
+POST payments                403 {"code":"42501","message":"new row violates row-level security policy for table \"payments\""}
+POST accessorial_adjustments 403 {"code":"42501","message":"new row violates row-level security policy for table \"accessorial_adjustments\""}
+POST loads                   403 {"code":"42501","message":"new row violates row-level security policy for table \"loads\""}
+POST load_charges            403 {"code":"42501","message":"new row violates row-level security policy for table \"load_charges\""}
+POST pay_policies            403 {"code":"42501","message":"new row violates row-level security policy for table \"pay_policies\""}
+GET  invoices                200 []
+GET  pay_policies            200 []
+```
+
+The two reads returning `[]` are the same point from the other side: he resolves to a company and
+still sees no billing row.
+
+After all probes: 1 carrier, 15 members, 1 invoice, 0 payments, 1 pay policy, 17 loads, 554
+policies, 0 rows matching `SCRATCH`. A membership-precedence probe requiring an UPDATE to
+`operators.company_id` was NOT run: the harness role holds no UPDATE on `operators`, and doing it
+with elevated privileges could not be guaranteed rollback-clean. Precedence is asserted
+structurally instead, and that is said rather than dressed up as a demonstration.
+
+### Suites run
+
+`tenancy-resolver` (37 tests — the "no COALESCE" assertion was replaced by a stricter one: the only
+two `FROM public.*` sources are `company_members` and `operators`, exactly one `COALESCE`, the
+operator branch keyed on `auth.uid()`, membership branch first, and no company-scoped policy
+without a role test), `policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
+`definer-fail-open`, `caller-evaluated-functions`, `operator-pay-exposure`,
+`operator-settlement-isolation`, `operator-fuel-isolation`, `purge-path-coverage` — 9 files, 39
+tests, plus the 37 above. `npx tsgo --noEmit` clean. Linter: the same 170 pre-existing issues.
+
+### What this unblocks, and what still stands
+
+Driver-written tables can now take `company_id` with the membership stamping shape, because a
+signed-in driver resolves. Still outstanding for the fictitious company: that batch itself, and the
+`.eq('is_company_default', true).maybeSingle()` default-pay-policy readers.
