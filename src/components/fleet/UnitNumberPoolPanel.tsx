@@ -88,10 +88,6 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
     const q = debouncedLookup.trim();
     if (!open || !q) {
       setHolders(null);
-      if (open && focusSource === 'lookup') {
-        setFocusedUnit(null);
-        setFocusSource('default');
-      }
       return;
     }
     let cancelled = false;
@@ -109,7 +105,7 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
       .catch(() => { if (!cancelled) setHolders(null); })
       .finally(() => { if (!cancelled) setHolderLoading(false); });
     return () => { cancelled = true; };
-  }, [debouncedLookup, open, focusSource]);
+  }, [debouncedLookup, open]);
 
   const groups = useMemo(
     () => GROUP_ORDER.map(kind => ({ kind, entries: pool.filter(e => e.kind === kind) })).filter(g => g.entries.length > 0),
@@ -152,7 +148,14 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
           placeholder="Look up a number…"
           className="pl-9 h-9 text-sm"
           value={lookup}
-          onChange={e => setLookup(e.target.value)}
+          onChange={e => {
+            const value = e.target.value;
+            setLookup(value);
+            if (!value.trim() && focusSource === 'lookup') {
+              setFocusedUnit(null);
+              setFocusSource('default');
+            }
+          }}
           inputMode="numeric"
         />
       </div>
@@ -162,15 +165,6 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
           <Loader2 className="h-3 w-3 animate-spin" /> Checking…
         </p>
       )}
-      {!holderLoading && warning && (
-        <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">{warning}</p>
-      )}
-      {!holderLoading && freeTyped && (
-        <p className="text-xs rounded-md border border-emerald-300 bg-emerald-50 text-emerald-900 px-3 py-2">
-          Unit {debouncedLookup.trim()} is not held by anyone.
-        </p>
-      )}
-
       {!loading && !error && displayedUnit !== null && (
         <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
           <div className="min-w-0">

@@ -92,7 +92,7 @@ describe('UnitNumberPoolPanel', () => {
 
     await waitFor(() => expect(screen.getByText('Lookup result')).toBeInTheDocument());
     expect(screen.getByText('Not held by anyone')).toBeInTheDocument();
-    expect(screen.getByText('Unit 244 is not held by anyone.')).toBeInTheDocument();
+    expect(screen.getByText('244')).toBeInTheDocument();
   });
 
   it('resets to next available after closing and reopening', async () => {
