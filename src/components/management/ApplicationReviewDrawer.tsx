@@ -269,6 +269,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
   const canEditDenialReason = roles.includes('management') || roles.includes('owner');
+  // Interview notes are hiring-staff only: onboarding staff, management, owner.
+  const canLogInterview = roles.includes('onboarding_staff') || roles.includes('management') || roles.includes('owner');
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab ?? 'overview');
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
