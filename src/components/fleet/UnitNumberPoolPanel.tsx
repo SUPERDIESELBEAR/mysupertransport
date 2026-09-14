@@ -9,9 +9,11 @@
  * so the panel and the picker can never disagree.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Hash, Loader2 } from 'lucide-react';
+import { Search, Hash, Loader2, Copy, Check } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
