@@ -187,31 +187,39 @@ BEGIN
   SELECT
     n,
     -- Taken: went live at all, or still on the roster, or onboarding is open.
-    bool_or(go_live_date IS NOT NULL OR is_active),
+    -- A number held by more than one operator counts as taken if ANY holder
+    -- went live or is still on the roster — the live holder always wins.
+    bool_or(go_live_date IS NOT NULL OR COALESCE(is_active, false)),
     -- Freed: the oldest wash-out that gave this number up.
-    min(deactivated_at) FILTER (WHERE go_live_date IS NULL AND NOT is_active)
+    min(deactivated_at) FILTER (WHERE go_live_date IS NULL AND NOT COALESCE(is_active, false))
   FROM numbered
   GROUP BY n;
 
   SELECT GREATEST(COALESCE(max(s.n), v_min - 1), v_min - 1) INTO v_ceiling FROM _unit_scratch s;
 
   RETURN QUERY
-  -- Recycled: freed by a pre-Go-Live wash-out and held by nobody live.
-  SELECT s.n, 'recycled'::text, s.freed_at,
-         'Freed by a driver who never reached Go-Live'::text
-  FROM _unit_scratch s
-  WHERE NOT s.taken
-  UNION ALL
-  -- Gaps: inside the sequence and never issued.
-  SELECT g.i, 'gap'::text, NULL::timestamptz, 'Never issued'::text
-  FROM generate_series(v_min, v_ceiling) g(i)
-  WHERE NOT EXISTS (SELECT 1 FROM _unit_scratch s WHERE s.n = g.i)
-    AND NOT (g.i::text = ANY (v_excluded))
-  UNION ALL
-  -- Next in sequence.
-  SELECT v_ceiling + 1, 'next'::text, NULL::timestamptz, 'Next in sequence'::text
-  WHERE v_ceiling + 1 <= v_max_offered
-  ORDER BY 2 ASC, 3 ASC NULLS LAST, 1 ASC;
+  SELECT q.unit, q.kind, q.freed_at, q.note
+  FROM (
+    -- Recycled: freed by a pre-Go-Live wash-out and held by nobody live.
+    SELECT s.n AS unit, 'recycled'::text AS kind, s.freed_at AS freed_at,
+           'Freed by a driver who never reached Go-Live'::text AS note
+    FROM _unit_scratch s
+    WHERE NOT s.taken
+    UNION ALL
+    -- Gaps: inside the sequence and never issued.
+    SELECT g.i, 'gap'::text, NULL::timestamptz, 'Never issued'::text
+    FROM generate_series(v_min, v_ceiling) g(i)
+    WHERE NOT EXISTS (SELECT 1 FROM _unit_scratch s WHERE s.n = g.i)
+      AND NOT (g.i::text = ANY (v_excluded))
+    UNION ALL
+    -- Next in sequence.
+    SELECT v_ceiling + 1, 'next'::text, NULL::timestamptz, 'Next in sequence'::text
+    WHERE v_ceiling + 1 <= v_max_offered
+  ) q
+  -- Offer order is a rule, not an accident: recycled, then gaps, then next.
+  ORDER BY CASE q.kind WHEN 'recycled' THEN 0 WHEN 'gap' THEN 1 ELSE 2 END,
+           q.freed_at ASC NULLS LAST,
+           q.unit ASC;
 END;
 $$;
 
