@@ -2065,7 +2065,7 @@ export default function ManagementPortal() {
                       <div className="hidden sm:grid grid-cols-12 px-5 py-3 bg-secondary/50 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                         <span className="col-span-3">Applicant</span>
                         <span className="col-span-2">Contact</span>
-                        <span className="col-span-1">Submitted</span>
+                        <span className="col-span-1">Applied</span>
                         <span className="col-span-2">Screening</span>
                         <span className="col-span-2">Interview</span>
                         <span className="col-span-1">Status</span>
