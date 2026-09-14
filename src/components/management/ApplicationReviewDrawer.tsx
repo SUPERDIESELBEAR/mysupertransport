@@ -8,8 +8,9 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil, MessageSquare
 } from 'lucide-react';
+import { InterviewNotesPanel } from '@/components/management/InterviewNotesPanel';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
