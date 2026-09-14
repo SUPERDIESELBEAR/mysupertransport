@@ -13011,3 +13011,201 @@ The reviewer had also stated it as settled when the owner had not actually agree
 3. the unit-ordering reading
 4. the monitoring batch mis-mapping
 5. `add_load_charge` described as ungated from a partial read of the migration, while the catalog had the gate as the first statement all along
+
+## 2026-09-14 — B5 part one: the global declarations, and two of the three singletons
+
+### The declaration arithmetic — 20, confirmed against the re-cut
+
+The 2026-09-14 re-cut named **26** GLOBAL tables (`.lovable/plan.md` §2). Six of them
+are now DEFERRED (the content tables, decided the same day), leaving **20**. Counted
+from the re-cut's own list, not from the request: `applications` + its seven children
+(`application_correction_requests`, `application_correction_fields`,
+`application_document_history`, `application_interview_notes`,
+`application_resume_tokens`, `application_invites`,
+`application_revision_attachments`) = 8, `profiles`, `carrier_profile` = 10, plus
+`resource_documents`, `resource_history`, `release_notes`, `email_templates`,
+`eld_device_models`, `eld_revoked_list_checks`, `notification_role_defaults`,
+`revert_courtesy_email_defaults`, `email_unsubscribe_tokens`, `suppressed_emails` = 20.
+Membership matched the request exactly.
+
+Each with its reason:
+
+| Table | GLOBAL because |
+| --- | --- |
+| `applications` | 2026-09-13 decision: an applicant is unauthenticated, so neither sanctioned stamping shape fits. SaaS design decision, not a blocker. |
+| `application_correction_requests` / `_fields` | Children of a global application, reached by the applicant's token. |
+| `application_document_history` | Same: history of a global application's documents. |
+| `application_interview_notes` | Staff notes on a global application; reach is via the parent. |
+| `application_resume_tokens` | Anonymous resume path; the token is the only identity. |
+| `application_invites` | Issued before any company relationship exists. |
+| `application_revision_attachments` | Applicant-uploaded, pre-onboarding. |
+| `profiles` | One row per auth user. Company reach is `company_members` / `operators`, not a column here. |
+| `carrier_profile` | It *is* the company table; `id` is the company. |
+| `resource_documents` | Attachments to product resources, which are themselves product content. |
+| `resource_history` | Audit of product resource edits. |
+| `release_notes` | SUPERDRIVE's own changelog — the same for every carrier. |
+| `email_templates` | See the flag below. Recorded GLOBAL on the re-cut's authority only. |
+| `eld_device_models` | The FMCSA registered-device list. Not carrier data. |
+| `eld_revoked_list_checks` | Cache of the federal revoked-device list. |
+| `notification_role_defaults` | Product defaults for what each role is notified about. |
+| `revert_courtesy_email_defaults` | Product default for a checkbox. |
+| `email_unsubscribe_tokens` | 2026-09-14 decision — shared sending domain. TRIGGER: revisit when a tenant has its own domain. |
+| `suppressed_emails` | Same decision: a hard bounce is a property of the mailbox. |
+
+The six DEFERRED tables are named again here so they are not mistaken for omissions:
+`faq`, `faq_history`, `services`, `service_resources`, `staff_help_knowledge`,
+`pipeline_config` — no `company_id`, **and no global declaration**, deliberately.
+
+Both lists are now asserted in `tenancy-resolver`, not only written here: a
+`company_id` appearing on any of the 26 turns the suite red.
+
+### FLAG — `email_templates`
+
+The request says an earlier plan listed `email_templates` as tenant data on the grounds
+that a carrier's email wording is its own. **That statement is not in the record.**
+Searched: `docs/tms-build-status.md` (no occurrence of `email_templates` at all) and
+every archived plan under `.lovable/plan/`. The only record of a decision is the
+2026-09-14 re-cut, which lists it GLOBAL.
+
+So the record supports **GLOBAL**, but only weakly — as a line in a table of reference
+content, with no reasoning about carrier wording. It is declared GLOBAL above on that
+authority and **flagged, not chosen**: the substantive argument for per-tenant (a
+carrier writes its own driver-facing email copy) has never been answered in writing.
+This is the seventh instance of the source-citation pattern, and the second of the
+inverted kind — a claim about a prior decision that the record cannot confirm either
+way.
+
+### The three singletons — two rewritten, one left GLOBAL
+
+| Constraint | Was | Now | Shape |
+| --- | --- | --- | --- |
+| `settlement_settings_singleton_check` | `CHECK (singleton)`, with `PRIMARY KEY (singleton)` doing the real work | CHECK **dropped**; the primary key **moved** from the boolean `singleton` column to `PRIMARY KEY (company_id)` | **Shape 1** — every writer is authenticated management/owner |
+| `carrier_signature_settings_singleton` | `UNIQUE ((true))` | dropped, replaced by `carrier_signature_settings_company_unique (company_id)` | **Shape 1** — insert/update/delete policies require management or owner |
+| `email_send_state_id_check` | `CHECK (id = 1)` | **UNCHANGED** — see the contradiction below | n/a |
+
+**A CHECK is not an index, and the two differed.** `carrier_signature_settings` was a
+straight index swap. `settlement_settings` was not: its uniqueness lived in its
+*primary key*, so dropping the CHECK alone would have left one row globally. The PK had
+to move to `company_id`, which is now what enforces one settings row per carrier. The
+`singleton` column itself is retained (default `true`, no longer constrained) so
+existing client filters such as `.eq('singleton', true)` keep working; it constrains
+nothing.
+
+**Shapes confirmed, not assumed.** Live policy read: both tables' write policies are
+`TO authenticated` with `has_role(management|owner)`; neither has a service-role-only
+writer. Shape 1 for both. The `aa_stamp_tenant_company_id` BEFORE INSERT trigger is on
+both.
+
+### The readers that said "the" settings row
+
+Three live definer functions read the settings row with `WHERE singleton` or `LIMIT 1`,
+which becomes the wrong carrier's pay rules the moment a second exists. All three now
+read `WHERE company_id = public.current_company_id()`:
+
+- `approve_accessorial_adjustment` — the dispatcher approval limit
+- `my_rm_deposit` — the driver's R&M Deposit target
+- `my_fuel_transactions` — the driver's work-week start day
+
+The two driver-facing ones resolve through the operator branch of the resolver, which
+is why they work at all without a `company_members` row.
+
+Each was patched by substitution on the **live body**, with the patch asserted before
+it was applied, so nothing else in those functions changed.
+
+Edge function `send-passenger-auth` read `carrier_signature_settings` with the service
+role and `.maybeSingle()` — which returns the wrong signature block, or errors, once a
+second row exists. It now resolves the sending staff member's `company_members` row and
+filters on it, refusing with a 403 if there is none. No fallback to "the" signature.
+
+### CONTRADICTION — `email_send_state` was NOT migrated
+
+The request assigns `email_send_state` Shape 2 and asks that a second company get its
+own send cursor. The record disagrees, in writing:
+
+> 2026-09-13: *"Also noted: `email_send_state_id_check` (`CHECK (id = 1)`) is
+> deliberately global infrastructure keyed to the shared sending domain, not carrier
+> data. No change."*
+
+That is the same reasoning the 2026-09-14 decision used to keep `suppressed_emails` and
+`email_unsubscribe_tokens` GLOBAL, and the queue it guards (`pgmq`, one
+`process-email-queue` cron, one Resend domain) is genuinely one queue, not one per
+carrier. The re-cut's §3 Shape-2 list contradicts its own earlier entry.
+
+**Stopped rather than reconciled.** The table is untouched: no `company_id`, `CHECK
+(id = 1)` intact, and that state is now asserted in `tenancy-resolver` so a later pass
+cannot add the column without removing the assertion. **TRIGGER: revisit together with
+the two suppression tables, when a tenant has its own sending domain.**
+
+### Verification
+
+- Both tables: `company_id` NOT NULL, `atthasdef` false, RESTRICT FK to
+  `carrier_profile`, stamp trigger present and enabled.
+- Rows unchanged: `settlement_settings` 1, `carrier_signature_settings` 1,
+  `email_send_state` 1, `carrier_profile` 1.
+- Policies **560**, matching the baseline as measured 2026-09-14. Six policies were
+  dropped and six recreated with company scope, so the count is unmoved by
+  construction; nothing needed checking against a draft migration this time.
+- `grant_parity_report()` — 0 rows. `user_roles` owner count — 1. `company_members` 15.
+- Linter 172, the standing baseline (170 plus the two unit-number definer warnings).
+
+**Scratch second carrier, all probes inside one transaction that raised at the end:**
+
+```
+scratch_company=843ac7d9-9a18-4a43-a36a-3a13a061c4ce
+settlement_settings_rows=2 (supertransport min=100.00, scratch min=250.00)
+signature_rows=2 (supertransport=Marc Mueller, scratch=Scratch Signer)
+email_send_state_rows=1 has_company_id=f
+spoof_insert_landed_on=6b54d0e6-8743-4284-b55b-8cd094b093dd supertransport=t
+owner_resolves_to=6b54d0e6-8743-4284-b55b-8cd094b093dd
+```
+
+A member naming another company on insert is overwritten with his own. A caller who is
+neither member nor operator, verbatim:
+
+```
+sqlstate=42501 message=Cannot resolve a company for this public.settlement_settings
+row: the caller holds no company_members row and no server-side company was named.
+Refusing rather than defaulting to a carrier.
+```
+
+Three earlier attempts of the same probe were refused by `carrier_profile` NOT NULL
+columns (`mc_number`, `home_terminal_address`, `home_terminal_timezone`) before any
+tenancy behaviour was reached — recorded because it is the same shape as the 2026-09-13
+scratch-carrier attempt, and because it is a reminder that creating the fictitious
+company needs all five fields.
+
+**CONTROL — the retained Pratt settlement.** Recomputed in memory through
+`computeSettlement` with `equipmentOutstanding: false` supplied explicitly: one
+`load_pay` line of **$327.94**, gross $327.94, deductions $0.00, net **$327.94**,
+period 2026-08-12 → 2026-08-18. Unchanged. Nothing wrote to the settlement.
+
+### A new allowlist entry, stated
+
+`carrier_signature_settings | Staff can view carrier signature settings` joins the
+reasoned allowlist in `tenancy-resolver` of company-scoped policies without a
+`has_role` test. It is staff-gated — through `is_staff(auth.uid())`, which is simply
+not what the guard's query matches on — and it is SELECT-only. Every write policy on
+the table still requires management or owner.
+
+### Suites
+
+`tenancy-resolver` (53 tests, including the new nine-test B5 block and the two
+declaration assertions), `sharedPayPct` (the Pratt control), `settlement-foundation`,
+`definer-live-catalog`, `definer-search-path`, `definer-fail-open`,
+`grant-parity-live`, `policy-grant-parity`, `operator-settlement-isolation`,
+`operator-fuel-isolation` — 139 tests, all green. `tsgo --noEmit` clean.
+
+The first combined run reported two red tests in `tenancy-resolver`; both were
+`psql: FATAL: (EAUTHQUERY) auth_query secret check timed out` — pooler auth timeouts
+under ten parallel live-catalog files, not assertions. Split and re-run, green. One
+genuine red was found and fixed in between: the new signature-settings SELECT policy
+tripped the "no company-scoped policy without a role test" guard, because it gates on
+`is_staff` rather than `has_role`.
+
+### Contradictions
+
+1. **`email_send_state`.** The request asks for it per-company; the record declares it
+   deliberately GLOBAL infrastructure. Not migrated, not reconciled.
+2. **`email_templates`.** The request cites an earlier plan calling it tenant data. No
+   such statement exists in the record. Declared GLOBAL on the re-cut's authority and
+   flagged.
