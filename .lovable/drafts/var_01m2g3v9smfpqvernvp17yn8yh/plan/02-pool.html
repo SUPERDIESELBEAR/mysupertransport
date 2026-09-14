@@ -1,0 +1,56 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="How a unit number becomes available again">
+<style>
+text{font-family:var(--font-sans);fill:var(--fg-primary)}
+.s{fill:var(--fg-secondary);font-size:12px}
+.l{font-size:14px;font-weight:480}
+.m{font-family:var(--font-mono);font-size:12px;fill:var(--fg-secondary)}
+.b{fill:none;stroke:var(--fg-secondary);stroke-width:1}
+.z{fill:none;stroke:var(--border-translucent);stroke-width:1;stroke-dasharray:4 3}
+.w{stroke:var(--fg-secondary);stroke-width:1;fill:none}
+.a{fill:var(--bg-accent-translucent);stroke:var(--fg-accent);stroke-width:1}
+</style>
+<defs><marker id="c" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto"><path d="M0 0 L6 3.5 L0 7 z" fill="var(--fg-secondary)"/></marker></defs>
+
+<rect class="b" x="8" y="46" width="150" height="52" rx="8"/>
+<text class="l" x="83" y="68" text-anchor="middle">Number assigned</text>
+<text class="s" x="83" y="86" text-anchor="middle">during onboarding</text>
+
+<rect class="z" x="180" y="24" width="230" height="150" rx="8"/>
+<text class="s" x="196" y="42">outcome</text>
+
+<rect class="b" x="200" y="52" width="190" height="42" rx="8"/>
+<text class="l" x="295" y="78" text-anchor="middle">Reached Go-Live</text>
+
+<rect class="a" x="200" y="112" width="190" height="42" rx="8"/>
+<text class="l" x="295" y="138" text-anchor="middle" style="fill:var(--fg-accent)">Removed before Go-Live</text>
+
+<line class="w" x1="158" y1="66" x2="198" y2="72" marker-end="url(#c)"/>
+<line class="w" x1="158" y1="80" x2="198" y2="130" marker-end="url(#c)"/>
+
+<rect class="b" x="432" y="52" width="196" height="42" rx="8"/>
+<text class="l" x="530" y="78" text-anchor="middle">Stays taken forever</text>
+
+<rect class="b" x="432" y="112" width="196" height="42" rx="8"/>
+<text class="l" x="530" y="132" text-anchor="middle">Back in the pool</text>
+<text class="s" x="530" y="148" text-anchor="middle">offered first, next time</text>
+
+<line class="w" x1="390" y1="73" x2="430" y2="73" marker-end="url(#c)"/>
+<line class="w" x1="390" y1="133" x2="430" y2="133" marker-end="url(#c)"/>
+
+<line x1="8" y1="204" x2="632" y2="204" stroke="var(--border-translucent)" stroke-width="1"/>
+<text class="l" x="8" y="228">What the picker offers, in order</text>
+<circle cx="20" cy="252" r="9" fill="var(--bg-accent)"/>
+<text x="20" y="256" text-anchor="middle" font-size="11" fill="var(--fg-emphasis)">1</text>
+<text class="s" x="38" y="256">Recycled — freed by a wash-out</text>
+<text class="m" x="248" y="256">217, 241, 253</text>
+
+<circle cx="20" cy="278" r="9" fill="var(--bg-muted)"/>
+<text x="20" y="282" text-anchor="middle" font-size="11">2</text>
+<text class="s" x="38" y="282">Never issued</text>
+<text class="m" x="130" y="282">190, 192, 198, 199, 201, 204, 208, 209, 225</text>
+
+<circle cx="404" cy="252" r="9" fill="var(--bg-muted)"/>
+<text x="404" y="256" text-anchor="middle" font-size="11">3</text>
+<text class="s" x="422" y="256">Next in sequence</text>
+<text class="m" x="530" y="256">272</text>
+</svg>
