@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, KeyboardEvent } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Textarea } from '@/components/ui/textarea';
@@ -159,7 +160,7 @@ export default function StaffHelpPortal() {
     const title = firstUserText.trim().slice(0, 60) || 'New chat';
     const { data, error } = await supabase
       .from('staff_help_threads')
-      .insert({ user_id: user.id, title })
+      .insert(insertPayload('staff_help_threads', { user_id: user.id, title }))
       .select('id, title, pinned, updated_at')
       .single();
     if (error || !data) {
@@ -192,12 +193,12 @@ export default function StaffHelpPortal() {
     const contextEntries = input.trim() ? results.slice(0, MAX_CONTEXT_ENTRIES).map(r => r.entry) : [];
 
     // Persist the user message.
-    await supabase.from('staff_help_messages').insert({
+    await supabase.from('staff_help_messages').insert(insertPayload('staff_help_messages', {
       thread_id: threadId,
       user_id: user.id,
       role: 'user',
       content,
-    });
+    }));
 
     try {
       const { data, error } = await supabase.functions.invoke('staff-help-chat', {
@@ -222,14 +223,14 @@ export default function StaffHelpPortal() {
       const sources = ((data as any)?.sources ?? []) as Source[];
       const followUps = ((data as any)?.followUps ?? []) as string[];
       setMessages(prev => [...prev, { role: 'assistant', content: answer || '(no response)', sources, followUps }]);
-      await supabase.from('staff_help_messages').insert({
+      await supabase.from('staff_help_messages').insert(insertPayload('staff_help_messages', {
         thread_id: threadId,
         user_id: user.id,
         role: 'assistant',
         content: answer || '(no response)',
         sources: sources as any,
         follow_ups: followUps,
-      });
+      }));
       // Auto-title thread if still default.
       const t = threads.find(x => x.id === threadId);
       if (t && (t.title === 'New chat' || t.title === content.slice(0, 60))) {

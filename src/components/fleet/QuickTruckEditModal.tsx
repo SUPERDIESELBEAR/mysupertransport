@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -109,7 +110,7 @@ export default function QuickTruckEditModal({
       );
       if (!result.ok) throw new Error(result.error || 'Failed to save');
 
-      const permitRows = permits.map(p => ({
+      const permitRows = permits.map(p => insertPayload('truck_state_permits', {
         operator_id: operatorId,
         state_code: p.stateCode as PermitStateCode,
         registered: p.registered,
