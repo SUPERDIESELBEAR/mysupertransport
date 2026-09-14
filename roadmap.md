@@ -1,6 +1,13 @@
 # Roadmap
 
 ## In progress
+- Load-charge gate ordering + record correction (2026-09-14): correct the false
+  "add_load_charge is ungated" note in `docs/tms-build-status.md` from the LIVE catalog,
+  count it as the FIFTH reviewer present-tense misreading, and move
+  `assert_charge_entry_allowed` ahead of the charge lookup in `update_load_charge` /
+  `delete_load_charge`. No change to who is authorised. Report the manager-facing
+  `Load not found` wording on a made-up charge id rather than silently changing it.
+
 - [done 2026-09-12] Record every storage bucket's intended `file_size_limit` in
   `docs/storage-bucket-limits.md` (bucket config is not in migrations and cannot be) and
   guard the live values with `src/test/storage-bucket-limits.test.ts`.
