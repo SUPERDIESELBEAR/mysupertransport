@@ -13297,3 +13297,38 @@ the database three times; the record has caught it none. A disposition guard tur
 
 This entry is documentation only. No migration, schema change, test, or application code
 was edited.
+
+---
+
+## 2026-09-14 — Standing rule: every pass report is committed to the repository
+
+**Rule.** Every Build-mode and Plan-mode pass writes its full report to a file in the
+repository as its final step, and commits it. The report is not complete until it is
+committed; an uncommitted report is not readable by the reviewer.
+
+**Path.** `docs/passes/YYYY-MM-DD-HHMM-<short-name>.md`
+
+- One file per pass, never overwritten, never tidied.
+- The file contains the full report — every verbatim error, every test count, every
+  suite name, every contradiction — exactly as it would have been written to chat.
+- The reviewer verifies against the repository; the committed report is the claim
+  being verified.
+
+**Why this path.** `docs/passes/` keeps pass reports under version control, separate from
+the durable decision log in `docs/tms-build-status.md`, and avoids mixing transient pass
+output with project source. A status-doc entry may cite its report file by relative path.
+
+**Two consequences.**
+
+1. A pass that cannot commit cannot deliver a report. Committing is part of finishing.
+2. Plan-mode passes commit too, even though they change nothing else. The investigation
+   is the deliverable, and the ones in this project have repeatedly outlived the passes
+   that prompted them.
+
+**Reviewer must pull before reading.** A report written and not pulled is a report
+verified against stale code — which the record already names as a failure mode.
+
+### No file outside docs/ was modified
+
+This entry is documentation only. No migration, schema change, test, or application code
+was edited.
