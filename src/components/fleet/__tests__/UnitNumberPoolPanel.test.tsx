@@ -3,7 +3,7 @@
  * gaps before the next number, and it must reuse the shared holder wording.
  */
 import { describe, expect, it, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import UnitNumberPoolPanel from '../UnitNumberPoolPanel';
 import type { UnitPoolEntry, UnitHolder } from '@/lib/unitNumberPool';
 
@@ -62,6 +62,48 @@ describe('UnitNumberPoolPanel', () => {
     render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
     await waitFor(() => expect(screen.getByText('231')).toBeInTheDocument());
     expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+  });
+
+  it('moves the gold focus to a clicked pool number and keeps next available visible', async () => {
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    const recycled = await screen.findByText('231');
+    fireEvent.click(recycled);
+
+    expect(screen.getByText('Selected · Recycled — freed before Go-Live')).toBeInTheDocument();
+    expect(screen.getByText('Next available: 272')).toBeInTheDocument();
+    expect(recycled.closest('[class]')).toHaveClass('bg-primary/10');
+  });
+
+  it('moves the focus to a held lookup result', async () => {
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText('Look up a number…'), { target: { value: '243' } });
+
+    await waitFor(() => expect(screen.getByText('Lookup result')).toBeInTheDocument());
+    expect(screen.getAllByText('243').length).toBeGreaterThan(0);
+    expect(screen.getByText(/Willie Westbrook/)).toBeInTheDocument();
+    expect(screen.getByText('Next available: 272')).toBeInTheDocument();
+  });
+
+  it('moves the focus to a free lookup result', async () => {
+    const mocked = await import('@/lib/unitNumberPool');
+    vi.mocked(mocked.fetchUnitHolders).mockResolvedValueOnce([]);
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    fireEvent.change(screen.getByPlaceholderText('Look up a number…'), { target: { value: '244' } });
+
+    await waitFor(() => expect(screen.getByText('Lookup result')).toBeInTheDocument());
+    expect(screen.getByText('Not held by anyone')).toBeInTheDocument();
+    expect(screen.getByText('244')).toBeInTheDocument();
+  });
+
+  it('resets to next available after closing and reopening', async () => {
+    const { rerender } = render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    fireEvent.click(await screen.findByText('231'));
+    expect(screen.getByText('Next available: 272')).toBeInTheDocument();
+
+    rerender(<UnitNumberPoolPanel open={false} onOpenChange={() => {}} />);
+    rerender(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Next available')).toBeInTheDocument());
+    expect(screen.queryByText('Next available: 272')).not.toBeInTheDocument();
   });
 });
 

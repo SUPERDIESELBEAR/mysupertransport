@@ -49,6 +49,8 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   const [holders, setHolders] = useState<UnitHolder[] | null>(null);
   const [holderLoading, setHolderLoading] = useState(false);
   const [copiedUnit, setCopiedUnit] = useState<number | null>(null);
+  const [focusedUnit, setFocusedUnit] = useState<number | null>(null);
+  const [focusSource, setFocusSource] = useState<'default' | 'pool' | 'lookup'>('default');
 
   const copyNumber = (unit: number) => {
     navigator.clipboard?.writeText(String(unit)).then(() => {
@@ -58,7 +60,13 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      setLookup('');
+      setHolders(null);
+      setFocusedUnit(null);
+      setFocusSource('default');
+      return;
+    }
     let cancelled = false;
     setLoading(true);
     setError(null);
@@ -78,11 +86,22 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
 
   useEffect(() => {
     const q = debouncedLookup.trim();
-    if (!open || !q) { setHolders(null); return; }
+    if (!open || !q) {
+      setHolders(null);
+      return;
+    }
     let cancelled = false;
     setHolderLoading(true);
     fetchUnitHolders(q)
-      .then(rows => { if (!cancelled) setHolders(rows); })
+      .then(rows => {
+        if (cancelled) return;
+        setHolders(rows);
+        const unit = Number(q);
+        if (Number.isFinite(unit)) {
+          setFocusedUnit(unit);
+          setFocusSource('lookup');
+        }
+      })
       .catch(() => { if (!cancelled) setHolders(null); })
       .finally(() => { if (!cancelled) setHolderLoading(false); });
     return () => { cancelled = true; };
@@ -94,9 +113,30 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
   );
   const nextEntry = pool.find(e => e.kind === 'next');
   const freeCount = pool.filter(e => e.kind !== 'next').length;
+  const focusedEntry = focusedUnit === null ? nextEntry : pool.find(e => e.unit === focusedUnit);
+  const displayedUnit = focusedUnit ?? nextEntry?.unit ?? null;
+  const showingDefault = focusSource === 'default';
 
   const warning = holders && holders.length > 0 ? holderWarning(debouncedLookup.trim(), holders) : null;
   const freeTyped = holders !== null && holders.length === 0 && debouncedLookup.trim() !== '';
+  const focusLabel = showingDefault
+    ? 'Next available'
+    : focusSource === 'lookup'
+      ? 'Lookup result'
+      : focusedEntry
+        ? `Selected · ${KIND_GROUP_LABEL[focusedEntry.kind]}`
+        : 'Selected unit';
+  const focusDetail = focusSource === 'lookup'
+    ? warning ?? (freeTyped ? 'Not held by anyone' : 'Checking availability…')
+    : focusedEntry
+      ? formatPoolOption(focusedEntry)
+      : '';
+
+  const focusPoolNumber = (unit: number) => {
+    setFocusedUnit(unit);
+    setFocusSource('pool');
+    copyNumber(unit);
+  };
 
   // The top section (search, lookup result, next-number strip) stays fixed;
   // only the group lists scroll, so the answer is always on screen.
@@ -108,7 +148,14 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
           placeholder="Look up a number…"
           className="pl-9 h-9 text-sm"
           value={lookup}
-          onChange={e => setLookup(e.target.value)}
+          onChange={e => {
+            const value = e.target.value;
+            setLookup(value);
+            if (!value.trim() && focusSource === 'lookup') {
+              setFocusedUnit(null);
+              setFocusSource('default');
+            }
+          }}
           inputMode="numeric"
         />
       </div>
@@ -118,35 +165,31 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
           <Loader2 className="h-3 w-3 animate-spin" /> Checking…
         </p>
       )}
-      {!holderLoading && warning && (
-        <p className="text-xs rounded-md border border-amber-300 bg-amber-50 text-amber-900 px-3 py-2">{warning}</p>
-      )}
-      {!holderLoading && freeTyped && (
-        <p className="text-xs rounded-md border border-emerald-300 bg-emerald-50 text-emerald-900 px-3 py-2">
-          Unit {debouncedLookup.trim()} is not held by anyone.
-        </p>
-      )}
-
-      {!loading && !error && nextEntry && (
+      {!loading && !error && displayedUnit !== null && (
         <div className="flex items-center justify-between rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
-          <div>
-            <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Next available</p>
+          <div className="min-w-0">
+            <p className="text-[11px] font-medium uppercase tracking-wide text-primary">{focusLabel}</p>
             <p className="text-lg font-semibold leading-tight">
-              {nextEntry.unit}
-              <span className="ml-2 text-xs font-normal text-muted-foreground">
-                {freeCount} number{freeCount === 1 ? '' : 's'} free
-              </span>
+              {displayedUnit}
             </p>
+            {focusDetail && <p className="mt-0.5 max-w-sm text-xs text-muted-foreground">{focusDetail}</p>}
+            {showingDefault ? (
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {freeCount} number{freeCount === 1 ? '' : 's'} free
+              </p>
+            ) : nextEntry && displayedUnit !== nextEntry.unit ? (
+              <p className="mt-1 text-xs text-muted-foreground">Next available: {nextEntry.unit}</p>
+            ) : null}
           </div>
           <Button
             type="button"
             variant="outline"
             size="sm"
             className="h-8 gap-1.5"
-            onClick={() => copyNumber(nextEntry.unit)}
+            onClick={() => copyNumber(displayedUnit)}
           >
-            {copiedUnit === nextEntry.unit ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-            {copiedUnit === nextEntry.unit ? 'Copied' : 'Copy'}
+            {copiedUnit === displayedUnit ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+            {copiedUnit === displayedUnit ? 'Copied' : 'Copy'}
           </Button>
         </div>
       )}
@@ -179,19 +222,17 @@ export default function UnitNumberPoolPanel({ open, onOpenChange }: Props) {
               <Badge
                 key={`${entry.kind}-${entry.unit}`}
                 variant="outline"
-                className={`text-xs font-normal gap-1 ${entry.kind === 'next' ? 'border-primary text-primary' : 'cursor-pointer hover:bg-accent'}`}
+                className={`cursor-pointer text-xs font-normal gap-1 hover:bg-accent ${displayedUnit === entry.unit ? 'border-primary bg-primary/10 text-primary' : ''}`}
                 title={`${entry.note} · ${formatPoolOption(entry)}`}
-                onClick={entry.kind === 'next' ? undefined : () => copyNumber(entry.unit)}
+                onClick={() => focusPoolNumber(entry.unit)}
               >
                 {entry.unit}
                 {entry.kind === 'recycled' && (
                   <span className="text-[10px] text-muted-foreground">{formatPoolOption(entry)}</span>
                 )}
-                {entry.kind !== 'next' && (
-                  copiedUnit === entry.unit
-                    ? <Check className="h-3 w-3 text-emerald-600" />
-                    : <Copy className="h-3 w-3 text-muted-foreground" />
-                )}
+                {copiedUnit === entry.unit
+                  ? <Check className="h-3 w-3 text-emerald-600" />
+                  : <Copy className="h-3 w-3 text-muted-foreground" />}
               </Badge>
             ))}
           </div>
