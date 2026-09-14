@@ -308,12 +308,15 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     }
   });
 
-  itLive('all six B2 tables share one stamp trigger name, sorting ahead of validation', () => {
+  itLive('every stamped table shares one trigger name, sorting ahead of validation', () => {
     const rows = psql(`SELECT t.tgrelid::regclass::text FROM pg_trigger t
       WHERE NOT t.tgisinternal AND t.tgname = 'aa_stamp_tenant_company_id'
         AND t.tgenabled = 'O' ORDER BY 1`);
+    // Six from B2 plus the two singleton carriers from B3. A new stamped table
+    // must be added here deliberately, so an accidental stamp is a red suite.
     expect(rows.sort()).toEqual([
-      'brokers', 'equipment_items', 'facilities', 'loads', 'operators', 'user_roles',
+      'brokers', 'equipment_items', 'facilities', 'loads', 'operators',
+      'owner_transfers', 'pay_policies', 'user_roles',
     ]);
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -381,5 +384,83 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       AND indexname = 'applications_email_non_draft_unique'`);
     expect(idx).toBeTruthy();
     expect(idx).not.toMatch(/company_id/);
+  });
+});
+
+/**
+ * BATCH B3 — the two remaining singleton constraints.
+ *
+ * These two indexes were the reason the fictitious company could not exist: a
+ * global "one default pay policy" and a global "one pending owner transfer"
+ * meant company A's rows blocked company B's. Both are now per company.
+ *
+ * `initiate_owner_transfer` is checked as well as the index, because the same
+ * rule is written twice — a per-company index with a globally-scoped body check
+ * would refuse the second company before the index ever saw the row.
+ */
+describe('tenancy batch B3 — pay_policies, owner_transfers', () => {
+  const TABLES = ['pay_policies', 'owner_transfers'] as const;
+
+  itLive('company_id is NOT NULL with no default on both', () => {
+    const rows = psql(`SELECT a.attrelid::regclass::text || ' ' || a.attnotnull::text || ' ' ||
+        a.atthasdef::text
+      FROM pg_attribute a
+      WHERE a.attname = 'company_id'
+        AND a.attrelid IN ('public.pay_policies'::regclass, 'public.owner_transfers'::regclass)
+      ORDER BY 1`);
+    expect(rows.sort()).toEqual(['owner_transfers true false', 'pay_policies true false']);
+  });
+
+  itLive('both reference carrier_profile with ON DELETE RESTRICT', () => {
+    for (const t of TABLES) {
+      const rows = psql(`SELECT c.confdeltype FROM pg_constraint c
+        WHERE c.conrelid = 'public.${t}'::regclass AND c.contype = 'f'
+          AND c.confrelid = 'public.carrier_profile'::regclass`);
+      expect(rows, t).toEqual(['r']);
+    }
+  });
+
+  itLive('no row is null and none points off the live carrier', () => {
+    for (const t of TABLES) {
+      const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toEqual(['0 0']);
+    }
+  });
+
+  itLive('one default pay policy PER COMPANY', () => {
+    const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND indexname = 'pay_policies_single_company_default'`);
+    expect(idx).toMatch(/\(company_id, is_company_default\)/);
+    expect(idx).toMatch(/WHERE is_company_default/);
+  });
+
+  itLive('one pending owner transfer PER COMPANY', () => {
+    const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
+      AND indexname = 'owner_transfers_single_pending'`);
+    expect(idx).toMatch(/\(company_id, status\)/);
+    expect(idx).toMatch(/WHERE \(status = 'pending'/);
+  });
+
+  itLive('initiate_owner_transfer checks the pending rule within one company', () => {
+    const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'initiate_owner_transfer'`).join('\n');
+    expect(code).toMatch(/current_company_id\(\)/);
+    // Both the expiry sweep and the pending check must name the company.
+    const scoped = code.match(/company_id = v_company/g) ?? [];
+    expect(scoped.length).toBeGreaterThanOrEqual(2);
+    expect(code).toMatch(/holds no company membership/);
+  });
+
+  itLive('neither table carries any other unique index', () => {
+    const rows = psql(`SELECT i.indexrelid::regclass::text FROM pg_index i
+      WHERE i.indrelid IN ('public.pay_policies'::regclass, 'public.owner_transfers'::regclass)
+        AND i.indisunique ORDER BY 1`);
+    expect(rows.sort()).toEqual([
+      'owner_transfers_pkey', 'owner_transfers_single_pending',
+      'pay_policies_pkey', 'pay_policies_single_company_default',
+    ]);
   });
 });
