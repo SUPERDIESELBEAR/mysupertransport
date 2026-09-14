@@ -12586,3 +12586,43 @@ functions — which is why a real session was used, and why the probe had a cons
 Suites: `policy-grant-parity`, `grant-parity-live`, `definer-search-path`, `definer-live-catalog`,
 `definer-fail-open`, `caller-evaluated-functions`, `tenancy-resolver`. Linter: the same 170
 pre-existing issues, unchanged by this migration.
+
+### The wording quirk — deliberate, not deferred
+
+`update_load_charge` and `delete_load_charge` raise `Load not found` when a management,
+owner or dispatcher caller passes a charge id that does not exist. The reason is the
+null-load path above: the made-up id resolves to a NULL `load_id`, the gate is called
+with it, and `assert_charge_entry_allowed` looks the load up only after the role test
+passes. A privileged caller therefore passes the role test and then hits the load
+lookup, so the error text is `Load not found`.
+
+**DECIDED: leave it.** The fix would require splitting `assert_charge_entry_allowed`
+so its role test is separately callable from three functions, changing a gate that is
+correct and already reviewed. The path is essentially unreachable through the app — a
+charge id comes from the row the user clicked, not from free text. A driver still gets
+the permission refusal, which was the case that mattered. Recorded here so nobody
+"fixes" it later without seeing the trade-off.
+
+### The probe that wrote to production — lesson
+
+During verification on 2026-09-14, a probe intended to make no change called
+`update_load_charge` omitting `p_description`. That cleared `DETENTION` to NULL on
+charge `396a776e-70ab-4297-9779-e8439d8282f9`, a real charge on a real load, and
+wrote `charge · description` to `load_change_history`. It was restored by a second
+owner call with the reason `restore description cleared by 2026-09-14 authorisation
+check`. Both edits remain in the change history; the amount never moved.
+
+Reported unprompted, which is why it is a lesson rather than an incident.
+
+What it shows: an RPC that takes a full row and writes what it is given treats an
+OMITTED argument as an instruction to clear the field. A probe that omits an argument
+is not a read-only probe.
+
+The rule: a verification probe against a **money table** runs inside a transaction
+that aborts, or it is not a probe. Every other probe in this sequence did — the owner
+transfers, the singleton constraints, the driver refusals — and this one did not, on
+the one table where a silent field clear is hardest to notice.
+
+A driver refusal probe needs no rollback because it writes nothing. A probe that might
+succeed does. The distinction is whether the operation is expected to be **REFUSED** or
+expected to **WORK**.
