@@ -86,16 +86,40 @@ describe('current_company_id — the four protections', () => {
     expect(code.indexOf('company_members')).toBeLessThan(code.search(/public\.operators/i));
   });
 
+  /**
+   * Reasoned allowlist: policies that scope on `current_company_id()` WITHOUT a
+   * role test. Each entry must confer no capability beyond reading the caller's
+   * own company identity. Nothing that touches money, loads or settlements may
+   * be added here.
+   */
+  const COMPANY_SCOPED_WITHOUT_ROLE = [
+    // Read-only carrier identity. A DRIVER must read it — carrierIdentity.ts
+    // blocks certifying a log without the cached carrier name, USDOT and
+    // terminal address. Writes to this table still require management/owner.
+    'carrier_profile | Callers read only their own carrier profile',
+  ];
+
   itLive('no billing policy admits a caller merely because a company resolves', () => {
     // The resolver widened WHO resolves. It must not widen WHAT anyone may do:
-    // every company-scoped policy must ALSO test a staff role.
+    // every company-scoped policy must ALSO test a staff role, unless it is on
+    // the reasoned allowlist above.
     const offenders = psql(`SELECT tablename || ' | ' || policyname FROM pg_policies
       WHERE schemaname = 'public'
         AND (coalesce(qual,'') || coalesce(with_check,'')) LIKE '%current_company_id%'
         AND (coalesce(qual,'') || coalesce(with_check,'')) NOT LIKE '%has_role%'
-      ORDER BY 1`);
+      ORDER BY 1`).filter(r => !COMPANY_SCOPED_WITHOUT_ROLE.includes(r));
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
+
+  itLive('the allowlisted policies are SELECT-only', () => {
+    for (const entry of COMPANY_SCOPED_WITHOUT_ROLE) {
+      const [table, name] = entry.split(' | ');
+      const cmds = psql(`SELECT cmd FROM pg_policies WHERE schemaname = 'public'
+        AND tablename = '${table}' AND policyname = '${name}'`);
+      expect(cmds, entry).toEqual(['SELECT']);
+    }
+  });
+
 
 
 
