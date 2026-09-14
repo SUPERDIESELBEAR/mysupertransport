@@ -12,11 +12,11 @@ export interface ScreeningCheck {
   receivedDate?: string | null;
 }
 
-/** Mark keeps the state readable without relying on color alone. */
+/** Only received carries a mark; requested / not started show the bare label. */
 const MARK: Record<ScreeningStatusValue, string> = {
   received: '✓',
-  requested: '·',
-  not_started: '○',
+  requested: '',
+  not_started: '',
 };
 
 const WORDS: Record<ScreeningStatusValue, string> = {
@@ -59,7 +59,8 @@ function Chip({ label, status, title }: { label: string; status: ScreeningStatus
           className={`inline-flex items-center gap-1 rounded-full border px-1.5 py-0.5 text-[10px] font-semibold leading-none ${CHIP[status]}`}
           aria-label={title}
         >
-          {label} <span aria-hidden="true">{MARK[status]}</span>
+          {label}
+          {MARK[status] && <span aria-hidden="true">{MARK[status]}</span>}
         </span>
       </TooltipTrigger>
       <TooltipContent className="text-xs">{title}</TooltipContent>
