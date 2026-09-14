@@ -134,7 +134,9 @@ export default function UnitNumberPicker({
                 </div>
               )}
               {poolError && (
-                <div className="px-3 py-3 text-xs text-destructive">{poolError}</div>
+                <div className={cn('px-3 py-3 text-xs', poolMissing ? 'text-muted-foreground' : 'text-destructive')}>
+                  {poolError}
+                </div>
               )}
               {pool && <CommandEmpty>No matching number.</CommandEmpty>}
               {typedIsNew && (
