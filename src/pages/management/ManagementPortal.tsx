@@ -2162,9 +2162,12 @@ export default function ManagementPortal() {
                                   <button
                                     type="button"
                                     onClick={toggleNotes}
-                                    className="text-[11px] text-muted-foreground underline underline-offset-2"
+                                    aria-label={notes
+                                      ? `See ${notes.count} interview note${notes.count !== 1 ? 's' : ''} for ${name}, most recent by ${notes.latest}`
+                                      : `Add interview note for ${name}`}
+                                    className={`text-[11px] underline underline-offset-2 ${notes ? 'text-gold' : 'text-muted-foreground'}`}
                                   >
-                                    {notes ? `${notes.count} note${notes.count !== 1 ? 's' : ''}` : 'Add note'}
+                                    {notes ? `See note${notes.count !== 1 ? 's' : ''}` : 'Add note'}
                                   </button>
                                 </div>
                               </div>
