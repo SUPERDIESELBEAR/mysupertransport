@@ -187,11 +187,7 @@ BEGIN
   SELECT
     n,
     -- Taken: went live at all, or still on the roster, or onboarding is open.
-    bool_or(
-      go_live_date IS NOT NULL
-      OR is_active
-      OR (go_live_date IS NULL AND deactivated_at IS NULL AND is_active)
-    ),
+    bool_or(go_live_date IS NOT NULL OR is_active),
     -- Freed: the oldest wash-out that gave this number up.
     min(deactivated_at) FILTER (WHERE go_live_date IS NULL AND NOT is_active)
   FROM numbered
@@ -215,7 +211,7 @@ BEGIN
   -- Next in sequence.
   SELECT v_ceiling + 1, 'next'::text, NULL::timestamptz, 'Next in sequence'::text
   WHERE v_ceiling + 1 <= v_max_offered
-  ORDER BY 2 DESC, 3 ASC NULLS LAST, 1 ASC;
+  ORDER BY 2 ASC, 3 ASC NULLS LAST, 1 ASC;
 END;
 $$;
 
