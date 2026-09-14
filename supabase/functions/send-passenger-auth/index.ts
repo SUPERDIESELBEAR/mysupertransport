@@ -130,10 +130,26 @@ Deno.serve(async (req) => {
     }
   }
 
+  // TENANCY: `carrier_signature_settings` is PER-COMPANY since 2026-09-14, so a
+  // service-role read must name the company. The sender is staff, so his
+  // `company_members` row is the source; no fallback to "the" signature block.
+  const { data: membership, error: memberErr } = await admin
+    .from('company_members')
+    .select('company_id')
+    .eq('user_id', userData.user.id)
+    .maybeSingle()
+  if (memberErr) return json(500, { error: memberErr.message })
+  if (!membership) {
+    return json(403, {
+      error: 'No company membership found for this staff account, so the carrier signature block cannot be resolved.',
+    })
+  }
   const { data: carrier } = await admin
     .from('carrier_signature_settings')
     .select('signature_url, typed_name, title')
+    .eq('company_id', membership.company_id)
     .maybeSingle()
+
 
   const { data: row, error: insErr } = await admin
     .from('passenger_authorizations')
