@@ -1272,9 +1272,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               {/* Interview Notes — staff only, never shown to the applicant
                   and excluded from the printed application. */}
               {canLogInterview && (
-                <Section title="Interview Notes" icon={<MessageSquare className="h-4 w-4" />}>
-                  <InterviewNotesPanel applicationId={app.id} applicantName={fullName} />
-                </Section>
+                <div className="print:hidden">
+                  <Section title="Interview Notes" icon={<MessageSquare className="h-4 w-4" />}>
+                    <InterviewNotesPanel applicationId={app.id} applicantName={fullName} />
+                  </Section>
+                </div>
               )}
 
               {/* Employment */}
