@@ -1049,6 +1049,7 @@ function EquipmentCard({
 
 function FuelCardSections({
   items,
+  sort,
   statusFilter,
   viewMode,
   isManagement,
@@ -1060,6 +1061,7 @@ function FuelCardSections({
   onHistory,
 }: {
   items: EquipmentItem[];
+  sort: SectionSort;
   statusFilter: 'all' | EquipmentStatus;
   viewMode: 'cards' | 'table';
   isManagement: boolean;
@@ -1070,10 +1072,10 @@ function FuelCardSections({
   onUnassign: (item: EquipmentItem) => void;
   onHistory: (item: EquipmentItem) => void;
 }) {
-  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'));
-  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'));
-  const lost = sortEquipment(items.filter(i => i.status === 'lost'));
-  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'));
+  const assigned = sortEquipment(items.filter(i => i.status === 'assigned'), sort);
+  const available = sortEquipment(items.filter(i => i.status === 'available' || i.status === 'damaged'), sort);
+  const lost = sortEquipment(items.filter(i => i.status === 'lost'), sort);
+  const deactivated = sortEquipment(items.filter(i => i.status === 'deactivated'), sort);
 
   const allSections: { key: EquipmentStatus | 'available_group'; title: string; subtitle: string; items: EquipmentItem[] }[] = [
     { key: 'assigned', title: 'Assigned', subtitle: 'Fuel cards currently issued to a driver', items: assigned },
