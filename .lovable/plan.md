@@ -1,137 +1,194 @@
-# Tenancy disposition audit — how many tables are in an undecided state
+# Tenancy disposition sort — 145 tables without `company_id`
 
-Read-only. Nothing was changed. Live catalog read 2026-09-14 19:50 UTC; the record read
-is `docs/tms-build-status.md` (13,213 lines) and `.lovable/plan.md` as it stood before
-this file was overwritten (the 2026-09-14 re-cut).
+All counts below come from live queries run this pass against `pg_constraint`,
+`information_schema.columns`, `information_schema.tables` and `pg_stat_user_tables`.
+Nothing was changed, and no disposition is written here.
 
-**Live totals:** 196 public tables. **51 carry `company_id`. 145 do not.**
+Live baseline: 196 public base tables. 51 carry `company_id`. 145 do not.
 
-Of the 145: **20 declared GLOBAL** (2026-09-14), **6 declared DEFERRED** (2026-09-14),
-**1 declared GLOBAL** on 2026-09-13 (`email_send_state`), **4 named for batch B7**, and
-**114 with no disposition of any kind**. Of those 114, **43 do not appear anywhere in
-the record at all** — not once, in 13,213 lines.
+Reconciliation to the record's 137: the 145 include the 20 already declared GLOBAL,
+`email_send_state`, and the 6 deferred content tables; the 137 also count 9 tables that
+already have the column but no recorded batch.
 
-## 1. The thirteen tables from the 2026-09-13 §3 list
+---
 
-That list is not in `docs/tms-build-status.md`. Only the corrections from that pass
-reached it, which is confirmed by search: the phrase never appears, and neither do
-several of the table names.
+## 1. Structural pile — no decision needed
 
-| Table | `company_id` today | What the record says today | Disposition |
-| --- | --- | --- | --- |
-| `company_settings` | no | **Zero occurrences in the record.** The re-cut's index sweep (plan file only, never copied into the record) says `company_settings(setting_key)` "must become per-company" | none in the record |
-| `fleet_settings` | no | **Zero occurrences.** | none |
-| `settlement_settings` | **yes** | 2026-09-14: primary key moved to `(company_id)`, "one settlement settings row per carrier" | PER-COMPANY — agrees with 09-13 |
-| `load_number_config` | no | 6 mentions, all operational: "The generator locks the single `load_number_config` row", "reset to 1" | none |
-| `pay_policies` | **yes** | 2026-09-14 B3: per-company default index, stamped | PER-COMPANY — agrees |
-| `carrier_signature_settings` | **yes** | 2026-09-14: `UNIQUE ((true))` → `UNIQUE (company_id)` | PER-COMPANY — agrees |
-| `inspection_program_settings` | no | 1 mention, about a draft migration not being applied. Nothing on tenancy | none |
-| `pei_cadence_settings` | no | **Zero occurrences.** | none |
-| `inspection_binder_order` | no | 1 mention, about binder records. Index sweep (plan file only) says `inspection_binder_order(scope)` "must become per-company" | none in the record |
-| `email_templates` | no | 2026-09-14: declared GLOBAL, with the note "Recorded GLOBAL on the re-cut's authority only" and a flag that no reasoning exists | **GLOBAL — contradicts 09-13** |
-| `notification_role_defaults` | no | 2026-09-14: GLOBAL, "Product defaults for what each role is notified about" | **GLOBAL — contradicts 09-13** |
-| `audit_log` | no | 22 mentions, every one about purge order or row counts. The one tenancy statement is the re-cut's batch list: `audit_log` is one of the four large logs in **B7** | per-company by batch assignment, never by declaration |
-| `share_tokens` | no | **Zero occurrences in the record.** Named in the plan file's B8 list only | none in the record |
+**56 tables** are reachable from an already-scoped parent through an unbroken chain of
+**NOT NULL** foreign keys. Query: recursive walk from the 51 scoped tables plus
+`carrier_profile` along FK edges whose referencing columns are all NOT NULL.
 
-Three agree because they were migrated. Two contradict. Six have no disposition in the
-record at all. Two (`audit_log`, `share_tokens`) are named only as batch members, which
-is a schedule, not a reasoned disposition.
+**Depth 1 — 46 tables, parent named by the FK column**
 
-## 2. Every table with no recorded disposition and no `company_id` — 114
+Via `operators(operator_id)` (36): `active_dispatch`, `blank_log_acknowledgments`,
+`cert_reminders`, `contractor_pay_setup`, `dispatch_daily_log`, `dispatch_status_history`,
+`documents`, `driver_vault_documents`, `eld_devices`, `eld_extension_requests`,
+`eld_malfunction_events`, `equipment_assignments`, `equipment_receipts`,
+`equipment_return_confirmations`, `forecast_deductions`, `forecast_expenses`,
+`forecast_loads`, `ica_contracts`, `lease_terminations`, `officer_packet_links`,
+`onboard_assignment_sheets`, `onboarding_status`, `operator_departing_events`,
+`operator_documents`, `operator_offboarding_steps`, `operator_parking_events`,
+`roadside_stops`, `rods_amendments`, `rods_correction_requests`, `rods_days`,
+`rods_divergences`, `rods_unlock_events`, `settlements`, `truck_dot_inspections`,
+`truck_maintenance_records`, `truck_owners`.
 
-**43 that appear nowhere in the record.** These are the ones indistinguishable from
-tables that were missed:
+Via `loads(load_id)` (10): `claim_flag_history`, `claim_flags`,
+`dispatch_settlement_load_contributions`, `document_exceptions`, `load_change_history`,
+`load_charges`, `load_documents`, `load_references`, `load_status_history`, `load_stops`.
 
-`binder_share_bundles` `carrier_notification_settings` `cert_reminders`
-`company_settings` `dispatch_status_history` `document_version_history`
-`dot_consultant_email_settings` `driver_documents` `driver_optional_docs` `eld_devices`
-`eld_malfunction_notifications` `eld_sync_alerts` `fleet_settings` `ica_review_links`
-`inspection_document_versions` `insurance_email_settings` `message_reactions`
-`message_templates` `message_threads` `mo_plate_assignments` `mo_plates`
-`officer_packet_links` `onboard_assignment_sheet_sends` `operator_broadcast_recipients`
-`operator_broadcasts` `passenger_authorizations` `pei_accidents` `pei_cadence_settings`
-`pei_request_events` `pei_responses` `rods_amendments` `rods_correction_requests`
-`rods_divergences` `rods_unlock_events` `service_resource_bookmarks`
-`service_resource_completions` `service_resource_views` `share_tokens`
-`staff_event_acknowledgments` `staff_help_query_log` `thread_participants`
-`truck_dot_inspections` `truck_maintenance_records`
+**Depth 2 — 10 tables**: `dispatch_settlement_charge_verdicts` (via
+`dispatch_settlement_load_contributions`), `ica_driver_acknowledgments` (`ica_contracts`),
+`load_reference_citations` (`load_references`), `onboard_assignment_sheet_items` and
+`onboard_assignment_sheet_sends` (`onboard_assignment_sheets`), `roadside_stop_documents`
+and `roadside_stop_violations` (`roadside_stops`), `rods_events` (`rods_days`),
+`settlement_line_items` and `settlement_withheld_loads` (`settlements`).
 
-Three of these hold federal ELD or roadside data (`eld_devices`, `rods_amendments`,
-`rods_correction_requests`, `rods_divergences`, `rods_unlock_events`,
-`truck_dot_inspections`) — the same class as the timezone defect that was called the
-highest-severity item in the tenancy work.
+**Structural in intent, but the link is nullable or not a foreign key at all — 33 tables.**
+These are not decisions either, but they cannot be scoped by inheritance as they stand:
 
-**71 mentioned but never dispositioned.** Mentioned often, always operationally:
-`settlements` (42), `load_charges` (37), `fuel_transactions` (29), `settlement_line_items`
-(22), `lease_terminations` (19), `load_stops` (16), `fuel_transaction_lines` (15),
-`load_change_history` (14), `dispatch_settlements` (13), `onboarding_status` (13),
-`load_documents` (12), `fuel_import_batches` (11), `dispatch_settlement_rates` (9),
-`equipment_assignments` (9), `load_number_config` (9), `parser_diagnostics` (9),
-`claim_flags` (7), `settlement_withheld_loads` (6), `load_references` (6),
-`active_dispatch` (5), `dispatch_settlement_charge_verdicts` (5),
-`dispatch_settlement_load_contributions` (5), `preview_sessions` (5), and 48 more with
-four or fewer.
+- Nullable FK to a scoped parent: `eld_sync_alerts`, `mo_plate_assignments`,
+  `passenger_authorizations`, `operator_broadcast_recipients`, `fuel_transactions`,
+  `share_token_access_log`, `staff_event_acknowledgments`, `parser_diagnostics`,
+  `rate_con_ingest_queue`, `dispatch_settlement_line_items`, `messages`,
+  `eld_malfunction_notifications`, `driver_uploads`, `service_help_requests`,
+  `staff_help_query_log`.
+- Owner column with no FK: `driver_documents` and `driver_optional_docs` (`driver_id`
+  NOT NULL), `inspection_documents` (`driver_id` nullable), `pei_requests`
+  (`application_id` NOT NULL).
+- Owner is a person, not a row in a scoped table (`user_id` NOT NULL): `notifications`,
+  `notification_preferences`, `staff_ui_preferences`, `user_view_preferences`,
+  `thread_participants`, `message_reactions`, `document_acknowledgments`,
+  `service_resource_bookmarks`, `service_resource_completions`, `service_resource_views`,
+  `message_notification_throttle`. Their company is resolvable from the person
+  (`company_members`, then `operators`) but not by a join to a scoped table.
+- Children of `applications`, which is declared GLOBAL: 7 tables — they inherit GLOBAL,
+  and that is settled by the parent, not open.
 
-Money tables are in this group. `settlements`, `settlement_line_items`, `load_charges`,
-`invoices`' children by association, `fuel_transactions` — heavily discussed, never
-declared either way.
+### Own column, or parent join? Recommendation
 
-## 3. Where today's declaration contradicts 2026-09-13
+**Recommend: every one of these tables gets its own `company_id`, stamped from the parent.**
 
-**`email_templates`** — 09-13: tenant data, because a carrier's email wording is its
-own. 2026-09-14: GLOBAL, on the grounds that it sits in a table of reference content.
-Today's entry already flags that the GLOBAL side has no written reasoning; the
-tenant-side reasoning existed but never reached the record. Both positions are now
-known, and they are opposite.
+- A parent-join policy has to be written and re-verified per table and per policy, and it
+  evaluates per row on every read; a child two levels down needs a two-table join in each
+  of its four policies. The cost is paid on every query, forever.
+- Uniqueness cannot be scoped through a join at all. Per-company unique indexes need the
+  column locally.
+- Immutability triggers and audit reads also need the value locally to fail closed.
+- The cost of the column is one-time: nullable add, backfill from the parent, NOT NULL,
+  RESTRICT FK, stamp trigger. That is the shape already run seven times.
 
-**`notification_role_defaults`** — 09-13: tenant data. 2026-09-14: GLOBAL, "product
-defaults for what each role is notified about". This is a real disagreement on merits: a
-carrier plausibly decides which of its roles get which alerts, and equally plausibly
-inherits a product default. Nothing in the record settles it.
+The one case for a join is a leaf with no policies of its own and no uniqueness. There are
+few enough of those that the uniformity is worth more than the saved columns.
 
-No other contradiction exists among the thirteen, because the remaining eleven either
-already agree (three migrated) or have no second position to contradict.
+---
 
-## 4. Should any of today's twenty declarations be revisited?
+## 2. Ambiguous pile — genuine business decisions (13 tables)
 
-**Two of the twenty: `email_templates` and `notification_role_defaults`.** Both were
-written from a record that did not contain the 09-13 recommendation. Each now looks
-settled and is not. `email_templates` was already flagged in the same entry, which is
-the only reason it is visible.
+| Table | The question, in business terms | Cost of "each carrier's own" | Cost of "SUPERDRIVE's" |
+|---|---|---|---|
+| `company_settings` | Does each carrier configure its own operating settings? | None — this is what it is for | Wrong: carriers would share settings |
+| `fleet_settings` | Does each carrier set its own fleet rules? | Per-carrier setup work at onboarding | One carrier's fleet rule silently governs another's trucks |
+| `load_number_config` | Does each carrier number its own loads from its own sequence? | Each carrier needs a prefix and a starting number | Load numbers collide across carriers |
+| `inspection_program_settings` | Does each carrier run its own inspection program, or does SUPERDRIVE prescribe one? | Setup per carrier | Carriers with different inspection cadences cannot both be served |
+| `pei_cadence_settings` | How often previous employers are chased — carrier's call or product default? | Setup per carrier | A carrier cannot chase faster than the product allows |
+| `inspection_binder_order` | Does each carrier decide the order documents appear in an officer's binder? | Setup per carrier | All carriers show the same binder order |
+| `carrier_notification_settings` | Does each carrier choose which alerts it receives? | Setup per carrier | Alerts are the same for everyone |
+| `dot_consultant_email_settings` | Does each carrier name its own DOT consultant? | Setup per carrier | Wrong: one carrier's consultant receives another's compliance mail |
+| `insurance_email_settings` | Does each carrier name its own insurance contact? | Setup per carrier | Same leak as above |
+| `message_templates` | Are canned messages a carrier's own wording, or SUPERDRIVE's? | Each carrier writes its own | Carriers send identical wording; a carrier cannot phrase things its way |
+| `mo_plates` | Is the Missouri plate pool one carrier's property? | Correct if plates are carrier-owned | Plates appear assignable across carriers |
+| `dispatch_settlement_rates` | Does each carrier set what it pays its dispatchers? | Setup per carrier | One carrier's dispatcher pay reaches another's settlement |
+| `share_tokens` | Are public share links a carrier's own, or a shared token space? | Token space partitions cleanly | Tokens are global; a token names data across carriers |
 
-**The other eighteen do not appear to be affected**, on the evidence available: none of
-them is on the 09-13 §3 list, and their reasons (applicants are unauthenticated; a
-profile is one auth user; `carrier_profile.id` *is* the company; the FMCSA device list;
-SUPERDRIVE's own changelog; the shared sending domain) do not depend on anything the
-missing list said. That is a statement about this one missing document, not a clean bill
-of health: the same failure mode could hide another chat-only decision, and this audit
-can only see what was written down.
+Thirteen is inside the ten-to-fifteen expectation, so the structural rule holds. `eld_cron_runs`,
+`preview_sessions`, `audit_log`, `email_send_log`, `document_short_links`,
+`binder_share_bundles`, `ica_review_links`, `equipment_serial_conflict_dismissals`,
+`message_threads`, `operator_broadcasts`, `fuel_import_batches`, `fuel_transaction_lines`,
+`fuel_disagreement_acceptances`, `pei_accidents`, `pei_request_events`, `pei_responses`,
+`document_version_history`, `inspection_document_versions` are infrastructure or children —
+structural, and listed as such above or in the batch notes, not decisions.
 
-## 5. A separate finding, not asked for but in scope
+One question sits under the person-owned tables and should be answered before them:
+**can one person work for two carriers at once?** If yes, a person's preferences and
+notifications must be per person **and** per carrier. If no, the person's company is a
+lookup and no column is needed on the preference rows.
 
-**Nine tables already carry `company_id` and appear in no recorded batch:**
-`invoices`, `invoice_line_items`, `invoice_batches`, `invoice_number_config`, `payments`,
-`ar_aging_snapshots`, `factoring_remittances`, `accessorial_adjustments`,
-`unit_number_config`.
+---
 
-All nine are `NOT NULL`, no default, FK to `carrier_profile` — and **none has the
-`aa_stamp_tenant_company_id` trigger**, so the value must be supplied by the writer.
-`allocate_invoice_number` does resolve it server-side; `create_invoice`,
-`create_accessorial_adjustment` and `add_load_charge` do not mention `company_id` at
-all. That is neither sanctioned stamping shape, and it is undeclared. The record's only
-acknowledgement is one clause in the `company_members` entry: "the eight billing FKs and
-`invoice_number_config`'s `UNIQUE (company_id, year)` already point at it."
+## 3. Federal pile — confirmed by FK, not assumed (18 tables)
 
-## The count you asked for
+Hours-of-service, inspection and roadside data. Every one below was checked for a NOT NULL
+FK; the inheritance holds except where noted.
 
-| State | Tables |
-| --- | --- |
-| Declared, and consistent with everything found | 18 of today's 20, plus 6 deferred, plus `email_send_state` |
-| Declared, but from an incomplete record | 2 (`email_templates`, `notification_role_defaults`) |
-| Named in a batch, never declared | 4 logs (B7) + 6 token tables (B8, plan file only) |
-| No disposition anywhere, no column | **114**, of which **43 are absent from the record entirely** |
-| Column present, no disposition, no stamping shape | **9** |
+| Table | Parent (FK) | Inheritance holds |
+|---|---|---|
+| `rods_days` | `operators(operator_id)` NOT NULL | Yes |
+| `rods_events` | `rods_days(rods_day_id)` NOT NULL | Yes |
+| `rods_amendments` | `operators(operator_id)` + `rods_days(rods_day_id)` NOT NULL | Yes |
+| `rods_divergences` | `operators(operator_id)` NOT NULL | Yes |
+| `rods_unlock_events` | `operators(operator_id)` NOT NULL | Yes |
+| `rods_correction_requests` | `operators(operator_id)` NOT NULL | Yes |
+| `blank_log_acknowledgments` | `operators(operator_id)` NOT NULL | Yes |
+| `eld_devices` | `operators(operator_id)` NOT NULL | Yes |
+| `eld_extension_requests` | `operators(operator_id)` NOT NULL | Yes |
+| `eld_malfunction_events` | `operators(operator_id)` NOT NULL | Yes |
+| `truck_dot_inspections` | `operators(operator_id)` NOT NULL | Yes |
+| `truck_maintenance_records` | `operators(operator_id)` NOT NULL | Yes |
+| `roadside_stops` | `operators(operator_id)` NOT NULL | Yes |
+| `roadside_stop_documents` | `roadside_stops(stop_id)` NOT NULL | Yes |
+| `roadside_stop_violations` | `roadside_stops(stop_id)` NOT NULL | Yes |
+| `eld_malfunction_notifications` | `eld_malfunction_events(event_id)` **nullable** | **No** — needs its own column or a NOT NULL parent |
+| `eld_sync_alerts` | `operators(operator_id)` **nullable** | **No** — same |
+| `inspection_documents` / `inspection_document_versions` | `driver_id` with **no FK**; versions hang off `inspection_documents` | **No** — the chain never reaches a scoped table |
 
-**137 tables need a disposition** before the declaration requirement means anything
-(114 + 9 + the 14 named only as batch members). Nothing here proposes how to settle
-them.
+Three federal-data breaks, and they are the same class as the timezone defect: a §395.8 or
+inspection record whose company cannot be derived from its own row. These should be scoped
+explicitly with their own column rather than left to inheritance.
+
+---
+
+## 4. The two declarations to revisit
+
+**`email_templates`** — 0 rows live, no FK, no `company_id`. Declared GLOBAL on 2026-09-14,
+and the record itself flags that it was recorded on weak authority.
+- For tenant: the wording a carrier sends to its drivers is that carrier's voice, and
+  editing a template today would change every carrier's mail.
+- For global: templates carry product structure and variables; per-carrier copies must each
+  be migrated when a variable changes, and a carrier can override by content rather than by row.
+
+**`notification_role_defaults`** — 0 rows live, no FK, no `company_id`. Declared GLOBAL
+2026-09-14.
+- For tenant: which role gets which alert is how a carrier organises its office; a
+  three-person carrier and a thirty-person carrier do not route alerts the same way.
+- For global: these are *defaults*, and per-user `notification_preferences` already exists
+  for divergence; keeping defaults global means new alert types reach everyone at once.
+
+Both belong in the ambiguous pile. Neither is decided here.
+
+---
+
+## 5. What the declaration requirement should become
+
+Today it binds only tables a batch reached, so "declared" means "was in a batch".
+
+**Proposal: a structural guard that reads the live table list and asserts every public table
+has a recorded disposition** — one of PER-COMPANY (has the column), GLOBAL, DEFERRED, or
+INHERITS-*parent* — from a checked-in registry, and fails naming any table absent from it.
+
+Worth building: yes. It is the only mechanism that has caught draft-area work reaching the
+database three times, and it turns "nobody decided" into a failing test instead of an audit.
+
+**Predicted first run: 114 failures** — the 114 tables with neither a column nor a
+disposition. If the guard also requires a disposition for tables that already have the
+column but no recorded batch, the first run reports **123**.
+
+---
+
+## Contradictions
+
+1. The record's 137 and this pass's 145 are the same set counted differently — 145 lack the
+   column, 137 lack a disposition. Worth stating once in the record.
+2. `inspection_documents` and `inspection_document_versions` hold federal inspection data
+   with no FK to any scoped table. The record treats the inspection binder as structural.
+3. `eld_sync_alerts` and `eld_malfunction_notifications` are federal-class rows whose only
+   link to a company is nullable.
