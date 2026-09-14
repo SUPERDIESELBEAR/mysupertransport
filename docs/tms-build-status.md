@@ -12185,3 +12185,64 @@ company-blind unique index to either table fails the suite.
 `definer-fail-open`, `purge-path-coverage`, `payments-schema` — 7 files, 52 tests, all passed.
 `npx tsgo --noEmit` clean. The Supabase linter reports the same 170 pre-existing issues; none is
 new to this migration and none was addressed here.
+
+---
+
+## 2026-09-13 — Decision: `applications` stays GLOBAL, not a tenancy blocker
+
+The B2 part-two pass correctly STOPPED rather than invent a third stamping shape. An
+unauthenticated applicant has no `company_members` row and is not `service_role`, so neither
+sanctioned stamping shape fits. A third shape would have to accept tenancy from the client or fall
+back to a carrier — both forbidden by the standing rule that tenancy is stamped server-side and
+never accepted from the client. No third shape was invented; the table was left global.
+
+### Decision
+
+`applications` stays **GLOBAL**, and `applications_email_non_draft_unique (lower(email)) WHERE NOT is_draft`
+stays **GLOBAL**. This is reclassified from "tenancy blocker" to **SAAS DESIGN DECISION**.
+
+### Why this is correct now
+
+- SUPERTRANSPORT today has one carrier, so `/apply` is unambiguous and nothing is broken.
+- The fictitious company does not need a public apply form — it is a demo, seeded rather than
+  applied to.
+- A real SaaS customer would need one, and the answer then is a per-carrier apply link resolved
+  **server-side** from a token or path segment, so the applicant never names a company.
+- Deciding the exact mechanism now means guessing at how carriers will be onboarded and sold to.
+
+### Current process is unaffected
+
+`/apply` is untouched, the public insert policy is unchanged, and no real applicant path was
+modified by any tenancy pass. The 338 real applications remain exactly as they were.
+
+### Trigger
+
+Before the first real carrier other than SUPERTRANSPORT is given an apply link.
+
+---
+
+## 2026-09-13 — Decision: the fictitious company gets drivers by walking two or three demo drivers through onboarding by hand
+
+The owner's choice: create two or three demo drivers in the fictitious company by running them
+through the actual onboarding flow, not by SQL seeding or a seeding tool.
+
+### Why this is the right choice
+
+- A demo does not need forty drivers. Three at different stages shows a prospect everything: one
+  still onboarding, one active with loads and fuel, one departing.
+- Drivers created through the app are indistinguishable from real ones because they **are** real:
+  every stage stamped, every document present, no gaps a hand-written row would leave.
+- Doing it surfaces every place the app still assumes one company, which is exactly what should be
+  found before a customer finds it.
+
+### Rejected alternatives
+
+- **SQL seeding** — rows nobody created through the app, with gaps in documents, signatures, and
+  stage history that a prospect would notice.
+- **A seeding tool** — real work that earns its keep only if repeated often; the owner judged the
+  fictitious company will be created once and then copied, not seeded repeatedly.
+
+### Trigger
+
+After `pay_policies` and `owner_transfers` gain `company_id` in batch B3. Until then the fictitious
+company cannot have an owner or a default pay policy, so it cannot be created.
