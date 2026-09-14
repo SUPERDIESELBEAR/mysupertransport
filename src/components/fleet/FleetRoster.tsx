@@ -5,10 +5,11 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, UserCheck, RotateCcw, RefreshCw } from 'lucide-react';
+import { Search, Truck, Loader2, AlertTriangle, CheckCircle2, Clock, Archive, Pencil, Settings2, Plus, Camera, Badge as BadgeIcon, UserCheck, RotateCcw, RefreshCw, Hash } from 'lucide-react';
 import { differenceInDays, parseISO, startOfDay, format } from 'date-fns';
 import { formatDaysHuman } from '@/components/inspection/InspectionBinderTypes';
 import QuickTruckEditModal from './QuickTruckEditModal';
+import UnitNumberPoolPanel from './UnitNumberPoolPanel';
 import FleetReminderIntervalDialog from './FleetReminderIntervalDialog';
 import LogUpdateModal from './LogUpdateModal';
 import TruckPhotoViewerModal from '@/components/fleet/TruckPhotoViewerModal';
@@ -595,6 +596,15 @@ export default function FleetRoster({ onSelectOperator }: FleetRosterProps) {
           >
             <RefreshCw className={`h-3.5 w-3.5 ${backfilling ? 'animate-spin' : ''}`} />
             {backfilling ? 'Syncing…' : 'Sync onboarding docs'}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 text-xs"
+            onClick={() => setShowUnitPool(true)}
+          >
+            <Hash className="h-3.5 w-3.5" />
+            Unit Numbers
           </Button>
           <div className="relative w-full sm:w-64">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
