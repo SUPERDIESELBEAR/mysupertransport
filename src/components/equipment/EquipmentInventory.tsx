@@ -662,6 +662,20 @@ export default function EquipmentInventory({
                         className="pl-8 h-8 text-sm"
                       />
                     </div>
+                    <Select
+                      value={sectionSort[type]}
+                      onValueChange={v => setSectionSort(prev => ({ ...prev, [type]: v as SectionSort }))}
+                    >
+                      <SelectTrigger className="h-8 w-full sm:w-[180px] shrink-0 text-sm" aria-label={`Sort ${cfg.label}`}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="default">Sort: Default</SelectItem>
+                        <SelectItem value="driver">Sort: Driver name</SelectItem>
+                        <SelectItem value="unit">Sort: Unit number</SelectItem>
+                        <SelectItem value="serial">{type === 'fuel_card' ? 'Sort: Card #' : 'Sort: Serial #'}</SelectItem>
+                      </SelectContent>
+                    </Select>
                     <Button
                       size="sm"
                       className="gap-1.5 h-8 shrink-0"
@@ -681,6 +695,7 @@ export default function EquipmentInventory({
                 ) : type === 'fuel_card' ? (
                   <FuelCardSections
                     items={typeItems}
+                    sort={sectionSort.fuel_card}
                     statusFilter={statusFilter}
                     viewMode={viewMode}
                     isManagement={isManagement}
