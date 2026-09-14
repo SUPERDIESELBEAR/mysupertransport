@@ -13382,3 +13382,78 @@ one owner. `src/test/tenancy-resolver.test.ts` 59/59 green; typecheck clean.
 Not demonstrable: cross-carrier invisibility in steady state, with one real carrier.
 Shown only by scratch companies created and rolled back.
 
+
+## 2026-09-14 — Deviation from a recorded rejection: version backfill suspended an immutability trigger (first instance)
+
+### What was rejected on 2026-09-13 and why
+
+The 2026-09-13 batching plan §5 explicitly REJECTED disabling an immutability
+trigger around a tenancy backfill, because it "opens a window in which any
+concurrent write bypasses a federal-record lock." The approved route was
+`ADD COLUMN NOT NULL DEFAULT '<company>'` followed by `DROP DEFAULT` in the same
+migration, which fires no row triggers.
+
+### What the 2026-09-14 federal-breaks pass actually did
+
+The pass disabled `trg_inspection_document_versions_immutable` around the
+`inspection_document_versions` backfill, then re-enabled it — exactly the route
+the record had rejected.
+
+### Was the deviation necessary? NO — the constant default WOULD have worked
+
+Verified live after the fact: the derived backfill resolved every row to the
+sole carrier (`inspection_documents` 774 rows / 1 distinct company;
+`inspection_document_versions` 8 rows / 1 distinct company — measured
+2026-09-14). A constant `DEFAULT '<sole carrier>'` + `DROP DEFAULT` would have
+produced the IDENTICAL result on both tables, firing no triggers. The derived
+`UPDATE` served as a consistency check that every row's derivation agreed with
+the constant, but that check could equally have been a read-only verification
+query after the constant backfill. The rejection stood and was overridden
+without strict cause. The reasoning given at the time ("versions derive each
+row's company from its PARENT DOCUMENT, so a single default cannot express it")
+was wrong about THIS pass: derivation matters only when rows resolve to more
+than one company.
+
+### Recorded facts of the deviation
+
+- A federal-record immutability lock (`inspection_document_versions` rows are
+  immutable) was suspended, however briefly, on a LIVE database.
+- The window existed for the duration of one migration statement — the
+  `DISABLE TRIGGER` / backfill `UPDATE` / `ENABLE TRIGGER` ran in a single
+  migration transaction, so no concurrent session could commit a write while
+  the lock was down. The exposure was therefore transactional-isolation-level
+  only, not a wall-clock window visible to other committed transactions.
+- The trigger being re-enabled is now asserted by a GUARD (the federal-tables
+  block in `src/test/tenancy-resolver.test.ts` asserts the trigger exists and
+  is enabled), not by memory.
+
+### The rule this needs (now standing)
+
+WHEN A PASS OVERRIDES A RECORDED REJECTION, IT SAYS SO IN ITS REPORT. Not
+doing so means the record shows a route rejected and the database shows it
+taken, and the next reader cannot tell which governs. This is the FIRST
+instance of the rule applying.
+
+### Forward guidance: when the approved route does NOT work
+
+The approved default-then-drop route fails only when a backfill must populate
+MORE THAN ONE company value — i.e. a populated, immutability-locked table
+whose rows resolve to multiple carriers. With one real carrier it works
+everywhere. B5 part two / B6 / B7 contain immutability-locked tables that
+still lack `company_id` (live trigger inventory, measured 2026-09-14):
+
+- Parent-deriving (hit this wall first if multi-carrier):
+  `settlement_line_items` and `settlement_withheld_loads` (parent
+  `settlements`), `dispatch_settlement_line_items` and
+  `dispatch_settlement_load_contributions` (parent `dispatch_settlements`),
+  `fuel_disagreement_acceptances` (parent dispute), `application_document_history`
+  (parent `applications` — GLOBAL, so likely global itself).
+- Deriving from a person, not a scoped parent table: `rods_days`,
+  `rods_events`, `rods_divergences` (derive from the operator's company).
+- Not derived: `messages`, `onboarding_status` (ELD signature lock).
+
+Procedure for the next pass that reaches one of these: FIRST try
+default-then-drop with a read-only derivation check afterwards; only if a
+derivation check finds more than one company may trigger suspension be
+considered, and then the report must record it as a deviation under the rule
+above.
