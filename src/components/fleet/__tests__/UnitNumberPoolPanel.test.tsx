@@ -49,4 +49,30 @@ describe('UnitNumberPoolPanel', () => {
     render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
     await waitFor(() => expect(screen.getByText(/2 numbers free · next in sequence 272/)).toBeInTheDocument());
   });
+
+  it('answers "what do I hand out next" in a header strip', async () => {
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    await waitFor(() => expect(screen.getByText('Next available')).toBeInTheDocument());
+    expect(screen.getByText('2 numbers free')).toBeInTheDocument();
+    // The next number shows in both the strip and the next-in-sequence group.
+    expect(screen.getAllByText('272').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('offers copy buttons on the free numbers', async () => {
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    await waitFor(() => expect(screen.getByText('231')).toBeInTheDocument());
+    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+  });
+});
+
+describe('UnitNumberPoolPanel empty pool', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('says so plainly when nothing is free', async () => {
+    const mocked = await import('@/lib/unitNumberPool');
+    vi.mocked(mocked.fetchUnitNumberPool).mockResolvedValueOnce([]);
+    render(<UnitNumberPoolPanel open onOpenChange={() => {}} />);
+    await waitFor(() => expect(screen.getByText('No numbers are free right now.')).toBeInTheDocument());
+    expect(screen.queryByText('Next available')).not.toBeInTheDocument();
+  });
 });
