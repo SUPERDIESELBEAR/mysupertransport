@@ -1239,7 +1239,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                         <Textarea
                           value={bgNotes}
                           onChange={e => setBgNotes(e.target.value)}
-                          placeholder="MVR/Clearinghouse findings..."
+                          placeholder="MVR/PSP/Clearinghouse findings..."
                           rows={2}
                           className="text-xs resize-none"
                         />
