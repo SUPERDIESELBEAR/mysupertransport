@@ -1,0 +1,42 @@
+<svg viewBox="0 0 640 250" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .s { fill: var(--fg-secondary); font-size: 12px; }
+    .l { font-size: 14px; font-weight: 480; }
+    .m { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .bx { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zn { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+  </style>
+
+  <rect class="zn" x="8" y="8" width="300" height="232" rx="8"/>
+  <text class="s" x="20" y="28">today, in the draft</text>
+
+  <rect class="bx" x="28" y="44" width="180" height="34" rx="8"/>
+  <text class="l" x="42" y="66">Unit number picker</text>
+  <path d="M118 78 L118 106" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <rect x="28" y="106" width="260" height="34" rx="8" fill="var(--bg-muted)"/>
+  <text class="m" x="42" y="128">asks for the pool list</text>
+  <path d="M118 140 L118 168" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <rect class="bx" x="28" y="168" width="260" height="46" rx="8" stroke="var(--fg-accent)"/>
+  <text class="s" x="42" y="188" fill="var(--fg-accent)">raw database sentence shown</text>
+  <text class="s" x="42" y="205">→ replace with plain wording</text>
+
+  <rect class="zn" x="332" y="8" width="300" height="232" rx="8"/>
+  <text class="s" x="344" y="28">after you accept the draft</text>
+
+  <rect class="bx" x="352" y="44" width="180" height="34" rx="8"/>
+  <text class="l" x="366" y="66">Unit number picker</text>
+  <path d="M442 78 L442 106" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#a)"/>
+  <rect x="352" y="106" width="260" height="108" rx="8" fill="var(--bg-secondary)"/>
+  <text class="s" x="366" y="126">Recycled — freed before Go-Live</text>
+  <text class="m" x="366" y="144">217 · 231 · 241 …</text>
+  <text class="s" x="366" y="166">Never issued</text>
+  <text class="m" x="366" y="184">190 · 199 · 204 …</text>
+  <text class="s" x="366" y="206" fill="var(--fg-accent)">Next in sequence — 272</text>
+
+  <defs>
+    <marker id="a" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0 0 L6 3 L0 6 z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+</svg>
