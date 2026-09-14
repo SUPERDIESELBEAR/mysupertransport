@@ -836,7 +836,7 @@ describe('the three federal breaks — inspection and ELD records own their carr
       eld_malfunction_notifications: 'stamp_eld_malfunction_notification_company_id',
     };
     for (const t of FEDERAL_TABLES) {
-      const rows = psql(`SELECT p.proname || ' ' || t.tgenabled
+      const rows = psql(`SELECT p.proname || ' ' || t.tgenabled::text
         FROM pg_trigger t JOIN pg_proc p ON p.oid = t.tgfoid
         WHERE NOT t.tgisinternal AND t.tgrelid = 'public.${t}'::regclass
           AND p.proname = '${expected[t]}'`);
@@ -868,7 +868,7 @@ describe('the three federal breaks — inspection and ELD records own their carr
   itLive('the version-history immutability trigger is back on after the backfill', () => {
     // The backfill could only run with this trigger suspended. Left disabled, the
     // §396 version history would become editable.
-    const [row] = psql(`SELECT tgname || ' ' || tgenabled FROM pg_trigger
+    const [row] = psql(`SELECT tgname || ' ' || tgenabled::text FROM pg_trigger
       WHERE NOT tgisinternal
         AND tgrelid = 'public.inspection_document_versions'::regclass
         AND tgname = 'trg_inspection_document_versions_immutable'`);
