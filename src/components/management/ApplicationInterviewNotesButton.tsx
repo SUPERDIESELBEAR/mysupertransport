@@ -36,7 +36,7 @@ export function ApplicationInterviewNotesButton({
   return (
     <button
       type="button"
-      onClick={onToggle}
+      onClick={e => onToggle(e)}
       aria-label={label}
       className="flex items-center gap-1.5 text-xs text-left transition-colors"
     >
