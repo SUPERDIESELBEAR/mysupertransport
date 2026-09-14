@@ -1,0 +1,74 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 12px; font-weight: 480; }
+    .hd { font-size: 11px; fill: var(--fg-secondary); }
+    .note { font-size: 11px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 11px; fill: var(--fg-secondary); }
+  </style>
+
+  <!-- header row -->
+  <rect x="8" y="8" width="624" height="24" rx="4" fill="var(--bg-muted)"/>
+  <text class="hd" x="18" y="24">APPLICANT</text>
+  <text class="hd" x="150" y="24">CONTACT</text>
+  <text class="hd" x="262" y="24">SUBMITTED</text>
+  <text class="hd" x="336" y="24">MVR / PSP / CH</text>
+  <text class="hd" x="452" y="24">INTERVIEWS</text>
+  <text class="hd" x="552" y="24">STATUS</text>
+
+  <!-- row 1 -->
+  <rect x="8" y="38" width="624" height="46" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text class="lbl" x="18" y="58">Devon Hayes</text>
+  <text class="note" x="18" y="74">CDL A · MO</text>
+  <rect x="150" y="50" width="86" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <rect x="150" y="64" width="62" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <text class="mono" x="262" y="64">09/02/26</text>
+  <!-- chips -->
+  <rect x="336" y="52" width="34" height="18" rx="9" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="345" y="65">MVR</text>
+  <rect x="374" y="52" width="34" height="18" rx="9" fill="var(--bg-accent-translucent)"/>
+  <text x="383" y="65" class="hd" style="fill:var(--fg-accent)">PSP</text>
+  <rect x="412" y="52" width="28" height="18" rx="9" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="420" y="65">CH</text>
+  <text class="lbl" x="452" y="58">2 notes</text>
+  <text class="note" x="452" y="73">Emma M.</text>
+  <rect x="546" y="52" width="52" height="18" rx="9" fill="var(--bg-muted)"/>
+  <text class="hd" x="554" y="65">pending</text>
+  <path d="M612 56 l7 5 -7 5" fill="none" stroke="var(--fg-accent)" stroke-width="1.5"/>
+
+  <!-- expanded panel -->
+  <rect x="8" y="88" width="624" height="132" rx="8" fill="var(--bg-secondary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="22" y="106">INTERVIEW NOTES</text>
+  <rect x="22" y="114" width="596" height="40" rx="6" fill="var(--bg-tertiary)"/>
+  <text class="lbl" x="32" y="130">Emma Mueller · Sep 12</text>
+  <rect x="32" y="138" width="420" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <text class="note" x="556" y="130">edited Sep 13</text>
+  <rect x="22" y="160" width="596" height="30" rx="6" fill="var(--bg-tertiary)"/>
+  <text class="lbl" x="32" y="176">Marcus Mueller · Sep 13</text>
+  <rect x="240" y="170" width="200" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <rect x="22" y="196" width="500" height="16" rx="6" fill="var(--bg-muted)"/>
+  <text class="note" x="30" y="208">Add your interview note…</text>
+  <rect x="530" y="196" width="88" height="16" rx="6" fill="var(--bg-accent)"/>
+  <text x="552" y="208" class="hd" style="fill:var(--fg-emphasis)">Save note</text>
+
+  <!-- row 2 collapsed -->
+  <rect x="8" y="228" width="624" height="46" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text class="lbl" x="18" y="248">Alicia Ward</text>
+  <text class="note" x="18" y="264">CDL A · KS</text>
+  <rect x="150" y="240" width="86" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <rect x="150" y="254" width="62" height="7" rx="3.5" fill="var(--border-translucent)"/>
+  <text class="mono" x="262" y="254">09/05/26</text>
+  <rect x="336" y="242" width="34" height="18" rx="9" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="345" y="255">MVR</text>
+  <rect x="374" y="242" width="34" height="18" rx="9" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="383" y="255">PSP</text>
+  <rect x="412" y="242" width="28" height="18" rx="9" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="hd" x="420" y="255">CH</text>
+  <text class="note" x="452" y="255">no notes yet</text>
+  <path d="M612 246 l5 6 5 -6" fill="none" stroke="var(--fg-secondary)" stroke-width="1.5"/>
+
+  <!-- ledger -->
+  <circle cx="20" cy="298" r="8" fill="var(--bg-accent-translucent)"/>
+  <text x="17" y="302" style="font-size:11px; fill:var(--fg-accent)">1</text>
+  <text class="note" x="36" y="302">PSP is the new check; chips read Not Started / Requested / Received. One row expands at a time.</text>
+</svg>
