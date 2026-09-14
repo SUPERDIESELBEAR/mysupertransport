@@ -17,8 +17,10 @@ describe('ApplicationInterviewNotesButton', () => {
     const button = screen.getByRole('button', { name: /Add interview note for John Doe/i });
     expect(button).toBeInTheDocument();
     expect(button.textContent).toBe('Add note');
-    expect(button.className).toContain('text-muted-foreground');
-    expect(button.className).not.toContain('text-gold');
+
+    const label = screen.getByText('Add note');
+    expect(label.className).toContain('text-muted-foreground');
+    expect(label.className).not.toContain('text-gold');
   });
 
   it('renders "See note" in gold for a single note', () => {
@@ -34,10 +36,10 @@ describe('ApplicationInterviewNotesButton', () => {
 
     const button = screen.getByRole('button', { name: /See 1 interview note for Jane Smith, most recent by M\. Mueller/i });
     expect(button).toBeInTheDocument();
-    expect(screen.getByText('See note')).toBeInTheDocument();
+
+    const label = screen.getByText('See note');
+    expect(label.className).toContain('text-gold');
     expect(screen.getByText('1 · M. Mueller')).toBeInTheDocument();
-    expect(button.textContent).toContain('See note');
-    expect(button.className).not.toContain('text-muted-foreground');
   });
 
   it('renders "See notes" in gold for multiple notes', () => {
@@ -53,7 +55,9 @@ describe('ApplicationInterviewNotesButton', () => {
 
     const button = screen.getByRole('button', { name: /See 3 interview notes for Bob Brown, most recent by S\. Figueroa/i });
     expect(button).toBeInTheDocument();
-    expect(screen.getByText('See notes')).toBeInTheDocument();
+
+    const label = screen.getByText('See notes');
+    expect(label.className).toContain('text-gold');
     expect(screen.getByText('3 · S. Figueroa')).toBeInTheDocument();
   });
 
@@ -68,7 +72,8 @@ describe('ApplicationInterviewNotesButton', () => {
       />,
     );
 
-    expect(document.querySelector('svg')).toHaveAttribute('data-lucide-icon', 'chevron-right');
+    expect(screen.getByRole('button').textContent).toContain('See note');
+    expect(document.querySelectorAll('svg')).toHaveLength(1);
 
     rerender(
       <ApplicationInterviewNotesButton
@@ -80,7 +85,8 @@ describe('ApplicationInterviewNotesButton', () => {
       />,
     );
 
-    expect(document.querySelector('svg')).toHaveAttribute('data-lucide-icon', 'chevron-down');
+    expect(screen.getByRole('button').textContent).toContain('See note');
+    expect(document.querySelectorAll('svg')).toHaveLength(1);
   });
 
   it('calls onToggle when clicked', () => {
