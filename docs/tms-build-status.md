@@ -13591,3 +13591,46 @@ brace list, and an unbalanced paren left behind by a payload wrapper. Neither wa
 error and both would have been caught by a typecheck run one minute earlier. Any pass that
 edits client files by script runs `npx tsgo --noEmit` immediately afterwards, before
 anything else.
+
+---
+
+## BATCH B6 GROUP 1 — ELD / RODS (2026-09-15)
+
+Ten driver-written hours-of-service tables now carry `company_id`: `rods_days`,
+`rods_events`, `rods_amendments`, `rods_divergences`, `rods_correction_requests`,
+`rods_unlock_events`, `blank_log_acknowledgments`, `eld_extension_requests`,
+`eld_malfunction_events`, `eld_devices`. `eld_cron_runs` excluded — service-role
+infrastructure. Seven were empty (nullable → NOT NULL). Three were populated and took the
+constant-`DEFAULT`-then-`DROP` route rather than a backfill `UPDATE`, because an UPDATE on
+`rods_days` / `rods_correction_requests` / `blank_log_acknowledgments` fires certification
+lock, continuity and append-only triggers. **The triggers were not suspended.** Second use
+of that route under the first-instance override rule. Pre-migration derivation: 2/2, 3/3,
+1/1 rows, one company.
+
+Verified with a real minted driver session (Steve Figueroa, REST, not psql): unstamped
+inserts get his carrier, a spoofed `company_id` is overwritten. Cross-carrier invisibility
+is still unverifiable with one live carrier.
+
+## SECURITY — `has_role_not_company_scoped` CLOSED (2026-09-15)
+
+`public.has_role` and `public.is_staff` ignored `user_roles.company_id`, so a staff role
+issued by ANY carrier satisfied every staff-role policy on EVERY carrier's rows —
+settlements, deductions, loads, brokers, invoices. Both now require
+`ur.company_id = public.current_company_id()`, are SECURITY DEFINER and pin
+`public, extensions`.
+
+**Deliberate hole, recorded:** the predicate is skipped when `current_company_id()` is
+NULL, for unauthenticated and service-role contexts, which hold no `user_roles` rows and
+bypass RLS regardless. When a second carrier exists, revisit whether any definer function
+can reach these with a NULL resolver.
+
+Demonstrated both ways with scratch data: a management role tied to a scratch second
+carrier gave the driver `is_staff` false and zero financial rows; moving the same role to
+his own carrier gave `is_staff` true and a settlement row. Scratch data deleted; 1 carrier
+and `operator`-only roles confirmed afterwards. The scratch role briefly granted a driver
+settlement *reads* during the counterfactual — the price of demonstrating rather than
+asserting, and reversed at once.
+
+`has_role` and `is_staff` left `LEGACY_PUBLIC_ONLY_PINS`; `LEGACY_MAX` 74 → 72.
+
+Report: `docs/passes/2026-09-15-1610-b6-group-1-eld-rods.md`.
