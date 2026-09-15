@@ -29,6 +29,7 @@ import { verifySvixSignature } from '../_shared/svixVerify.ts';
 import { parseRateConfirmationCore } from '../_shared/rateConCore.ts';
 import { extractPdfTextLayerDeno } from '../_shared/pdfTextLayerDeno.ts';
 import { judgeParsedVerbatimServer } from '../_shared/verbatimIngest.ts';
+import { soleCompanyId } from '../_shared/tenancy.ts';
 
 const BUCKET = 'rate-con-ingest';
 const RESEND_API = 'https://api.resend.com';
@@ -319,6 +320,7 @@ Deno.serve(async (req) => {
     const { data: row, error: insertErr } = await admin
       .from('rate_con_ingest_queue')
       .insert({
+        company_id: await soleCompanyId(admin),
         resend_email_id: emailId,
         from_address: fromAddress ?? null,
         to_address: toAddress,

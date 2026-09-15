@@ -245,6 +245,11 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
     // Mark equipment as assigned and create assignment records
     const now = new Date().toISOString()
+    // Service-role write: name the company from the operator being assigned.
+    const { data: asgCo } = await supabase.from('operators')
+      .select('company_id').eq('id', payload.operatorId).maybeSingle()
+    const assignmentCompanyId = asgCo?.company_id
+    if (!assignmentCompanyId) throw new Error(`No company for operator ${payload.operatorId}`)
     for (const item of inventoryItems) {
       // Paper backfill: devices the driver already holds keep their existing
       // inventory record — do not duplicate the assignment.
@@ -254,6 +259,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
         console.error('Failed to update equipment status', updateErr)
       }
       await supabase.from('equipment_assignments').insert({
+        company_id: assignmentCompanyId,
         equipment_id: item.equipmentId,
         operator_id: payload.operatorId,
         assigned_at: now,

@@ -112,7 +112,13 @@ Deno.serve(async (req) => {
     // Pre-insert with dedupe. If a row already exists for (operator_id,
     // doc_type, threshold, sent_on=today CT) the partial unique index rejects
     // it and we skip — guaranteeing idempotency on retried cron runs.
+    // Service-role write: no auth.uid(), so the stamp trigger cannot resolve a
+    // company. Name it from the operator the reminder is about.
+    const { data: opCo } = await supabase.from('operators')
+      .select('company_id').eq('id', row.operator_id).maybeSingle();
+    if (!opCo?.company_id) { failed++; console.warn('cron-cert-reminders: no company for operator', row.operator_id); continue; }
     const { error: insertErr } = await supabase.from('cert_reminders').insert({
+      company_id: opCo.company_id,
       operator_id: row.operator_id,
       doc_type: docType,
       source: 'cron',

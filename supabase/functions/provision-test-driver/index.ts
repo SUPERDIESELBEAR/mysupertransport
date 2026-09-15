@@ -126,7 +126,11 @@ Deno.serve(async (req) => {
         insurance_added_date: today,
         go_live_date: today,
       });
+      const { data: adCo } = await admin.from('operators')
+        .select('company_id').eq('id', operatorId).maybeSingle();
+      if (!adCo?.company_id) throw new Error(`No company for operator ${operatorId}`);
       await admin.from('active_dispatch').insert({
+        company_id: adCo.company_id,
         operator_id: operatorId,
         dispatch_status: 'not_dispatched',
         updated_by: assigned_staff_user_id ?? null,

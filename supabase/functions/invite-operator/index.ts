@@ -196,7 +196,11 @@ Deno.serve(async (req) => {
             go_live_date: today,
           });
           // Create active_dispatch row server-side
+          const { data: adCo } = await supabaseAdmin.from('operators')
+            .select('company_id').eq('id', newOp.id).maybeSingle();
+          if (!adCo?.company_id) throw new Error(`No company for operator ${newOp.id}`);
           await supabaseAdmin.from('active_dispatch').insert({
+            company_id: adCo.company_id,
             operator_id: newOp.id,
             dispatch_status: 'not_dispatched',
             updated_by: callerUser.id,
