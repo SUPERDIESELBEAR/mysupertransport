@@ -1416,22 +1416,28 @@ describe('B6 group 3 — the driver-written remainder is scoped to a carrier', (
     ...(Object.keys(B6_GROUP3_PARENT_DERIVED) as (keyof typeof B6_GROUP3_PARENT_DERIVED)[]),
   ];
 
-  for (const t of ALL) {
-    itLive(`${t} carries a server-stamped NOT NULL company_id`, () => {
-      const [col] = psql(`SELECT is_nullable || ' ' || coalesce(column_default, 'none')
-        FROM information_schema.columns WHERE table_schema='public'
-          AND table_name='${t}' AND column_name='company_id'`);
-      // No surviving default: the trigger is the only source, so a client that
-      // omits the column cannot land an unstamped row.
-      expect(col, t).toBe('NO none');
-      const [fk] = psql(`SELECT confdeltype FROM pg_constraint
-        WHERE conname='${t}_company_id_fkey'`);
-      expect(fk, t).toBe('r'); // ON DELETE RESTRICT
-      const [bad] = psql(`SELECT count(*)::text FROM public.${t} d
-        WHERE NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = d.company_id)`);
-      expect(bad, t).toBe('0');
-    });
-  }
+  // ONE connection for all 31 tables: this suite spawns a psql per query and the
+  // pooler drops one connection per long run, which is noise, not evidence.
+  itLive('all 31 tables carry a server-stamped NOT NULL company_id with a RESTRICT FK', () => {
+    const list = ALL.map(t => `'${t}'`).join(',');
+    const rows = psql(`
+      WITH t(name) AS (VALUES ${ALL.map(t => `('${t}')`).join(',')})
+      SELECT t.name || ' ' || c.is_nullable || ' ' || coalesce(c.column_default, 'none')
+             || ' ' || coalesce(k.confdeltype, '?')
+        FROM t
+        JOIN information_schema.columns c ON c.table_schema = 'public'
+          AND c.table_name = t.name AND c.column_name = 'company_id'
+        LEFT JOIN pg_constraint k ON k.conname = t.name || '_company_id_fkey'
+       ORDER BY 1`);
+    // NO surviving default: the trigger is the only source, so a client that
+    // omits the column cannot land an unstamped row.
+    expect(rows).toEqual([...ALL].sort().map(t => `${t} NO none r`));
+    const [bad] = psql(`SELECT count(*)::text FROM (
+      ${ALL.map(t => `SELECT company_id FROM public.${t}`).join(' UNION ALL ')}
+    ) x WHERE x.company_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = x.company_id)`);
+    expect(bad, `orphan or null company_id among ${list}`).toBe('0');
+  });
 
   itLive('the three history tables derive the company from their PARENT row', () => {
     for (const [table, trigger] of Object.entries(B6_GROUP3_PARENT_DERIVED)) {
