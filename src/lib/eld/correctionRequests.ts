@@ -17,6 +17,7 @@
  * yet, and here's why" is shown.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { isRejectionSqlState } from '@/lib/eld/offline/queue/types';
 
 export type CorrectionStatus = 'open' | 'actioned' | 'declined';
