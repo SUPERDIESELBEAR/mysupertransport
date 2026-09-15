@@ -13779,3 +13779,56 @@ passes for every company — it now passes for NONE, so the invite is useless ra
 dangerous. TRIGGER: before any further staff invite is issued.
 
 Report: `docs/passes/2026-09-15-1735-has-role-escape-narrowed.md`.
+
+---
+
+## 2026-09-15 (third pass) — the membership gap is closed
+
+Once the `has_role`/`is_staff` escape named `service_role` only, a staff role minted
+without a `company_members` row passed for NO company: the invited staff member got an
+account, an email, a role row, and could do nothing. Every minting path now writes the
+membership row or refuses.
+
+- **`invite-staff`** — upserts `company_members` with the already-resolved
+  `inviteCompanyId` BEFORE the role; fatal on error, so no invitation is sent.
+- **`get-staff-list` `action: 'add'`** — A FOURTH MINTING PATH, not named in the earlier
+  record. Same fix (resolve once, membership, then role); both writes now check their
+  error, where the role write previously did not.
+- **`bootstrap-admin`** (management branch) — membership from `soleCompanyId()` before the
+  role, both fatal.
+- **`bootstrap_assign_owner`** — inserts the owner's `company_members` row alongside the
+  role, in the same function and transaction. Without it the FIRST owner of a new system
+  resolves NULL and his own role works nowhere.
+- **`assign_user_role`** — **REFUSES** instead of minting membership: it grants a role to
+  an existing user, and membership is deliberately not an application assertion (the table
+  has no user-writable policy). Gate applies to `management`/`dispatcher`/
+  `onboarding_staff` only; `operator` resolves through the `operators` row by design.
+
+**Tenancy-semantics reach, established before applying:** membership changes what
+`current_company_id()` returns for that person — stamping, company-scoped policies,
+`has_role`/`is_staff`, `carrier_profile` reads. It grants nothing by itself; every
+capability still passes through his role. Exactly "his staff role starts working, for one
+company". No overshoot, so no STOP.
+
+**Removing a role — PROPOSED, NOT DONE.** `get-staff-list delete_user` and
+`delete-user-account` both delete the auth user, and `company_members_user_id_fkey` is
+ON DELETE CASCADE, so membership already goes with the account. The mirror gap is role
+removal WITHOUT deletion (`get-staff-list action: 'remove'`, `remove_user_role`): the last
+staff role can be removed leaving a membership row. Proposal: delete the membership when
+the user retains no staff role and holds no `operators` row. TRIGGER: before staff roles
+are removed in bulk, or before a second carrier exists.
+
+**Verified.** Real invite → role and membership rows, same company
+`6b54d0e6-8743-4284-b55b-8cd094b093dd`; the invitee's own session resolves that company
+(demonstrated, not inferred); `assign_user_role` refused a non-member subject verbatim
+(42501) and accepted a member (rolled back); scratch user deleted, nothing remains;
+`company_members` 15, staff role rows 23, owners 1, carriers 1, policies 560 — unchanged;
+owner still resolves as sole owner. `bootstrap-admin` is **structural, not exercised** —
+it refuses while an owner exists, so its behaviour was established from the live function
+body. Linter 172, the unchanged baseline.
+
+Guards: four new tests in `src/test/tenancy-resolver.test.ts`. Typecheck clean; the two
+full-file failures were the known pooler timeouts and passed individually; security /
+grant-parity / isolation suites 31/31.
+
+Report: `docs/passes/2026-09-15-1812-membership-gap-closed.md`.
