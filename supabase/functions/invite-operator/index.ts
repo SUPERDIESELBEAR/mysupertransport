@@ -137,7 +137,20 @@ Deno.serve(async (req) => {
     }
 
     await supabaseAdmin.from('applications').update({ user_id: invitedUserId }).eq('id', application_id);
-    await supabaseAdmin.from('user_roles').upsert({ user_id: invitedUserId, role: 'operator' }, { onConflict: 'user_id,role' });
+
+    // The role write names its company explicitly (service-role caller) and its
+    // error is fatal: no role means no access, so the invite must not continue.
+    const { error: roleWriteErr } = await supabaseAdmin.from('user_roles').upsert(
+      { user_id: invitedUserId, role: 'operator', company_id: inviteCompanyId },
+      { onConflict: 'user_id,role' },
+    );
+    if (roleWriteErr) {
+      console.error('Operator role write failed:', roleWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not grant the operator role: ${roleWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
 
     // Sync profile name from the (normalized) application so they stay consistent
     if (app.first_name || app.last_name) {
