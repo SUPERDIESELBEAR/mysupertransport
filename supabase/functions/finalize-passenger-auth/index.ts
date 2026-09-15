@@ -193,10 +193,14 @@ Deno.serve(async (req) => {
     }
     const companyId = opRow.company_id as string
 
+    // operator_documents also carries company_id NOT NULL with the same stamp
+    // trigger, and this is a service-role insert: name the company explicitly,
+    // using the value already derived from the operator above.
     const { data: docRow, error: docErr } = await admin
       .from('operator_documents')
       .insert({
         operator_id: row.operator_id,
+        company_id: companyId,
         document_type: 'other',
         file_url: executedUrl,
         file_name: `Passenger Authorization — Unit ${row.unit_number}.pdf`,
