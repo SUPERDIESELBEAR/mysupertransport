@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -124,7 +125,8 @@ export default function ELDExtensionRequests({
     const { data: userRes } = await supabase.auth.getUser();
     const { data: inserted, error } = await supabase
       .from('eld_extension_requests')
-      .insert({
+      // company_id is stamped by aa_stamp_tenant_company_id from the caller.
+      .insert(insertPayload('eld_extension_requests', {
         event_id: event.id,
         operator_id: event.operator_id,
         filer_name: filerName.trim(),
@@ -156,7 +158,7 @@ export default function ELDExtensionRequests({
         why_extension_needed: why.trim(),
         requested_through: through,
         created_by: userRes.user?.id ?? null,
-      })
+      }))
       .select(EXTENSION_REQUEST_SELECT)
       .maybeSingle();
     if (error || !inserted) {

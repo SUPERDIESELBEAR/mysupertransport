@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import SignatureCanvas from 'react-signature-canvas';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -156,7 +157,8 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
       const carrier = await requireCachedCarrier();
       const { data: inserted, error } = await supabase
         .from('eld_malfunction_events')
-        .insert({
+        // company_id is stamped from the driver's own operator row on insert.
+        .insert(insertPayload('eld_malfunction_events', {
           operator_id: operatorId,
           eld_device_id: device?.id ?? null,
           discovered_at: discoveredDate.toISOString(),
@@ -173,7 +175,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
           eld_registration_id: selectedModel?.fmcsa_registration_id ?? null,
           ...malfunctionCarrierSnapshot(carrier),
           notice_generated_at: nowIso,
-        })
+        }))
         // is_demo is stamped by the insert trigger; read it back rather than
         // looking the operator up, so the notice and the row can never disagree.
         .select('id, is_demo')
