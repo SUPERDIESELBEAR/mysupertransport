@@ -1521,3 +1521,119 @@ describe('B6 group 3 — the driver-written remainder is scoped to a carrier', (
     }
   });
 });
+
+/**
+ * B7 — THE FOUR LARGE LOGS, 2026-09-15.
+ *
+ * Two of the four were migrated and two were NOT, and the reason is the same in
+ * both directions: a log row is only scoped to a carrier if something in the row
+ * SAYS which carrier. `notifications` names its recipient and
+ * `dispatch_daily_log` names its operator, so both derive. `audit_log` had 1,077
+ * rows whose actor resolved to nobody (1,021 with no actor at all) and
+ * `email_send_log` has no tenancy key whatsoever — 1,340 rows with null
+ * metadata and a recipient address that joins to no table (neither
+ * `profiles.email` nor `operators.email` exists). Defaulting either one to the
+ * sole carrier would be the first-carrier guess this whole file exists to stop,
+ * so both were left alone.
+ *
+ * The two absences are ASSERTED, not merely written down: a later pass that
+ * quietly adds the column by guessing turns this suite red.
+ */
+const B7_MIGRATED = {
+  notifications: 'aa_stamp_company_from_recipient',
+  dispatch_daily_log: 'aa_stamp_company_from_operator',
+} as const;
+
+const B7_UNDERIVABLE = ['audit_log', 'email_send_log'] as const;
+
+describe('B7 — the large logs', () => {
+  itLive('both migrated logs carry a server-stamped NOT NULL company_id with a RESTRICT FK', () => {
+    const names = Object.keys(B7_MIGRATED);
+    const rows = psql(`
+      WITH t(name) AS (VALUES ${names.map(t => `('${t}')`).join(',')})
+      SELECT t.name || ' ' || c.is_nullable || ' ' || coalesce(c.column_default, 'none')
+             || ' ' || coalesce(k.confdeltype::text, '?')
+        FROM t
+        JOIN information_schema.columns c ON c.table_schema = 'public'
+          AND c.table_name = t.name AND c.column_name = 'company_id'
+        LEFT JOIN pg_constraint k ON k.conname = t.name || '_company_id_fkey'
+       ORDER BY 1`);
+    expect(rows).toEqual([...names].sort().map(t => `${t} NO none r`));
+    const [bad] = psql(`SELECT count(*)::text FROM (
+      ${names.map(t => `SELECT company_id FROM public.${t}`).join(' UNION ALL ')}
+    ) x WHERE x.company_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = x.company_id)`);
+    expect(bad, 'null or orphan company_id in a migrated log').toBe('0');
+  });
+
+  itLive('each migrated log derives its company from the row it already names', () => {
+    for (const [table, trigger] of Object.entries(B7_MIGRATED)) {
+      const [name] = psql(`SELECT tgname FROM pg_trigger
+        WHERE NOT tgisinternal AND tgrelid='public.${table}'::regclass
+          AND tgname LIKE 'aa_stamp%'`);
+      expect(name, table).toBe(trigger);
+    }
+    // Both are written by cron jobs, edge functions and logging triggers with no
+    // auth.uid(), so neither may lean on the caller-based resolver.
+    const def = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='stamp_company_from_recipient'`).join('\n');
+    expect(def).not.toMatch(/current_company_id/i);
+    expect(def).toContain('SECURITY DEFINER');
+    expect(def).toContain('search_path');
+    // Fail closed: an unresolvable recipient is refused, never defaulted.
+    expect(def).toMatch(/RAISE EXCEPTION/);
+  });
+
+  itLive('the recipient stamp is not executable by anon or authenticated', () => {
+    const rows = psql(`SELECT r.rolname FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public')) AS r(rolname)
+      WHERE n.nspname='public' AND p.proname='stamp_company_from_recipient'
+        AND has_function_privilege(r.rolname, p.oid, 'EXECUTE')`);
+    expect(rows).toEqual([]);
+  });
+
+  itLive('every notification recipient and every logged operator resolves a company', () => {
+    const rows = psql(`
+      SELECT 'notifications: ' || count(DISTINCT n.user_id)::text
+        FROM public.notifications n
+       WHERE NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = n.user_id)
+         AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = n.user_id AND o.company_id IS NOT NULL)
+         AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = n.user_id AND w.company_id IS NOT NULL)
+      UNION ALL
+      SELECT 'dispatch_daily_log: ' || count(DISTINCT d.operator_id)::text
+        FROM public.dispatch_daily_log d
+       WHERE NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.id = d.operator_id AND o.company_id IS NOT NULL)`);
+    expect(rows.sort()).toEqual(['dispatch_daily_log: 0', 'notifications: 0']);
+  });
+
+  itLive('dispatch_daily_log keeps ONE (operator_id, log_date) unique definition', () => {
+    // Two byte-identical definitions existed: the plain index
+    // `dispatch_daily_log_op_date_uniq` and the constraint-backed
+    // `unique_operator_log_date`. The constraint survives because the upsert
+    // paths name it; dropping the constraint's index is refused by Postgres
+    // anyway (2BP01).
+    const rows = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname='public' AND tablename='dispatch_daily_log'
+        AND indexdef LIKE '%operator_id%' AND indexdef LIKE '%log_date%'
+        AND indexdef LIKE 'CREATE UNIQUE%' ORDER BY 1`);
+    expect(rows).toEqual(['unique_operator_log_date']);
+  });
+
+  itLive('the two underivable logs still have NO company_id', () => {
+    const rows = psql(`SELECT table_name FROM information_schema.columns
+      WHERE table_schema='public' AND column_name='company_id'
+        AND table_name IN (${B7_UNDERIVABLE.map(t => `'${t}'`).join(',')})`);
+    expect(rows, 'a company_id here could only have been guessed').toEqual([]);
+    // And the reason is still true: rows whose tenancy nothing in the row states.
+    const [audit] = psql(`SELECT count(*)::text FROM public.audit_log a
+      WHERE a.actor_id IS NULL
+         OR (NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = a.actor_id)
+         AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = a.actor_id AND o.company_id IS NOT NULL)
+         AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = a.actor_id AND w.company_id IS NOT NULL))`);
+    expect(Number(audit), 'audit_log became derivable — revisit the B7 stop').toBeGreaterThan(0);
+    const [email] = psql(`SELECT count(*)::text FROM public.email_send_log WHERE metadata IS NULL`);
+    expect(Number(email), 'email_send_log gained a tenancy key — revisit the B7 stop').toBeGreaterThan(0);
+  });
+});
