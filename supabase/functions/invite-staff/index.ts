@@ -2,6 +2,8 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { emailHeader, emailFooter } from '../_shared/email-layout.ts';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -93,6 +95,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the company BEFORE creating a user or sending anything: a
+    // service-role write cannot let the database stamp tenancy, and a caller
+    // with no membership must fail here, not after an invitation went out.
+    const inviteCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+
+
     const { email, role, first_name, last_name, phone, password } = await req.json() as {
       email: string;
       role: StaffRole;
@@ -139,6 +147,8 @@ Deno.serve(async (req) => {
       : 'SUPERTRANSPORT Management';
 
     let invitedUserId: string | null = null;
+    let inviteActionLink: string | null = null;
+
 
     if (manualCreate) {
       // ── Manual creation path: create user with password, confirm email immediately ──
@@ -204,24 +214,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      const inviteActionLink = linkData.properties.action_link;
-
-      // Send branded invite email via Resend with the real invite link
-      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-      if (RESEND_API_KEY) {
-        const html = buildInviteEmail(inviteeName, role, inviterName, inviteActionLink);
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-            to: [email],
-            subject: `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`,
-            html,
-          }),
-        }).catch(e => console.error('Resend error:', e));
-      }
+      // Hold the link: the branded invite is sent only AFTER the role row is
+      // written, so we never promise access that does not exist.
+      inviteActionLink = linkData.properties.action_link;
     }
+
 
     if (!invitedUserId) {
       return new Response(JSON.stringify({ error: 'Could not resolve user id' }), {
@@ -239,11 +236,39 @@ Deno.serve(async (req) => {
       account_status: manualCreate ? 'active' : 'pending',
     }, { onConflict: 'user_id' });
 
-    // Assign role
-    await supabaseAdmin.from('user_roles').upsert(
-      { user_id: invitedUserId, role },
+    // Assign role. Names its company explicitly (service-role caller cannot let
+    // the database stamp it) and treats failure as fatal: without a role the
+    // account cannot be used, so no invitation email is sent.
+    const { error: roleWriteErr } = await supabaseAdmin.from('user_roles').upsert(
+      { user_id: invitedUserId, role, company_id: inviteCompanyId },
       { onConflict: 'user_id,role' }
     );
+    if (roleWriteErr) {
+      console.error('Staff role write failed:', roleWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not grant the ${ROLE_LABELS[role]} role: ${roleWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Only now — role in place — send the branded invitation.
+    if (inviteActionLink) {
+      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+      if (RESEND_API_KEY) {
+        const html = buildInviteEmail(inviteeName, role, inviterName, inviteActionLink);
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
+            to: [email],
+            subject: `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`,
+            html,
+          }),
+        }).catch(e => console.error('Resend error:', e));
+      }
+    }
+
+
 
     // Write audit log entry
     await supabaseAdmin.from('audit_log').insert({

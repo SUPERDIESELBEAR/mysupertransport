@@ -1,6 +1,8 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -42,6 +44,12 @@ Deno.serve(async (req) => {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // Resolved BEFORE the auth user is created or invited: this path's invitation
+    // email is fired by Supabase at user creation, so an unresolvable company has
+    // to stop the request here, while nothing has been sent yet.
+    const inviteCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+
 
     const body = await req.json();
     const {
@@ -103,10 +111,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Assign truck_owner role
-    await supabaseAdmin
+    // Assign truck_owner role — company named explicitly, error fatal.
+    const { error: roleWriteErr } = await supabaseAdmin
       .from('user_roles')
-      .upsert({ user_id: ownerUserId, role: 'truck_owner' }, { onConflict: 'user_id,role' });
+      .upsert(
+        { user_id: ownerUserId, role: 'truck_owner', company_id: inviteCompanyId },
+        { onConflict: 'user_id,role' },
+      );
+    if (roleWriteErr) {
+      console.error('Truck owner role write failed:', roleWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not grant the truck owner role: ${roleWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
 
     // Make sure profile name is set
     await supabaseAdmin
@@ -121,6 +139,10 @@ Deno.serve(async (req) => {
         {
           operator_id,
           user_id: ownerUserId,
+          // Service-role insert: the stamp trigger refuses unless the row names
+          // its company.
+          company_id: inviteCompanyId,
+
           legal_first_name,
           legal_last_name,
           business_name: business_name ?? null,
