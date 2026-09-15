@@ -236,6 +236,21 @@ Deno.serve(async (req) => {
       account_status: manualCreate ? 'active' : 'pending',
     }, { onConflict: 'user_id' });
 
+    // Membership FIRST, then the role. Since the has_role/is_staff escape names
+    // service_role only (2026-09-15), a staff role without a company_members row
+    // resolves NULL and works for NO company — an account that can do nothing.
+    // Same resolved company as the role. Fatal: no membership, no invitation.
+    const { error: memberWriteErr } = await supabaseAdmin.from('company_members').upsert(
+      { user_id: invitedUserId, company_id: inviteCompanyId },
+      { onConflict: 'user_id,company_id' }
+    );
+    if (memberWriteErr) {
+      console.error('Staff membership write failed:', memberWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not add them to the company: ${memberWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Assign role. Names its company explicitly (service-role caller cannot let
     // the database stamp it) and treats failure as fatal: without a role the
     // account cannot be used, so no invitation email is sent.

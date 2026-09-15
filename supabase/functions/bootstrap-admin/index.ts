@@ -92,10 +92,21 @@ Deno.serve(async (req) => {
         });
       }
     } else {
+      // Service-role write with no signed-in caller: the sole carrier, which
+      // refuses once a second company exists.
+      const companyId = await soleCompanyId(supabaseAdmin);
+      // Membership first — a staff role without one resolves no company at all.
+      const { error: memberError } = await supabaseAdmin.from('company_members').upsert(
+        { user_id: userId, company_id: companyId },
+        { onConflict: 'user_id,company_id' }
+      );
+      if (memberError) {
+        return new Response(JSON.stringify({ error: memberError.message }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       const { error: managementError } = await supabaseAdmin.from('user_roles').upsert(
-        // Service-role write with no signed-in caller: the sole carrier, which
-        // refuses once a second company exists.
-        { user_id: userId, role: 'management', company_id: await soleCompanyId(supabaseAdmin) },
+        { user_id: userId, role: 'management', company_id: companyId },
         { onConflict: 'user_id,role' }
       );
       if (managementError) {
