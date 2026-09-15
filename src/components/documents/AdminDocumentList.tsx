@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { DriverDocument, CATEGORY_COLORS } from './DocumentHubTypes';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import DemoLockIcon from '@/components/DemoLockIcon';
@@ -367,14 +367,14 @@ export default function AdminDocumentList({
       if (operators) {
         await Promise.all(
           operators.map(op =>
-            supabase.from('notifications').insert({
+            supabase.from('notifications').insert(insertPayload('notifications', {
               user_id: op.user_id,
               title: `New document available: ${doc.title}`,
               body: 'A new document has been added to the Document Hub. Tap to view.',
               type: 'document_published',
               channel: 'in_app',
               link: '/operator?tab=docs-hub',
-            }),
+            })),
           ),
         );
       }

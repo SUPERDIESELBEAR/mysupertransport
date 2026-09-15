@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Badge } from '@/components/ui/badge';
@@ -70,7 +71,7 @@ export default function HelpRequestsPanel() {
 
     // Notify the driver
     if (req) {
-      await supabase.from('notifications').insert({
+      await supabase.from('notifications').insert(insertPayload('notifications', {
         user_id: req.user_id,
         title: `Help request ${status.toLowerCase()} — ${req.service_name}`,
         body: status === 'Resolved'
@@ -79,7 +80,7 @@ export default function HelpRequestsPanel() {
         type: 'service_help_update',
         channel: 'in_app',
         link: '/operator?tab=service-library',
-      });
+      }));
     }
 
     toast({ title: `Status updated to ${status}` });

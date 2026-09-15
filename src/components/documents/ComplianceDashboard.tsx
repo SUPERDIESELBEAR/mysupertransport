@@ -12,6 +12,7 @@ import {
 import { DriverDocument } from './DocumentHubTypes';
 import { fetchProfileNames, formatProfileName } from '@/lib/profileNames';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
@@ -169,14 +170,14 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
     setSending(key);
 
     // In-app notification
-    await supabase.from('notifications').insert({
+    await supabase.from('notifications').insert(insertPayload('notifications', {
       user_id: op.user_id,
       title: `Action required: ${doc.title}`,
       body: 'Please read and acknowledge this required document in the Document Hub.',
       type: 'document_reminder',
       channel: 'in_app',
       link: '/operator?tab=docs-hub',
-    });
+    }));
 
     // Email via edge function
     const { error } = await supabase.functions.invoke('notify-document-update', {
@@ -210,14 +211,14 @@ export default function ComplianceDashboard({ documents }: ComplianceDashboardPr
     // Batch in-app notifications
     await Promise.all(
       pending.map(op =>
-        supabase.from('notifications').insert({
+        supabase.from('notifications').insert(insertPayload('notifications', {
           user_id: op.user_id,
           title: `Action required: ${doc.title}`,
           body: 'Please read and acknowledge this required document in the Document Hub.',
           type: 'document_reminder',
           channel: 'in_app',
           link: '/operator?tab=docs-hub',
-        })
+        }))
       )
     );
 

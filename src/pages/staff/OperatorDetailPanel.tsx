@@ -2033,14 +2033,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
         );
         for (const f of justReceived) {
           const docLabel = DOC_LABELS[f as string] ?? f;
-          await supabase.from('notifications').insert({
+          await supabase.from('notifications').insert(insertPayload('notifications', {
             user_id: operatorUserId,
             type: 'doc_received',
             title: `Your ${docLabel} has been received`,
             body: `Your ${docLabel} has been reviewed and received by your onboarding coordinator.`,
             channel: 'in_app',
             link: '/operator?tab=documents',
-          });
+          }));
           toast({
             title: `✅ ${docLabel} received`,
             description: `${operatorName} has been notified.`,
@@ -2359,14 +2359,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
     if (!operatorUserId || goLiveBlockers.length === 0) return;
     setSendingAckReminder(true);
     const titles = goLiveBlockers.map(b => b.title).join(', ');
-    const { error } = await supabase.from('notifications').insert({
+    const { error } = await supabase.from('notifications').insert(insertPayload('notifications', {
       user_id: operatorUserId,
       title: 'Action required: acknowledge policy documents',
       body: `Please review and acknowledge the following before Go Live: ${titles}`,
       type: 'document_ack_reminder',
       channel: 'in_app',
       link: '/operator?tab=docs-hub',
-    });
+    }));
     setSendingAckReminder(false);
     if (error) toast({ title: 'Failed to send reminder', description: error.message, variant: 'destructive' });
     else toast({ title: 'Reminder sent to driver' });
@@ -5325,14 +5325,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                     setCollapsedStages(prev => { const next = new Set(prev); next.add('stage2'); return next; });
                   }
                   if (operatorUserId) {
-                    await supabase.from('notifications').insert({
+                    await supabase.from('notifications').insert(insertPayload('notifications', {
                       user_id: operatorUserId,
                       type: 'doc_received',
                       title: `Your ${DOC_LABELS[field as string] ?? label} has been received`,
                       body: `Your ${DOC_LABELS[field as string] ?? label} has been reviewed and received by your onboarding coordinator.`,
                       channel: 'in_app',
                       link: '/operator?tab=documents',
-                    });
+                    }));
                   }
                   toast({ title: `✅ ${label} marked received`, description: `${operatorName} has been notified.` });
                 } catch (err: any) {
@@ -5548,14 +5548,14 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   setStatus(prev => ({ ...prev, truck_photos: 'received' }));
                   savedMilestones.current = { ...savedMilestones.current, truck_photos: 'received' };
                   if (operatorUserId) {
-                    await supabase.from('notifications').insert({
+                    await supabase.from('notifications').insert(insertPayload('notifications', {
                       user_id: operatorUserId,
                       type: 'doc_received',
                       title: 'Your Truck Photos have been received',
                       body: 'Your truck photos have been reviewed and received by your onboarding coordinator.',
                       channel: 'in_app',
                       link: '/operator?tab=documents',
-                    });
+                    }));
                   }
                   toast({ title: '✅ Truck Photos marked received', description: `${operatorName} has been notified.` });
                   setTruckPhotoGridOpen(false);

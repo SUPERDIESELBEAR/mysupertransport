@@ -410,7 +410,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
 
         if (recipients.length > 0) {
           await supabase.from('notifications').insert(
-            recipients.map(uid => ({
+            recipients.map(uid => insertPayload('notifications', {
               user_id: uid,
               title: notifTitle,
               body: notifBody,

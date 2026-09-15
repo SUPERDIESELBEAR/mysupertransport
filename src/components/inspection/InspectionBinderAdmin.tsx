@@ -560,14 +560,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
       const notifEnabled = pref ? pref.in_app_enabled : true;
       if (notifEnabled) {
-        await supabase.from('notifications').insert({
+        await supabase.from('notifications').insert(insertPayload('notifications', {
           user_id: shareToDriverTarget,
           title: 'New document in your Inspection Binder',
           body: `"${doc.name}" has been added to your inspection binder.`,
           type: 'document_update',
           channel: 'in_app',
           link: '/operator?tab=inspection-binder',
-        });
+        }));
       }
 
       toast({
@@ -658,14 +658,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
 
         const notifEnabled = pref ? pref.in_app_enabled : true;
         if (notifEnabled) {
-          await supabase.from('notifications').insert({
+          await supabase.from('notifications').insert(insertPayload('notifications', {
             user_id: bulkShareTarget,
             title: `${shared} new document${shared > 1 ? 's' : ''} in your Inspection Binder`,
             body: `Your coordinator shared ${shared} document${shared > 1 ? 's' : ''} to your binder.`,
             type: 'document_update',
             channel: 'in_app',
             link: '/operator?tab=inspection-binder',
-          });
+          }));
         }
       }
 
@@ -754,14 +754,14 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
       const inAppEnabled = prefRes.data?.in_app_enabled ?? true;
 
       if (inAppEnabled) {
-        await supabase.from('notifications').insert({
+        await supabase.from('notifications').insert(insertPayload('notifications', {
           user_id: driverUserId,
           title: 'New document in your Inspection Binder',
           body: `"${doc.name}" has been added to your Inspection Binder by your coordinator.`,
           type: 'document_update',
           channel: 'in_app',
           link: '/operator?tab=inspection-binder',
-        });
+        }));
       }
 
       toast({ title: 'Document assigned', description: `${doc.name} has been added to ${driverName}'s binder.` });
@@ -827,7 +827,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         : 'Staff';
 
       await Promise.all([
-        supabase.from('notifications').insert({
+        supabase.from('notifications').insert(insertPayload('notifications', {
           user_id: targetUserId,
           title: isSingle
             ? `Action required: ${docsToRemind[0]}`
@@ -840,7 +840,7 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
           type: 'document_update',
           channel: 'in_app',
           link: '/operator?tab=inspection-binder',
-        }),
+        })),
         // Record one cert_reminders row per doc for "last reminded" history
         operatorRowId
           ? supabase.from('cert_reminders').insert(

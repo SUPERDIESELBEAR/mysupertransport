@@ -2536,6 +2536,7 @@ export type Database = {
       }
       dispatch_daily_log: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -2545,6 +2546,7 @@ export type Database = {
           status: Database["public"]["Enums"]["daily_dispatch_status"]
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2554,6 +2556,7 @@ export type Database = {
           status: Database["public"]["Enums"]["daily_dispatch_status"]
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -2563,6 +2566,13 @@ export type Database = {
           status?: Database["public"]["Enums"]["daily_dispatch_status"]
         }
         Relationships: [
+          {
+            foreignKeyName: "dispatch_daily_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "dispatch_daily_log_operator_id_fkey"
             columns: ["operator_id"]
@@ -8585,6 +8595,7 @@ export type Database = {
           assigned_to: string | null
           body: string | null
           channel: Database["public"]["Enums"]["notification_channel"]
+          company_id: string
           entity_id: string | null
           entity_type: string | null
           id: string
@@ -8602,6 +8613,7 @@ export type Database = {
           assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          company_id: string
           entity_id?: string | null
           entity_type?: string | null
           id?: string
@@ -8619,6 +8631,7 @@ export type Database = {
           assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          company_id?: string
           entity_id?: string | null
           entity_type?: string | null
           id?: string
@@ -8631,7 +8644,15 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       officer_packet_links: {
         Row: {
