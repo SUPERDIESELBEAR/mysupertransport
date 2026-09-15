@@ -43,6 +43,7 @@ import MoPlateHistoryStrip, { type PlateAssignmentEvent } from './MoPlateHistory
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ViewModeToggle } from '@/components/ui/ViewModeToggle';
 import { useViewMode } from '@/hooks/useViewMode';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type PlateWithAssignee = MoPlate & {
   current_driver?: string | null;
@@ -241,13 +242,13 @@ export default function MoPlateRegistry() {
           .eq('event_type', 'assignment');
       }
       // Insert lost/stolen event
-      await supabase.from('mo_plate_assignments').insert({
+      await supabase.from('mo_plate_assignments').insert(insertPayload('mo_plate_assignments', {
         plate_id: lostDialogPlate.id,
         driver_name: 'LOST/STOLEN',
         event_type: 'lost_stolen',
         notes: lostNotes.trim() || null,
         assigned_by: session?.user?.id,
-      });
+      }));
       await supabase.from('mo_plates').update({ status: 'lost_stolen' }).eq('id', lostDialogPlate.id);
       toast({ title: 'Marked as lost/stolen', description: `${lostDialogPlate.plate_number} has been flagged.` });
       setLostDialogPlate(null);
@@ -273,14 +274,14 @@ export default function MoPlateRegistry() {
         .is('returned_at', null)
         .eq('event_type', 'lost_stolen');
       // Insert replacement_received event
-      await supabase.from('mo_plate_assignments').insert({
+      await supabase.from('mo_plate_assignments').insert(insertPayload('mo_plate_assignments', {
         plate_id: replacementDialogPlate.id,
         driver_name: 'REPLACEMENT',
         event_type: 'replacement_received',
         notes: 'Replacement plate received from MO — same number',
         assigned_by: session?.user?.id,
         returned_at: new Date().toISOString(),
-      });
+      }));
       await supabase.from('mo_plates').update({ status: 'available' }).eq('id', replacementDialogPlate.id);
       toast({ title: 'Replacement received', description: `${replacementDialogPlate.plate_number} is now available again.` });
       setReplacementDialogPlate(null);

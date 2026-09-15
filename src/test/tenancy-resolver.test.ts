@@ -104,6 +104,28 @@ const B5B_SETTLEMENTS = [
 
 
 /**
+ * BATCH B5 GROUP C (2026-09-15) — the plain staff-written remainder, plus
+ * `equipment_serial_conflict_dismissals`, which was held out of B4 for having
+ * rows. Group C1 took the standard nullable -> backfill -> NOT NULL route.
+ * Group C2 carries UPDATE-firing history/derivation triggers, so it took the
+ * approved constant-DEFAULT-then-DROP route rather than run a row UPDATE that
+ * would have written spurious history rows. No trigger was suspended; the
+ * derivation check below is what proves the constant was right.
+ */
+const B5C_PLAIN = [
+  'cert_reminders', 'claim_flag_history', 'document_version_history',
+  'equipment_assignments', 'equipment_serial_conflict_dismissals',
+  'mo_plate_assignments', 'truck_maintenance_records', 'load_references',
+  'load_reference_citations', 'parser_diagnostics', 'rate_con_ingest_queue',
+] as const;
+
+const B5C_TRIGGERED = [
+  'active_dispatch', 'claim_flags', 'lease_terminations', 'load_charges',
+  'truck_dot_inspections', 'truck_owners',
+] as const;
+
+
+/**
  * BATCH B4 — the 31 tables that held no rows. Empty means no backfill could
  * fail, which is why they went first; it does not make the column optional, so
  * every one of them is asserted the same way as a populated table.
@@ -462,7 +484,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     // stamp is a red suite.
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
-      ...B5B_SETTINGS, ...B5B_SETTLEMENTS,
+      ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1002,5 +1024,93 @@ describe('the three federal breaks — inspection and ELD records own their carr
     expect(insert).toMatch(/uploaded_by = auth\.uid\(\)/);
     const select = rows.find(r => r.includes('| SELECT |'));
     expect(select).toMatch(/driver_id = auth\.uid\(\)/);
+  });
+});
+
+/**
+ * BATCH B5 GROUP C (2026-09-15) — the plain staff-written remainder. The
+ * derivation assertion is the one that matters: every row's company must equal
+ * the company of the parent it hangs off, which is what proves the constant
+ * default was correct rather than merely uniform.
+ */
+describe('tenancy B5 group C — the staff-written remainder', () => {
+  itLive('all 17 carry a required, undefaulted, RESTRICT-ed company with a stamp', () => {
+    for (const t of [...B5C_PLAIN, ...B5C_TRIGGERED]) {
+      const [row] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text || ' ' ||
+          COALESCE(pg_get_expr(d.adbin, d.adrelid), 'none') || ' ' ||
+          (SELECT count(*)::text FROM pg_constraint k
+            WHERE k.conrelid = c.oid AND k.contype = 'f'
+              AND k.confrelid = 'public.carrier_profile'::regclass
+              AND k.confdeltype = 'r') || ' ' ||
+          (SELECT count(*)::text FROM pg_trigger g
+            WHERE g.tgrelid = c.oid AND g.tgname = 'aa_stamp_tenant_company_id'
+              AND g.tgenabled = 'O')
+        FROM pg_class c
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'company_id'
+        LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+        WHERE c.oid = 'public.${t}'::regclass`);
+      expect(row, t).toBe('true false none 1 1');
+    }
+    expect(B5C_PLAIN.length + B5C_TRIGGERED.length).toBe(17);
+  });
+
+  itLive('every row of all 17 belongs to the live carrier', () => {
+    for (const t of [...B5C_PLAIN, ...B5C_TRIGGERED]) {
+      const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toBe('0 0');
+    }
+  });
+
+  itLive('every constant-default row agrees with the company derived from its parent', () => {
+    const checks: Array<[string, string]> = [
+      ['active_dispatch', 'JOIN public.operators p ON p.id = x.operator_id'],
+      ['lease_terminations', 'JOIN public.operators p ON p.id = x.operator_id'],
+      ['truck_dot_inspections', 'JOIN public.operators p ON p.id = x.operator_id'],
+      ['truck_owners', 'JOIN public.operators p ON p.id = x.operator_id'],
+      ['claim_flags', 'JOIN public.loads p ON p.id = x.load_id'],
+      ['load_charges', 'JOIN public.loads p ON p.id = x.load_id'],
+    ];
+    for (const [t, join] of checks) {
+      const [row] = psql(`SELECT count(*)::text || ' ' ||
+          count(*) FILTER (WHERE x.company_id = p.company_id)::text
+        FROM public.${t} x ${join}`);
+      const [total, agree] = row.split(' ');
+      expect(agree, t).toBe(total);
+    }
+  });
+
+  itLive('the two tenant-chosen keys in this batch are scoped per company', () => {
+    const rows = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND indexdef ILIKE '%UNIQUE%'
+        AND indexdef ILIKE '%company_id%'
+        AND tablename IN ('equipment_serial_conflict_dismissals', 'rate_con_ingest_queue')
+      ORDER BY 1`);
+    expect(rows).toEqual([
+      'equipment_serial_conflict_dismissals_company_key_uniq',
+      'rate_con_ingest_queue_company_attachment_sha256_uniq',
+    ]);
+    const gone = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname IN (
+        'equipment_serial_conflict_dismissals_conflict_key_key',
+        'rate_con_ingest_queue_attachment_sha256_key')`);
+    expect(gone).toEqual([]);
+  });
+
+  itLive('the history and derivation triggers this batch avoided are still ENABLED', () => {
+    const rows = psql(`SELECT c.relname || ' ' || g.tgname || ' ' || g.tgenabled::text
+      FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND NOT g.tgisinternal
+        AND g.tgname IN ('trg_dispatch_status_history', 'trg_claim_flags_zz_history',
+                         'enforce_lease_termination_void', 'trg_compute_dot_next_due')
+      ORDER BY 1`);
+    expect(rows).toEqual([
+      'active_dispatch trg_dispatch_status_history O',
+      'claim_flags trg_claim_flags_zz_history O',
+      'lease_terminations enforce_lease_termination_void O',
+      'truck_dot_inspections trg_compute_dot_next_due O',
+    ]);
   });
 });

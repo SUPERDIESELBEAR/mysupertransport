@@ -47,6 +47,7 @@ import LateAccessorialsPage from '@/pages/management/LateAccessorialsPage';
 import LateAccessorialBadge from '@/components/accessorials/LateAccessorialBadge';
 import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
 import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 interface QuickComposeTarget {
   operatorUserId: string;
@@ -1120,7 +1121,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       if (row.dispatch_id) {
         return supabase.from('active_dispatch').update(payload).eq('id', row.dispatch_id);
       } else {
-        return supabase.from('active_dispatch').insert(payload);
+        return supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload));
       }
     }));
     // Mirror today's status to dispatch_daily_log so the calendar stays in sync.
@@ -1217,7 +1218,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (row.dispatch_id) {
       ({ error } = await supabase.from('active_dispatch').update(payload).eq('id', row.dispatch_id));
     } else {
-      ({ error } = await supabase.from('active_dispatch').insert(payload));
+      ({ error } = await supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload)));
     }
 
     setSaving(false);

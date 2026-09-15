@@ -165,6 +165,7 @@ export type Database = {
       active_dispatch: {
         Row: {
           assigned_dispatcher: string | null
+          company_id: string
           current_load_lane: string | null
           dispatch_status: Database["public"]["Enums"]["dispatch_status"]
           eta_redispatch: string | null
@@ -176,6 +177,7 @@ export type Database = {
         }
         Insert: {
           assigned_dispatcher?: string | null
+          company_id: string
           current_load_lane?: string | null
           dispatch_status?: Database["public"]["Enums"]["dispatch_status"]
           eta_redispatch?: string | null
@@ -187,6 +189,7 @@ export type Database = {
         }
         Update: {
           assigned_dispatcher?: string | null
+          company_id?: string
           current_load_lane?: string | null
           dispatch_status?: Database["public"]["Enums"]["dispatch_status"]
           eta_redispatch?: string | null
@@ -197,6 +200,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "active_dispatch_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "active_dispatch_operator_id_fkey"
             columns: ["operator_id"]
@@ -1684,6 +1694,7 @@ export type Database = {
       }
       cert_reminders: {
         Row: {
+          company_id: string
           doc_type: string
           email_error: string | null
           email_sent: boolean
@@ -1696,6 +1707,7 @@ export type Database = {
           threshold: string | null
         }
         Insert: {
+          company_id: string
           doc_type: string
           email_error?: string | null
           email_sent?: boolean
@@ -1708,6 +1720,7 @@ export type Database = {
           threshold?: string | null
         }
         Update: {
+          company_id?: string
           doc_type?: string
           email_error?: string | null
           email_sent?: boolean
@@ -1720,6 +1733,13 @@ export type Database = {
           threshold?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "cert_reminders_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "cert_reminders_operator_id_fkey"
             columns: ["operator_id"]
@@ -1736,6 +1756,7 @@ export type Database = {
           changed_at: string
           changed_by: string | null
           claim_flag_id: string
+          company_id: string
           created_at: string | null
           id: string
           load_id: string
@@ -1759,6 +1780,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           claim_flag_id: string
+          company_id: string
           created_at?: string | null
           id?: string
           load_id: string
@@ -1784,6 +1806,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           claim_flag_id?: string
+          company_id?: string
           created_at?: string | null
           id?: string
           load_id?: string
@@ -1819,6 +1842,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "claim_flag_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "claim_flag_history_load_id_fkey"
             columns: ["load_id"]
             isOneToOne: false
@@ -1831,6 +1861,7 @@ export type Database = {
         Row: {
           actual_claim_amount: number | null
           claim_type: Database["public"]["Enums"]["claim_type"]
+          company_id: string
           created_at: string | null
           created_by: string | null
           description: string
@@ -1852,6 +1883,7 @@ export type Database = {
         Insert: {
           actual_claim_amount?: number | null
           claim_type?: Database["public"]["Enums"]["claim_type"]
+          company_id: string
           created_at?: string | null
           created_by?: string | null
           description: string
@@ -1873,6 +1905,7 @@ export type Database = {
         Update: {
           actual_claim_amount?: number | null
           claim_type?: Database["public"]["Enums"]["claim_type"]
+          company_id?: string
           created_at?: string | null
           created_by?: string | null
           description?: string
@@ -1892,6 +1925,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "claim_flags_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "claim_flags_created_by_fkey"
             columns: ["created_by"]
@@ -3337,6 +3377,7 @@ export type Database = {
       document_version_history: {
         Row: {
           body: string | null
+          company_id: string
           document_id: string
           id: string
           updated_at: string
@@ -3345,6 +3386,7 @@ export type Database = {
         }
         Insert: {
           body?: string | null
+          company_id: string
           document_id: string
           id?: string
           updated_at?: string
@@ -3353,6 +3395,7 @@ export type Database = {
         }
         Update: {
           body?: string | null
+          company_id?: string
           document_id?: string
           id?: string
           updated_at?: string
@@ -3360,6 +3403,13 @@ export type Database = {
           version?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "document_version_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_version_history_document_id_fkey"
             columns: ["document_id"]
@@ -4542,6 +4592,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          company_id: string
           created_at: string
           equipment_id: string
           id: string
@@ -4558,6 +4609,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          company_id: string
           created_at?: string
           equipment_id: string
           id?: string
@@ -4574,6 +4626,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          company_id?: string
           created_at?: string
           equipment_id?: string
           id?: string
@@ -4588,6 +4641,13 @@ export type Database = {
           tracking_receipt_url?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_assignments_equipment_id_fkey"
             columns: ["equipment_id"]
@@ -4771,6 +4831,7 @@ export type Database = {
       }
       equipment_serial_conflict_dismissals: {
         Row: {
+          company_id: string
           conflict_key: string
           created_at: string
           device_type: string
@@ -4781,6 +4842,7 @@ export type Database = {
           serial_snapshot: string[]
         }
         Insert: {
+          company_id: string
           conflict_key: string
           created_at?: string
           device_type: string
@@ -4791,6 +4853,7 @@ export type Database = {
           serial_snapshot: string[]
         }
         Update: {
+          company_id?: string
           conflict_key?: string
           created_at?: string
           device_type?: string
@@ -4801,6 +4864,13 @@ export type Database = {
           serial_snapshot?: string[]
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_serial_conflict_dismissals_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_serial_conflict_dismissals_dismissed_by_fkey"
             columns: ["dismissed_by"]
@@ -6828,6 +6898,7 @@ export type Database = {
           carrier_signed_by: string | null
           carrier_title: string | null
           carrier_typed_name: string | null
+          company_id: string
           contractor_label: string | null
           contractor_signature_url: string | null
           contractor_signed_at: string | null
@@ -6862,6 +6933,7 @@ export type Database = {
           carrier_signed_by?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id: string
           contractor_label?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
@@ -6896,6 +6968,7 @@ export type Database = {
           carrier_signed_by?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id?: string
           contractor_label?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
@@ -6925,6 +6998,13 @@ export type Database = {
           voided_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "lease_terminations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "lease_terminations_ica_contract_id_fkey"
             columns: ["ica_contract_id"]
@@ -7007,6 +7087,7 @@ export type Database = {
           actual_cost: number | null
           amount: number
           charge_type: string
+          company_id: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -7023,6 +7104,7 @@ export type Database = {
           actual_cost?: number | null
           amount?: number
           charge_type?: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -7039,6 +7121,7 @@ export type Database = {
           actual_cost?: number | null
           amount?: number
           charge_type?: string
+          company_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -7052,6 +7135,13 @@ export type Database = {
           updated_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "load_charges_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "load_charges_created_by_fkey"
             columns: ["created_by"]
@@ -7260,6 +7350,7 @@ export type Database = {
       }
       load_reference_citations: {
         Row: {
+          company_id: string
           created_at: string
           id: string
           load_stop_id: string | null
@@ -7268,6 +7359,7 @@ export type Database = {
           stop_sequence: number | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           id?: string
           load_stop_id?: string | null
@@ -7276,6 +7368,7 @@ export type Database = {
           stop_sequence?: number | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           id?: string
           load_stop_id?: string | null
@@ -7284,6 +7377,13 @@ export type Database = {
           stop_sequence?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "load_reference_citations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "load_reference_citations_load_stop_id_fkey"
             columns: ["load_stop_id"]
@@ -7302,6 +7402,7 @@ export type Database = {
       }
       load_references: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -7313,6 +7414,7 @@ export type Database = {
           value_key: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -7324,6 +7426,7 @@ export type Database = {
           value_key: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -7335,6 +7438,13 @@ export type Database = {
           value_key?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "load_references_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "load_references_created_by_fkey"
             columns: ["created_by"]
@@ -8037,6 +8147,7 @@ export type Database = {
         Row: {
           assigned_at: string
           assigned_by: string | null
+          company_id: string
           driver_name: string
           event_type: string
           id: string
@@ -8050,6 +8161,7 @@ export type Database = {
         Insert: {
           assigned_at?: string
           assigned_by?: string | null
+          company_id: string
           driver_name: string
           event_type?: string
           id?: string
@@ -8063,6 +8175,7 @@ export type Database = {
         Update: {
           assigned_at?: string
           assigned_by?: string | null
+          company_id?: string
           driver_name?: string
           event_type?: string
           id?: string
@@ -8074,6 +8187,13 @@ export type Database = {
           unit_number?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "mo_plate_assignments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "mo_plate_assignments_operator_id_fkey"
             columns: ["operator_id"]
@@ -9544,6 +9664,7 @@ export type Database = {
       }
       parser_diagnostics: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           document_id: string | null
@@ -9565,6 +9686,7 @@ export type Database = {
           stop_number: number | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           document_id?: string | null
@@ -9586,6 +9708,7 @@ export type Database = {
           stop_number?: number | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           document_id?: string | null
@@ -9607,6 +9730,13 @@ export type Database = {
           stop_number?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "parser_diagnostics_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "parser_diagnostics_created_by_fkey"
             columns: ["created_by"]
@@ -10624,6 +10754,7 @@ export type Database = {
           attachment_sha256: string | null
           attachment_storage_path: string | null
           broker_load_number: string | null
+          company_id: string
           converted_load_id: string | null
           created_at: string
           created_by: string | null
@@ -10657,6 +10788,7 @@ export type Database = {
           attachment_sha256?: string | null
           attachment_storage_path?: string | null
           broker_load_number?: string | null
+          company_id: string
           converted_load_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -10690,6 +10822,7 @@ export type Database = {
           attachment_sha256?: string | null
           attachment_storage_path?: string | null
           broker_load_number?: string | null
+          company_id?: string
           converted_load_id?: string | null
           created_at?: string
           created_by?: string | null
@@ -10716,6 +10849,13 @@ export type Database = {
           verbatim_checks?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "rate_con_ingest_queue_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "rate_con_ingest_queue_converted_load_id_fkey"
             columns: ["converted_load_id"]
@@ -12741,6 +12881,7 @@ export type Database = {
           certificate_file_name: string | null
           certificate_file_path: string | null
           certificate_file_url: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           id: string
@@ -12757,6 +12898,7 @@ export type Database = {
           certificate_file_name?: string | null
           certificate_file_path?: string | null
           certificate_file_url?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -12773,6 +12915,7 @@ export type Database = {
           certificate_file_name?: string | null
           certificate_file_path?: string | null
           certificate_file_url?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
@@ -12787,6 +12930,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "truck_dot_inspections_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "truck_dot_inspections_operator_id_fkey"
             columns: ["operator_id"]
             isOneToOne: false
@@ -12799,6 +12949,7 @@ export type Database = {
         Row: {
           amount: number | null
           categories: string[] | null
+          company_id: string
           created_at: string
           created_by: string | null
           description: string | null
@@ -12816,6 +12967,7 @@ export type Database = {
         Insert: {
           amount?: number | null
           categories?: string[] | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -12833,6 +12985,7 @@ export type Database = {
         Update: {
           amount?: number | null
           categories?: string[] | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           description?: string | null
@@ -12849,6 +13002,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "truck_maintenance_records_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "truck_maintenance_records_operator_id_fkey"
             columns: ["operator_id"]
             isOneToOne: false
@@ -12864,6 +13024,7 @@ export type Database = {
           address_street: string | null
           address_zip: string | null
           business_name: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           email: string
@@ -12883,6 +13044,7 @@ export type Database = {
           address_street?: string | null
           address_zip?: string | null
           business_name?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           email: string
@@ -12902,6 +13064,7 @@ export type Database = {
           address_street?: string | null
           address_zip?: string | null
           business_name?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           email?: string
@@ -12916,6 +13079,13 @@ export type Database = {
           user_id?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "truck_owners_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "truck_owners_operator_id_fkey"
             columns: ["operator_id"]

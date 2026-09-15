@@ -107,7 +107,11 @@ Deno.serve(withErrorEnvelope(async (req) => {
   })
   if (obErr) return fail(500, `Could not create onboarding status: ${obErr.message}`)
 
+  const { data: adCo } = await admin.from('operators')
+    .select('company_id').eq('id', op.id).maybeSingle()
+  if (!adCo?.company_id) return fail(500, `No company for operator ${op.id}`)
   await admin.from('active_dispatch').insert({
+    company_id: adCo.company_id,
     operator_id: op.id,
     dispatch_status: 'not_dispatched',
     updated_by: userId,

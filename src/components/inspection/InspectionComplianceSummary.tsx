@@ -453,7 +453,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
         // No DOT row yet — create one for this operator.
         ({ error } = await supabase
           .from('truck_dot_inspections')
-          .insert({ operator_id: operatorId, next_due_date: isoDate, inspection_date: isoDate }));
+          .insert(insertPayload('truck_dot_inspections', { operator_id: operatorId, next_due_date: isoDate, inspection_date: isoDate })));
       }
     } else if (inspectionDocId) {
       ({ error } = await supabase
@@ -615,7 +615,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
           } else {
             ({ error: dbErr } = await supabase
               .from('truck_dot_inspections')
-              .insert({
+              .insert(insertPayload('truck_dot_inspections', {
                 operator_id: entry.operatorId,
                 inspection_date: nowIso.split('T')[0],
                 next_due_date: entry.expiresAt ?? nowIso.split('T')[0],
@@ -623,7 +623,7 @@ export default function InspectionComplianceSummary({ onOpenOperator, onOpenOper
                 certificate_file_path: path,
                 certificate_file_name: file.name,
                 created_by: user?.id ?? null,
-              }));
+              })));
           }
         } else if (entry.inspectionDocId) {
           ({ error: dbErr } = await supabase

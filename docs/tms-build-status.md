@@ -13498,3 +13498,68 @@ Full report: `docs/passes/2026-09-15-0020-b5-part-two-settings-and-settlements.m
 - OPEN, unattributed: the Supabase linter read 180 findings against the 172
   recorded 2026-09-14. No causal claim is made; it needs a dated re-baseline
   pass of its own.
+
+---
+
+## 2026-09-15 — TENANCY B5 GROUP C: THE STAFF-WRITTEN REMAINDER (17 TABLES, 779 ROWS)
+
+Full report: `docs/passes/2026-09-15-0055-b5-group-c-staff-written-remainder.md`.
+
+**The list was established live, not taken from the re-cut.** At the start of the pass:
+122 tables without `company_id`, 32,953 rows. After subtracting the GLOBALs,
+the DEFERRED content tables, B7, B8 and every table with a driver or anonymous write
+path, the actual staff-written remainder was 17 tables / 779 rows. All 17 were migrated
+in one migration.
+
+Standard route (11): `cert_reminders`, `claim_flag_history`, `document_version_history`,
+`equipment_assignments`, `equipment_serial_conflict_dismissals` (held out of B4 for
+having rows), `mo_plate_assignments`, `truck_maintenance_records`, `load_references`,
+`load_reference_citations`, `parser_diagnostics`, `rate_con_ingest_queue`.
+
+Constant-DEFAULT-then-DROP route (6): `active_dispatch`, `claim_flags`,
+`lease_terminations`, `load_charges`, `truck_dot_inspections`, `truck_owners`.
+
+**Recorded extension of the constant-default route.** Those six carry UPDATE-firing
+history/derivation triggers (`trg_dispatch_status_history`,
+`trg_claim_flags_zz_history`, `enforce_lease_termination_void`,
+`trg_compute_dot_next_due`, the `updated_at` stamps). A backfill UPDATE would have
+written spurious dispatch- and claim-history rows and moved `updated_at` on every row, so
+the approved no-UPDATE route was used for **trigger side effects rather than an
+immutability lock**. No trigger was suspended. The read-only derivation check agreed on
+every row of every one of the six (79/79, 35/35, 105/105, 5/5, 1/1, 4/4).
+
+**Reclassified out of the staff-written pile on live code evidence, now B6:**
+`dispatch_status_history` (the driver writes it from the truck-down acknowledgement in
+`OperatorPortal.tsx`), `load_status_history` and `load_change_history` (reached by
+definer triggers on a driver-initiated status change). `active_dispatch` and
+`truck_owners` stayed — the operator portal only reads them. Classifying by RLS predicate
+alone under-counts driver writes, because several go through definer RPCs with no policy
+predicate; client code must be checked too.
+
+**Two unique keys re-scoped per company**, both found by reading `pg_indexes` rather than
+the record: `equipment_serial_conflict_dismissals(conflict_key)` (two carriers can hold
+identically-labelled devices) and `rate_con_ingest_queue(attachment_sha256)` (the same
+rate confirmation mailed to two carriers would be swallowed as a duplicate). Constraints
+were dropped before their backing indexes, per the `2BP01` lesson.
+
+**Learned:** `stamp_tenant_company_id` honours an explicitly supplied `company_id` only
+when `auth.role() = 'service_role'`. Service-role edge functions must therefore name the
+company; eight were updated to derive it from the operator the row is about, or from
+`soleCompanyId`.
+
+Verification: all 17 NOT NULL, no default, RESTRICT FK, stamp ENABLED; zero nulls, zero
+rows off the live carrier; policies **560** (baseline, no draft pending); one carrier, 15
+members, one owner. Scratch-company retention, spoof overwrite and non-member refusal all
+behaved as required inside one rolled-back transaction.
+
+Suites: `tenancy-resolver.test.ts` 69 passed (one vitest reporter RPC timeout, not an
+assertion failure); `grant-parity-live`, `policy-grant-parity`, `definer-search-path`,
+`caller-evaluated-functions` 17 passed. `npx tsgo --noEmit` clean.
+
+**Left in the sequence, measured:** 105 tables / 32,174 rows without `company_id` —
+19 GLOBAL (998), 8 DEFERRED (318), B7 four logs (22,719), B8 token/share 7 (1,004),
+B6 driver-written + still unclassified 67 (7,135).
+
+Contradictions: the 67-table group is not a decided batch and must be classified table by
+table before B6 is built; cross-carrier steady state remains unverifiable with one real
+carrier; linter 180 vs 172 recorded earlier is still unattributed.

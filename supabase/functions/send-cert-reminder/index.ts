@@ -167,7 +167,11 @@ Deno.serve(async (req) => {
 
     // Always insert a new cert_reminders record — regardless of email outcome
     // (unique constraint removed so every attempt creates a history row)
+    const { data: opCo } = await supabase.from('operators')
+      .select('company_id').eq('id', operator_id).maybeSingle();
+    if (!opCo?.company_id) throw new Error(`No company for operator ${operator_id}`);
     await supabase.from('cert_reminders').insert({
+      company_id: opCo.company_id,
       operator_id,
       doc_type,
       sent_at: new Date().toISOString(),

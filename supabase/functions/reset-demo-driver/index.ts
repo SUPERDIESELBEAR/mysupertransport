@@ -201,7 +201,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       .eq('operator_id', operatorId)
   } else {
     await admin.from('active_dispatch')
-      .insert({ operator_id: operatorId, dispatch_status: 'not_dispatched', updated_by: userId })
+      .insert({ company_id: (await admin.from('operators').select('company_id').eq('id', operatorId).maybeSingle()).data?.company_id, operator_id: operatorId, dispatch_status: 'not_dispatched', updated_by: userId })
   }
 
   return ok({ operatorId, scenario, rodsDaysPurged: rodsPurged.length })

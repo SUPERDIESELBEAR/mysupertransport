@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { sanitizeRichHtml } from '@/lib/sanitize';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
 import {
+import { insertPayload } from '@/integrations/supabase/helpers';
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
@@ -262,12 +263,12 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
       }
 
       // Archive current version
-      await supabase.from('document_version_history').insert({
+      await supabase.from('document_version_history').insert(insertPayload('document_version_history', {
         document_id: doc.id,
         version: doc.version,
         body: doc.body,
         updated_by: user?.id ?? null,
-      });
+      }));
 
       const { error } = await supabase
         .from('driver_documents')
@@ -363,12 +364,12 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
     if (!restoreTarget || !doc) return;
     setRestoring(true);
 
-    await supabase.from('document_version_history').insert({
+    await supabase.from('document_version_history').insert(insertPayload('document_version_history', {
       document_id: doc.id,
       version: doc.version,
       body: doc.body,
       updated_by: user?.id ?? null,
-    });
+    }));
 
     const { error } = await supabase
       .from('driver_documents')

@@ -545,11 +545,11 @@ export async function syncDeviceToInventory(
   }
 
   // Create assignment
-  await supabase.from('equipment_assignments').insert({
+  await supabase.from('equipment_assignments').insert(insertPayload('equipment_assignments', {
     equipment_id: equipmentId,
     operator_id: operatorId,
     assigned_by: assignedBy,
-  });
+  }));
 }
 
 /** Map from onboarding_status field names to device types */

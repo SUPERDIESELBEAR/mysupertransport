@@ -844,13 +844,13 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
         // Record one cert_reminders row per doc for "last reminded" history
         operatorRowId
           ? supabase.from('cert_reminders').insert(
-              docsToRemind.map(d => ({
+              docsToRemind.map(d => insertPayload('cert_reminders', {
                 operator_id: operatorRowId,
                 doc_type: d,
                 sent_by: user?.id ?? null,
                 sent_by_name: senderName,
                 email_sent: false,
-              }))
+              })))
             )
           : Promise.resolve(),
       ]);

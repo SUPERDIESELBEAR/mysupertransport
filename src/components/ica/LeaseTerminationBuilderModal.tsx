@@ -34,6 +34,7 @@ interface LeaseTerminationBuilderModalProps {
 }
 
 import { TERMINATION_REASONS, terminationReasonLabel, type TerminationReason } from '@/lib/leaseTermination';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type ReasonValue = TerminationReason;
 
@@ -128,7 +129,7 @@ export default function LeaseTerminationBuilderModal({
       };
       const { data, error } = await supabase
         .from('lease_terminations')
-        .insert(payload)
+        .insert(insertPayload('lease_terminations', payload))
         .select('id')
         .single();
       if (error) throw error;
