@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import type { Database } from '@/integrations/supabase/types';
 
 export type LoadDocumentType = Database['public']['Enums']['load_document_type'];
@@ -294,7 +295,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
 
   const isPhotoType = LOADOUT_PHOTO_TYPES.includes(documentType);
   const isPickup = documentType === 'loadout_pickup_inspection';
-  const { data: inserted, error: insErr } = await supabase.from('load_documents').insert({
+  const { data: inserted, error: insErr } = await supabase.from('load_documents').insert(insertPayload('load_documents', {
     load_id: loadId,
     load_stop_id: loadStopId || null,
     document_type: documentType,
@@ -310,7 +311,7 @@ export async function uploadLoadDocument(input: UploadLoadDocumentInput): Promis
     inspection_sticker_state: isPickup ? inspectionStickerState ?? null : null,
     inspection_sticker_expiry:
       isPickup && inspectionStickerState === 'recorded' ? inspectionStickerExpiry || null : null,
-  }).select('id').single();
+  })).select('id').single();
   if (insErr) {
     // Roll back the orphaned object so storage does not drift from the table.
     await supabase.storage.from(LOAD_DOCUMENTS_BUCKET).remove([path]).catch(() => undefined);
@@ -331,7 +332,7 @@ export async function recordLoadoutStickerNotFound(
   photoLabel: string,
   loadStopId?: string | null,
 ): Promise<string> {
-  const { data, error } = await supabase.from('load_documents').insert({
+  const { data, error } = await supabase.from('load_documents').insert(insertPayload('load_documents', {
     load_id: loadId,
     load_stop_id: loadStopId || null,
     document_type: 'loadout_pickup_inspection',
@@ -339,7 +340,7 @@ export async function recordLoadoutStickerNotFound(
     upload_channel: 'driver_app',
     photo_label: photoLabel,
     inspection_sticker_state: 'not_found',
-  }).select('id').single();
+  })).select('id').single();
   if (error) throw error;
   return data.id as string;
 }

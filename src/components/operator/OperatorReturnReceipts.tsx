@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { validateFile } from '@/lib/validateFile';
@@ -98,7 +99,7 @@ export default function OperatorReturnReceipts({ operatorId, status }: OperatorR
       const url = signedUrl?.signedUrl;
       if (!url) throw new Error('signed url failed');
 
-      const { error } = await supabase.from('equipment_receipts').insert({
+      const { error } = await supabase.from('equipment_receipts').insert(insertPayload('equipment_receipts', {
         operator_id: operatorId,
         equipment_line: null,
         direction: 'return',
@@ -108,7 +109,7 @@ export default function OperatorReturnReceipts({ operatorId, status }: OperatorR
         file_name: file.name,
         uploaded_by: user.id,
         uploader_role: 'driver',
-      });
+      }));
       if (error) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw error;

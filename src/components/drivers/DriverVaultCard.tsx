@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Label } from '@/components/ui/label';
@@ -139,7 +140,7 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
 
       const { error: insertErr } = await supabase
         .from('driver_vault_documents')
-        .insert({
+        .insert(insertPayload('driver_vault_documents', {
           operator_id: operatorId,
           category: uploadCategory,
           label,
@@ -147,7 +148,7 @@ export default function DriverVaultCard({ operatorId, operatorName, readOnly = f
           file_name: uploadFile.name,
           expires_at: uploadExpiry || null,
           notes: uploadNotes.trim() || null,
-        });
+        }));
       if (insertErr) {
         await supabase.storage.from('operator-documents').remove([storagePath]).catch(() => {});
         throw insertErr;

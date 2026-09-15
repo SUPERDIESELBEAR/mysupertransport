@@ -3189,6 +3189,7 @@ export type Database = {
       }
       document_exceptions: {
         Row: {
+          company_id: string
           created_at: string | null
           document_type: Database["public"]["Enums"]["load_document_type"]
           driver_notes: string
@@ -3210,6 +3211,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          company_id: string
           created_at?: string | null
           document_type: Database["public"]["Enums"]["load_document_type"]
           driver_notes: string
@@ -3231,6 +3233,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          company_id?: string
           created_at?: string | null
           document_type?: Database["public"]["Enums"]["load_document_type"]
           driver_notes?: string
@@ -3252,6 +3255,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "document_exceptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_exceptions_load_id_fkey"
             columns: ["load_id"]
@@ -3681,6 +3691,7 @@ export type Database = {
         Row: {
           binder_document_id: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
+          company_id: string
           driver_id: string
           file_name: string | null
           file_path: string | null
@@ -3696,6 +3707,7 @@ export type Database = {
         Insert: {
           binder_document_id?: string | null
           category: Database["public"]["Enums"]["driver_upload_category"]
+          company_id: string
           driver_id: string
           file_name?: string | null
           file_path?: string | null
@@ -3711,6 +3723,7 @@ export type Database = {
         Update: {
           binder_document_id?: string | null
           category?: Database["public"]["Enums"]["driver_upload_category"]
+          company_id?: string
           driver_id?: string
           file_name?: string | null
           file_path?: string | null
@@ -3731,11 +3744,19 @@ export type Database = {
             referencedRelation: "inspection_documents"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "driver_uploads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       driver_vault_documents: {
         Row: {
           category: string
+          company_id: string
           expires_at: string | null
           file_name: string | null
           file_path: string | null
@@ -3749,6 +3770,7 @@ export type Database = {
         }
         Insert: {
           category?: string
+          company_id: string
           expires_at?: string | null
           file_name?: string | null
           file_path?: string | null
@@ -3762,6 +3784,7 @@ export type Database = {
         }
         Update: {
           category?: string
+          company_id?: string
           expires_at?: string | null
           file_name?: string | null
           file_path?: string | null
@@ -3774,6 +3797,13 @@ export type Database = {
           uploaded_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "driver_vault_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "driver_vault_documents_operator_id_fkey"
             columns: ["operator_id"]
@@ -4748,6 +4778,7 @@ export type Database = {
       equipment_receipts: {
         Row: {
           carrier: string | null
+          company_id: string
           created_at: string
           direction: string
           equipment_line: string | null
@@ -4763,6 +4794,7 @@ export type Database = {
         }
         Insert: {
           carrier?: string | null
+          company_id: string
           created_at?: string
           direction: string
           equipment_line?: string | null
@@ -4778,6 +4810,7 @@ export type Database = {
         }
         Update: {
           carrier?: string | null
+          company_id?: string
           created_at?: string
           direction?: string
           equipment_line?: string | null
@@ -4792,6 +4825,13 @@ export type Database = {
           uploader_role?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_receipts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_receipts_operator_id_fkey"
             columns: ["operator_id"]
@@ -7223,6 +7263,7 @@ export type Database = {
         Row: {
           capture_latitude: number | null
           capture_longitude: number | null
+          company_id: string
           created_at: string | null
           damage_noted: boolean | null
           damage_notes: string | null
@@ -7252,6 +7293,7 @@ export type Database = {
         Insert: {
           capture_latitude?: number | null
           capture_longitude?: number | null
+          company_id: string
           created_at?: string | null
           damage_noted?: boolean | null
           damage_notes?: string | null
@@ -7281,6 +7323,7 @@ export type Database = {
         Update: {
           capture_latitude?: number | null
           capture_longitude?: number | null
+          company_id?: string
           created_at?: string | null
           damage_noted?: boolean | null
           damage_notes?: string | null
@@ -7308,6 +7351,13 @@ export type Database = {
           verified_by?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "load_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "load_documents_load_id_fkey"
             columns: ["load_id"]

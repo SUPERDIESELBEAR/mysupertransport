@@ -189,13 +189,13 @@ export default function OperatorInspectionBinder({ userId, operatorId, initialVi
       if (storageErr) { console.error('[OperatorInspectionBinder] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
 
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
-      const { error: insertErr } = await supabase.from('driver_uploads').insert({
+      const { error: insertErr } = await supabase.from('driver_uploads').insert(insertPayload('driver_uploads', {
         driver_id: userId,
         category,
         file_url: urlData?.signedUrl ?? null,
         file_path: path,
         file_name: file.name,
-      });
+      }));
       if (insertErr) {
         // Best-effort cleanup so the storage object doesn't orphan a failed row.
         await supabase.storage.from('driver-uploads').remove([path]).catch(() => {});

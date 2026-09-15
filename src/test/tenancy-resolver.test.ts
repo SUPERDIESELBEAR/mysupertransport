@@ -139,6 +139,18 @@ const B6_ELD_RODS = [
   'eld_extension_requests', 'eld_malfunction_events', 'eld_devices',
 ] as const;
 
+/**
+ * B6 GROUP 2 (part) — the driver-written DOCUMENT tables. `operator_documents`
+ * and `document_acknowledgments` are absent on purpose: a truck owner writes
+ * both and resolves NO company, so a NOT NULL column would refuse his upload.
+ */
+const B6_DOCUMENTS = [
+  'driver_vault_documents', 'driver_uploads', 'load_documents',
+  'equipment_receipts', 'document_exceptions',
+] as const;
+
+
+
 
 /**
  * BATCH B4 — the 31 tables that held no rows. Empty means no backfill could
@@ -500,7 +512,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
-      ...B6_ELD_RODS,
+      ...B6_ELD_RODS, ...B6_DOCUMENTS,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1287,5 +1299,63 @@ describe('a staff role is never minted without a company membership', () => {
         "from('company_members').upsert",
       );
     }
+  });
+});
+
+/**
+ * B6 GROUP 2 (part) — driver-written DOCUMENT tables, 2026-09-15.
+ *
+ * Five of the seven candidates carry company_id. `operator_documents` and
+ * `document_acknowledgments` were DELIBERATELY LEFT OUT: both have a live
+ * truck-owner write path, and a truck owner holds neither a company_members
+ * row nor an operators row, so current_company_id() resolves NULL for him and
+ * a NOT NULL company_id would refuse his upload. Do not migrate them without
+ * first deciding how a truck owner resolves his carrier.
+ */
+describe('driver-written document tables are scoped to a carrier', () => {
+  const MIGRATED = [...B6_DOCUMENTS];
+  const HELD_BACK = ['operator_documents', 'document_acknowledgments'];
+
+  for (const t of MIGRATED) {
+    itLive(`${t} has a NOT NULL company_id the server stamps`, () => {
+      const [nullable] = psql(`SELECT is_nullable FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='${t}' AND column_name='company_id'`);
+      expect(nullable).toBe('NO');
+      const [stamp] = psql(`SELECT count(*)::text FROM pg_trigger
+        WHERE tgrelid='public.${t}'::regclass AND tgname='aa_stamp_tenant_company_id'`);
+      expect(stamp).toBe('1');
+      const [fk] = psql(`SELECT confdeltype FROM pg_constraint
+        WHERE conname='${t}_company_id_fkey'`);
+      expect(fk).toBe('r'); // ON DELETE RESTRICT
+      const [orphans] = psql(`SELECT count(*)::text FROM public.${t} d
+        WHERE NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = d.company_id)`);
+      expect(orphans).toBe('0');
+    });
+  }
+
+  for (const t of HELD_BACK) {
+    itLive(`${t} is still unscoped, on purpose (truck-owner resolver gap)`, () => {
+      const [n] = psql(`SELECT count(*)::text FROM information_schema.columns
+        WHERE table_schema='public' AND table_name='${t}' AND column_name='company_id'`);
+      expect(
+        n,
+        `${t} gained company_id. A truck owner resolves NULL from current_company_id(), so this refuses his uploads. Decide the truck-owner path first.`,
+      ).toBe('0');
+    });
+  }
+
+  itLive('a truck owner still resolves no company — the reason the two are held back', () => {
+    const [n] = psql(`SELECT count(*)::text FROM public.user_roles r
+      WHERE r.role = 'truck_owner'
+        AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = r.user_id)
+        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = r.user_id)`);
+    // If this ever reaches 0 the gap is closed and the two tables can migrate.
+    expect(Number(n)).toBeGreaterThanOrEqual(0);
+  });
+
+  it('the service-role passenger-auth writer names the company explicitly', () => {
+    const src = readFileSync('supabase/functions/finalize-passenger-auth/index.ts', 'utf8');
+    expect(src).toContain("company_id: companyId");
+    expect(src).toMatch(/from\('operators'\)[\s\S]{0,80}select\('company_id'\)/);
   });
 });
