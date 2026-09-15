@@ -152,6 +152,35 @@ const B6_DOCUMENTS = [
   'operator_documents', 'document_acknowledgments',
 ] as const;
 
+/**
+ * B6 GROUP 3 (2026-09-15) — the driver-written remainder: messaging, the
+ * service library, forecasts, onboarding/ICA, roadside, preferences.
+ * Twenty-eight take the generic `aa_stamp_tenant_company_id`.
+ */
+const B6_GROUP3_GENERIC = [
+  'message_threads', 'thread_participants', 'message_reactions', 'messages',
+  'message_notification_throttle', 'service_resource_bookmarks',
+  'service_resource_completions', 'service_resource_views', 'service_help_requests',
+  'roadside_stops', 'roadside_stop_documents', 'roadside_stop_violations',
+  'documents', 'ica_driver_acknowledgments', 'ica_contracts',
+  'notification_preferences', 'staff_ui_preferences', 'user_view_preferences',
+  'operator_broadcast_recipients', 'onboard_assignment_sheets',
+  'onboard_assignment_sheet_items', 'onboarding_status',
+  'operator_offboarding_steps', 'contractor_pay_setup',
+  'forecast_deductions', 'forecast_expenses', 'forecast_loads', 'load_stops',
+] as const;
+
+/**
+ * The three history tables in Group 3 are written by SECURITY DEFINER logging
+ * triggers, which run with no auth.uid(), so the generic resolver stamp would
+ * refuse them. Each derives the company from its PARENT row instead.
+ */
+const B6_GROUP3_PARENT_DERIVED = {
+  load_status_history: 'aa_stamp_company_from_load',
+  load_change_history: 'aa_stamp_company_from_load',
+  dispatch_status_history: 'aa_stamp_company_from_operator',
+} as const;
+
 
 
 
@@ -517,7 +546,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
-      ...B6_ELD_RODS, ...B6_DOCUMENTS,
+      ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1373,5 +1402,99 @@ describe('driver-written document tables are scoped to a carrier', () => {
     const src = readFileSync('supabase/functions/finalize-passenger-auth/index.ts', 'utf8');
     expect(src).toContain("company_id: companyId");
     expect(src).toMatch(/from\('operators'\)[\s\S]{0,80}select\('company_id'\)/);
+  });
+});
+
+/**
+ * B6 GROUP 3 — the driver-written remainder, 2026-09-15. Messaging, the service
+ * library, forecasts, onboarding/ICA, roadside and the person-owned preference
+ * tables. `notifications` is deliberately absent: the record places it in B7.
+ */
+describe('B6 group 3 — the driver-written remainder is scoped to a carrier', () => {
+  const ALL = [
+    ...B6_GROUP3_GENERIC,
+    ...(Object.keys(B6_GROUP3_PARENT_DERIVED) as (keyof typeof B6_GROUP3_PARENT_DERIVED)[]),
+  ];
+
+  for (const t of ALL) {
+    itLive(`${t} carries a server-stamped NOT NULL company_id`, () => {
+      const [col] = psql(`SELECT is_nullable || ' ' || coalesce(column_default, 'none')
+        FROM information_schema.columns WHERE table_schema='public'
+          AND table_name='${t}' AND column_name='company_id'`);
+      // No surviving default: the trigger is the only source, so a client that
+      // omits the column cannot land an unstamped row.
+      expect(col, t).toBe('NO none');
+      const [fk] = psql(`SELECT confdeltype FROM pg_constraint
+        WHERE conname='${t}_company_id_fkey'`);
+      expect(fk, t).toBe('r'); // ON DELETE RESTRICT
+      const [bad] = psql(`SELECT count(*)::text FROM public.${t} d
+        WHERE NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = d.company_id)`);
+      expect(bad, t).toBe('0');
+    });
+  }
+
+  itLive('the three history tables derive the company from their PARENT row', () => {
+    for (const [table, trigger] of Object.entries(B6_GROUP3_PARENT_DERIVED)) {
+      const [name] = psql(`SELECT tgname FROM pg_trigger
+        WHERE NOT tgisinternal AND tgrelid='public.${table}'::regclass
+          AND tgname LIKE 'aa_stamp%'`);
+      expect(name, table).toBe(trigger);
+    }
+    // Written by logging triggers with no auth.uid(), so they must NOT depend on
+    // the resolver — the parent row is the authority.
+    for (const fn of ['stamp_company_from_load', 'stamp_company_from_operator']) {
+      const def = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname='public' AND p.proname='${fn}'`).join('\n');
+      expect(def, fn).not.toMatch(/current_company_id/i);
+      expect(def, fn).toContain('search_path');
+      expect(def, fn).toContain('SECURITY DEFINER');
+    }
+  });
+
+  itLive('neither parent-derived stamp is executable by anon or authenticated', () => {
+    for (const fn of ['stamp_company_from_load', 'stamp_company_from_operator']) {
+      const rows = psql(`SELECT r.rolname FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public')) AS r(rolname)
+        WHERE n.nspname='public' AND p.proname='${fn}'
+          AND has_function_privilege(r.rolname, p.oid, 'EXECUTE')`);
+      expect(rows, fn).toEqual([]);
+    }
+  });
+
+  itLive('every person holding rows in the person-owned tables resolves a company', () => {
+    // This is the check that caught the truck-owner lockout before it fired:
+    // membership, own operator row, or own truck_owners row — one of the three.
+    const personOwned = [
+      'notification_preferences', 'staff_ui_preferences', 'user_view_preferences',
+      'thread_participants', 'message_reactions', 'service_resource_bookmarks',
+      'service_resource_completions', 'service_resource_views',
+      'message_notification_throttle',
+    ];
+    for (const t of personOwned) {
+      const [n] = psql(`SELECT count(DISTINCT x.user_id)::text FROM public.${t} x
+        WHERE x.user_id IS NOT NULL
+          AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.user_id)
+          AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.user_id AND o.company_id IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.user_id AND w.company_id IS NOT NULL)`);
+      expect(n, `${t}: a row owner resolves to no company, so his next write is refused`).toBe('0');
+    }
+  });
+
+  it('the service-role writers into these tables name the company explicitly', () => {
+    const expectations: [string, RegExp][] = [
+      ['supabase/functions/manage-group-thread/index.ts', /companyIdForAnyUser/],
+      ['supabase/functions/send-operator-broadcast/index.ts', /company_id/],
+      ['supabase/functions/send-osas-to-operator/index.ts', /company_id/],
+      ['supabase/functions/invite-operator/index.ts', /company_id/],
+      ['supabase/functions/create-test-operator/index.ts', /company_id/],
+      ['supabase/functions/provision-demo-driver/index.ts', /company_id/],
+      ['supabase/functions/provision-test-driver/index.ts', /company_id/],
+      ['supabase/functions/reset-demo-driver/index.ts', /company_id/],
+    ];
+    for (const [file, pattern] of expectations) {
+      expect(readFileSync(file, 'utf8'), file).toMatch(pattern);
+    }
   });
 });
