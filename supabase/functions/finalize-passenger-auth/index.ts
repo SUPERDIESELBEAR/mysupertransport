@@ -179,6 +179,20 @@ Deno.serve(async (req) => {
   if (updErr) return json(500, { error: updErr.message })
 
   if (row.operator_id && executedUrl) {
+    // driver_vault_documents carries company_id NOT NULL and its stamp trigger
+    // refuses a service-role insert that does not NAME the company. Derive it
+    // from the operator this authorization belongs to; no fallback.
+    const { data: opRow, error: opErr } = await admin
+      .from('operators')
+      .select('company_id')
+      .eq('id', row.operator_id)
+      .single()
+    if (opErr || !opRow?.company_id) {
+      console.error('could not resolve company for operator', row.operator_id, opErr)
+      return json(500, { error: 'Could not determine the carrier for this driver.' })
+    }
+    const companyId = opRow.company_id as string
+
     const { data: docRow, error: docErr } = await admin
       .from('operator_documents')
       .insert({
@@ -203,6 +217,7 @@ Deno.serve(async (req) => {
       .from('driver_vault_documents')
       .insert({
         operator_id: row.operator_id,
+        company_id: companyId,
         category: 'passenger_authorization',
         label: `Passenger Authorization${unitLabel}`,
         file_url: executedUrl,

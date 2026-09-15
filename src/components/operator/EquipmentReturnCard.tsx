@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
@@ -182,7 +183,7 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
       const url = signed?.signedUrl;
       if (!url) throw new Error('Could not create a link for the uploaded file.');
 
-      const { error } = await supabase.from('equipment_receipts').insert({
+      const { error } = await supabase.from('equipment_receipts').insert(insertPayload('equipment_receipts', {
         operator_id: operatorId,
         sheet_id: sheet.id,
         equipment_line: null,
@@ -193,7 +194,7 @@ export default function EquipmentReturnCard({ operatorId, embedded = false, onSu
         file_name: file.name,
         uploaded_by: user.id,
         uploader_role: 'driver',
-      });
+      }));
       if (error) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw error;

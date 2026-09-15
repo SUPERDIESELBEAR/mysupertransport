@@ -323,14 +323,14 @@ export default function OperatorBinderPanel({ driverUserId, operatorName }: Prop
       );
       if (storageErr) { console.error('[OperatorBinderPanel/driver] upload failed', { authUid, sessionExpired, message: storageErr.message }); throw storageErr; }
       const { data: urlData } = await supabase.storage.from('driver-uploads').createSignedUrl(path, 60 * 60 * 24 * 365);
-      const { error: insertErr } = await supabase.from('driver_uploads').insert({
+      const { error: insertErr } = await supabase.from('driver_uploads').insert(insertPayload('driver_uploads', {
         driver_id: driverUserId,
         category,
         file_url: urlData?.signedUrl ?? null,
         file_path: path,
         file_name: file.name,
         status: 'reviewed',
-      });
+      }));
       if (insertErr) {
         await supabase.storage.from('driver-uploads').remove([path]).catch(() => {});
         throw insertErr;

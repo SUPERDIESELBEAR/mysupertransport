@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { CheckCircle2, ChevronDown, ChevronRight, ClipboardList, Cpu, Camera, Gauge, CreditCard, FileText, Loader2, Lock, Mail, Package, Truck, ShieldAlert, ShieldCheck, Download } from 'lucide-react';
 import { ShipmentReceiptsBlock, Receipt } from './ShipmentReceipts';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import { ReturnedItem, ReturnReceiptInput } from '@/lib/equipmentReceiptPdf';
 import { ReturnReceiptPreviewModal } from './ReturnReceiptPreviewModal';
 import { toast as sonnerToast } from 'sonner';
@@ -269,7 +269,7 @@ export default function EquipmentAssetSheet({
       const url = signedUrl?.signedUrl;
       if (!url) throw new Error('signed url failed');
 
-      const { error } = await supabase.from('equipment_receipts').insert({
+      const { error } = await supabase.from('equipment_receipts').insert(insertPayload('equipment_receipts', {
         operator_id: operatorId,
         equipment_line: null,
         direction,
@@ -279,7 +279,7 @@ export default function EquipmentAssetSheet({
         file_name: file.name,
         uploaded_by: user.id,
         uploader_role: mode === 'management' ? 'management' : 'driver',
-      });
+      }));
       if (error) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw error;
