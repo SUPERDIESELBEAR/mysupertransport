@@ -1,0 +1,67 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .quiet { fill: var(--bg-muted); stroke: none; }
+    .rail { stroke: var(--border-translucent); stroke-width: 1; }
+  </style>
+
+  <!-- header row -->
+  <text class="lbl" x="16" y="20">Dispatch Board</text>
+  <text class="sm" x="16" y="38">Every driver, the load they are on, and what is booked behind it.</text>
+
+  <!-- dispatcher select (exists) -->
+  <rect class="box" x="330" y="8" width="120" height="26" rx="8"/>
+  <text class="sm" x="342" y="25">All drivers</text>
+  <!-- search (new) -->
+  <rect x="458" y="8" width="122" height="26" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+  <text class="sm" x="470" y="25" fill="var(--fg-accent)">Search…</text>
+  <!-- refresh (exists) -->
+  <rect class="box" x="588" y="8" width="40" height="26" rx="8"/>
+  <text class="sm" x="598" y="25">↻</text>
+
+  <!-- attention chips (new) -->
+  <rect x="16" y="58" width="82" height="24" rx="12" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text class="sm" x="28" y="74" fill="var(--fg-accent)">Claim · 2</text>
+
+  <rect class="box" x="106" y="58" width="150" height="24" rx="12"/>
+  <text class="sm" x="118" y="74">Awaiting paperwork · 5</text>
+
+  <rect class="box" x="264" y="58" width="106" height="24" rx="12"/>
+  <text class="sm" x="276" y="74">No load · 31</text>
+
+  <rect class="box" x="378" y="58" width="132" height="24" rx="12" stroke="var(--border-translucent)"/>
+  <text class="sm" x="390" y="74" fill="var(--border-translucent)">Late / due today · 0</text>
+
+  <text class="sm" x="16" y="100">chips combine with the dispatcher filter and the search text</text>
+
+  <!-- table -->
+  <rect class="box" x="16" y="114" width="612" height="170" rx="8"/>
+  <line class="rail" x1="16" y1="142" x2="628" y2="142"/>
+  <text class="sm" x="28" y="133">Driver</text>
+  <text class="sm" x="180" y="133">Driver Status</text>
+  <text class="sm" x="300" y="133">Loads (delivery order)</text>
+
+  <g>
+    <text class="lbl" x="28" y="164">Driver A</text>
+    <text class="mono" x="300" y="164">ST-1042</text>
+    <rect class="quiet" x="360" y="155" width="120" height="10" rx="5"/>
+    <circle cx="500" cy="160" r="5" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+    <text class="sm" x="512" y="164" fill="var(--fg-accent)">claim</text>
+    <line class="rail" x1="16" y1="178" x2="628" y2="178"/>
+
+    <text class="lbl" x="28" y="200">Driver B</text>
+    <text class="mono" x="300" y="200">ST-1051</text>
+    <rect class="quiet" x="360" y="191" width="150" height="10" rx="5"/>
+    <line class="rail" x1="16" y1="214" x2="628" y2="214"/>
+
+    <text class="lbl" x="28" y="236">Driver C</text>
+    <text class="sm" x="300" y="236">No load recorded in SUPERDRIVE</text>
+    <line class="rail" x1="16" y1="250" x2="628" y2="250"/>
+
+    <text class="sm" x="28" y="270">rows hidden when they match neither the search nor a selected chip</text>
+  </g>
+</svg>

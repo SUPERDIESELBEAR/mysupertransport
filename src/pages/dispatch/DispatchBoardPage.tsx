@@ -1,9 +1,14 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
-import { RefreshCw, Truck, HelpCircle } from 'lucide-react';
+import { RefreshCw, Truck, HelpCircle, Search, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { useDebouncedValue } from '@/hooks/useDebouncedValue';
+import {
+  ATTENTION_FLAG_LABELS, countAttentionFlags, filterBoardRows, type AttentionFlagKey,
+} from '@/lib/dispatchBoardFilters';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -369,9 +374,17 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
     defaultVisibleColumns: [],
     // Everyone starts on the whole fleet. Two of six dispatchers are managers
     // with one or two drivers, and nothing in the data identifies them.
-    defaultFilters: { dispatcher: 'all' },
+    defaultFilters: { dispatcher: 'all', attention: [] },
   });
   const dispatcherFilter = (filters?.dispatcher as string) ?? 'all';
+  // Chip selection persists with the dispatcher scope; search text does not.
+  const activeFlags = (Array.isArray(filters?.attention) ? filters.attention : []) as AttentionFlagKey[];
+  const toggleFlag = (key: AttentionFlagKey) => {
+    const next = activeFlags.includes(key) ? activeFlags.filter(k => k !== key) : [...activeFlags, key];
+    setFilters({ ...(filters ?? {}), attention: next });
+  };
+  const [search, setSearch] = useState('');
+  const debouncedSearch = useDebouncedValue(search, 200);
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['dispatch-board'],
     queryFn: fetchBoard,
@@ -393,14 +406,39 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
   };
 
   const dispatcherNames = data?.dispatcherNames ?? {};
-  const visibleRows = useMemo(
+  // Dispatcher scope first — it always wins over search and chips.
+  const scopedRows = useMemo(
     () => filterRowsByDispatcher(board.rows, dispatcherFilter, user?.id),
     [board.rows, dispatcherFilter, user?.id],
   );
-  const visibleOffDispatchRows = useMemo(
+  const scopedOffDispatchRows = useMemo(
     () => filterRowsByDispatcher(board.offDispatchRows, dispatcherFilter, user?.id),
     [board.offDispatchRows, dispatcherFilter, user?.id],
   );
+
+  const activeClaimsByLoad = data?.activeClaimsByLoad ?? {};
+  // Counts describe the dispatcher-scoped rows, so a chip never promises rows
+  // this dispatcher cannot see.
+  const attentionCounts = useMemo(
+    () => countAttentionFlags(scopedRows, activeClaimsByLoad),
+    [scopedRows, activeClaimsByLoad],
+  );
+
+  const filterInput = { term: debouncedSearch, flags: activeFlags, activeClaimsByLoad };
+  const visibleRows = useMemo(
+    () => filterBoardRows(scopedRows, filterInput),
+    [scopedRows, debouncedSearch, activeFlags, activeClaimsByLoad],
+  );
+  const visibleOffDispatchRows = useMemo(
+    () => filterBoardRows(scopedOffDispatchRows, filterInput),
+    [scopedOffDispatchRows, debouncedSearch, activeFlags, activeClaimsByLoad],
+  );
+
+  const narrowed = debouncedSearch.trim().length > 0 || activeFlags.length > 0;
+  const clearNarrowing = () => {
+    setSearch('');
+    setFilters({ ...(filters ?? {}), attention: [] });
+  };
 
   const anyEmpty = board.rows.some(r => r.state === 'no_chain');
   // Fleet-wide by design: an orientation signal about cutover, not a work list.
@@ -443,6 +481,58 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
         </div>
       </div>
 
+      {/* Search + attention chips — the two ways to stop scrolling this board. */}
+      <div className="flex flex-col gap-2">
+        <div className="relative w-full sm:w-72">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+          <Input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search driver, unit, load #, city…"
+            className="pl-8 pr-8 h-8 text-xs"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              aria-label="Clear search"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        <div className="flex flex-wrap items-center gap-1.5">
+          {(Object.keys(ATTENTION_FLAG_LABELS) as AttentionFlagKey[]).map(key => {
+            const count = attentionCounts[key];
+            const isOn = activeFlags.includes(key);
+            return (
+              <button
+                key={key}
+                type="button"
+                disabled={count === 0 && !isOn}
+                onClick={() => toggleFlag(key)}
+                aria-pressed={isOn}
+                className={cn(
+                  'flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border transition-colors',
+                  isOn
+                    ? 'bg-foreground text-background border-foreground/20'
+                    : 'bg-card text-muted-foreground border-border hover:text-foreground hover:border-muted-foreground/40',
+                  count === 0 && !isOn && 'opacity-50 cursor-not-allowed hover:text-muted-foreground hover:border-border',
+                )}
+              >
+                {ATTENTION_FLAG_LABELS[key]}
+                <span className={cn(
+                  'rounded-full px-1.5 text-[10px] font-semibold',
+                  isOn ? 'bg-background/20' : 'bg-muted text-muted-foreground',
+                )}>{count}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       {anyEmpty && (
         <div className="rounded-md border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
           Loads are only shown if they exist in SUPERDRIVE. Drivers dispatched in Alvys appear with no load.
@@ -479,8 +569,15 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
         <div className="rounded-lg border border-border bg-card px-4 py-12 flex flex-col items-center justify-center text-center gap-3">
           <Truck className="h-8 w-8 text-muted-foreground" />
           <p className="text-sm text-muted-foreground">
-            {filterActive ? 'No drivers match this dispatcher filter.' : 'No dispatchable drivers.'}
+            {narrowed
+              ? 'No drivers match this search or filter.'
+              : filterActive ? 'No drivers match this dispatcher filter.' : 'No dispatchable drivers.'}
           </p>
+          {narrowed && (
+            <Button variant="outline" size="sm" onClick={clearNarrowing}>
+              {search && activeFlags.length === 0 ? 'Clear search' : 'Clear filters'}
+            </Button>
+          )}
         </div>
       ) : (
         <div className="rounded-lg border border-border bg-card overflow-hidden">
