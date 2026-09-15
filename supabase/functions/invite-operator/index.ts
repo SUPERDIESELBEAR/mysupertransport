@@ -46,6 +46,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the company BEFORE anything is created or emailed: a service-role
+    // write cannot let the database stamp tenancy, and an unresolvable caller
+    // must fail here rather than after an invitation has gone out.
+    const inviteCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+
+
     const { application_id, reviewer_notes, skip_invite } = await req.json();
     if (!application_id) {
       return new Response(JSON.stringify({ error: 'application_id is required' }), {
