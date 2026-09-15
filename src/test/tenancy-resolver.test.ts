@@ -1465,21 +1465,23 @@ describe('B6 group 3 — the driver-written remainder is scoped to a carrier', (
 
   itLive('every person holding rows in the person-owned tables resolves a company', () => {
     // This is the check that caught the truck-owner lockout before it fired:
-    // membership, own operator row, or own truck_owners row — one of the three.
+    // membership, own operator row, or own truck_owners row - one of the three.
+    // ONE connection for all nine tables: the pooler drops long test runs, and a
+    // dropped connection is not evidence of anything.
     const personOwned = [
       'notification_preferences', 'staff_ui_preferences', 'user_view_preferences',
       'thread_participants', 'message_reactions', 'service_resource_bookmarks',
       'service_resource_completions', 'service_resource_views',
       'message_notification_throttle',
     ];
-    for (const t of personOwned) {
-      const [n] = psql(`SELECT count(DISTINCT x.user_id)::text FROM public.${t} x
-        WHERE x.user_id IS NOT NULL
-          AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.user_id)
-          AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.user_id AND o.company_id IS NOT NULL)
-          AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.user_id AND w.company_id IS NOT NULL)`);
-      expect(n, `${t}: a row owner resolves to no company, so his next write is refused`).toBe('0');
-    }
+    const unresolved = (t: string) => `SELECT '${t}: ' || count(DISTINCT x.user_id)::text
+      FROM public.${t} x WHERE x.user_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.user_id)
+        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.user_id AND o.company_id IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.user_id AND w.company_id IS NOT NULL)`;
+    const rows = psql(personOwned.map(unresolved).join(' UNION ALL '));
+    expect(rows.sort(), 'a row owner resolving to no company would be refused his next write')
+      .toEqual(personOwned.map(t => `${t}: 0`).sort());
   });
 
   it('the service-role writers into these tables name the company explicitly', () => {
