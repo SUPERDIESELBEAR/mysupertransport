@@ -43,6 +43,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolved BEFORE the auth user is created or invited: this path's invitation
+    // email is fired by Supabase at user creation, so an unresolvable company has
+    // to stop the request here, while nothing has been sent yet.
+    const inviteCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+
+
     const body = await req.json();
     const {
       operator_id,
