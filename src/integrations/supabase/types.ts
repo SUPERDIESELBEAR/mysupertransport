@@ -8585,6 +8585,7 @@ export type Database = {
           assigned_to: string | null
           body: string | null
           channel: Database["public"]["Enums"]["notification_channel"]
+          company_id: string
           entity_id: string | null
           entity_type: string | null
           id: string
@@ -8602,6 +8603,7 @@ export type Database = {
           assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          company_id: string
           entity_id?: string | null
           entity_type?: string | null
           id?: string
@@ -8619,6 +8621,7 @@ export type Database = {
           assigned_to?: string | null
           body?: string | null
           channel?: Database["public"]["Enums"]["notification_channel"]
+          company_id?: string
           entity_id?: string | null
           entity_type?: string | null
           id?: string
@@ -8631,7 +8634,15 @@ export type Database = {
           type?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "notifications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       officer_packet_links: {
         Row: {
