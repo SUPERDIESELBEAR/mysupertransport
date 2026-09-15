@@ -13563,3 +13563,31 @@ B6 driver-written + still unclassified 67 (7,135).
 Contradictions: the 67-table group is not a decided batch and must be classified table by
 table before B6 is built; cross-carrier steady state remains unverifiable with one real
 carrier; linter 180 vs 172 recorded earlier is still unattributed.
+
+### STANDING RULE TIGHTENED (2026-09-15) — THE REPORT COMES AFTER THE *LAST* CHANGE
+
+The Group C report was committed at 00:54:02Z reading as a clean pass. The client
+adaptations were already broken at that point (two non-parsing files, 00:43:14Z), the build
+failed, and commit `70fb2dc` repaired it at 00:59:22Z — after the report existed. **A pass
+report committed before the pass finishes is a report that can be overtaken by its own
+work.**
+
+The rule that the report is the final step and is not complete until committed stands, and
+is now tightened:
+
+- The report is written after the **LAST** change of the pass — client adaptations, edge
+  functions, guards **and the typecheck** — not after the migration.
+- The typecheck and, where a build exists, the build, run **before** the report is written.
+  A report may not claim a green pass over an untypechecked working tree.
+- If a pass commits a report and then changes anything else — even one line, even a repair
+  of its own damage — it **must append to that report before finishing**. Never a second
+  report; never a silent rewrite of the first.
+- A verification section that ran before the client paths were adapted verified the
+  *database*, not the *application*, and must say so in those words.
+
+Also recorded from that break: **scripted, non-AST text edits across many files are a
+build hazard.** Both failures were mechanical — an import injected inside another import's
+brace list, and an unbalanced paren left behind by a payload wrapper. Neither was a logic
+error and both would have been caught by a typecheck run one minute earlier. Any pass that
+edits client files by script runs `npx tsgo --noEmit` immediately afterwards, before
+anything else.
