@@ -13457,3 +13457,44 @@ default-then-drop with a read-only derivation check afterwards; only if a
 derivation check finds more than one company may trigger suspension be
 considered, and then the report must record it as a deviation under the rule
 above.
+
+## 2026-09-15 — B5 part two: the per-carrier settings tables and the settlement family
+
+Full report: `docs/passes/2026-09-15-0020-b5-part-two-settings-and-settlements.md`.
+
+- Nineteen tables took `company_id`, in two migrations. Group A: the twelve
+  per-carrier settings tables (`company_settings`, `fleet_settings`,
+  `load_number_config`, `dot_consultant_email_settings`,
+  `insurance_email_settings`, `carrier_notification_settings`,
+  `inspection_program_settings`, `pei_cadence_settings`,
+  `dispatch_settlement_rates`, `mo_plates`, `notification_role_defaults`,
+  `inspection_binder_order`) — Shape 1, nullable → backfill → NOT NULL, no
+  surviving default, RESTRICT FK, `aa_stamp_tenant_company_id`. Group B: the
+  seven immutability-locked settlement tables, by the approved
+  DEFAULT-then-DROP-DEFAULT route. NO trigger was suspended; the recorded
+  rejection was honoured this time.
+- Derivation checks on all seven Group B tables agreed with the constant in
+  every row (1/1, 1/1, 2/2, 7/7, 9/9, 7/7, 3/3), and all six settlement
+  immutability locks remain ENABLED, asserted by a guard.
+- Five unique keys were re-scoped per company: `company_settings(setting_key)`,
+  `inspection_binder_order(scope)`, `carrier_notification_settings(email)`,
+  `notification_role_defaults(role, category)` and
+  `dispatch_settlements(payee_key, period_month)`. The last two were found live
+  and are ADDITIONS to the list this record previously named.
+- The re-cut's B5 population (66 tables / 4,891 rows) is SUPERSEDED, not
+  mis-arithmetic: the 2026-09-14 disposition sort moved tables after it was
+  written. Established the actual list live before building, per the standing
+  rule.
+- Declaration lists corrected to the owner's 2026-09-14 decisions and now
+  asserted at 18 GLOBAL / 8 DEFERRED: `notification_role_defaults` is per-carrier
+  (no longer GLOBAL) and `email_templates` is DEFERRED alongside
+  `message_templates`.
+- Baselines measured 2026-09-15: 560 policies (unchanged), 1 carrier, 15 company
+  members, 1 owner. Suites: `src/test/tenancy-resolver.test.ts` 64 tests green
+  (one pooler-timeout retry, not an assertion) and `npx tsgo --noEmit` clean.
+- STOPPED CLEANLY at a group boundary. Group C — the plain staff-written
+  remainder, including `equipment_serial_conflict_dismissals` (4 rows) — is NOT
+  started.
+- OPEN, unattributed: the Supabase linter read 180 findings against the 172
+  recorded 2026-09-14. No causal claim is made; it needs a dated re-baseline
+  pass of its own.
