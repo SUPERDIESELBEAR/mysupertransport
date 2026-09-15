@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { companyIdForOperator } from '../_shared/tenancy.ts';
 import { soleCompanyId } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
@@ -114,6 +115,7 @@ Deno.serve(async (req) => {
 
       const today = new Date().toISOString().split('T')[0];
       await admin.from('onboarding_status').insert({
+        company_id: await companyIdForOperator(admin, operatorId),
         operator_id: operatorId,
         mvr_status: 'received', ch_status: 'received',
         mvr_ch_approval: 'approved',

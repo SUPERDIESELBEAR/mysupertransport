@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { companyIdForOperator } from '../_shared/tenancy.ts';
 import { soleCompanyId } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
@@ -53,6 +54,7 @@ Deno.serve(async (req) => {
 
       if (!existingOb) {
         await supabaseAdmin.from('onboarding_status').insert({
+          company_id: await companyIdForOperator(supabaseAdmin, existingOp.id),
           operator_id: existingOp.id,
           ica_status: 'not_issued',
         });
@@ -114,6 +116,7 @@ Deno.serve(async (req) => {
     const { error: obErr } = await supabaseAdmin
       .from('onboarding_status')
       .insert({
+        company_id: await companyIdForOperator(supabaseAdmin, op.id),
         operator_id: op.id,
         ica_status: 'not_issued',
       });

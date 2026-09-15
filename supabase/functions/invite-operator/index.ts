@@ -188,6 +188,7 @@ Deno.serve(async (req) => {
           const today = new Date().toISOString().split('T')[0];
           // Pre-existing operator: mark all 8 stages complete atomically
           await supabaseAdmin.from('onboarding_status').insert({
+            company_id: inviteCompanyId,
             operator_id: newOp.id,
             // Stage 1 — Background
             mvr_status: 'received',
@@ -227,7 +228,7 @@ Deno.serve(async (req) => {
           });
         } else {
           // Carry forward background verification statuses from application
-          const onboardingInsert: Record<string, unknown> = { operator_id: newOp.id };
+          const onboardingInsert: Record<string, unknown> = { company_id: inviteCompanyId, operator_id: newOp.id };
           if (app.mvr_status) onboardingInsert.mvr_status = app.mvr_status;
           if (app.psp_status) onboardingInsert.psp_status = app.psp_status;
           if (app.ch_status) onboardingInsert.ch_status = app.ch_status;

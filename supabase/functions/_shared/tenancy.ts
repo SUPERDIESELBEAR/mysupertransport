@@ -76,3 +76,19 @@ export async function soleCompanyId(admin: AnyClient): Promise<string> {
   }
   return rows[0].id as string;
 }
+
+/**
+ * The company of an existing operator row. For service-role writes into
+ * child tables of a driver (onboarding_status, dispatch rows, documents):
+ * the parent operator is already carrier-scoped and is the authority.
+ */
+export async function companyIdForOperator(admin: AnyClient, operatorId: string): Promise<string> {
+  const { data, error } = await admin
+    .from('operators')
+    .select('company_id')
+    .eq('id', operatorId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read operator ${operatorId}: ${error.message}`);
+  if (!data?.company_id) throw new Error(`No company for operator ${operatorId}`);
+  return data.company_id as string;
+}
