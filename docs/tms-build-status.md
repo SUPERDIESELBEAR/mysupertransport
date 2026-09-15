@@ -14081,3 +14081,45 @@ product-versus-carrier decision, and the 18 declared GLOBAL. 139 columns named
 `company_id` now exist in `public`.
 
 CROSS-CARRIER ISOLATION REMAINS UNPROVEN. One carrier exists.
+
+2026-09-15 21:35 UTC — DOCUMENTATION ONLY: TWO GREEN-AND-EMPTY CHECKS
+=====================================================================
+
+1. THE TYPECHECK WAS CHECKING NOTHING. `npx tsgo --noEmit` at the repository
+root compiles ZERO files: root `tsconfig.json` has `"files": []` and only
+project references, so the command exits clean having examined nothing. EVERY
+pass that reported "typecheck clean" from the bare command reported a VACUOUS
+result — all of them, not some. No attempt is made to identify which passes
+were affected; the useful statement is that the claim was worthless whenever
+the bare form was used. The correct command is:
+
+    npx tsgo -p tsconfig.app.json --noEmit
+
+RULE: a pass reporting a clean typecheck must NAME THE COMMAND IT RAN.
+
+2. THE "KNOWN FLAKE" WAS HIDING REAL FAILURES. `(EAUTHQUERY) auth_query secret
+check timed out` was treated across several passes as a pooler flake and
+retried past. Collapsing 93 psql spawns into two revealed TWO GENUINE ERRORS
+beneath it: `column x.user_id does not exist` and `operator is not unique:
+text || "char"`. `psql()` now retries ONLY on that exact connection string
+and rethrows any Postgres `ERROR:`. This is the FIFTH instance of a dismissive
+label covering something real, alongside the four "pre-existing" ones. The
+pattern is the same: a category that means "ignore this" applied to a CLASS
+rather than an instance.
+
+3. THE FOURTH GREEN-AND-EMPTY CHECK. Counted together:
+
+  - the nav-target guard passed because a 404 catch-all matched every broken
+    link
+  - the resolver guard read one line of a multi-line function and matched the
+    word `CREATE`
+  - the census assertions passed on a snapshot rather than an invariant
+  - the typecheck compiled no files
+
+RULE: A CHECK THAT HAS NEVER FAILED HAS NOT BEEN SHOWN TO WORK. Every guard in
+this project is now demonstrated by breaking it deliberately and watching it
+fail — that practice exists because of the first of these. The typecheck was
+never subjected to it because nobody thought of a compiler as a guard. The
+practice is EXTENDED: any command whose PASSING is treated as evidence must be
+shown to FAIL at least once. That includes the typecheck, the linter, and any
+future tooling.
