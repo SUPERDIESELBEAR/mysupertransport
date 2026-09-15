@@ -95,14 +95,18 @@ export async function raiseCorrectionRequest(args: {
   requestedBy: string;
   requestedByName: string | null;
 }): Promise<{ ok: boolean; message?: string }> {
-  const { error } = await supabase.from('rods_correction_requests').insert({
-    rods_day_id: args.rodsDayId,
-    operator_id: args.operatorId,
-    log_date: args.logDate,
-    issue: args.issue.trim(),
-    requested_by: args.requestedBy,
-    requested_by_name: args.requestedByName,
-  });
+  // company_id is stamped by aa_stamp_tenant_company_id from the caller's own
+  // membership or operator row; a caller must never be able to name it.
+  const { error } = await supabase.from('rods_correction_requests').insert(
+    insertPayload('rods_correction_requests', {
+      rods_day_id: args.rodsDayId,
+      operator_id: args.operatorId,
+      log_date: args.logDate,
+      issue: args.issue.trim(),
+      requested_by: args.requestedBy,
+      requested_by_name: args.requestedByName,
+    }),
+  );
   if (error) {
     const duplicate = error.message.includes('one_open_per_date');
     return {

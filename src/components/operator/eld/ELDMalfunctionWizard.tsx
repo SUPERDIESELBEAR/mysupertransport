@@ -156,7 +156,8 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
       const carrier = await requireCachedCarrier();
       const { data: inserted, error } = await supabase
         .from('eld_malfunction_events')
-        .insert({
+        // company_id is stamped from the driver's own operator row on insert.
+        .insert(insertPayload('eld_malfunction_events', {
           operator_id: operatorId,
           eld_device_id: device?.id ?? null,
           discovered_at: discoveredDate.toISOString(),
@@ -173,7 +174,7 @@ export default function ELDMalfunctionWizard({ operatorId, driverName, unitNumbe
           eld_registration_id: selectedModel?.fmcsa_registration_id ?? null,
           ...malfunctionCarrierSnapshot(carrier),
           notice_generated_at: nowIso,
-        })
+        }))
         // is_demo is stamped by the insert trigger; read it back rather than
         // looking the operator up, so the notice and the row can never disagree.
         .select('id, is_demo')

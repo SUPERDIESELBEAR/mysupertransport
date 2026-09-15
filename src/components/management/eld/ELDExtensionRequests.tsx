@@ -124,7 +124,8 @@ export default function ELDExtensionRequests({
     const { data: userRes } = await supabase.auth.getUser();
     const { data: inserted, error } = await supabase
       .from('eld_extension_requests')
-      .insert({
+      // company_id is stamped by aa_stamp_tenant_company_id from the caller.
+      .insert(insertPayload('eld_extension_requests', {
         event_id: event.id,
         operator_id: event.operator_id,
         filer_name: filerName.trim(),
@@ -156,7 +157,7 @@ export default function ELDExtensionRequests({
         why_extension_needed: why.trim(),
         requested_through: through,
         created_by: userRes.user?.id ?? null,
-      })
+      }))
       .select(EXTENSION_REQUEST_SELECT)
       .maybeSingle();
     if (error || !inserted) {

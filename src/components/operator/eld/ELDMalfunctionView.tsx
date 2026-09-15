@@ -62,7 +62,13 @@ export default function ELDMalfunctionView({
     setAckSaving(true);
     const { error } = await supabase
       .from('blank_log_acknowledgments')
-      .upsert({ operator_id: operatorId, quarter_key: quarterKey, sheets_confirmed: true }, { onConflict: 'operator_id,quarter_key' });
+      // company_id is stamped from the driver's own operator row on insert.
+      .upsert(
+        insertPayload('blank_log_acknowledgments', {
+          operator_id: operatorId, quarter_key: quarterKey, sheets_confirmed: true,
+        }),
+        { onConflict: 'operator_id,quarter_key' },
+      );
     setAckSaving(false);
     if (error) { toast.error(error.message); return; }
     setAckChecked(true);
