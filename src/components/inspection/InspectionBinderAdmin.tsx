@@ -851,7 +851,6 @@ export default function InspectionBinderAdmin({ operatorUserId, operatorName }: 
                 sent_by_name: senderName,
                 email_sent: false,
               })))
-            )
           : Promise.resolve(),
       ]);
 
