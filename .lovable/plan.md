@@ -1,87 +1,80 @@
-# Read-only report — does the NULL-company escape in `has_role` / `is_staff` cover a third case?
+# Can the audit / email tenancy stop be lifted?
 
-Everything below was read from the live database and the live function bodies in this pass. No change was made.
+Read-only. Nothing changed. Every number below comes from a live query run just now.
 
-## The escape, as it stands live
+Short answer: **the stop stands for both tables, but for a better-established reason than the pass gave.** Deriving from the entity recovers 121 of the 1,077 rows and leaves 956 that no path can place. The largest groups fail for structural reasons, not for lack of effort.
 
-Both `public.has_role` and `public.is_staff` carry `AND (public.current_company_id() IS NULL OR ur.company_id = public.current_company_id())`. `current_company_id()` is membership-first (`company_members`), then the caller's own `operators` row, no fallback.
+## 1. How many of the 1,077 resolve from their entity
 
-## 1. The third case exists, and it has exactly two members today
+Entity-first derivation, using each entity type's own table (and, where the record is gone, the `operator_id` kept in the row's stored details):
 
-`user_roles.user_id` values present in neither `company_members` nor `operators`: **2**.
+| entity_type | rows | resolves from entity | resolves only from stored details | residue |
+| --- | --- | --- | --- | --- |
+| operator | 446 | 50 | 0 | 396 |
+| pei_request | 296 | 0 | 0 | 296 |
+| application | 211 | 0 | 0 | 211 |
+| rods_day | 63 | 0 | 63 | 0 |
+| ica_contract | 45 | 0 | 0 | 45 |
+| accessorial_adjustment | 5 | 4 | 0 | 1 |
+| compliance | 3 | 0 | 0 | 3 |
+| dispatch_settlements | 3 | 1 | 0 | 2 |
+| invoices | 1 | 1 | 0 | 0 |
+| settlements | 1 | 1 | 0 | 0 |
+| onboard_assignment_sheet | 1 | 0 | 1 | 0 |
+| truck_dot_inspections | 1 | 0 | 0 | 1 |
+| truck_owner | 1 | 0 | 0 | 1 |
+| **total** | **1,077** | **57** | **64** | **956** |
 
-| user | role held | role row's company |
-| --- | --- | --- |
-| `22ec8422-11d5-45a2-91da-38f296b94de7` | `truck_owner` | `6b54d0e6-…b093dd` |
-| `24ee1b9e-2391-4cf4-873d-e9db3b14b7d0` | `truck_owner` | `6b54d0e6-…b093dd` |
+**Residue: 956 rows** resolve from neither actor, nor entity, nor stored details. That is 24% of the whole table (3,991 rows).
 
-Both do hold a `truck_owners` row (5 exist in total; the other three owners are also drivers, so they resolve through `operators`). Neither is a member nor an operator, so both resolve to NULL and both hit the escape.
+The 396-row operator residue is not a lookup failure: **390 of those 446 rows have no `entity_id` at all.** The column is nullable and a large share of system-written rows never set it. Entity-first derivation cannot help rows that name no entity.
 
-Whether each has a live auth account could **not** be established: `auth.users` is not readable from this session (`permission denied for schema auth`). Their presence in `truck_owners` with an invite flow that creates the auth user first is strong indirect evidence, not proof. Stated as unverified.
+## 2. Types that cannot resolve at all, by design
 
-So the escape is **not** unreachable by signed-in users. It is, however, harmless for these two — see 2.
+- **application — 211 rows.** `applications` is declared GLOBAL and has no company. 146 of the 211 point at a live application row; the company simply is not there to read. Unfixable without reversing the GLOBAL decision.
+- **pei_request — 296 rows.** `pei_requests` has no company either, and its only parent is `application_id` — i.e. it inherits from a GLOBAL table. All 296 point at live rows. Also unfixable at present.
+- **compliance (3) and truck_owner (1)** — `compliance` is not a table at all; the single `truck_owner` row has a null `entity_id`.
 
-## 2. What they can reach through the unscoped role
+That is **511 rows structurally unplaceable**, over half the residue.
 
-Nothing extra today.
+## 3. Deleted entities — and a worse finding
 
-- `is_staff` does not list `truck_owner`, so it returns false for them regardless of the escape.
-- No policy anywhere keys on `has_role(..., 'truck_owner')`. Truck-owner access runs entirely through `is_truck_owner_for_operator(auth.uid(), operator_id)`, which matches on their own `truck_owners` row — 16 policies across `operators`, `onboarding_status`, `ica_contracts`, `contractor_pay_setup`, `driver_vault_documents`, `operator_documents`, `active_dispatch`, `equipment_assignments`, `truck_dot_inspections`, `truck_maintenance_records`, `dispatch_daily_log`, `ica_driver_acknowledgments`, `truck_owners`.
-- Their own role rows already carry the single real company, so even the scoped arm would pass.
+Audit rows do outlive their subjects: 6 operator rows, 1 accessorial adjustment, 2 dispatch settlements, 1 DOT inspection and 1 assignment sheet point at IDs that no longer exist.
 
-The exposure is conditional, not present: if a user in this set ever held `management`, `owner`, `dispatcher` or `onboarding_staff`, the escape would make that role pass for **every** company. 359 policies key on `has_role`/`is_staff`. The most consequential are the `settlements` and `invoices` management policies — an unscoped `management` would read and write another carrier's driver pay and A/R. `contractor_pay_setup` (SSN/EIN, pay percentages) is the worst read.
+More importantly, two entity types **do not mean what their name says**:
 
-## 3. Whether the set can grow
+- **`ica_contract` (885 rows table-wide): `entity_id` is an OPERATOR id, not a contract id.** 840 of 885 match `operators.id`; **zero** match `ica_contracts.id`. Within the underivable 45, none match either table.
+- **`rods_day` (67 rows): `entity_id` matches nothing** — not `rods_days`, not `operators`. All 67 are `rods_day_purged` actions; the day was deliberately destroyed and the operator survives only inside the stored details.
 
-`user_roles.company_id` is NOT NULL, 0 null rows, and the insert trigger `aa_stamp_tenant_company_id` → `stamp_tenant_company_id()` either stamps the caller's resolved company or, for `service_role`, requires an explicit `company_id`, else raises 42501. So a role row cannot be created company-less. But it can still be created for a user with no membership and no operator row.
+So entity-first derivation is not one rule. It would be a per-`entity_type` mapping table, with two entries that contradict their own labels and would silently produce wrong companies if written naively.
 
-Per-function, of the role-writing service-role paths:
+## 4. Recommended shape
 
-| function | names a company | creates membership / operator |
-| --- | --- | --- |
-| `bootstrap-admin` | yes (`soleCompanyId`) | **no membership** — grants `management` with no `company_members` row |
-| `invite-staff` | **no** | **no membership** |
-| `invite-truck-owner` | **no** | writes `truck_owners`, never `company_members` — this is how the two above appeared |
-| `invite-operator` | **no** | yes, `operators` |
-| `provision-demo-driver` | yes | yes, `operators` |
-| `provision-test-driver` | yes | yes, `operators` |
-| `create-preview-session`, `delete-user-account` | read / delete only | n/a |
-| `assign_user_role` RPC | stamped from the management caller | **no** — role only |
+**Recommendation: leave `audit_log` GLOBAL, and record why.**
 
-Two separate defects fall out of that table:
+- *Actor, then entity, then refuse* — refuses 956 of 3,991 rows. Backfill cannot complete, so `NOT NULL` is unreachable. Rejected.
+- *Nullable `company_id`* — breaks the pattern every migrated table follows. Nothing can enforce the meaning of the null: the same null would cover "system action", "GLOBAL entity by design", "entity_id never set", and "a later writer forgot". No trigger can distinguish those, so the column would carry a meaning no check can defend. Rejected on that ground, as your framing requires.
+- *GLOBAL* — honest about what the table is: append-only shared infrastructure whose subjects include GLOBAL entities. Access stays governed by the existing management/staff read policies, which are role-based and do not leak per-row financial data. When a second carrier appears, scope reads through the *entity* at query time, where the mapping ambiguity can be handled explicitly rather than frozen into a backfill.
 
-1. **`bootstrap-admin`, `invite-staff` and `assign_user_role` are the growth path.** Each can mint `management`/`dispatcher`/`onboarding_staff` for a user with no `company_members` row. That user resolves NULL, hits the escape, and his staff role is then valid for every company. `bootstrap-admin` does it today and is the concrete route to the case described in 2.
-2. **Three invites now fail silently.** `invite-staff` (role upsert, ~line 243), `invite-truck-owner` (~line 108) and `invite-operator` (~line 134) upsert `user_roles` with no `company_id` from a service-role client, so the stamp trigger raises 42501 — and none of the three checks the returned error. The auth user, profile, and email all proceed; the role is never written. Not a tenancy hole, a broken invite. Unverified against a real invite run in this pass, inferred from the trigger body plus the unchecked `await`.
+If GLOBAL is adopted, three things should be enforced by guard: no `company_id` ever appears on `audit_log`; the residue count stays non-zero (so the decision cannot be quietly outlived); and the `ica_contract` / `rods_day` label-vs-content mismatch is asserted so a future pass cannot assume the obvious join.
 
-## 4. A narrower escape
+## 5. `email_send_log` — separately
 
-Yes, it can name its case. `auth.role() = 'service_role'` is available (the stamp trigger already tests exactly that), so the predicate could read `(auth.role() = 'service_role' OR ur.company_id = public.current_company_id())`. That fires for the case the comment claims to cover and for nothing else; the current form fires whenever a lookup fails, which is the broader set established in 1 and 3.
+Paths tested:
 
-If the escape were removed entirely, and nothing else changed:
+- **`operator_id` in stored details — 414 of 2,058 rows, all 414 resolve to a live operator.** A real path, for 20% of the table.
+- **`application_id` in stored details — 278 rows.** Dead end: `applications` is GLOBAL.
+- **Recipient address against `applications.email` — 1,079 of 2,058 match.** Also a dead end, same reason. `profiles.email` and `operators.email` genuinely do not exist; that part of the pass was right.
+- **Template name — no.** The 1,340 rows with no stored details are dominated by `pei-request-follow-up` (432), `pei-request-initial` (259), `eld_escalation_day` (220), `recovery` (126), `eld_ack_overdue` (80), `invite` (75). PEI and invite templates are precisely the applicant-stage traffic that has no operator and no company.
 
-- The two truck owners keep working — their role rows carry the real company, and their access does not run through `has_role` anyway.
-- **Unauthenticated callers**: no change. No `user_roles` row, so the EXISTS was already false.
-- **`service_role`**: `auth.uid()` is NULL, so `current_company_id()` is NULL and every `has_role`/`is_staff` call inside a definer function invoked by a service-role client would return false. Any edge function or cron path that calls such an RPC as service role rather than as a user would start failing its own role gate. That is the real cost, and it is why the case should be named explicitly rather than removed.
-- **Any user granted a staff role without a membership** (the `bootstrap-admin` path) would lose staff access entirely until a `company_members` row is added — which is the correct outcome, but it is a live-access change, not a no-op.
+So a path exists for about 20% of rows and no path exists for the rest. **Recommendation: leave `email_send_log` GLOBAL** with the reason recorded — it is service-role-only in and out (all four policies check `auth.role() = 'service_role'`), it is deliverability infrastructure rather than tenant data, and most of its volume concerns applicants who have no carrier yet.
 
-## 5. Caller's company vs. subject's role row
+## Contradictions worth stating
 
-Checked live, all 359 policy expressions and every function body that names `has_role`/`is_staff`.
+1. The pass's underivable breakdown listed **operator 446, pei_request 296, application 211, rods_day 63, ica_contract 45**. Those match today. But the pass's totals (3,991 / 1,077 / 1,021) are a snapshot; the table grows. Table-wide `entity_type` counts today are operator 1,527, ica_contract 885, application 798.
+2. The premise "an audit row about operator X belongs to operator X's carrier" is sound. It just does not reach this data: the two biggest groups name GLOBAL entities, and the third names no entity at all.
+3. Nothing here is a cross-carrier isolation claim. One carrier row exists.
 
-- **Policies: no risk.** The only first arguments that occur in any policy are `has_role(auth.uid(), …)` and `is_staff(auth.uid())`. Subject and caller are always the same person.
-- **Functions: 33 use a local alias, and every one of those aliases is `auth.uid()`** (verified declaration by declaration — `v_uid`, `v_actor`, `uid`, `_uid`). `v_actor` in the accessorial functions is `current_profile_id()`, but it is never the argument to a role check.
-- **Five places genuinely pass a subject other than the caller.** In each the mismatch is benign or intended, because both parties are meant to be in the caller's company:
-  - `initiate_owner_transfer` — `has_role(p_to_user_id, 'management')`; caller must be `owner`. Now requires the transferee's `management` row to be in the caller's company. Correct.
-  - `transfer_owner` — `has_role(v_row.to_user_id, 'management')`, and the caller is asserted to be `to_user_id`, so subject = caller.
-  - `set_load_dispatcher` — `has_role(v_target_user, 'dispatcher')`, caller management. Correct scoping.
-  - `get_staff_contact_info` — `is_staff(p.user_id)` as a subject-side filter; now restricts results to staff of the caller's company. A tightening, not a break.
-  - `is_retention_admin(_user_id)` — passes its own parameter through; used in no policy, so its callers determine the subject.
+## If you want the stop lifted anyway
 
-The predicate does compare one person's role against another person's company in those five, but in all five the intended relationship is same-company, so the comparison is what you want. There is no case where a legitimately cross-company subject is checked.
-
-## Contradictions and limits
-
-- The escape's stated justification ("unauthenticated and service-role contexts, which hold no `user_roles` rows") is **incomplete**: two signed-in users with role rows reach it today, and `bootstrap-admin` plus `assign_user_role` can add staff-roled ones.
-- The two current members of the set are harmless. The risk is structural, not realised.
-- `auth.users` liveness for the two users is unverified (schema not readable here).
-- The silent-invite failure in 3 is inferred from the trigger and the unchecked error, not from an executed invite.
+The only route that makes `audit_log` per-company without a nullable column is to give `applications` and `pei_requests` a company first. That is a reversal of the GLOBAL declaration, not an audit-log task, and would want its own pass.
