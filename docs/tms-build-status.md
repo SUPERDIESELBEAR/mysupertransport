@@ -13634,3 +13634,105 @@ asserting, and reversed at once.
 `has_role` and `is_staff` left `LEGACY_PUBLIC_ONLY_PINS`; `LEGACY_MAX` 74 → 72.
 
 Report: `docs/passes/2026-09-15-1610-b6-group-1-eld-rods.md`.
+
+---
+
+## 2026-09-15 (later) — Invite role tenancy: the defect was real, the damage was not
+
+### The defect
+
+`invite-staff`, `invite-operator` and `invite-truck-owner` upserted `user_roles` from a
+SERVICE-ROLE client with no `company_id`, which `stamp_tenant_company_id` refuses with
+SQLSTATE 42501 — and none of the three checked the error. A bare `await` on a write that
+can fail. Had the path run, the auth user would have been created, the profile written,
+the audit row written and the invitation email SENT, while the role was never written:
+an account that exists and cannot do anything, with an email promising access.
+
+### The damage assessment — the reviewer's brief was wrong, and the live data said so
+
+The brief asserted "anyone invited since `user_roles` gained its stamp on 2026-09-13 has
+an account with no role." Queried before any edit:
+
+- profiles with no `user_roles` row: **0**; operators with none: **0**; truck_owners
+  with none: **0**
+- profiles created on/after 2026-09-13: **0**
+- `user_roles` rows created on/after 2026-09-13: **0**
+- `user_roles` rows with NULL `company_id`: **0**
+- audit events in the window: `invite_resent` × 1 (2026-09-14 15:00:45Z) — a resend
+  writes no role
+
+**NOBODY WAS AFFECTED.** The defect was real and LATENT: the next invite would have
+failed silently. It never fired because no invite was issued between 2026-09-13 and the
+fix. There is no affected-user list to name or repair; no sign-in failure can be
+attributed to a missing role.
+
+### The EIGHTH instance of the source-citation pattern — a new shape
+
+The five prior instances were **false present-tense claims entering the record** ("a
+claim about CURRENT STATE must name its source"). The sixth and seventh were the
+inverse — real decisions that never entered it, or claims about a prior decision the
+record cannot confirm. This is a third shape: **a claim about what HAS HAPPENED,
+inferred from a code defect without checking whether the path had been exercised since
+the defect was introduced.** A defect proves what CAN happen, not what HAS. The
+mechanism was correctly read from the trigger body; the consequence was assumed.
+
+The guard, restated to cover it:
+
+- A claim about current state must name the query or file it came from.
+- A decision taken in conversation is not taken until it is written down.
+- **A claim about what HAS HAPPENED is a claim about data, and must come from a query.**
+
+### The fix — all three
+
+Each function resolves the company from the caller's `company_members` row via
+`_shared/tenancy.ts › companyIdForUser()` BEFORE any user is created or any mail is
+generated — so an unresolvable caller fails with nothing sent — names `company_id`
+explicitly on the role upsert (the second sanctioned stamping shape, the same helper the
+four `operators` insert paths use), and treats the role write's error as FATAL.
+
+Failure behaviour differs per path, and the difference matters:
+
+| Path | On role-write failure | Resulting state |
+| --- | --- | --- |
+| `invite-staff` | The branded Resend send was moved to AFTER the role write. Nothing is emailed; 500 returned. | Auth user and profile remain (created earlier by `auth.admin`). Account without role and without email — invisible to the invitee. A retry of the same invite is idempotent (`upsert` on `user_id,role`). |
+| `invite-operator` | Same ordering: role write precedes the operator insert and the install-invite path; nothing is emailed; 500 returned. | Same as above. |
+| `invite-truck-owner` | `inviteUserByEmail` fires at user creation and cannot be deferred without replacing the send path entirely. Company resolution was moved ahead of user creation, removing the only predictable cause. A residual DB error is reported as a 500 naming the failure. | ACCOUNT PLUS EMAIL AND NO ROLE — accepted partial completion, stated deliberately rather than hidden. The alternative (replacing `inviteUserByEmail` with `createUser` + `generateLink` + a branded template) is a send-path rewrite, out of scope. |
+
+**No transaction spans these writes** — three separate REST calls plus an auth admin
+call. Nothing here can be made atomic without a server-side function, which is out of
+scope for the pass.
+
+### What was verified and what was not
+
+- **`invite-staff` — verified end to end.** A real invite to a scratch address ran as
+  the signed-in owner; the role row landed with the correct company
+  (`6b54d0e6-8743-4284-b55b-8cd094b093dd`, same as the caller's `company_members`
+  row). The scratch user was deleted via `delete-user-account`; post-delete counts:
+  `user_roles` 0, `profiles` 0. Nothing of the probe remains.
+- **`invite-operator` and `invite-truck-owner` — NOT exercised.** Both would have
+  created live records (an application-linked operator; a truck-owners row). They
+  carry the identical helper, company stamp and fatal error check as the path proven
+  above. Recorded as **unverified rather than implied**.
+
+### The growth path stays open — REPORTED, NOT TOUCHED
+
+`bootstrap-admin`, `invite-staff` and `assign_user_role` can still mint a staff role
+for a user with **no `company_members` row**. That user resolves NULL in
+`current_company_id()`, hits the recorded NULL-resolver escape in `has_role`/`is_staff`,
+and his staff role then passes for **every** company. What each would need:
+
+- **`invite-staff`** — insert the `company_members` row for the invitee alongside the
+  role, using the resolved company. NOTE: this is a **tenancy-semantics change, not a
+  bug fix** — adding staff membership changes who `current_company_id()` resolves for.
+- **`bootstrap-admin`** — first-owner path; must seed both the carrier and its own
+  `company_members` row, or refuse when a carrier already exists.
+- **`assign_user_role`** (DB function) — should refuse a staff role for a subject with
+  no membership in the caller's company: gate on membership, not only on the caller's
+  role.
+- **`has_role`/`is_staff`** — the escape should name its case
+  (`auth.role() = 'service_role'`) instead of firing whenever the company lookup
+  returns NULL.
+
+**TRIGGER: before any further staff invite is issued.**
+
+Report: `docs/passes/2026-09-15-1713-invite-tenancy-record.md`.
