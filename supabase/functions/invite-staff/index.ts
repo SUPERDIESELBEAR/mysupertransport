@@ -212,24 +212,11 @@ Deno.serve(async (req) => {
         });
       }
 
-      const inviteActionLink = linkData.properties.action_link;
-
-      // Send branded invite email via Resend with the real invite link
-      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
-      if (RESEND_API_KEY) {
-        const html = buildInviteEmail(inviteeName, role, inviterName, inviteActionLink);
-        await fetch('https://api.resend.com/emails', {
-          method: 'POST',
-          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
-            to: [email],
-            subject: `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`,
-            html,
-          }),
-        }).catch(e => console.error('Resend error:', e));
-      }
+      // Hold the link: the branded invite is sent only AFTER the role row is
+      // written, so we never promise access that does not exist.
+      inviteActionLink = linkData.properties.action_link;
     }
+
 
     if (!invitedUserId) {
       return new Response(JSON.stringify({ error: 'Could not resolve user id' }), {
