@@ -1303,18 +1303,23 @@ describe('a staff role is never minted without a company membership', () => {
 });
 
 /**
- * B6 GROUP 2 (part) — driver-written DOCUMENT tables, 2026-09-15.
+ * B6 GROUP 2 — driver-written DOCUMENT tables, 2026-09-15.
  *
- * Five of the seven candidates carry company_id. `operator_documents` and
- * `document_acknowledgments` were DELIBERATELY LEFT OUT: both have a live
- * truck-owner write path, and a truck owner holds neither a company_members
- * row nor an operators row, so current_company_id() resolves NULL for him and
- * a NOT NULL company_id would refuse his upload. Do not migrate them without
- * first deciding how a truck owner resolves his carrier.
+ * Five of the seven candidates were migrated first. `operator_documents` and
+ * `document_acknowledgments` were HELD BACK because both have a live
+ * truck-owner write path, and a truck owner held neither a company_members row
+ * nor an operators row, so current_company_id() resolved NULL for him and a
+ * NOT NULL company_id would have refused his upload.
+ *
+ * CLOSED the same day: current_company_id() gained a THIRD source — his own
+ * `truck_owners` row, read directly rather than walked to the operators he
+ * owns, so an owner between hires still resolves. The two tables are therefore
+ * migrated and the hold-back guard is retired; what remains is the guard that
+ * the third source stays in place, below.
  */
 describe('driver-written document tables are scoped to a carrier', () => {
-  const MIGRATED = [...B6_DOCUMENTS];
-  const HELD_BACK = ['operator_documents', 'document_acknowledgments'];
+  const MIGRATED = [...B6_DOCUMENTS, 'operator_documents', 'document_acknowledgments'];
+
 
   for (const t of MIGRATED) {
     itLive(`${t} has a NOT NULL company_id the server stamps`, () => {
