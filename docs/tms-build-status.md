@@ -13736,3 +13736,46 @@ and his staff role then passes for **every** company. What each would need:
 **TRIGGER: before any further staff invite is issued.**
 
 Report: `docs/passes/2026-09-15-1713-invite-tenancy-record.md`.
+
+---
+
+## 2026-09-15 (later still) — the `has_role` / `is_staff` escape now names its case
+
+Both functions carried `AND (public.current_company_id() IS NULL OR ur.company_id =
+public.current_company_id())` — an escape that fired WHENEVER THE LOOKUP FAILED, not only
+for the unauthenticated and service-role contexts its justification claimed. Replaced in
+both with:
+
+    AND (auth.role() = 'service_role'
+         OR ur.company_id = public.current_company_id())
+
+the same distinction `stamp_tenant_company_id()` already draws.
+
+**Who lost staff access: NOBODY.** Queried before applying — staff role rows with no
+`company_members` row: **0 rows** (23 staff role rows, 15 distinct users, all members).
+No membership rows had to be paired with the fix.
+
+Verified with a real driver session (Steve Figueroa) and one scratch role row on a scratch
+carrier: `has_role`/`is_staff` **false** with the row on the other carrier, **true** with
+the same row moved to his own — the company predicate is what decides. Service role still
+passes subject-uuid role gates (`is_retention_admin`, the shape the four `has_role`/
+`is_staff` edge functions use); anon unchanged (401/42501); owner unchanged; the two
+`truck_owner` users unchanged. Scratch carrier and role row deleted — 1 carrier, Steve
+`operator` only. For a few seconds Steve held `dispatcher` on his own carrier; that grants
+no settlement read (`settlements` keys on management/owner) and `GET /settlements` returned
+`[]` in both arms.
+
+Also fixed while running the named suites, unrelated to the escape and pre-dating this
+pass: the four stamp trigger functions added by the 2026-09-14 federal-breaks pass were
+executable by `anon`/`authenticated`. EXECUTE revoked; linter 180 → **172**.
+
+Guard: `src/test/tenancy-resolver.test.ts` now requires `auth.role() = 'service_role'` in
+both bodies and forbids `current_company_id() IS NULL`. 78/78; security/grant-parity/
+isolation suites 49/49; typecheck clean.
+
+The growth path stays open and its consequence has changed: a staff role minted without a
+`company_members` row (`bootstrap-admin`, `invite-staff`, `assign_user_role`) no longer
+passes for every company — it now passes for NONE, so the invite is useless rather than
+dangerous. TRIGGER: before any further staff invite is issued.
+
+Report: `docs/passes/2026-09-15-1735-has-role-escape-narrowed.md`.
