@@ -1637,3 +1637,107 @@ describe('B7 — the large logs', () => {
     expect(Number(email), 'email_send_log gained a tenancy key — revisit the B7 stop').toBeGreaterThan(0);
   });
 });
+
+/**
+ * 2026-09-15 audit/email tenancy decision — both tables stay GLOBAL.
+ *
+ * The investigation (docs/passes/2026-09-15-2310-audit-email-tenancy-decision.md)
+ * established that entity-first derivation recovers only 121 of the 1,077
+ * actor-underivable rows; 956 (24% of audit_log) resolve from NOTHING:
+ *   - 511 structurally unplaceable (`application` 211, `pei_request` 296 name
+ *     entities on tables declared GLOBAL — the company is not there to read)
+ *   - 390 of the 446 `operator` rows have NO entity_id at all
+ *   - plus deleted entities and label-mismatched entity types (below)
+ * Nullable company_id was rejected: no trigger can distinguish "system action"
+ * from "GLOBAL entity by design" from "entity_id never set", so the column
+ * would carry a meaning no check can defend.
+ *
+ * The only route that lifts the stop is giving `applications` and
+ * `pei_requests` a company — a reversal of their GLOBAL declaration, its own
+ * pass, not an audit-log task. Recorded with no trigger.
+ */
+describe('2026-09-15 — audit_log / email_send_log stay GLOBAL', () => {
+  itLive('neither table EVER gains a company_id', () => {
+    const rows = psql(`SELECT table_name FROM information_schema.columns
+      WHERE table_schema='public' AND column_name='company_id'
+        AND table_name IN ('audit_log', 'email_send_log')`);
+    expect(rows, 'a company_id here could only have been guessed — the decision is GLOBAL').toEqual([]);
+  });
+
+  itLive('the unplaceable residue stays NON-ZERO — the decision must not be quietly outlived', () => {
+    // Residue = rows that resolve from neither actor, nor the entity they name,
+    // nor an operator_id in their stored details.
+    const [residue] = psql(`
+      WITH u AS (
+        SELECT a.* FROM public.audit_log a
+         WHERE a.actor_id IS NULL
+            OR (NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = a.actor_id)
+            AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = a.actor_id AND o.company_id IS NOT NULL)
+            AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = a.actor_id AND w.company_id IS NOT NULL))
+      ), r AS (
+        SELECT coalesce(
+          (SELECT o.company_id FROM public.operators o WHERE o.id = u.entity_id),
+          (SELECT c.company_id FROM public.ica_contracts c WHERE c.id = u.entity_id),
+          (SELECT d.company_id FROM public.rods_days d WHERE d.id = u.entity_id),
+          (SELECT x.company_id FROM public.accessorial_adjustments x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.dispatch_settlements x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.invoices x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.settlements x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.truck_dot_inspections x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.onboard_assignment_sheets x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.equipment_items x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.eld_malfunction_events x WHERE x.id = u.entity_id),
+          (SELECT x.company_id FROM public.loads x WHERE x.id = u.entity_id),
+          (SELECT o.company_id FROM public.operators o
+            WHERE jsonb_typeof(u.metadata) = 'object' AND o.id = (u.metadata->>'operator_id')::uuid)
+        ) AS co FROM u
+      )
+      SELECT count(*)::text FROM r WHERE co IS NULL`);
+    expect(Number(residue),
+      'residue reached zero — every row is placeable, so revisit the GLOBAL decision instead of outliving it')
+      .toBeGreaterThan(0);
+  });
+
+  itLive('email_send_log: the only derivation path (metadata operator_id) still leaves most rows unplaceable', () => {
+    const [placeable] = psql(`SELECT count(*)::text FROM public.email_send_log e
+      WHERE EXISTS (SELECT 1 FROM public.operators o
+        WHERE jsonb_typeof(e.metadata) = 'object' AND o.id = (e.metadata->>'operator_id')::uuid)`);
+    const [total] = psql(`SELECT count(*)::text FROM public.email_send_log`);
+    // 414 of 2,058 at decision time. Assert the MINORITY-share shape, not the
+    // census: if most rows became placeable, revisit rather than assume.
+    expect(Number(placeable)).toBeGreaterThan(0);
+    expect(Number(placeable) * 2, 'a majority became placeable — revisit the email GLOBAL decision')
+      .toBeLessThan(Number(total));
+  });
+
+  itLive('LABEL MISMATCH (not a tenancy matter): ica_contract audit entity_id holds an OPERATOR id', () => {
+    // Table-wide: 840 of 885 match operators.id, ZERO match ica_contracts.id.
+    // The obvious join (entity_id -> ica_contracts.id) returns nothing rather
+    // than failing. Asserted so no later pass assumes the label.
+    const rows = psql(`SELECT
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.operators o WHERE o.id = a.entity_id))::text
+        || ' / ' ||
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.ica_contracts c WHERE c.id = a.entity_id))::text
+      FROM public.audit_log a
+      WHERE a.entity_type = 'ica_contract' AND a.entity_id IS NOT NULL`);
+    expect(rows, 'ica_contract entity_id semantics changed — re-record the label mismatch')
+      .toEqual([expect.stringMatching(/^[1-9]\d* \/ 0$/)]);
+  });
+
+  itLive('LABEL MISMATCH: rods_day audit entity_id matches NO live table; the operator survives only in stored details', () => {
+    // All are rods_day_purged actions: the day was deliberately destroyed.
+    // entity_id matches neither rods_days nor operators; metadata.operator_id
+    // is the only place the operator survives.
+    const rows = psql(`SELECT
+      count(*) FILTER (WHERE NOT EXISTS (SELECT 1 FROM public.rods_days d WHERE d.id = a.entity_id)
+                       AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.id = a.entity_id))::text
+        || ' / ' ||
+      count(*) FILTER (WHERE EXISTS (SELECT 1 FROM public.operators o
+                       WHERE jsonb_typeof(a.metadata) = 'object' AND o.id = (a.metadata->>'operator_id')::uuid))::text
+      FROM public.audit_log a
+      WHERE a.entity_type = 'rods_day'`);
+    const [[gone, viaMeta]] = [rows[0].split(' / ').map(Number)];
+    expect(gone, 'a rods_day entity_id began resolving — re-check the label mismatch').toBeGreaterThan(0);
+    expect(viaMeta, 'the purge path stopped recording operator_id in metadata').toBeGreaterThan(0);
+  });
+});

@@ -14227,3 +14227,93 @@ per element). No behaviour changed: the database stamps the column either way.
 `company_id` now exists on 141 public columns. Still without it: the two
 underivable logs above, the 18 declared-GLOBAL tables, the 8 deferred content
 tables, and the B8 token/share family (anonymous-writer shape, undecided).
+
+---
+
+## 2026-09-15 23:10 — audit_log / email_send_log tenancy investigation: THE STOP STANDS
+
+READ-ONLY investigation of whether the B7 stop on the two large logs can be
+lifted by deriving the company from the ENTITY the row describes instead of the
+actor. Conclusion: it cannot, for structural reasons. Both tables STAY GLOBAL.
+No columns were added anywhere in this pass.
+
+### 1. `audit_log` STAYS GLOBAL
+
+Entity-first derivation (each entity type's own table, plus the `operator_id`
+kept in a row's stored details when the record itself was purged) recovers 121
+of the 1,077 actor-underivable rows and leaves **956 — 24% of the 3,991-row
+table — that no path can place**. Breakdown of the residue:
+
+- **511 structurally unplaceable**: `application` (211) and `pei_request` (296)
+  name entities on tables declared GLOBAL — the company is not there to read.
+  `pei_requests` has no company and its only parent, `application_id`, points
+  at another GLOBAL table.
+- **390 of the 446 `operator` rows have NO `entity_id` at all** — the column is
+  nullable and system-written rows never set it. Entity derivation cannot help
+  a row that names no entity.
+- The rest: deleted entities (expected — an audit log outlives its subjects)
+  and the label-mismatched entity types in section 3.
+
+Rejected shapes, with reasons:
+
+- *actor → entity → refuse*: the backfill cannot complete (956 rows), so
+  `NOT NULL` is unreachable. Rejected.
+- *nullable `company_id`*: nothing can enforce the meaning of the null. The
+  same null would cover "system action", "GLOBAL entity by design",
+  "`entity_id` never set" and "a later writer forgot", and no trigger can
+  distinguish them. A column carrying a meaning no check can defend. Rejected.
+
+Forward path, recorded explicitly rather than implied: **when a second carrier
+appears, scope audit reads through the ENTITY AT QUERY TIME**, where the
+mapping ambiguity (section 3) is handled explicitly instead of being frozen
+into a backfill.
+
+### 2. `email_send_log` STAYS GLOBAL
+
+A derivation path exists for **414 of 2,058 rows** via `operator_id` in stored
+details (all 414 resolve to a live operator). No path exists for the rest:
+
+- `application_id` in stored details (278 rows) and recipient-address joins
+  against `applications.email` (1,079 rows) both dead-end on GLOBAL
+  `applications`. `profiles.email` and `operators.email` do not exist — that
+  part of the B7 pass was right.
+- The 1,340 rows with no stored details are dominated by `pei-request-*`,
+  `recovery`, `invite` — applicant-stage mail with no carrier yet.
+
+All four of the table's policies check `auth.role() = 'service_role'`. This is
+deliverability infrastructure, not tenant data.
+
+### 3. LABEL MISMATCH — recorded as its own finding, NOT a tenancy matter
+
+- `audit_log.entity_id` for `entity_type = 'ica_contract'` holds an **OPERATOR
+  id**. Table-wide, **840 of 885 match `operators.id` and ZERO match
+  `ica_contracts.id`** — not just in the underivable set.
+- `entity_type = 'rods_day'` matches nothing in either table. All are
+  `rods_day_purged` actions; the operator survives only in the row's stored
+  details (`metadata.operator_id`).
+
+A field labelled one thing and holding another is a trap for any future join —
+the obvious query returns nothing rather than failing. Anyone writing such a
+join should look HERE first; the guard below also asserts both mismatches so a
+later pass cannot assume the label.
+
+### 4. The guards (all demonstrated failing before being trusted)
+
+New block in `src/test/tenancy-resolver.test.ts`, per the green-and-empty rule:
+
+- no `company_id` ever appears on either table — demonstrated failing by
+  asserting the column exists (`expected [] to deeply equal ['audit_log']`);
+- the unplaceable residue stays non-zero so the decision cannot be quietly
+  outlived — demonstrated failing (`DEMO: expected 956 to be +0`);
+- the label mismatch is asserted, both types — demonstrated failing
+  (`expected ['840 / 0'] to deeply equal [StringMatching /^0 \//]` and
+  `expected 67 to be +0`).
+
+A fourth test asserts the email derivation path (metadata `operator_id`) still
+leaves the MAJORITY of rows unplaceable — a shape assertion, not a census.
+
+### 5. The only route that lifts the stop
+
+Giving `applications` and `pei_requests` a company. That is a REVERSAL of the
+GLOBAL declaration and its own pass — not an audit-log task. Recorded here with
+NO trigger: it is a consequence to know about, not work to schedule.

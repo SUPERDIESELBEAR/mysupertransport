@@ -1,6 +1,9 @@
 # Roadmap
 
 ## In progress
+- [done 2026-09-15] Recorded the audit/email tenancy investigation (docs + guards):
+  audit_log and email_send_log stay GLOBAL, residue 956/1,077,
+  label-mismatch finding, three guards each demonstrated failing, pass report.
 - [done 2026-09-14] Load-charge gate ordering + record correction (2026-09-14): correct the false
   "add_load_charge is ungated" note in `docs/tms-build-status.md` from the LIVE catalog,
   count it as the FIFTH reviewer present-tense misreading, and move
