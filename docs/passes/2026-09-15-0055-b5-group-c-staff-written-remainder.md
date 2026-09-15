@@ -191,3 +191,153 @@ eight deferred decisions; 27 of the 105 are already dispositioned as needing no 
   rolled-back transaction.
 - Linter total 180, against 172 recorded earlier; still unattributed to any change in
   this sequence, and carried forward unresolved.
+
+---
+
+# APPENDED 2026-09-15 01:15 UTC — THE BUILD BROKE AFTER THIS REPORT WAS COMMITTED
+
+This report was committed while the pass was still running, and the pass then broke the
+build. Nothing above mentions it. This section is the correction; nothing above has been
+rewritten.
+
+## 10. The verbatim build error
+
+```
+build failed with exit status 1: stderr:
+les/esbuild/lib/main.js:622:9)
+    at handleIncomingPacket (/dev-server/node_modules/vite/node_modules/esbuild/lib/main.js:677:12)
+    at Socket.readFromStdout (/dev-server/node_modules/vite/node_modules/esbuild/lib/main.js:600:7)
+    at Socket.emit (node:events:519:28)
+    at addChunk (node:internal/streams/readable:561:12)
+    at readableAddChunkPushByteMode (node:internal/streams/readable:512:3)
+    at Readable.push (node:internal/streams/readable:392:5)
+    at Pipe.onStreamRead (node:internal/stream_base_commons:189:23)
+error: script "build:dev" exited with code 1
+
+stdout:
+vite v5.4.19 building for development...
+transforming...
+✓ 237 modules transformed.
+```
+
+The preview reported the two parse errors underneath it verbatim:
+
+```
+/dev-server/src/components/inspection/InspectionBinderAdmin.tsx: Unexpected token, expected ":" (854:12)
+  852 |                 email_sent: false,
+  853 |               })))
+> 854 |             )
+      |             ^
+  855 |           : Promise.resolve(),
+
+/dev-server/src/components/documents/DocumentEditorModal.tsx: Unexpected keyword 'import'. (25:0)
+  23 | import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
+  24 | import {
+> 25 | import { insertPayload } from '@/integrations/supabase/helpers';
+  26 |   AlertDialog, AlertDialogAction, AlertDialogCancel,
+
+TypeError: error loading dynamically imported module: .../src/components/inspection/InspectionBinderAdmin.tsx
+```
+
+## 11. What was wrong in each file, and why Group C caused it
+
+Both breaks came from the same cause: the client adaptation in section 6 was applied with
+a **scripted text edit** that wrapped insert payloads in `insertPayload(...)` and inserted
+the helper import. The script was not syntax-aware.
+
+- `DocumentEditorModal.tsx` — the import line was injected **inside** an existing
+  multi-line `import { ... } from '@/components/ui/alert-dialog'` statement, between its
+  opening brace and its first specifier. The file could not be parsed at all.
+- `InspectionBinderAdmin.tsx` — wrapping `docsToRemind.map(d => ({...}))` in
+  `insertPayload('cert_reminders', {...})` added a closing paren, and the script left the
+  original `)` on the following line as well. One unbalanced paren, inside a ternary, so
+  the parser failed at the `:` of `: Promise.resolve()`.
+
+Neither was a logic error. Both were purely mechanical damage from a non-AST edit.
+
+## 12. Both files ARE insert paths into Group C tables
+
+- `DocumentEditorModal.tsx` inserts into **`document_version_history`** (two sites, lines
+  266 and 367).
+- `InspectionBinderAdmin.tsx` inserts into **`cert_reminders`** (line 846).
+
+So the question of a required-column window is a real one, and the answer must be stated
+precisely, because two things are being conflated:
+
+- **A window did exist in which those two modules could not load at all.** The Group C
+  migration landed with commit `b702cc79` (00:54:41Z); the two files were left in a
+  non-parsing state from commit `70540178` (00:43:14Z) and repaired by `70fb2dc0`
+  (00:59:22Z) — about **16 minutes**, of which the post-migration part was under 5.
+- **There was never a window in which the database demanded `company_id` and the client
+  could not supply it.** `company_id` is stamped server-side by
+  `aa_stamp_tenant_company_id` from `current_company_id()`; the client neither sends it
+  nor is permitted to choose it. The `insertPayload` wrapping is a *typing* change, not a
+  data change. An unwrapped insert would have succeeded.
+- **Could anything have hit it?** Only a staff user who opened the document editor or the
+  Inspection Binder admin screen inside those 16 minutes, on the preview build. The
+  failure mode was a screen that would not load — a parse error, before any request — not
+  a rejected write and not a row written without a carrier. Consistent with that: the live
+  check in section 7 found **zero** rows with a null or foreign `company_id` in either
+  table, and it was re-confirmed after the repair.
+
+## 13. What the fix changed
+
+Commit `70fb2dc0` "Fixed stray build errors", two lines total:
+
+- `DocumentEditorModal.tsx` — moved the `insertPayload` import above the `import {` it had
+  been dropped inside (1 line changed).
+- `InspectionBinderAdmin.tsx` — deleted the orphaned `)` left on line 854 (1 line removed).
+
+No behaviour, no payload, no query, no schema change.
+
+## 14. Which of this report's existing claims still hold
+
+- **Sections 1–5 (inventory, classification, migration routes, derivation checks) hold.**
+  They are statements about the database and about which tables were chosen; the break did
+  not touch either.
+- **Section 7 (verification) verified the DATABASE, not the APPLICATION.** It ran while
+  these two files were unparseable. Every structural, policy, index, trigger, probe and
+  count claim in it is still accurate for the database — those were live SQL reads. But it
+  was written as a clean bill of health for the pass, and at the moment it was written the
+  application did not build. The "clean pass" framing in section 7 and in section 6's
+  claim that the client paths were adapted is **withdrawn as of the original commit** and
+  only becomes true from commit `70fb2dc0` onward.
+- **Section 6 (adapted paths) holds only in its list, not in its implied state.** The
+  right files were touched; two of them were left broken.
+- **Sections 8 and 9 (remaining work, contradictions) hold.**
+
+## 15. Current results, re-run after the repair (01:04–01:16 UTC)
+
+- `npx tsgo --noEmit` — **clean, no output**. This is the check that would have caught
+  both parse errors and was not run between the scripted edit and the report.
+- `src/test/grant-parity-live.test.ts`, `src/test/policy-grant-parity.test.ts`,
+  `src/test/definer-search-path.test.ts`,
+  `src/test/caller-evaluated-functions.test.ts` — **4 files, 17 passed**, 9.55s.
+- `src/test/tenancy-resolver.test.ts` — run three times, and **no run was fully green**.
+  Every failure was the same infrastructure error, never an assertion:
+
+  ```
+  psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com", port 6543
+  failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
+  ```
+
+  | Run | Result | Test(s) that failed |
+  | --- | --- | --- |
+  | 01:04 | 68 passed, 1 failed | Group C structural check (`load_reference_citations` query) |
+  | 01:08 | 66 passed, 3 failed | owner-membership, B4 off-carrier, B5-part-two structural |
+  | 01:12 | 68 passed, 1 failed | B5-part-one GLOBAL check |
+
+  A different test failed each time, always on connection setup, and every failing test
+  passed in another run — so across the three runs all 69 assertions have passed, but
+  **no single green run of this suite can be claimed right now**, and the honest statement
+  is that the suite is currently flaky against the pooler. The earlier
+  `[vitest-worker]: Timeout calling "onTaskUpdate"` reporter error also recurred; the
+  suite takes ~4 minutes of live SQL and is at the tooling's limits.
+
+  This supersedes section 7's "69 passed" line, which was one run and is now stale.
+
+## 16. The state this file now reflects
+
+Finished state as of 01:16 UTC 2026-09-15: migration applied, client paths adapted **and
+building**, typecheck clean, related suites green, tenancy suite green in aggregate but
+not in a single run.
