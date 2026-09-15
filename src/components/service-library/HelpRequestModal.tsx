@@ -46,7 +46,7 @@ export default function HelpRequestModal({
         .in('role', ['onboarding_staff', 'management']);
 
       if (staffRoles && staffRoles.length > 0) {
-        const notifs = staffRoles.map((r: any) => ({
+        const notifs = staffRoles.map((r: any) => insertPayload('notifications', {
           user_id: r.user_id,
           title: `Help Request — ${serviceName}`,
           body: resourceTitle
