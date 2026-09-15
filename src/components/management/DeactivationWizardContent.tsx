@@ -17,6 +17,7 @@ import type { Database } from '@/integrations/supabase/types';
 import TerminationConsequenceDialog from '@/components/ica/TerminationConsequenceDialog';
 import RecordPaperIcaModal from '@/components/ica/RecordPaperIcaModal';
 import LeaseTerminationViewModal from '@/components/ica/LeaseTerminationViewModal';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 export interface DeactivationWizardContentProps {
   operatorId: string;
@@ -732,7 +733,7 @@ export function DeactivationWizardContent({
         carrier_signature_url: carrierSettings.signature_url,
         carrier_signed_at: new Date().toISOString(),
       };
-      const { data, error } = await supabase.from('lease_terminations').insert(payload).select('id').single();
+      const { data, error } = await supabase.from('lease_terminations').insert(insertPayload('lease_terminations', payload)).select('id').single();
       if (error) throw error;
 
       setExistingTerminationId((data as any).id);

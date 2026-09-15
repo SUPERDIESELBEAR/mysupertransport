@@ -8,6 +8,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
@@ -197,7 +198,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         if (current) {
           await supabase.from('active_dispatch').update(payload).eq('operator_id', operatorId);
         } else {
-          await supabase.from('active_dispatch').insert(payload);
+          await supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload));
         }
         await supabase.from('dispatch_status_history').insert({
           operator_id: operatorId,
@@ -233,7 +234,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     if (current) {
       await supabase.from('active_dispatch').update(payload).eq('operator_id', operatorId);
     } else {
-      await supabase.from('active_dispatch').insert(payload);
+      await supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload));
     }
 
     await supabase.from('dispatch_status_history').insert({
