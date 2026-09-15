@@ -1741,3 +1741,124 @@ describe('2026-09-15 — audit_log / email_send_log stay GLOBAL', () => {
     expect(viaMeta, 'the purge path stopped recording operator_id in metadata').toBeGreaterThan(0);
   });
 });
+
+/**
+ * B8 — THE TOKEN AND SHARE TABLES, 2026-09-15. The last batch.
+ *
+ * Seven tables took SHAPE 1 (server-stamped company_id, NOT NULL, no default,
+ * RESTRICT FK). Three decisions shaped the batch and each is asserted here:
+ *
+ *  1. `document_short_links` is SHAPE 1, not the anonymous shape. The build
+ *     record calling `get_or_create_short_link` an anonymous writer was WRONG:
+ *     it raises 'authentication required' before writing and stamps
+ *     `created_by` from the caller.
+ *  2. `share_token_access_log` STAYS GLOBAL. Its `not_found` rows have no
+ *     parent and never did — they are the record of someone presenting a bad or
+ *     guessed token. A cross-carrier abuse log is not tenant data; its most
+ *     important rows are the ones with no tenant.
+ *  3. THE THIRD STAMPING SHAPE THEREFORE COVERS ZERO TABLES. It was invented
+ *     for a case that turned out not to exist.
+ *
+ * `share_tokens` also gained a company-scoped READ policy: both prior policies
+ * were role tests only, so a second carrier's dispatcher would have listed this
+ * carrier's share links including `resource_id`, which names its inspection
+ * documents.
+ *
+ * The anonymous resolve path is definer and looks up BY TOKEN, so it does not
+ * traverse the new policy. That is the thing that must not break, so it is
+ * asserted rather than assumed.
+ */
+const B8_SHAPE_1 = [
+  'binder_share_bundles',
+  'document_short_links',
+  'ica_review_links',
+  'officer_packet_links',
+  'passenger_authorizations',
+  'preview_sessions',
+  'share_tokens',
+] as const;
+
+describe('B8 — token and share tables', () => {
+  itLive('all seven carry a server-stamped NOT NULL company_id with a RESTRICT FK', () => {
+    const rows = psql(`
+      WITH t(name) AS (VALUES ${B8_SHAPE_1.map(t => `('${t}')`).join(',')})
+      SELECT t.name || ' ' || c.is_nullable || ' ' || coalesce(c.column_default, 'none')
+             || ' ' || coalesce(k.confdeltype::text, '?')
+             || ' ' || coalesce((SELECT tg.tgname FROM pg_trigger tg
+                   WHERE NOT tg.tgisinternal AND tg.tgrelid = ('public.' || t.name)::regclass
+                     AND tg.tgname LIKE 'aa_stamp%'), 'no-trigger')
+        FROM t
+        JOIN information_schema.columns c ON c.table_schema = 'public'
+          AND c.table_name = t.name AND c.column_name = 'company_id'
+        LEFT JOIN pg_constraint k ON k.conname = t.name || '_company_id_fkey'
+       ORDER BY 1`);
+    expect(rows).toEqual(
+      [...B8_SHAPE_1].sort().map(t => `${t} NO none r aa_stamp_tenant_company_id`),
+    );
+    const [bad] = psql(`SELECT count(*)::text FROM (
+      ${B8_SHAPE_1.map(t => `SELECT company_id FROM public.${t}`).join(' UNION ALL ')}
+    ) x WHERE x.company_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = x.company_id)`);
+    expect(bad, 'null or orphan company_id in a B8 table').toBe('0');
+  });
+
+  itLive('share_token_access_log stays GLOBAL, and its parentless rows are why', () => {
+    const rows = psql(`SELECT table_name FROM information_schema.columns
+      WHERE table_schema='public' AND table_name='share_token_access_log'
+        AND column_name='company_id'`);
+    expect(rows, 'a cross-carrier abuse log is not tenant data').toEqual([]);
+    const [orphans] = psql(`SELECT count(*)::text FROM public.share_token_access_log l
+      WHERE NOT EXISTS (SELECT 1 FROM public.share_tokens s WHERE s.token = l.token)`);
+    expect(Number(orphans), 'the parentless rows vanished — re-read the B8 decision')
+      .toBeGreaterThan(0);
+  });
+
+  itLive('the third stamping shape covers ZERO tables', () => {
+    // No stamp function derives a company from a share TOKEN. If one appears,
+    // the shape was resurrected and the decision above needs revisiting.
+    const rows = psql(`SELECT p.proname FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname LIKE 'stamp_company_from%'
+        AND pg_get_functiondef(p.oid) ILIKE '%share_token%' ORDER BY 1`);
+    expect(rows).toEqual([]);
+  });
+
+  itLive('token and code unique indexes stay GLOBAL — probed before any tenant is known', () => {
+    const rows = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname='public'
+        AND tablename IN (${B8_SHAPE_1.map(t => `'${t}'`).join(',')})
+        AND indexdef LIKE 'CREATE UNIQUE%'
+        AND (indexdef LIKE '%(token)%' OR indexdef LIKE '%(code%' OR indexdef LIKE '%code_hash%')
+        AND indexdef LIKE '%company_id%' ORDER BY 1`);
+    expect(rows, 'a tenant-scoped token index would make an unguessable token guessable per carrier')
+      .toEqual([]);
+  });
+
+  itLive('share_tokens reads are company-scoped; the anonymous resolve is not', () => {
+    const reads = psql(`SELECT polname FROM pg_policy p
+      WHERE p.polrelid='public.share_tokens'::regclass AND p.polcmd IN ('r','*')
+        AND pg_get_expr(p.polqual, p.polrelid) NOT ILIKE '%current_company_id%'`);
+    expect(reads, 'a read policy without a company test leaks resource_id across carriers')
+      .toEqual([]);
+    const def = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='resolve_share_token'`).join('\n');
+    expect(def).toContain('SECURITY DEFINER');
+    expect(def).toMatch(/search_path/);
+    expect(def, 'the officer/anonymous path must not depend on a resolvable caller')
+      .not.toMatch(/current_company_id/i);
+  });
+
+  it('the service-role writers into the B8 tables name the company explicitly', () => {
+    const expectations: [string, RegExp][] = [
+      ['supabase/functions/send-officer-packet/index.ts', /companyIdForOperator/],
+      ['supabase/functions/send-binder-share/index.ts', /companyIdForAnyUser/],
+      ['supabase/functions/send-ica-review-link/index.ts', /companyIdForUser/],
+      ['supabase/functions/create-preview-session/index.ts', /companyIdForUser/],
+      ['supabase/functions/send-passenger-auth/index.ts', /company_id: membership\.company_id/],
+    ];
+    for (const [file, pattern] of expectations) {
+      expect(readFileSync(file, 'utf8'), file).toMatch(pattern);
+    }
+  });
+});
