@@ -190,6 +190,10 @@ Deno.serve(withErrorEnvelope(async (req) => {
         driver_name: driverName.slice(0, 120),
         unit_number: (body.unitNumber ?? null)?.toString().slice(0, 32) || null,
         doc_tokens: tokens,
+        // TENANCY: per-company since 2026-09-15; service-role insert, so the
+        // row names its company. Callers are staff OR drivers, hence
+        // companyIdForAnyUser (membership → operator → truck owner).
+        company_id: await companyIdForAnyUser(supabase, userId),
       })
       .select('token')
       .single();
