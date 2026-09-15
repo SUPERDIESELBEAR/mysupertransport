@@ -236,11 +236,39 @@ Deno.serve(async (req) => {
       account_status: manualCreate ? 'active' : 'pending',
     }, { onConflict: 'user_id' });
 
-    // Assign role
-    await supabaseAdmin.from('user_roles').upsert(
-      { user_id: invitedUserId, role },
+    // Assign role. Names its company explicitly (service-role caller cannot let
+    // the database stamp it) and treats failure as fatal: without a role the
+    // account cannot be used, so no invitation email is sent.
+    const { error: roleWriteErr } = await supabaseAdmin.from('user_roles').upsert(
+      { user_id: invitedUserId, role, company_id: inviteCompanyId },
       { onConflict: 'user_id,role' }
     );
+    if (roleWriteErr) {
+      console.error('Staff role write failed:', roleWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not grant the ${ROLE_LABELS[role]} role: ${roleWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // Only now — role in place — send the branded invitation.
+    if (inviteActionLink) {
+      const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
+      if (RESEND_API_KEY) {
+        const html = buildInviteEmail(inviteeName, role, inviterName, inviteActionLink);
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'SUPERTRANSPORT <onboarding@mysupertransport.com>',
+            to: [email],
+            subject: `You're invited to join SUPERTRANSPORT as ${ROLE_LABELS[role]}`,
+            html,
+          }),
+        }).catch(e => console.error('Resend error:', e));
+      }
+    }
+
+
 
     // Write audit log entry
     await supabaseAdmin.from('audit_log').insert({
