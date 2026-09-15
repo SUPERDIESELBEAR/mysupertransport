@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
@@ -428,12 +428,12 @@ function Stage2DocUploader({
         if (upErr) { console.error('[OperatorDetailPanel/doc] upload failed', { authUid, sessionExpired, docType, message: upErr.message }); throw upErr; }
         const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
         const fileUrl = sd?.signedUrl ?? '';
-        const { data: row, error: insErr } = await supabase.from('operator_documents').insert({
+        const { data: row, error: insErr } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
           operator_id: operatorId,
           document_type: docType as any,
           file_name: file.name,
           file_url: fileUrl,
-        }).select('id, file_name, file_url, uploaded_at').single();
+        })).select('id, file_name, file_url, uploaded_at').single();
         if (insErr) throw insErr;
         if (row) added.push(row as any);
       }
@@ -4010,7 +4010,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               if (upErr) { console.error('[OperatorDetailPanel/cost] upload failed', { authUid, sessionExpired, slotKey, message: upErr.message }); throw upErr; }
               const { data: sd } = await supabase.storage.from('operator-documents').createSignedUrl(path, 60 * 60 * 24 * 365 * 5);
               const fileUrl = sd?.signedUrl ?? '';
-              await supabase.from('operator_documents').insert({ operator_id: operatorId, document_type: slotKey as any, file_name: file.name, file_url: fileUrl });
+              await supabase.from('operator_documents').insert(insertPayload('operator_documents', { operator_id: operatorId, document_type: slotKey as any, file_name: file.name, file_url: fileUrl }));
               setAttachUrl(fileUrl);
               setAttachName(file.name);
               toast({ title: 'Attachment saved', description: `${label} receipt uploaded.` });

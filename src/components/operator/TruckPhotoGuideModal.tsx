@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import {
   Upload,
   CheckCircle2,
@@ -206,12 +207,12 @@ export default function TruckPhotoGuideModal({ open, onClose, operatorId, onComp
       // alone is enough for downstream resolvers (FilePreviewModal, the staff
       // photo grid) to re-sign on demand, so we don't block the UI on a signed
       // URL round-trip here.
-      const { error: insertError } = await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
         operator_id: operatorId,
         document_type: 'truck_photos' as any,
         file_name: `${currentSlot.label} — ${file.name}`,
         file_url: path,
-      });
+      }));
 
       if (insertError) throw insertError;
 

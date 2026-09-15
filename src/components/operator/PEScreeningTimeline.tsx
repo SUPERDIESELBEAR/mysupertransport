@@ -11,6 +11,7 @@ import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 interface PEScreeningTimelineProps {
   onboardingStatus: Record<string, string | null>;
@@ -137,12 +138,12 @@ export default function PEScreeningTimeline({
       }
 
       // Store raw storage path (not a public URL) for private bucket
-      const { error: insertError } = await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
         operator_id: operatorId,
         document_type: 'pe_receipt' as any,
         file_name: file.name,
         file_url: path,
-      });
+      }));
       if (insertError) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw insertError;

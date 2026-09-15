@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import TruckPhotoGuideModal from '@/components/operator/TruckPhotoGuideModal';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -552,12 +553,12 @@ function InlineDocUpload({
       const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
-      const { error: insertErr } = await supabase.from('operator_documents').insert({
+      const { error: insertErr } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
         operator_id: operatorId,
         document_type: slotKey as any,
         file_name: file.name,
         file_url: fileUrl,
-      });
+      }));
       if (insertErr) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw insertErr;

@@ -3158,6 +3158,7 @@ export type Database = {
       document_acknowledgments: {
         Row: {
           acknowledged_at: string
+          company_id: string
           document_id: string
           document_version: number
           id: string
@@ -3165,6 +3166,7 @@ export type Database = {
         }
         Insert: {
           acknowledged_at?: string
+          company_id: string
           document_id: string
           document_version?: number
           id?: string
@@ -3172,12 +3174,20 @@ export type Database = {
         }
         Update: {
           acknowledged_at?: string
+          company_id?: string
           document_id?: string
           document_version?: number
           id?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "document_acknowledgments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "document_acknowledgments_document_id_fkey"
             columns: ["document_id"]
@@ -9316,6 +9326,7 @@ export type Database = {
       }
       operator_documents: {
         Row: {
+          company_id: string
           delete_reason: string | null
           deleted_at: string | null
           deleted_by: string | null
@@ -9327,6 +9338,7 @@ export type Database = {
           uploaded_at: string
         }
         Insert: {
+          company_id: string
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -9338,6 +9350,7 @@ export type Database = {
           uploaded_at?: string
         }
         Update: {
+          company_id?: string
           delete_reason?: string | null
           deleted_at?: string | null
           deleted_by?: string | null
@@ -9349,6 +9362,13 @@ export type Database = {
           uploaded_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "operator_documents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "operator_documents_operator_id_fkey"
             columns: ["operator_id"]
