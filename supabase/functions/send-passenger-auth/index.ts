@@ -162,6 +162,10 @@ Deno.serve(async (req) => {
       carrier_signature_url: carrier?.signature_url ?? null,
       carrier_typed_name: carrier?.typed_name ?? null,
       carrier_title: carrier?.title ?? null,
+      // TENANCY: passenger_authorizations is PER-COMPANY since 2026-09-15 and
+      // this is a service-role insert, so the row names its company. Same
+      // membership already resolved above for the signature block.
+      company_id: membership.company_id,
     })
     .select('id, response_token')
     .single()
