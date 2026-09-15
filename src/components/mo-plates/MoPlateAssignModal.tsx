@@ -10,6 +10,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import type { MoPlate } from './MoPlateFormModal';
 import { useAuth } from '@/hooks/useAuth';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type OperatorOption = {
   id: string;
@@ -98,7 +99,7 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate, tran
         .eq('event_type', 'assignment');
 
       // 2. Insert new assignment
-      const { error } = await supabase.from('mo_plate_assignments').insert({
+      const { error } = await supabase.from('mo_plate_assignments').insert(insertPayload('mo_plate_assignments', {
         plate_id: plate.id,
         operator_id: useManualName ? null : (selectedOperatorId || null),
         driver_name: resolvedDriverName,
@@ -106,7 +107,7 @@ export default function MoPlateAssignModal({ open, onClose, onSaved, plate, tran
         event_type: 'assignment',
         notes: notes.trim() || (isTransfer ? `Transferred from ${transferFromDriver}` : null),
         assigned_by: session?.user?.id ?? null,
-      });
+      }));
       if (error) throw error;
 
       // 3. Update plate status to assigned

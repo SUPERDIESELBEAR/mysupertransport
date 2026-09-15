@@ -10,6 +10,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
 import { Loader2, Settings2 } from 'lucide-react';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 interface DOTInspectionModalProps {
   open: boolean;
@@ -153,7 +154,7 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
         if (error) throw error;
         toast({ title: 'DOT inspection updated' });
       } else {
-        const { error } = await supabase.from('truck_dot_inspections').insert({
+        const { error } = await supabase.from('truck_dot_inspections').insert(insertPayload('truck_dot_inspections', {
           operator_id: operatorId,
           inspection_date: inspectionDate,
           reminder_interval: parseInt(reminderInterval),
@@ -165,7 +166,7 @@ export default function DOTInspectionModal({ open, onClose, operatorId, onSaved,
           certificate_file_url: certFileUrl,
           notes: notes.trim() || null,
           created_by: user?.id ?? null,
-        });
+        }));
         if (error) throw error;
         toast({ title: 'DOT inspection recorded' });
       }

@@ -12,6 +12,7 @@ import { useToast } from '@/hooks/use-toast';
 import { validateFile } from '@/lib/validateFile';
 import { Loader2, Sparkles, Paperclip, X } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 const CATEGORY_OPTIONS = [
   { value: 'pm_service', label: 'PM Service' },
@@ -232,11 +233,11 @@ export default function MaintenanceRecordModal({ open, onClose, operatorId, onSa
           .eq('id', record.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase.from('truck_maintenance_records').insert({
+        const { error } = await supabase.from('truck_maintenance_records').insert(insertPayload('truck_maintenance_records', {
           ...payload,
           operator_id: operatorId,
           created_by: user?.id ?? null,
-        });
+        }));
         if (error) throw error;
       }
 

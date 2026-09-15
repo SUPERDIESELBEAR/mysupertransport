@@ -11,6 +11,7 @@ import { Wrench, ShieldCheck, NotebookPen, Loader2, ArrowLeft, FileBadge } from 
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import DOTInspectionModal from './DOTInspectionModal';
 import Registration2290Modal from './Registration2290Modal';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 interface LogUpdateModalProps {
   open: boolean;
@@ -50,7 +51,7 @@ export default function LogUpdateModal({ open, onClose, operatorId, driverName, 
     }
     setSaving(true);
     try {
-      const { error } = await supabase.from('truck_maintenance_records').insert({
+      const { error } = await supabase.from('truck_maintenance_records').insert(insertPayload('truck_maintenance_records', {
         operator_id: operatorId,
         service_date: noteDate,
         amount: 0,
@@ -58,7 +59,7 @@ export default function LogUpdateModal({ open, onClose, operatorId, driverName, 
         categories: ['note'],
         notes: noteText.trim(),
         created_by: user?.id ?? null,
-      });
+      }));
       if (error) throw error;
       toast({ title: 'Note logged' });
       onSaved();
