@@ -95,6 +95,12 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Resolve the company BEFORE creating a user or sending anything: a
+    // service-role write cannot let the database stamp tenancy, and a caller
+    // with no membership must fail here, not after an invitation went out.
+    const inviteCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+
+
     const { email, role, first_name, last_name, phone, password } = await req.json() as {
       email: string;
       role: StaffRole;
