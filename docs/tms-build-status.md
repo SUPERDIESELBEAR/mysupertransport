@@ -13832,3 +13832,43 @@ full-file failures were the known pooler timeouts and passed individually; secur
 grant-parity / isolation suites 31/31.
 
 Report: `docs/passes/2026-09-15-1812-membership-gap-closed.md`.
+
+---
+
+## 2026-09-15 — B6 Group 2 (part): driver-written document tables
+
+Report: `docs/passes/2026-09-15-1845-b6-group-2-documents.md`.
+
+MIGRATED (Shape 1, NOT NULL, RESTRICT FK, index, `aa_stamp_tenant_company_id`):
+`driver_vault_documents` (843), `load_documents` (25), `driver_uploads` (6),
+`equipment_receipts` (3), `document_exceptions` (0). `driver_uploads` and
+`load_documents` used the constant-DEFAULT-then-DROP route because an UPDATE
+would have fired a driver notification / moved `updated_at`.
+
+HELD BACK, and this is a decision the owner still owes:
+`operator_documents` (1,184) and `document_acknowledgments` (365) both have a
+LIVE TRUCK-OWNER WRITE PATH (`OperatorPortal`, `viewerRole = 'truck_owner'`, plus
+a deliberate truck-owner INSERT policy on `operator_documents`). A truck owner
+holds neither a `company_members` row nor an `operators` row, so
+`current_company_id()` returns NULL for him and a NOT NULL `company_id` would
+refuse his upload with 42501. Four existing acknowledgement rows belong to such a
+user (`24ee1b9e-…`). THE RESOLVER NEEDS A THIRD SOURCE, or truck owners need an
+association, before these two can be scoped. A guard fails if either gains the
+column meanwhile.
+
+FINDINGS, not migrated: `ica_driver_acknowledgments` (9 rows, no identifiable
+writer) and `documents` (0 rows, no identifiable writer).
+
+DDL NOTE: a DEFAULT may not contain a subquery — `ERROR: 0A000: cannot use
+subquery in DEFAULT expression`. The bare-scalar refusal is therefore written as a
+`SELECT ... INTO STRICT` guard block plus a literal-equality check, which still
+aborts on a second carrier.
+
+SERVICE-ROLE WRITER: `finalize-passenger-auth` now derives the company from
+`operators.company_id` and names it explicitly; without that its vault insert
+would have raised 42501. Deployed.
+
+LESSON REAFFIRMED (standing rule): the pass report is written after the LAST
+change — client adaptations and the typecheck — not after the migration. Two
+build failures occurred during the client adaptation of this pass and were fixed
+before the report was written.
