@@ -14001,3 +14001,83 @@ CROSS-CARRIER ISOLATION REMAINS UNPROVEN. One real carrier exists; every probe
 shows the column is server-controlled, not that a second company cannot see it.
 
 Policies 560. Linter 172, no new distinct findings.
+
+---
+
+## 2026-09-15 — B6 GROUP 3, THE DRIVER-WRITTEN REMAINDER (31 tables)
+
+THE LIST, established from the live catalog rather than subtracted from a plan.
+88 tables lacked `company_id` at the start of the pass, 29,817 rows. Of those:
+18 declared GLOBAL (997 rows), 8 DEFERRED content (318), B7 logs (4 tables,
+22,760), B8 token/share (7 tables, 1,004) — leaving 51 candidates, 4,738 rows.
+31 of those 51 are driver-written or driver-reachable and were migrated here.
+`notifications` (10,827 rows) stayed in B7 as the record places it.
+
+THE TWO WRITERLESS TABLES, reported as findings in Group 2, resolved here.
+`documents` (0 rows) and `ica_driver_acknowledgments` (9 rows) both carry a
+driver INSERT policy but NO current code writer. They were stamped anyway: a
+live INSERT policy is a live write path whether or not today's client uses it,
+and an unstamped path is exactly what the stamp exists to catch.
+
+SHAPES. 28 tables took the standard nullable -> backfill -> NOT NULL route with
+the generic `aa_stamp_tenant_company_id`. THREE could not: `load_status_history`,
+`load_change_history` and `dispatch_status_history` are written by SECURITY
+DEFINER logging triggers that run with NO `auth.uid()`, so the resolver-based
+stamp would have REFUSED every status change — a driver unable to change his
+status. Each derives the company from its PARENT row instead, via two new
+functions `stamp_company_from_load()` and `stamp_company_from_operator()`,
+SECURITY DEFINER, `search_path = public, extensions`, EXECUTE revoked from
+PUBLIC, anon and authenticated as they were created.
+
+SERVICE-ROLE WRITERS CHECKED BEFORE THE COLUMN LANDED, the lesson from
+`finalize-passenger-auth`. Eight functions name the company explicitly now:
+`manage-group-thread`, `send-operator-broadcast`, `send-osas-to-operator`,
+`invite-operator`, `create-test-operator`, `provision-demo-driver`,
+`provision-test-driver`, `reset-demo-driver`. `_shared/tenancy.ts` gained
+`companyIdForAnyUser()` (membership -> own operator -> own truck owner, fail
+closed) and `companyIdForOperator()` for service-role child writes.
+`send-operator-broadcast` also had its recipient-insert error made FATAL; it
+was a bare await, the same shape as the invite defect.
+
+27 client insert paths across 19 files were wrapped in `insertPayload`.
+
+REAL SESSIONS. Steve Figueroa, driver: read `notification_preferences`,
+`messages`, `onboarding_status`, `service_resource_views`; inserted a
+notification preference, a forecast load, a forecast expense, a service-resource
+view and a message. Bare inserts were stamped with the live carrier; SPOOFED
+`company_id` was OVERWRITTEN — a single query over all six scratch rows returned
+6 of 6 carrying the real carrier id. Truck owner `24ee1b9e-…`: read
+`ica_contracts` and `onboarding_status`, inserted notification preferences bare
+and spoofed, both accepted. No driver or owner operation failed.
+
+CLEANUP. Every scratch row removed. `messages` back to 18, `onboarding_status`
+154, `notification_preferences` 11, zero rows matching any probe marker. Two
+rows the driver's own RLS would not let him delete were removed with service
+role and re-counted.
+
+VERIFICATION BOUNDARY AND A CORRECTED CLAIM. The suite failed four consecutive
+runs on the pooler's `(EAUTHQUERY) auth_query secret check timed out`, which had
+been dismissed as a known flake in earlier passes. Collapsing 93 psql spawns to
+two exposed a REAL error underneath: `operator is not unique: text || "char"` on
+`confdeltype`, and before that `column x.user_id does not exist` —
+`message_notification_throttle` keys on `recipient_id`. A "known flake" was
+hiding two genuine failures. `psql()` now retries ONLY on EAUTHQUERY and only
+that string; any `ERROR:` from Postgres is rethrown.
+
+Policies 560, unchanged. Linter 172, no new distinct finding. Typecheck
+`npx tsgo -p tsconfig.app.json --noEmit` clean — note the root `tsconfig.json`
+has empty `files`, so a bare `tsgo --noEmit` checks NOTHING and has reported
+false green before.
+
+Suites: `tenancy-resolver` 96 passed / 1 failed on the connection flake before
+the retry, 97 passed after; `definer-live-catalog`, `definer-search-path`,
+`definer-fail-open`, `grant-parity-live`, `policy-grant-parity`,
+`notification-isolation`, `operator-pay-exposure` — 55 passed.
+
+REMAINING. B6: 20 of the 51 candidates are not driver-written and fall to later
+batches. Whole sequence: B7 logs (4 tables, 22,760 rows), B8 token/share (7
+tables, 1,004 rows), 8 DEFERRED content tables (318 rows) awaiting the
+product-versus-carrier decision, and the 18 declared GLOBAL. 139 columns named
+`company_id` now exist in `public`.
+
+CROSS-CARRIER ISOLATION REMAINS UNPROVEN. One carrier exists.

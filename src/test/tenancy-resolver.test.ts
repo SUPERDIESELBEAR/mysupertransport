@@ -31,9 +31,22 @@ const itLive = gatedIt({
   details: ['Only this file asserts the tenancy resolver and company_members.'],
 });
 
+/**
+ * The pooler drops roughly one connection per long run with
+ * `(EAUTHQUERY) auth_query secret check timed out`. That is a CONNECTION
+ * failure, never a SQL result, so it is retried; any other failure — including
+ * a real `ERROR:` from Postgres — is rethrown untouched.
+ */
 function psql(sql: string): string[] {
-  return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-    .split('\n').map(l => l.trim()).filter(Boolean);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+        .split('\n').map(l => l.trim()).filter(Boolean);
+    } catch (e) {
+      const text = String((e as { stderr?: Buffer }).stderr ?? '') + String(e);
+      if (attempt >= 2 || !text.includes('EAUTHQUERY')) throw e;
+    }
+  }
 }
 
 /** The six tables stamped in B2 plus the two singleton carriers from B3. */
@@ -151,6 +164,35 @@ const B6_DOCUMENTS = [
   // (truck_owners), then migrated the same day in the truck-owner pass.
   'operator_documents', 'document_acknowledgments',
 ] as const;
+
+/**
+ * B6 GROUP 3 (2026-09-15) — the driver-written remainder: messaging, the
+ * service library, forecasts, onboarding/ICA, roadside, preferences.
+ * Twenty-eight take the generic `aa_stamp_tenant_company_id`.
+ */
+const B6_GROUP3_GENERIC = [
+  'message_threads', 'thread_participants', 'message_reactions', 'messages',
+  'message_notification_throttle', 'service_resource_bookmarks',
+  'service_resource_completions', 'service_resource_views', 'service_help_requests',
+  'roadside_stops', 'roadside_stop_documents', 'roadside_stop_violations',
+  'documents', 'ica_driver_acknowledgments', 'ica_contracts',
+  'notification_preferences', 'staff_ui_preferences', 'user_view_preferences',
+  'operator_broadcast_recipients', 'onboard_assignment_sheets',
+  'onboard_assignment_sheet_items', 'onboarding_status',
+  'operator_offboarding_steps', 'contractor_pay_setup',
+  'forecast_deductions', 'forecast_expenses', 'forecast_loads', 'load_stops',
+] as const;
+
+/**
+ * The three history tables in Group 3 are written by SECURITY DEFINER logging
+ * triggers, which run with no auth.uid(), so the generic resolver stamp would
+ * refuse them. Each derives the company from its PARENT row instead.
+ */
+const B6_GROUP3_PARENT_DERIVED = {
+  load_status_history: 'aa_stamp_company_from_load',
+  load_change_history: 'aa_stamp_company_from_load',
+  dispatch_status_history: 'aa_stamp_company_from_operator',
+} as const;
 
 
 
@@ -517,7 +559,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
-      ...B6_ELD_RODS, ...B6_DOCUMENTS,
+      ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1373,5 +1415,109 @@ describe('driver-written document tables are scoped to a carrier', () => {
     const src = readFileSync('supabase/functions/finalize-passenger-auth/index.ts', 'utf8');
     expect(src).toContain("company_id: companyId");
     expect(src).toMatch(/from\('operators'\)[\s\S]{0,80}select\('company_id'\)/);
+  });
+});
+
+/**
+ * B6 GROUP 3 — the driver-written remainder, 2026-09-15. Messaging, the service
+ * library, forecasts, onboarding/ICA, roadside and the person-owned preference
+ * tables. `notifications` is deliberately absent: the record places it in B7.
+ */
+describe('B6 group 3 — the driver-written remainder is scoped to a carrier', () => {
+  const ALL = [
+    ...B6_GROUP3_GENERIC,
+    ...(Object.keys(B6_GROUP3_PARENT_DERIVED) as (keyof typeof B6_GROUP3_PARENT_DERIVED)[]),
+  ];
+
+  // ONE connection for all 31 tables: this suite spawns a psql per query and the
+  // pooler drops one connection per long run, which is noise, not evidence.
+  itLive('all 31 tables carry a server-stamped NOT NULL company_id with a RESTRICT FK', () => {
+    const list = ALL.map(t => `'${t}'`).join(',');
+    const rows = psql(`
+      WITH t(name) AS (VALUES ${ALL.map(t => `('${t}')`).join(',')})
+      SELECT t.name || ' ' || c.is_nullable || ' ' || coalesce(c.column_default, 'none')
+             || ' ' || coalesce(k.confdeltype::text, '?')
+        FROM t
+        JOIN information_schema.columns c ON c.table_schema = 'public'
+          AND c.table_name = t.name AND c.column_name = 'company_id'
+        LEFT JOIN pg_constraint k ON k.conname = t.name || '_company_id_fkey'
+       ORDER BY 1`);
+    // NO surviving default: the trigger is the only source, so a client that
+    // omits the column cannot land an unstamped row.
+    expect(rows).toEqual([...ALL].sort().map(t => `${t} NO none r`));
+    const [bad] = psql(`SELECT count(*)::text FROM (
+      ${ALL.map(t => `SELECT company_id FROM public.${t}`).join(' UNION ALL ')}
+    ) x WHERE x.company_id IS NULL
+        OR NOT EXISTS (SELECT 1 FROM public.carrier_profile c WHERE c.id = x.company_id)`);
+    expect(bad, `orphan or null company_id among ${list}`).toBe('0');
+  });
+
+  itLive('the three history tables derive the company from their PARENT row', () => {
+    for (const [table, trigger] of Object.entries(B6_GROUP3_PARENT_DERIVED)) {
+      const [name] = psql(`SELECT tgname FROM pg_trigger
+        WHERE NOT tgisinternal AND tgrelid='public.${table}'::regclass
+          AND tgname LIKE 'aa_stamp%'`);
+      expect(name, table).toBe(trigger);
+    }
+    // Written by logging triggers with no auth.uid(), so they must NOT depend on
+    // the resolver — the parent row is the authority.
+    for (const fn of ['stamp_company_from_load', 'stamp_company_from_operator']) {
+      const def = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname='public' AND p.proname='${fn}'`).join('\n');
+      expect(def, fn).not.toMatch(/current_company_id/i);
+      expect(def, fn).toContain('search_path');
+      expect(def, fn).toContain('SECURITY DEFINER');
+    }
+  });
+
+  itLive('neither parent-derived stamp is executable by anon or authenticated', () => {
+    for (const fn of ['stamp_company_from_load', 'stamp_company_from_operator']) {
+      const rows = psql(`SELECT r.rolname FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        CROSS JOIN (VALUES ('anon'), ('authenticated'), ('public')) AS r(rolname)
+        WHERE n.nspname='public' AND p.proname='${fn}'
+          AND has_function_privilege(r.rolname, p.oid, 'EXECUTE')`);
+      expect(rows, fn).toEqual([]);
+    }
+  });
+
+  itLive('every person holding rows in the person-owned tables resolves a company', () => {
+    // This is the check that caught the truck-owner lockout before it fired:
+    // membership, own operator row, or own truck_owners row - one of the three.
+    // ONE connection for all nine tables: the pooler drops long test runs, and a
+    // dropped connection is not evidence of anything.
+    // message_notification_throttle keys on sender_id/recipient_id, not user_id.
+    const personOwned: [string, string][] = [
+      ['notification_preferences', 'user_id'], ['staff_ui_preferences', 'user_id'],
+      ['user_view_preferences', 'user_id'], ['thread_participants', 'user_id'],
+      ['message_reactions', 'user_id'], ['service_resource_bookmarks', 'user_id'],
+      ['service_resource_completions', 'user_id'], ['service_resource_views', 'user_id'],
+      ['message_notification_throttle', 'recipient_id'],
+    ];
+    const unresolved = ([t, col]: [string, string]) => `SELECT '${t}: ' || count(DISTINCT x.${col})::text
+      FROM public.${t} x WHERE x.${col} IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.${col})
+        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.${col} AND o.company_id IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.${col} AND w.company_id IS NOT NULL)`;
+    const rows = psql(personOwned.map(unresolved).join(' UNION ALL '));
+    expect(rows.sort(), 'a row owner resolving to no company would be refused his next write')
+      .toEqual(personOwned.map(([t]) => `${t}: 0`).sort());
+  });
+
+  it('the service-role writers into these tables name the company explicitly', () => {
+    const expectations: [string, RegExp][] = [
+      ['supabase/functions/manage-group-thread/index.ts', /companyIdForAnyUser/],
+      ['supabase/functions/send-operator-broadcast/index.ts', /company_id/],
+      ['supabase/functions/send-osas-to-operator/index.ts', /company_id/],
+      ['supabase/functions/invite-operator/index.ts', /company_id/],
+      ['supabase/functions/create-test-operator/index.ts', /company_id/],
+      ['supabase/functions/provision-demo-driver/index.ts', /company_id/],
+      ['supabase/functions/provision-test-driver/index.ts', /company_id/],
+      ['supabase/functions/reset-demo-driver/index.ts', /company_id/],
+    ];
+    for (const [file, pattern] of expectations) {
+      expect(readFileSync(file, 'utf8'), file).toMatch(pattern);
+    }
   });
 });
