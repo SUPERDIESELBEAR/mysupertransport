@@ -930,6 +930,7 @@ export type Database = {
       }
       binder_share_bundles: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           doc_tokens: string[]
@@ -940,6 +941,7 @@ export type Database = {
           unit_number: string | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           doc_tokens: string[]
@@ -950,6 +952,7 @@ export type Database = {
           unit_number?: string | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           doc_tokens?: string[]
@@ -959,7 +962,15 @@ export type Database = {
           token?: string
           unit_number?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "binder_share_bundles_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       blank_log_acknowledgments: {
         Row: {
@@ -3416,23 +3427,34 @@ export type Database = {
       document_short_links: {
         Row: {
           code: string
+          company_id: string
           created_at: string
           created_by: string | null
           share_token: string
         }
         Insert: {
           code: string
+          company_id: string
           created_at?: string
           created_by?: string | null
           share_token: string
         }
         Update: {
           code?: string
+          company_id?: string
           created_at?: string
           created_by?: string | null
           share_token?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "document_short_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       document_version_history: {
         Row: {
@@ -6184,6 +6206,7 @@ export type Database = {
       }
       ica_review_links: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           expires_at: string
@@ -6196,6 +6219,7 @@ export type Database = {
           token: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           expires_at?: string
@@ -6208,6 +6232,7 @@ export type Database = {
           token?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           expires_at?: string
@@ -6219,7 +6244,15 @@ export type Database = {
           revoked?: boolean
           token?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "ica_review_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       inspection_binder_order: {
         Row: {
@@ -8657,6 +8690,7 @@ export type Database = {
       officer_packet_links: {
         Row: {
           bucket: string
+          company_id: string
           created_at: string
           operator_id: string
           storage_path: string
@@ -8664,6 +8698,7 @@ export type Database = {
         }
         Insert: {
           bucket?: string
+          company_id: string
           created_at?: string
           operator_id: string
           storage_path: string
@@ -8671,12 +8706,20 @@ export type Database = {
         }
         Update: {
           bucket?: string
+          company_id?: string
           created_at?: string
           operator_id?: string
           storage_path?: string
           token?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "officer_packet_links_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "officer_packet_links_operator_id_fkey"
             columns: ["operator_id"]
@@ -10116,6 +10159,7 @@ export type Database = {
           carrier_signature_url: string | null
           carrier_title: string | null
           carrier_typed_name: string | null
+          company_id: string
           contractor_read_acknowledged_at: string | null
           contractor_signature_url: string | null
           contractor_signed_at: string | null
@@ -10159,6 +10203,7 @@ export type Database = {
           carrier_signature_url?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id: string
           contractor_read_acknowledged_at?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
@@ -10202,6 +10247,7 @@ export type Database = {
           carrier_signature_url?: string | null
           carrier_title?: string | null
           carrier_typed_name?: string | null
+          company_id?: string
           contractor_read_acknowledged_at?: string | null
           contractor_signature_url?: string | null
           contractor_signed_at?: string | null
@@ -10242,6 +10288,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "passenger_authorizations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "passenger_authorizations_operator_id_fkey"
             columns: ["operator_id"]
@@ -11002,6 +11055,7 @@ export type Database = {
       preview_sessions: {
         Row: {
           code_hash: string
+          company_id: string
           created_at: string
           created_by: string
           expires_at: string
@@ -11013,6 +11067,7 @@ export type Database = {
         }
         Insert: {
           code_hash: string
+          company_id: string
           created_at?: string
           created_by: string
           expires_at: string
@@ -11024,6 +11079,7 @@ export type Database = {
         }
         Update: {
           code_hash?: string
+          company_id?: string
           created_at?: string
           created_by?: string
           expires_at?: string
@@ -11033,7 +11089,15 @@ export type Database = {
           updated_at?: string
           used_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "preview_sessions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       profiles: {
         Row: {
@@ -12959,6 +13023,7 @@ export type Database = {
       }
       share_tokens: {
         Row: {
+          company_id: string
           created_at: string
           created_by: string | null
           expires_at: string | null
@@ -12968,6 +13033,7 @@ export type Database = {
           token: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           created_by?: string | null
           expires_at?: string | null
@@ -12977,6 +13043,7 @@ export type Database = {
           token: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           created_by?: string | null
           expires_at?: string | null
@@ -12985,7 +13052,15 @@ export type Database = {
           scope?: string
           token?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "share_tokens_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       staff_email_overrides: {
         Row: {
