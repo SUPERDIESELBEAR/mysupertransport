@@ -124,6 +124,20 @@ const B5C_TRIGGERED = [
   'truck_dot_inspections', 'truck_owners',
 ] as const;
 
+/**
+ * BATCH B6 GROUP 1 (2026-09-15) — the ELD / RODS hours-of-service set, the
+ * first driver-written batch. rods_days / rods_events carry certification
+ * locks and rods_divergences is append-only, so the three populated tables
+ * took the constant-DEFAULT-then-DROP route: a backfill UPDATE on a certified
+ * federal record is not a thing this project does. The derivation assertion
+ * below is what proves the constant was right.
+ */
+const B6_ELD_RODS = [
+  'rods_days', 'rods_events', 'rods_amendments', 'rods_divergences',
+  'rods_correction_requests', 'rods_unlock_events', 'blank_log_acknowledgments',
+  'eld_extension_requests', 'eld_malfunction_events', 'eld_devices',
+] as const;
+
 
 /**
  * BATCH B4 — the 31 tables that held no rows. Empty means no backfill could
@@ -485,6 +499,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
+      ...B6_ELD_RODS,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1112,5 +1127,94 @@ describe('tenancy B5 group C — the staff-written remainder', () => {
       'lease_terminations enforce_lease_termination_void O',
       'truck_dot_inspections trg_compute_dot_next_due O',
     ]);
+  });
+});
+
+/**
+ * BATCH B6 GROUP 1 (2026-09-15) — the driver-written hours-of-service set.
+ * These are federal records, so the derivation check matters more here than
+ * anywhere: a row whose company disagrees with the driver who signed it is a
+ * log attributed to the wrong carrier.
+ */
+describe('tenancy B6 group 1 — ELD / RODS', () => {
+  itLive('all 10 carry a required, undefaulted, RESTRICT-ed company with a stamp', () => {
+    for (const t of B6_ELD_RODS) {
+      const [row] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text || ' ' ||
+          (SELECT count(*)::text FROM pg_constraint k
+            WHERE k.conrelid = c.oid AND k.contype = 'f'
+              AND k.confrelid = 'public.carrier_profile'::regclass
+              AND k.confdeltype = 'r') || ' ' ||
+          (SELECT count(*)::text FROM pg_trigger g
+            WHERE g.tgrelid = c.oid AND g.tgname = 'aa_stamp_tenant_company_id'
+              AND g.tgenabled = 'O')
+        FROM pg_class c
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'company_id'
+        WHERE c.oid = 'public.${t}'::regclass`);
+      expect(row, t).toBe('true false 1 1');
+    }
+    expect(B6_ELD_RODS.length).toBe(10);
+  });
+
+  itLive('every row belongs to the live carrier', () => {
+    for (const t of B6_ELD_RODS) {
+      const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toBe('0 0');
+    }
+  });
+
+  itLive('every constant-default row agrees with the company of the driver who owns it', () => {
+    for (const t of ['rods_days', 'rods_correction_requests', 'blank_log_acknowledgments']) {
+      const [row] = psql(`SELECT count(*)::text || ' ' ||
+          count(*) FILTER (WHERE x.company_id <> o.company_id)::text
+        FROM public.${t} x JOIN public.operators o ON o.id = x.operator_id`);
+      const [joined, disagree] = row.split(' ');
+      expect(disagree, t).toBe('0');
+      // A row that joins to no operator would silently pass the check above.
+      const [total] = psql(`SELECT count(*)::text FROM public.${t}`);
+      expect(joined, t).toBe(total);
+    }
+  });
+
+  itLive('the certification locks were never suspended to make room for a backfill', () => {
+    const rows = psql(`SELECT t.tgrelid::regclass::text || ' ' || t.tgenabled::text
+      FROM pg_trigger t WHERE NOT t.tgisinternal
+        AND t.tgname IN ('rods_days_lock_update', 'rods_days_lock_delete',
+                         'rods_events_lock', 'rods_divergences_append_only')
+      ORDER BY 1`);
+    // Every one of the four must be enabled; none may be 'D' (disabled).
+    expect(rows.length).toBe(4);
+    for (const r of rows) expect(r.endsWith(' O'), r).toBe(true);
+  });
+});
+
+/**
+ * SECURITY FINDING has_role_not_company_scoped (2026-09-15). The two role
+ * functions ignored user_roles.company_id, so a staff role granted by ANY
+ * carrier satisfied every staff-role RLS policy on every carrier's rows.
+ */
+describe('role checks are carrier-scoped', () => {
+  for (const fn of ['has_role', 'is_staff']) {
+    itLive(`${fn} compares the role's company against the caller's`, () => {
+      // psql() splits on newlines, and a function body is many lines — rejoin
+      // it, or every assertion below only ever sees the CREATE line.
+      const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
+      expect(code).toContain('ur.company_id = public.current_company_id()');
+      expect(code).toMatch(/SECURITY DEFINER/i);
+      expect(code).toMatch(/search_path TO 'public'/i);
+    });
+  }
+
+  itLive('no role row is company-less, and none disagrees with its holder', () => {
+    const [row] = psql(`SELECT
+        (SELECT count(*) FROM public.user_roles WHERE company_id IS NULL)::text || ' ' ||
+        (SELECT count(*) FROM public.user_roles r JOIN public.company_members m
+           ON m.user_id = r.user_id WHERE m.company_id <> r.company_id)::text || ' ' ||
+        (SELECT count(*) FROM public.user_roles r JOIN public.operators o
+           ON o.user_id = r.user_id WHERE o.company_id <> r.company_id)::text`);
+    expect(row).toBe('0 0 0');
   });
 });

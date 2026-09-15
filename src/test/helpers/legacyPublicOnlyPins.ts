@@ -64,9 +64,9 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.get_pei_request_for_response(uuid)",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
-  "20260307040223_48a3c504-85c4-409a-bd88-5f3aafd3f4d4.sql::public.has_role(uuid, public.app_role)",
+  // has_role and is_staff left this list on 2026-09-15: the carrier-scoping fix
+  // re-authored both, so both now pin `public, extensions` like everything else.
   "20260729234627_b6bc3761-1036-44c1-97a8-909fa2f98d0f.sql::public.is_own_rods_operator(uuid)",
-  "20260327200930_def071a4-28fb-4c91-bb65-f07eab4a8730.sql::public.is_staff(uuid)",
   "20260729154047_b1e9b99a-91e9-434e-99b8-89211bff5804.sql::public.is_thread_participant(uuid, uuid)",
   "20260610105245_d4d7a7da-fec7-410b-a12b-4e67ce34d619.sql::public.is_truck_owner_for_operator(uuid, uuid)",
   "20260721181336_aa440d86-7089-4169-bb08-7b56674d7bf0.sql::public.is_valid_application_draft_token(text)",
@@ -134,4 +134,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
 // user's role array, including who holds `owner`. Nothing called it; roles are
 // read via `useAuth` under `user_roles` RLS, `has_role()` in policies, and
 // direct service-role reads in edge functions. A shrink by deletion.
-export const LEGACY_MAX = 74;
+export const LEGACY_MAX = 72;
