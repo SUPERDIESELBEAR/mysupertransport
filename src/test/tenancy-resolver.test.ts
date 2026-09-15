@@ -147,6 +147,9 @@ const B6_ELD_RODS = [
 const B6_DOCUMENTS = [
   'driver_vault_documents', 'driver_uploads', 'load_documents',
   'equipment_receipts', 'document_exceptions',
+  // Held back on 2026-09-15 until the resolver learned its third source
+  // (truck_owners), then migrated the same day in the truck-owner pass.
+  'operator_documents', 'document_acknowledgments',
 ] as const;
 
 
@@ -195,19 +198,21 @@ describe('current_company_id — the four protections', () => {
     expect(config).toContain('search_path=public');
   });
 
-  itLive('FAILS CLOSED — the ONLY two sources are membership and the caller’s own operator row', () => {
+  itLive('FAILS CLOSED — the ONLY three sources are membership, own operator row, own truck_owners row', () => {
     // Comments are stripped: the body's own comment NAMES the protections, and
     // asserting against commentary would pass on a function that says the right
     // thing and does the wrong one — the exact shape of the defect being guarded.
     const code = resolverDef().replace(/--[^\n]*/g, '');
-    // 2026-09-14: driver tenancy. A COALESCE now exists, but it may only fall
-    // from membership to the caller's OWN operator row — never to a carrier.
+    // 2026-09-14: driver tenancy. 2026-09-15: truck-owner tenancy. A COALESCE
+    // now exists, but it may only fall from membership to the caller's OWN
+    // operator row and then his OWN truck_owners row — never to a carrier.
     expect(code).not.toMatch(/carrier_profile/i);
     const sources = code.match(/FROM\s+public\.(\w+)/gi) ?? [];
     expect(sources.map(s => s.split('.')[1].toLowerCase()).sort())
-      .toEqual(['company_members', 'operators']);
-    // The operator branch is keyed on the caller, not open.
+      .toEqual(['company_members', 'operators', 'truck_owners']);
+    // Both non-membership branches are keyed on the caller, not open.
     expect(code).toMatch(/operators\s+o\s+WHERE\s+o\.user_id\s*=\s*auth\.uid\(\)/i);
+    expect(code).toMatch(/truck_owners\s+t\s+WHERE\s+t\.user_id\s*=\s*auth\.uid\(\)/i);
     // No third fallback smuggled into the COALESCE.
     expect((code.match(/coalesce/gi) ?? []).length).toBe(1);
   });
@@ -1318,7 +1323,7 @@ describe('a staff role is never minted without a company membership', () => {
  * the third source stays in place, below.
  */
 describe('driver-written document tables are scoped to a carrier', () => {
-  const MIGRATED = [...B6_DOCUMENTS, 'operator_documents', 'document_acknowledgments'];
+  const MIGRATED = [...B6_DOCUMENTS];
 
 
   for (const t of MIGRATED) {
@@ -1339,16 +1344,16 @@ describe('driver-written document tables are scoped to a carrier', () => {
   }
 
   itLive('the resolver reads truck_owners DIRECTLY as its third source', () => {
-    const [body] = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
-      JOIN pg_namespace n ON n.oid = p.pronamespace
-      WHERE n.nspname='public' AND p.proname='current_company_id'`);
+    // resolverDef() joins the whole definition; psql() returns one row PER LINE,
+    // so reading only its first element would test the word CREATE.
+    const body = resolverDef().replace(/--[^\n]*/g, '');
     // Membership, then his own operator row, then his truck_owners row.
-    expect(body).toMatch(/company_members[\s\S]*operators[\s\S]*truck_owners/);
+    expect(body.search(/public\.operators/i)).toBeLessThan(body.search(/public\.truck_owners/i));
     // Read directly off truck_owners.company_id — NOT walked to the operators
     // he owns, which would leave an owner between hires resolving to nothing.
-    expect(body).toMatch(/FROM public\.truck_owners t\s+WHERE t\.user_id = auth\.uid\(\)/);
+    expect(body).toMatch(/t\.company_id\s+FROM\s+public\.truck_owners\s+t\s+WHERE\s+t\.user_id\s*=\s*auth\.uid\(\)/i);
     // Still fail-closed: no carrier_profile fallback.
-    expect(body).not.toMatch(/carrier_profile/);
+    expect(body).not.toMatch(/carrier_profile/i);
   });
 
   itLive('every truck owner resolves a company from his own truck_owners row', () => {

@@ -13937,3 +13937,67 @@ Group 2 pass guarded against gaining the column. THE GUARD MUST BE UPDATED IN TH
 SAME PASS THAT ADDS THE COLUMN, or it will fail — the guard is doing its job, and
 removing the block without retiring the guard is a contradiction, not a fix.
 
+
+## 2026-09-15 — truck owner tenancy BUILT (sections 2–4), and a ninth correction
+
+### The derivation disagreement — CLOSED, not left open
+
+The 19:00 decision governs the RESOLVER, not the backfill. It requires
+`current_company_id()` to read `truck_owners.company_id` DIRECTLY rather than
+walking at read time to the operators an owner owns, so that an owner between
+hires — with no drivers at all — still resolves. That is what was built.
+
+How the five existing `truck_owners` rows got their value is a ONE-TIME
+question, already answered: B5 Group C backfilled them from the parent operator,
+there is one carrier, and every value is correct. `invite-truck-owner` — the
+only writer — names the company explicitly, so no NEW row derives from anything.
+The two methods could diverge only if an owner's drivers belonged to a different
+carrier than the owner, which the ONE-CARRIER SIMPLIFYING ASSUMPTION rules out.
+Nothing further is owed here.
+
+### The ninth source-citation instance — a new variety
+
+The 18:45 B6 Group 2 report and the 19:00 decision record both described
+`truck_owners` gaining `company_id` as FUTURE work. It had already gained it at
+00:41 the same day, in the B5 Group C migration
+`20260915004133_…`, recorded plainly in that pass's own report.
+
+The previous eight instances were claims about CODE or DATA made without a query.
+This one is distinct: A CLAIM ABOUT WORK ALREADY DONE AND RECORDED, made without
+reading the record of it — a pass report written and then not read by its own
+author. The guard is unchanged (a claim about what exists comes from a query, and
+the pass reports are part of what to read); the failure mode is new, and it is
+why the 19:15 pass stopped rather than reconciled. Stopping was right.
+
+### What was built
+
+- `current_company_id()` — third source added, in order: `company_members`, the
+  caller's own `operators` row, the caller's own `truck_owners` row, read
+  directly. No `carrier_profile` fallback; unresolvable callers still get NULL.
+- `operator_documents` — 1,184 rows, `company_id` NOT NULL, FK RESTRICT, index,
+  `aa_stamp_tenant_company_id`, no lingering DEFAULT. Backfilled from the parent
+  operator; its only UPDATE trigger is `AFTER UPDATE OF deleted_at`, so the
+  backfill UPDATE fired nothing and the standard route was safe.
+- `document_acknowledgments` — 365 rows, same shape. Backfilled PER PERSON by
+  the resolver's three sources in order; zero rows and zero of the 80 distinct
+  users failed to resolve.
+- `finalize-passenger-auth` — the service-role `operator_documents` insert now
+  names `company_id`, the same value it already resolved for the vault insert.
+  Without it that path would have raised 42501 the moment the column landed.
+- Eight client insert paths wrapped in `insertPayload`; the server keeps sole
+  control of the value.
+- The B6 Group 2 HELD_BACK guard is RETIRED in the same pass, replaced by
+  structural guards on both tables and on the resolver's third source.
+
+### Verified with real sessions
+
+Truck owner `24ee1b9e-…` — the owner-only user the whole decision was made for,
+who resolved to NOTHING before this pass — read his documents and wrote both
+tables; a spoofed zero-UUID company was OVERWRITTEN server-side. Driver Steve
+Figueroa read both tables and had his acknowledgment stamped, spoof likewise
+overwritten. All five scratch rows deleted; counts back to 1,184 and 365.
+
+CROSS-CARRIER ISOLATION REMAINS UNPROVEN. One real carrier exists; every probe
+shows the column is server-controlled, not that a second company cannot see it.
+
+Policies 560. Linter 172, no new distinct findings.
