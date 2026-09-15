@@ -14123,3 +14123,107 @@ never subjected to it because nobody thought of a compiler as a guard. The
 practice is EXTENDED: any command whose PASSING is treated as evidence must be
 shown to FAIL at least once. That includes the typecheck, the linter, and any
 future tooling.
+
+## B7 — the four large logs (2026-09-15)
+
+Live counts read at the start of the pass, all higher than the recut had
+recorded because the tables keep growing: `notifications` 10,827,
+`dispatch_daily_log` 5,890, `audit_log` 3,991, `email_send_log` 2,058. One
+carrier still (`carrier_profile` = 1 row), so nothing here proves cross-company
+isolation.
+
+TWO of the four were migrated. TWO WERE NOT, for the same reason in both
+directions: a log row is scoped to a carrier only if something IN THE ROW says
+which carrier.
+
+- `notifications` — MIGRATED. `user_id` is NOT NULL and every recipient
+  resolves through membership -> own operator row -> own truck_owners row (0
+  unresolved). Most writers are cron jobs, edge functions and SECURITY DEFINER
+  paths with no `auth.uid()`, so the caller-based resolver is unusable here:
+  the column is stamped by `stamp_company_from_recipient()` (definer,
+  `search_path = public, extensions`, EXECUTE revoked from PUBLIC/anon/
+  authenticated) which RAISES 42501 for an unresolvable recipient rather than
+  defaulting. NOT NULL, no surviving default, FK RESTRICT, own index.
+- `dispatch_daily_log` — MIGRATED. `operator_id` NOT NULL, zero orphan
+  operators, service-role `rollover-dispatch-status` writes it with no company,
+  so it reuses the existing parent-derived `stamp_company_from_operator()`.
+- `audit_log` — NOT MIGRATED. 1,077 rows cannot be derived: 1,021 have no
+  `actor_id` at all and 56 more name an actor that resolves to no membership, no
+  operator and no truck owner. Entity types among them: operator 446,
+  pei_request 296, application 211, rods_day 63, ica_contract 45,
+  accessorial_adjustment 5, dispatch_settlements 3, compliance 3, and one each
+  of truck_owner, invoices, settlements, onboard_assignment_sheet,
+  truck_dot_inspections. Defaulting them to the sole carrier is the first-carrier
+  guess the tenancy work exists to remove, so the pass STOPPED as instructed.
+- `email_send_log` — NOT MIGRATED. No tenancy key exists at all: 1,340 rows
+  carry null `metadata`, the rest carry only partial keys, and the recipient
+  address joins to nothing — `profiles.email` and `operators.email DO NOT
+  EXIST`. Stopped.
+
+Both absences are now ASSERTED, not merely written down: the B7 block in
+`src/test/tenancy-resolver.test.ts` fails if either table gains a `company_id`,
+and also fails if the underivable-row counts fall to zero (which would mean the
+stop should be revisited rather than silently outlived).
+
+### The duplicate unique definition
+
+`dispatch_daily_log` carried two byte-identical unique definitions on
+`(operator_id, log_date)`: the plain index `dispatch_daily_log_op_date_uniq` and
+the constraint-backed `unique_operator_log_date`. The first migration attempt
+tried to drop the constraint-backed one and failed exactly with:
+
+```
+ERROR: 2BP01: cannot drop index unique_operator_log_date because constraint unique_operator_log_date on table dispatch_daily_log requires it
+```
+
+No partial change occurred. The corrected migration dropped the PLAIN index and
+kept the constraint, which is also what the `onConflict: 'operator_id,log_date'`
+upsert paths need. One unique definition remains; the guard asserts exactly one.
+
+### Timings could not be measured directly
+
+The intended approach — time the DDL itself — was not available: the connected
+role is not the table owner, and the attempt failed with `ERROR: must be owner
+of table notifications`. What WAS measured is the read-only derivation
+simulation over the full row sets: ~175 ms for 10,827 notifications, ~148 ms for
+5,890 dispatch rows. That bounds the backfill work but is NOT a lock-duration
+measurement, and this record does not claim one.
+
+### Verification actually performed
+
+Real minted sessions, not simulations:
+
+- Driver (Steve Figueroa) reads his notifications 200 and his dispatch daily log
+  200, both rows carrying `company_id = 6b54d0e6…`; his attempt to INSERT a
+  notification is refused 42501 (staff-only INSERT policy) — unchanged.
+- Owner session: bare insert of a notification for Steve -> 201, stamped to
+  6b54d0e6…; insert with a SPOOFED `company_id` of all zeros -> 201, and the
+  spoofed value was OVERWRITTEN with the recipient's real company. Same pair for
+  `dispatch_daily_log` (2099-01-01 / 2099-01-02) -> both stamped, spoof
+  overwritten.
+- A real staff write into `audit_log` still succeeds (201) — the table is
+  untouched, which is what the stop means in practice.
+- All five probe rows deleted afterwards; counts returned to 10,827 / 5,890 /
+  3,991 and the probe queries return 0.
+
+Policies 560 before and after. Typecheck run as
+`npx tsgo -p tsconfig.app.json --noEmit` — clean, and DEMONSTRATED FAILING first
+with a deliberate type error, per the green-and-empty rule. The new B7 guard was
+likewise demonstrated failing (renamed the expected trigger, watched the
+assertion fail, restored). Suites: `tenancy-resolver` 103 passed;
+`policy-grant-parity`, `grant-parity-live`, `definer-search-path`,
+`caller-evaluated-functions`, `notification-isolation`,
+`operator-settlement-isolation` 39 passed.
+
+### Client adaptations
+
+Regenerated types made `company_id` required on inserts into both tables, which
+broke 20 call sites across 11 files. All were wrapped with the existing
+`insertPayload` helper (object literals inline, three array/`map` shapes wrapped
+per element). No behaviour changed: the database stamps the column either way.
+
+### Remaining tenancy scope after B7
+
+`company_id` now exists on 141 public columns. Still without it: the two
+underivable logs above, the 18 declared-GLOBAL tables, the 8 deferred content
+tables, and the B8 token/share family (anonymous-writer shape, undecided).
