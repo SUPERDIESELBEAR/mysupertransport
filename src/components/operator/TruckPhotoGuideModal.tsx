@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import {
 import { insertPayload } from '@/integrations/supabase/helpers';
+import {
   Upload,
   CheckCircle2,
   Camera,
