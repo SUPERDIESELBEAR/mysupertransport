@@ -1721,7 +1721,7 @@ describe('2026-09-15 — audit_log / email_send_log stay GLOBAL', () => {
       FROM public.audit_log a
       WHERE a.entity_type = 'ica_contract' AND a.entity_id IS NOT NULL`);
     expect(rows, 'ica_contract entity_id semantics changed — re-record the label mismatch')
-      .toEqual([expect.stringMatching(/^0 \//)]);
+      .toEqual([expect.stringMatching(/^[1-9]\d* \/ 0$/)]);
   });
 
   itLive('LABEL MISMATCH: rods_day audit entity_id matches NO live table; the operator survives only in stored details', () => {
