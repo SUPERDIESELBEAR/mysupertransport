@@ -304,7 +304,7 @@ export function DeactivationWizardContent({
     const signature = `${status}|${skippedReason ?? ''}`;
     if (persistedStatus.current[key] === signature) return;
     persistedStatus.current[key] = signature;
-    const { error } = await supabase.from('operator_offboarding_steps').upsert({
+    const { error } = await supabase.from('operator_offboarding_steps').upsert(insertPayload('operator_offboarding_steps', {
       operator_id: operatorId,
       step_key: key,
       completed: status === 'completed',
@@ -312,7 +312,7 @@ export function DeactivationWizardContent({
       skipped_reason: skippedReason || null,
       completed_by: status === 'completed' ? user?.id ?? null : null,
       completed_at: status === 'completed' ? new Date().toISOString() : null,
-    }, { onConflict: 'operator_id,step_key' });
+    }), { onConflict: 'operator_id,step_key' });
     if (error) {
       // Let the next attempt retry rather than silently pretending it saved.
       delete persistedStatus.current[key];
@@ -795,23 +795,23 @@ export function DeactivationWizardContent({
     try {
       const { data: sheet, error: sheetErr } = await (supabase as any)
         .from('onboard_assignment_sheets')
-        .insert({
+        .insert(insertPayload('onboard_assignment_sheets', {
           operator_id: operatorId,
           unit_number: truckSnapshot?.unit_number ?? unitNumber ?? null,
           status: 'draft',
           bestpass_included: chosen.some(c => c.deviceType === 'bestpass'),
           is_paper_original: false,
           is_return_only: true,
-        })
+        }))
         .select('id')
         .single();
       if (sheetErr) throw sheetErr;
 
       const { error: itemsErr } = await (supabase as any)
         .from('onboard_assignment_sheet_items')
-        .insert(chosen.map(c => ({
+        .insert(chosen.map(c => insertPayload('onboard_assignment_sheet_items', {
           sheet_id: sheet.id,
-          device_type: c.deviceType,
+          device_type: c.deviceType as Database['public']['Enums']['osas_device_type'],
           serial_snapshot: c.serial,
         })));
       if (itemsErr) {
@@ -1014,7 +1014,7 @@ export function DeactivationWizardContent({
         completed_by: s.status === 'completed' ? user?.id ?? null : null,
         completed_at: s.status === 'completed' ? new Date().toISOString() : null,
       }));
-      const { error: stepErr } = await supabase.from('operator_offboarding_steps').upsert(stepRecords, { onConflict: 'operator_id,step_key' });
+      const { error: stepErr } = await supabase.from('operator_offboarding_steps').upsert(stepRecords.map((r) => insertPayload('operator_offboarding_steps', r)), { onConflict: 'operator_id,step_key' });
       if (stepErr) console.error('Failed to persist offboarding steps', stepErr);
 
       // The truck stays leased: hold the unit so it can be handed to a new

@@ -200,12 +200,12 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         } else {
           await supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload));
         }
-        await supabase.from('dispatch_status_history').insert({
+        await supabase.from('dispatch_status_history').insert(insertPayload('dispatch_status_history', {
           operator_id: operatorId,
           dispatch_status: 'not_dispatched',
           changed_by: session?.user?.id ?? null,
           status_notes: 'Cleared from calendar today-cell',
-        });
+        }));
       }
     }
     toast({ title: 'Status cleared' });
@@ -237,12 +237,12 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
       await supabase.from('active_dispatch').insert(insertPayload('active_dispatch', payload));
     }
 
-    await supabase.from('dispatch_status_history').insert({
+    await supabase.from('dispatch_status_history').insert(insertPayload('dispatch_status_history', {
       operator_id: operatorId,
       dispatch_status: status,
       changed_by: session?.user?.id ?? null,
       status_notes: 'Synced from calendar today-cell',
-    });
+    }));
   }, [operatorId, session?.user?.id]);
 
   // ── Mark range: bulk-set statuses for a date range (per-operator) ────────

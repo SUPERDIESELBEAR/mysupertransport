@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -28,13 +29,13 @@ export default function HelpRequestModal({
     if (!user) return;
     setSubmitting(true);
     try {
-      const { error } = await supabase.from('service_help_requests').insert({
+      const { error } = await supabase.from('service_help_requests').insert(insertPayload('service_help_requests', {
         service_id: serviceId,
         resource_id: resourceId ?? null,
         user_id: user.id,
         message: message.trim() || null,
         status: 'Open',
-      });
+      }));
       if (error) throw error;
 
       // Notify staff via existing notification system

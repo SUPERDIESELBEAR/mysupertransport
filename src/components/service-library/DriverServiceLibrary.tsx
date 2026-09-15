@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Search, Bookmark, ChevronRight, Star, BookOpen, CheckCircle2, Circle, Clock, AlertTriangle, X, History } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
@@ -101,7 +102,7 @@ export default function DriverServiceLibrary() {
     if (!user) return;
     await supabase
       .from('service_resource_views')
-      .upsert({ user_id: user.id, resource_id: resourceId, viewed_at: new Date().toISOString() }, { onConflict: 'user_id,resource_id' });
+      .upsert(insertPayload('service_resource_views', { user_id: user.id, resource_id: resourceId, viewed_at: new Date().toISOString() }), { onConflict: 'user_id,resource_id' });
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);

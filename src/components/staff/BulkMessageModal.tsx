@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { isEquipmentInstallComplete } from '@/lib/equipmentCompletion';
 import { supabase } from '@/integrations/supabase/client';
@@ -491,11 +492,11 @@ export default function BulkMessageModal({ open, onClose, preselectedIds = [] }:
       : 'Your coordinator';
 
     const sends = selectedOperators.map(async (op) => {
-      const { error } = await supabase.from('messages').insert({
+      const { error } = await supabase.from('messages').insert(insertPayload('messages', {
         sender_id: user.id,
         recipient_id: op.user_id,
         body,
-      });
+      }));
       if (error) return false;
 
       supabase.functions.invoke('send-notification', {

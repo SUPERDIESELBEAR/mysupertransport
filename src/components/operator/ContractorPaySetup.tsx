@@ -341,7 +341,7 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
       } else {
         ({ error } = await supabase
           .from('contractor_pay_setup')
-          .insert(payload));
+          .insert(insertPayload('contractor_pay_setup', payload)));
       }
 
       if (error) throw error;

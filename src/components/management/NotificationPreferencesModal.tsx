@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useEffect, useRef } from 'react';
 import { Bell, CheckCircle2, XCircle, AlertTriangle, MessageCircle, FileText, Target, Paperclip, Truck, Loader2, Check, Banknote } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -89,8 +90,8 @@ export default function NotificationPreferencesModal({ open, onClose }: Props) {
 
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert(
-        { user_id: session.user.id, event_type: eventType, in_app_enabled: updated.in_app_enabled, email_enabled: updated.email_enabled, updated_at: new Date().toISOString() },
+      .upsert(insertPayload('notification_preferences', 
+        { user_id: session.user.id, event_type: eventType, in_app_enabled: updated.in_app_enabled, email_enabled: updated.email_enabled, updated_at: new Date().toISOString() }),
         { onConflict: 'user_id,event_type' }
       );
 

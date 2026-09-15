@@ -205,7 +205,7 @@ Deno.serve(async (req) => {
 
     let opQuery = supabaseAdmin
       .from('operators')
-      .select('id, user_id')
+      .select('id, user_id, company_id')
       .eq('is_active', true);
     if (resolvedOperatorIds) opQuery = opQuery.in('id', resolvedOperatorIds);
 
@@ -307,7 +307,10 @@ Deno.serve(async (req) => {
       if (!email) status = 'skipped_no_email';
       else if (optedOut.has(op.user_id)) status = 'skipped_optout';
       else status = 'pending';
+      // Service-role write: name the company from the operator being mailed.
+      if (!op.company_id) throw new Error(`No company for operator ${op.id}`);
       return {
+        company_id: op.company_id,
         broadcast_id: activeBroadcastId,
         operator_id: op.id,
         email: email ?? '',
@@ -317,7 +320,8 @@ Deno.serve(async (req) => {
     });
     // Clear any prior staged rows (e.g. when re-sending a scheduled broadcast)
     await supabaseAdmin.from('operator_broadcast_recipients').delete().eq('broadcast_id', activeBroadcastId);
-    await supabaseAdmin.from('operator_broadcast_recipients').insert(recipientRows);
+    const { error: recipErr } = await supabaseAdmin.from('operator_broadcast_recipients').insert(recipientRows);
+    if (recipErr) throw recipErr;
 
     // Reload to capture inserted recipient ids for tracking URL construction.
     const { data: insertedRecipients } = await supabaseAdmin

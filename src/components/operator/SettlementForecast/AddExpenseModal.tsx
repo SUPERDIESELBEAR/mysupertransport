@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -42,12 +43,12 @@ export default function AddExpenseModal({ open, onOpenChange, operatorId, expens
   const save = async () => {
     if (!canSave) return;
     setSaving(true);
-    const { error } = await supabase.from('forecast_expenses').insert({
+    const { error } = await supabase.from('forecast_expenses').insert(insertPayload('forecast_expenses', {
       operator_id: operatorId,
       expense_date: date,
       expense_type: expenseType,
       amount,
-    });
+    }));
     setSaving(false);
     if (error) {
       toast({ title: 'Could not save', description: error.message, variant: 'destructive' });

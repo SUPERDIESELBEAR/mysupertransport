@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { companyIdForAnyUser } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -55,6 +56,10 @@ Deno.serve(async (req) => {
       });
     }
     const meId = claims.user.id;
+    // Service-role writes carry no auth.uid(), so the stamp trigger refuses
+    // unless the row names its company. Staff, drivers and truck owners all
+    // reach group threads, so resolve in the same order as current_company_id().
+    const companyId = await companyIdForAnyUser(admin, meId);
     const myRoles = await getRolesFor(admin, meId);
     const iAmStaff = isStaffRole(myRoles);
 
@@ -67,6 +72,7 @@ Deno.serve(async (req) => {
 
     async function postSystem(threadId: string, text: string) {
       await admin.from('messages').insert({
+        company_id: companyId,
         thread_id: threadId,
         sender_id: meId,
         recipient_id: null,
@@ -98,13 +104,13 @@ Deno.serve(async (req) => {
 
         const { data: thread, error: tErr } = await admin
           .from('message_threads')
-          .insert({ is_group: true, title, created_by: meId, last_message_at: new Date().toISOString() })
+          .insert({ company_id: companyId, is_group: true, title, created_by: meId, last_message_at: new Date().toISOString() })
           .select('id').single();
         if (tErr || !thread) return json({ error: tErr?.message ?? 'thread create failed' }, 500);
 
         const rows = [
-          { thread_id: thread.id, user_id: meId, role_in_thread: 'admin' },
-          ...partIds.map(uid => ({ thread_id: thread.id, user_id: uid, role_in_thread: 'member' })),
+          { company_id: companyId, thread_id: thread.id, user_id: meId, role_in_thread: 'admin' },
+          ...partIds.map(uid => ({ company_id: companyId, thread_id: thread.id, user_id: uid, role_in_thread: 'member' })),
         ];
         const { error: pErr } = await admin.from('thread_participants').insert(rows);
         if (pErr) return json({ error: pErr.message }, 500);
@@ -141,7 +147,7 @@ Deno.serve(async (req) => {
         const ids = Array.from(new Set(body.participant_ids));
         const v = await validateParticipantSet(ids);
         if (!v.ok) return json({ error: v.error }, 403);
-        const rows = ids.map(uid => ({ thread_id: body.thread_id, user_id: uid, role_in_thread: 'member' }));
+        const rows = ids.map(uid => ({ company_id: companyId, thread_id: body.thread_id, user_id: uid, role_in_thread: 'member' }));
         const { error } = await admin.from('thread_participants').upsert(rows, { onConflict: 'thread_id,user_id' });
         if (error) return json({ error: error.message }, 500);
         const { data: profs } = await admin.from('profiles').select('user_id,first_name,last_name').in('user_id', ids);

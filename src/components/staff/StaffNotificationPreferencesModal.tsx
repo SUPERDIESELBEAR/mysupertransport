@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useEffect, useRef } from 'react';
 import {
   Bell, Truck, AlertTriangle, MessageCircle, Target,
@@ -208,14 +209,14 @@ export default function StaffNotificationPreferencesModal({ open, onClose }: Pro
 
     const { error } = await supabase
       .from('notification_preferences')
-      .upsert(
+      .upsert(insertPayload('notification_preferences', 
         {
           user_id: session.user.id,
           event_type: eventType,
           in_app_enabled: updated.in_app_enabled,
           email_enabled: updated.email_enabled,
           updated_at: new Date().toISOString(),
-        },
+        }),
         { onConflict: 'user_id,event_type' }
       );
 

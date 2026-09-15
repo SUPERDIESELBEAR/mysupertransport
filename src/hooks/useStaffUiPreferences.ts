@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -69,7 +70,7 @@ export function useStaffUiPreferences() {
         saveTimer.current = setTimeout(() => {
           void supabase
             .from('staff_ui_preferences')
-            .upsert({ user_id: userId, prefs: next as never }, { onConflict: 'user_id' })
+            .upsert(insertPayload('staff_ui_preferences', { user_id: userId, prefs: next as never }), { onConflict: 'user_id' })
             .then(({ error }) => {
               if (error) console.error('Failed to save UI preferences', error);
             });
