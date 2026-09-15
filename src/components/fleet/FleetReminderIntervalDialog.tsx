@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -63,7 +64,7 @@ export default function FleetReminderIntervalDialog({ open, onClose, onSaved }: 
       } else {
         const { data, error } = await supabase
           .from('fleet_settings')
-          .insert({ default_dot_reminder_interval_days: interval, updated_by: user?.id ?? null })
+          .insert(insertPayload('fleet_settings', { default_dot_reminder_interval_days: interval, updated_by: user?.id ?? null }))
           .select('id')
           .single();
         if (error) throw error;

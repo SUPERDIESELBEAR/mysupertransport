@@ -6,6 +6,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 import { DateInput } from '@/components/ui/date-input';
@@ -72,7 +73,7 @@ export default function MoPlateFormModal({ open, onClose, onSaved, plate }: Prop
         if (error) throw error;
         toast({ title: 'Plate updated' });
       } else {
-        const { error } = await supabase.from('mo_plates').insert(payload);
+        const { error } = await supabase.from('mo_plates').insert(insertPayload('mo_plates', payload));
         if (error) throw error;
         toast({ title: 'Plate added' });
       }

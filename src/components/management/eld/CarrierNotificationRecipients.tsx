@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
@@ -38,7 +39,7 @@ export default function CarrierNotificationRecipients() {
     setBusy(true);
     const { error } = await supabase
       .from('carrier_notification_settings')
-      .insert({ email: trimmed, label: label.trim() || null, is_active: true });
+      .insert(insertPayload('carrier_notification_settings', { email: trimmed, label: label.trim() || null, is_active: true }));
     setBusy(false);
     if (error) { toast.error(error.message); return; }
     setEmail(''); setLabel('');

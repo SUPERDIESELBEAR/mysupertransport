@@ -58,19 +58,48 @@ const GLOBAL_TABLES = [
   'application_document_history', 'application_interview_notes',
   'application_resume_tokens', 'application_invites', 'application_revision_attachments',
   'profiles', 'carrier_profile', 'resource_documents', 'resource_history',
-  'release_notes', 'email_templates', 'eld_device_models', 'eld_revoked_list_checks',
-  'notification_role_defaults', 'revert_courtesy_email_defaults',
+  'release_notes', 'eld_device_models', 'eld_revoked_list_checks',
+  'revert_courtesy_email_defaults',
   'email_unsubscribe_tokens', 'suppressed_emails',
 ] as const;
 
 /**
- * DEFERRED, not global: the six content tables await the product-versus-carrier
- * split (2026-09-14). They are deliberately left with no column and no global
- * declaration, and this list is what distinguishes them from an oversight.
+ * DEFERRED, not global: eight content tables await the product-versus-carrier
+ * split. Six were deferred 2026-09-14; `email_templates` and `message_templates`
+ * joined them by the owner's fifth decision the same day, which SUPERSEDES the
+ * earlier GLOBAL declaration for `email_templates`. `notification_role_defaults`
+ * left the GLOBAL list by the owner's first decision (PER-CARRIER) and is now
+ * asserted in the B5 part two block instead.
  */
 const DEFERRED_TABLES = [
   'faq', 'faq_history', 'services', 'service_resources', 'staff_help_knowledge',
-  'pipeline_config',
+  'pipeline_config', 'email_templates', 'message_templates',
+] as const;
+
+/**
+ * BATCH B5 PART TWO, GROUP A — the eleven per-carrier settings tables plus
+ * `inspection_binder_order`. Every one of them is a leak if global: one
+ * carrier's DOT consultant, insurance contact, plate pool, load-number series,
+ * dispatcher pay rate or notification defaults applied to another carrier.
+ */
+const B5B_SETTINGS = [
+  'company_settings', 'fleet_settings', 'load_number_config',
+  'dot_consultant_email_settings', 'insurance_email_settings',
+  'carrier_notification_settings', 'inspection_program_settings',
+  'pei_cadence_settings', 'dispatch_settlement_rates', 'mo_plates',
+  'notification_role_defaults', 'inspection_binder_order',
+] as const;
+
+/**
+ * BATCH B5 PART TWO, GROUP B — the settlement family. Every one carries an
+ * immutability lock, so the column was added by the approved
+ * DEFAULT-then-DROP-DEFAULT route, which fires no row trigger. No lock was
+ * suspended.
+ */
+const B5B_SETTLEMENTS = [
+  'settlements', 'settlement_line_items', 'settlement_withheld_loads',
+  'dispatch_settlements', 'dispatch_settlement_line_items',
+  'dispatch_settlement_load_contributions', 'dispatch_settlement_charge_verdicts',
 ] as const;
 
 
@@ -431,7 +460,10 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     // Six from B2, the two singleton carriers from B3, the 31 empty tables from
     // B4. A new stamped table must be added here deliberately, so an accidental
     // stamp is a red suite.
-    expect(rows.sort()).toEqual([...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS].sort());
+    expect(rows.sort()).toEqual([
+      ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
+      ...B5B_SETTINGS, ...B5B_SETTLEMENTS,
+    ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
     const before = psql(`SELECT t.tgname FROM pg_trigger t
@@ -770,22 +802,104 @@ describe('tenancy B5 part one — settlement settings and the signature block', 
     expect(chk).toBe('email_send_state_id_check');
   });
 
-  itLive('the 20 GLOBAL tables carry no company_id', () => {
+  itLive('the 18 GLOBAL tables carry no company_id', () => {
     for (const t of GLOBAL_TABLES) {
       const cols = psql(`SELECT a.attname FROM pg_attribute a
         WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
       expect(cols, t).toEqual([]);
     }
-    expect(GLOBAL_TABLES.length).toBe(20);
+    expect(GLOBAL_TABLES.length).toBe(18);
   });
 
-  itLive('the 6 DEFERRED content tables are untouched, and that is deliberate', () => {
+  itLive('the 8 DEFERRED content tables are untouched, and that is deliberate', () => {
     for (const t of DEFERRED_TABLES) {
       const cols = psql(`SELECT a.attname FROM pg_attribute a
         WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
       expect(cols, t).toEqual([]);
     }
-    expect(DEFERRED_TABLES.length).toBe(6);
+    expect(DEFERRED_TABLES.length).toBe(8);
+  });
+});
+
+/**
+ * BATCH B5 PART TWO (2026-09-15) — the per-carrier settings tables and the
+ * settlement family. Group B is immutability-locked throughout, so it took the
+ * approved constant-DEFAULT route; these assertions are what proves the locks
+ * are still ENABLED afterwards rather than left disabled by a backfill.
+ */
+describe('tenancy B5 part two — settings and the settlement family', () => {
+  itLive('all 19 carry a required, undefaulted, RESTRICT-ed company with a stamp', () => {
+    for (const t of [...B5B_SETTINGS, ...B5B_SETTLEMENTS]) {
+      const [row] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text || ' ' ||
+          COALESCE(pg_get_expr(d.adbin, d.adrelid), 'none') || ' ' ||
+          (SELECT count(*)::text FROM pg_constraint k
+            WHERE k.conrelid = c.oid AND k.contype = 'f'
+              AND k.confrelid = 'public.carrier_profile'::regclass
+              AND k.confdeltype = 'r') || ' ' ||
+          (SELECT count(*)::text FROM pg_trigger g
+            WHERE g.tgrelid = c.oid AND g.tgname = 'aa_stamp_tenant_company_id'
+              AND g.tgenabled = 'O')
+        FROM pg_class c
+        JOIN pg_attribute a ON a.attrelid = c.oid AND a.attname = 'company_id'
+        LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
+        WHERE c.oid = 'public.${t}'::regclass`);
+      expect(row, t).toBe('true false none 1 1');
+    }
+    expect(B5B_SETTINGS.length + B5B_SETTLEMENTS.length).toBe(19);
+  });
+
+  itLive('every row of all 19 belongs to the live carrier', () => {
+    for (const t of [...B5B_SETTINGS, ...B5B_SETTLEMENTS]) {
+      const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+        FROM public.${t}`);
+      expect(row, t).toBe('0 0');
+    }
+  });
+
+  itLive('the four tenant-chosen unique keys are now scoped per company', () => {
+    const rows = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND indexdef ILIKE '%UNIQUE%'
+        AND indexdef ILIKE '%company_id%'
+        AND tablename IN ('company_settings', 'inspection_binder_order',
+                          'carrier_notification_settings', 'notification_role_defaults',
+                          'dispatch_settlements')
+      ORDER BY 1`);
+    expect(rows).toEqual([
+      'carrier_notification_settings_company_email_uniq',
+      'company_settings_company_setting_key_uniq',
+      'dispatch_settlements_company_payee_period_uniq',
+      'inspection_binder_order_company_scope_uniq',
+      'notification_role_defaults_company_role_category_uniq',
+    ]);
+  });
+
+  itLive('the pre-existing global keys those replaced are gone', () => {
+    const rows = psql(`SELECT indexname FROM pg_indexes
+      WHERE schemaname = 'public' AND indexname IN (
+        'company_settings_setting_key_key', 'inspection_binder_order_scope_key',
+        'carrier_notification_settings_email_key',
+        'notification_role_defaults_role_category_key',
+        'dispatch_settlements_payee_period_key')`);
+    expect(rows).toEqual([]);
+  });
+
+  itLive('every settlement immutability lock is still ENABLED after the backfill', () => {
+    const rows = psql(`SELECT c.relname || ' ' || g.tgname || ' ' || g.tgenabled::text
+      FROM pg_trigger g JOIN pg_class c ON c.oid = g.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND NOT g.tgisinternal
+        AND g.tgname LIKE '%immutab%'
+        AND c.relname = ANY (ARRAY[${B5B_SETTLEMENTS.map(t => `'${t}'`).join(', ')}])
+      ORDER BY 1`);
+    expect(rows).toEqual([
+      'dispatch_settlement_line_items enforce_dispatch_settlement_line_immutability O',
+      'dispatch_settlement_load_contributions enforce_dispatch_settlement_contribution_immutability O',
+      'dispatch_settlements enforce_dispatch_settlement_immutability O',
+      'settlement_line_items enforce_settlement_line_immutability O',
+      'settlement_withheld_loads enforce_settlement_withheld_immutability O',
+      'settlements enforce_settlement_immutability O',
+    ]);
   });
 });
 
