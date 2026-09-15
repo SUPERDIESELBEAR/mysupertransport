@@ -111,10 +111,20 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Assign truck_owner role
-    await supabaseAdmin
+    // Assign truck_owner role — company named explicitly, error fatal.
+    const { error: roleWriteErr } = await supabaseAdmin
       .from('user_roles')
-      .upsert({ user_id: ownerUserId, role: 'truck_owner' }, { onConflict: 'user_id,role' });
+      .upsert(
+        { user_id: ownerUserId, role: 'truck_owner', company_id: inviteCompanyId },
+        { onConflict: 'user_id,role' },
+      );
+    if (roleWriteErr) {
+      console.error('Truck owner role write failed:', roleWriteErr.message);
+      return new Response(JSON.stringify({ error: `Could not grant the truck owner role: ${roleWriteErr.message}` }), {
+        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
 
     // Make sure profile name is set
     await supabaseAdmin
