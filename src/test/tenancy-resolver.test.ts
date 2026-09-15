@@ -1468,20 +1468,22 @@ describe('B6 group 3 — the driver-written remainder is scoped to a carrier', (
     // membership, own operator row, or own truck_owners row - one of the three.
     // ONE connection for all nine tables: the pooler drops long test runs, and a
     // dropped connection is not evidence of anything.
-    const personOwned = [
-      'notification_preferences', 'staff_ui_preferences', 'user_view_preferences',
-      'thread_participants', 'message_reactions', 'service_resource_bookmarks',
-      'service_resource_completions', 'service_resource_views',
-      'message_notification_throttle',
+    // message_notification_throttle keys on sender_id/recipient_id, not user_id.
+    const personOwned: [string, string][] = [
+      ['notification_preferences', 'user_id'], ['staff_ui_preferences', 'user_id'],
+      ['user_view_preferences', 'user_id'], ['thread_participants', 'user_id'],
+      ['message_reactions', 'user_id'], ['service_resource_bookmarks', 'user_id'],
+      ['service_resource_completions', 'user_id'], ['service_resource_views', 'user_id'],
+      ['message_notification_throttle', 'recipient_id'],
     ];
-    const unresolved = (t: string) => `SELECT '${t}: ' || count(DISTINCT x.user_id)::text
-      FROM public.${t} x WHERE x.user_id IS NOT NULL
-        AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.user_id)
-        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.user_id AND o.company_id IS NOT NULL)
-        AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.user_id AND w.company_id IS NOT NULL)`;
+    const unresolved = ([t, col]: [string, string]) => `SELECT '${t}: ' || count(DISTINCT x.${col})::text
+      FROM public.${t} x WHERE x.${col} IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = x.${col})
+        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = x.${col} AND o.company_id IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM public.truck_owners w WHERE w.user_id = x.${col} AND w.company_id IS NOT NULL)`;
     const rows = psql(personOwned.map(unresolved).join(' UNION ALL '));
     expect(rows.sort(), 'a row owner resolving to no company would be refused his next write')
-      .toEqual(personOwned.map(t => `${t}: 0`).sort());
+      .toEqual(personOwned.map(([t]) => `${t}: 0`).sort());
   });
 
   it('the service-role writers into these tables name the company explicitly', () => {
