@@ -21,8 +21,8 @@ import { resolveResourceUrl } from '@/lib/resourceUrl';
 import { Badge } from '@/components/ui/badge';
 import { sanitizeRichHtml } from '@/lib/sanitize';
 import { scrollElementIntoViewWithOffset } from '@/hooks/useScrollIntoViewOnOpen';
-import {
 import { insertPayload } from '@/integrations/supabase/helpers';
+import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
   AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
