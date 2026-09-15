@@ -31,9 +31,22 @@ const itLive = gatedIt({
   details: ['Only this file asserts the tenancy resolver and company_members.'],
 });
 
+/**
+ * The pooler drops roughly one connection per long run with
+ * `(EAUTHQUERY) auth_query secret check timed out`. That is a CONNECTION
+ * failure, never a SQL result, so it is retried; any other failure — including
+ * a real `ERROR:` from Postgres — is rethrown untouched.
+ */
 function psql(sql: string): string[] {
-  return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
-    .split('\n').map(l => l.trim()).filter(Boolean);
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return execFileSync('psql', ['-At', '-c', sql], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+        .split('\n').map(l => l.trim()).filter(Boolean);
+    } catch (e) {
+      const text = String((e as { stderr?: Buffer }).stderr ?? '') + String(e);
+      if (attempt >= 2 || !text.includes('EAUTHQUERY')) throw e;
+    }
+  }
 }
 
 /** The six tables stamped in B2 plus the two singleton carriers from B3. */
