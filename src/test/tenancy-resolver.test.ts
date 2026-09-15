@@ -1,5 +1,6 @@
-import { describe, expect, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { execFileSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { gatedIt, skipBanner } from '@/test/helpers/gate';
 
 /**
@@ -1232,5 +1233,59 @@ describe('role checks are carrier-scoped', () => {
         (SELECT count(*) FROM public.user_roles r JOIN public.operators o
            ON o.user_id = r.user_id WHERE o.company_id <> r.company_id)::text`);
     expect(row).toBe('0 0 0');
+  });
+});
+
+/**
+ * THE MEMBERSHIP GAP (2026-09-15, third pass of the day).
+ *
+ * Once the has_role/is_staff escape named service_role only, a staff role
+ * granted to a user with NO company_members row stopped passing for every
+ * company and started passing for NONE. Every path that mints a staff role
+ * must therefore either write the membership row or refuse.
+ */
+describe('a staff role is never minted without a company membership', () => {
+  itLive('assign_user_role refuses a staff role for a non-member of the caller company', () => {
+    const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'assign_user_role'`).join('\n');
+    expect(code).toContain('public.company_members');
+    expect(code).toMatch(/cm\.company_id\s*=\s*v_company/);
+    // The gate covers exactly the three staff roles; operators resolve their
+    // company through their operator record and hold no membership by design.
+    for (const r of ['management', 'dispatcher', 'onboarding_staff']) {
+      expect(code).toContain(`'${r}'`);
+    }
+  });
+
+  itLive('bootstrap_assign_owner seeds the first owner his membership row', () => {
+    const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.proname = 'bootstrap_assign_owner'`).join('\n');
+    expect(code).toMatch(/INSERT INTO public\.company_members/i);
+    expect(code).toContain("VALUES (p_user_id, v_company)");
+  });
+
+  itLive('every staff role row still has a membership for the same company', () => {
+    const [row] = psql(`SELECT
+        (SELECT count(*) FROM public.user_roles r
+          WHERE r.role IN ('management','owner','dispatcher','onboarding_staff')
+            AND NOT EXISTS (SELECT 1 FROM public.company_members m
+                             WHERE m.user_id = r.user_id AND m.company_id = r.company_id))::text`);
+    expect(row).toBe('0');
+  });
+
+  it('the three role-minting edge functions write company_members', () => {
+    const files = [
+      'supabase/functions/invite-staff/index.ts',
+      'supabase/functions/get-staff-list/index.ts',
+      'supabase/functions/bootstrap-admin/index.ts',
+    ];
+    for (const f of files) {
+      const src = readFileSync(f, 'utf8');
+      expect(src, `${f} must upsert company_members alongside the role`).toContain(
+        "from('company_members').upsert",
+      );
+    }
   });
 });

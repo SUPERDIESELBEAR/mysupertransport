@@ -424,12 +424,29 @@ Deno.serve(async (req) => {
       }
 
       if (action === 'add') {
-        await supabaseAdmin.from('user_roles').upsert(
-          // Service-role write: no auth.uid(), so the company is named from the
-          // requesting management user's membership.
-          { user_id, role, company_id: await companyIdForUser(supabaseAdmin, callerUser.id) },
+        // Service-role write: no auth.uid(), so the company is named from the
+        // requesting management user's membership.
+        const addCompanyId = await companyIdForUser(supabaseAdmin, callerUser.id);
+        // Membership first: a staff role without a company_members row resolves
+        // NULL and works for no company (see 2026-09-15 escape narrowing).
+        const { error: memberErr } = await supabaseAdmin.from('company_members').upsert(
+          { user_id, company_id: addCompanyId },
+          { onConflict: 'user_id,company_id' }
+        );
+        if (memberErr) {
+          return new Response(JSON.stringify({ error: `Could not add them to the company: ${memberErr.message}` }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        const { error: roleErr } = await supabaseAdmin.from('user_roles').upsert(
+          { user_id, role, company_id: addCompanyId },
           { onConflict: 'user_id,role' }
         );
+        if (roleErr) {
+          return new Response(JSON.stringify({ error: `Could not grant the role: ${roleErr.message}` }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       } else if (action === 'remove') {
         await supabaseAdmin
           .from('user_roles')
