@@ -292,14 +292,14 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
           const uniqueUserIds = [...new Set(acks.map(a => a.user_id))];
           await Promise.all(
             uniqueUserIds.map(uid =>
-              supabase.from('notifications').insert({
+              supabase.from('notifications').insert(insertPayload('notifications', {
                 user_id: uid,
                 title: `${doc.title} has been updated`,
                 body: 'Please review and re-acknowledge this document in the Document Hub.',
                 type: 'document_updated',
                 channel: 'in_app',
                 link: '/operator?tab=docs-hub',
-              })
+              }))
             )
           );
           supabase.functions.invoke('notify-document-update', {
@@ -332,14 +332,14 @@ export default function DocumentEditorModal({ open, onClose, doc, onSaved }: Doc
         if (operators && operators.length > 0) {
           await Promise.all(
             operators.map(op =>
-              supabase.from('notifications').insert({
+              supabase.from('notifications').insert(insertPayload('notifications', {
                 user_id: op.user_id,
                 title: `New document available: ${form.title}`,
                 body: 'A new document has been added to the Document Hub. Tap to view.',
                 type: 'document_published',
                 channel: 'in_app',
                 link: '/operator?tab=docs-hub',
-              })
+              }))
             )
           );
           supabase.functions.invoke('notify-document-update', {

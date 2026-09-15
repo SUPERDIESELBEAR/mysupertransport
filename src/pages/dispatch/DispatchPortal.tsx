@@ -1129,12 +1129,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       supabase
         .from('dispatch_daily_log')
         .upsert(
-          {
+          insertPayload('dispatch_daily_log', {
             operator_id: row.operator_id,
             log_date: todayStr,
             status: bulkStatus,
             created_by: session?.user?.id ?? null,
-          },
+          }),
           { onConflict: 'operator_id,log_date' }
         )
     ));
@@ -1230,12 +1230,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       void supabase
         .from('dispatch_daily_log')
         .upsert(
-          {
+          insertPayload('dispatch_daily_log', {
             operator_id: row.operator_id,
             log_date: todayStr,
             status: newStatus,
             created_by: session?.user?.id ?? null,
-          },
+          }),
           { onConflict: 'operator_id,log_date' }
         );
       toast({ title: 'Dispatch updated', description: `${row.first_name} ${row.last_name} status saved.` });

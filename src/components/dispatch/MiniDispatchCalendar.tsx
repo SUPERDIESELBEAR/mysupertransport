@@ -142,12 +142,12 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     } else {
       ({ error } = await supabase
         .from('dispatch_daily_log')
-        .insert({
+        .insert(insertPayload('dispatch_daily_log', {
           operator_id: operatorId,
           log_date: dateStr,
           status,
           created_by: session?.user?.id ?? null,
-        }));
+        })));
     }
 
     setSaving(false);
