@@ -139,6 +139,10 @@ Deno.serve(async (req) => {
         {
           operator_id,
           user_id: ownerUserId,
+          // Service-role insert: the stamp trigger refuses unless the row names
+          // its company.
+          company_id: inviteCompanyId,
+
           legal_first_name,
           legal_last_name,
           business_name: business_name ?? null,
