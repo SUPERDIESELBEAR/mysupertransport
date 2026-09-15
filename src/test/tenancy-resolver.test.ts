@@ -1436,7 +1436,7 @@ describe('B6 group 3 — the driver-written remainder is scoped to a carrier', (
     const rows = psql(`
       WITH t(name) AS (VALUES ${ALL.map(t => `('${t}')`).join(',')})
       SELECT t.name || ' ' || c.is_nullable || ' ' || coalesce(c.column_default, 'none')
-             || ' ' || coalesce(k.confdeltype, '?')
+             || ' ' || coalesce(k.confdeltype::text, '?')
         FROM t
         JOIN information_schema.columns c ON c.table_schema = 'public'
           AND c.table_name = t.name AND c.column_name = 'company_id'
