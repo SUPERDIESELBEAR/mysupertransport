@@ -63,8 +63,8 @@ export default function EmailNotificationSettings({ staff }: Props) {
     setDefaults(prev => ({ ...prev, [key]: next }));
     const { error } = await supabase
       .from('notification_role_defaults')
-      .upsert({ role, category, email_enabled: next, updated_at: new Date().toISOString() },
-        { onConflict: 'role,category' });
+      .upsert(insertPayload('notification_role_defaults', { role, category, email_enabled: next, updated_at: new Date().toISOString() }),
+        { onConflict: 'company_id,role,category' });
     setSaving(null);
     if (error) {
       setDefaults(prev => ({ ...prev, [key]: !next }));
