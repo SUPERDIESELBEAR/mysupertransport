@@ -1206,6 +1206,22 @@ describe('role checks are carrier-scoped', () => {
       expect(code).toMatch(/SECURITY DEFINER/i);
       expect(code).toMatch(/search_path TO 'public'/i);
     });
+
+    /**
+     * 2026-09-15 (later). The escape used to be
+     * `current_company_id() IS NULL OR ...`, which fired WHENEVER THE LOOKUP
+     * FAILED — including for a signed-in user holding a role row but no
+     * company_members and no operators row, whose role then passed for EVERY
+     * company. It now names its case: service_role, the same distinction
+     * stamp_tenant_company_id draws. Regressing to the NULL form must fail.
+     */
+    itLive(`${fn}'s escape names service_role and not a failed lookup`, () => {
+      const code = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+        JOIN pg_namespace n ON n.oid = p.pronamespace
+        WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
+      expect(code).toContain("auth.role() = 'service_role'");
+      expect(code).not.toMatch(/current_company_id\(\)\s+IS\s+NULL/i);
+    });
   }
 
   itLive('no role row is company-less, and none disagrees with its holder', () => {
