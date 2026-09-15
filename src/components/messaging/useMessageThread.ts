@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import type { RealtimeChannel } from '@supabase/supabase-js';
@@ -286,7 +287,7 @@ export function useMessageThread({
       attachment_size_bytes = f.size;
     }
 
-    const insertPayload = {
+    const messageRow = {
       sender_id: myUserId,
       body: clean,
       reply_to_id: opts.replyToId ?? null,
@@ -299,7 +300,7 @@ export function useMessageThread({
 
     const { data: inserted, error } = await supabase
       .from('messages')
-      .insert(insertPayload)
+      .insert(insertPayload('messages', messageRow))
       .select(MESSAGE_SELECT)
       .single();
 
@@ -384,7 +385,7 @@ export function useMessageThread({
     } else {
       const { data, error } = await supabase
         .from('message_reactions')
-        .insert({ message_id: msg.id, user_id: myUserId, emoji })
+        .insert(insertPayload('message_reactions', { message_id: msg.id, user_id: myUserId, emoji }))
         .select('id, message_id, user_id, emoji, created_at')
         .single();
       if (error || !data) {

@@ -1,4 +1,5 @@
 import { requireStaff, ok, fail, withErrorEnvelope } from '../_shared/email/index.ts'
+import { companyIdForOperator } from '../_shared/tenancy.ts'
 import {
   isDemoScenario,
   onboardingStatusForScenario,
@@ -167,7 +168,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     if (error) return fail(500, `Could not reset onboarding status: ${error.message}`)
   } else {
     const { error } = await admin.from('onboarding_status')
-      .insert({ operator_id: operatorId, ...statusPayload })
+      .insert({ company_id: await companyIdForOperator(admin, operatorId), operator_id: operatorId, ...statusPayload })
     if (error) return fail(500, `Could not create onboarding status: ${error.message}`)
   }
 

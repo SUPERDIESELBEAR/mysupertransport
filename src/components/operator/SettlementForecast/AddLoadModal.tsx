@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -48,13 +49,13 @@ export default function AddLoadModal({ open, onOpenChange, operatorId, payPercen
   const save = async () => {
     if (!canSave) return;
     setSaving(true);
-    const { error } = await supabase.from('forecast_loads').insert({
+    const { error } = await supabase.from('forecast_loads').insert(insertPayload('forecast_loads', {
       operator_id: operatorId,
       delivery_date: deliveryDate,
       delivery_city: city.trim() || null,
       delivery_state: state || null,
       load_rate: rate,
-    });
+    }));
     setSaving(false);
     if (error) {
       toast({ title: 'Could not save load', description: error.message, variant: 'destructive' });

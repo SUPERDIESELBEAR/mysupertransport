@@ -36,6 +36,31 @@ export async function companyIdForUser(admin: AnyClient, userId: string): Promis
 }
 
 /**
+ * The company of ANY signed-in caller, in the same order as the database
+ * resolver `current_company_id()`: membership (staff), then his own operator
+ * row (drivers), then his own truck_owners row (truck owners, read directly).
+ * Throws when none of the three resolves — never falls back to a carrier.
+ *
+ * Use this in service-role functions a DRIVER or TRUCK OWNER can invoke;
+ * `companyIdForUser` is membership-only and is for staff-caller functions.
+ */
+export async function companyIdForAnyUser(admin: AnyClient, userId: string): Promise<string> {
+  for (const table of ['company_members', 'operators', 'truck_owners'] as const) {
+    const { data, error } = await admin
+      .from(table)
+      .select('company_id')
+      .eq('user_id', userId)
+      .limit(1)
+      .maybeSingle();
+    if (error) throw new Error(`Could not resolve company from ${table}: ${error.message}`);
+    if (data?.company_id) return data.company_id as string;
+  }
+  throw new Error(
+    `No company for user ${userId}: no company_members, operators or truck_owners row. Refusing to guess a company.`,
+  );
+}
+
+/**
  * The only company in the database. For bootstrap/test tools invoked with a
  * shared secret and no signed-in caller. Refuses once a second company exists,
  * because at that point the tool must be told which one it means.
@@ -50,4 +75,20 @@ export async function soleCompanyId(admin: AnyClient): Promise<string> {
     );
   }
   return rows[0].id as string;
+}
+
+/**
+ * The company of an existing operator row. For service-role writes into
+ * child tables of a driver (onboarding_status, dispatch rows, documents):
+ * the parent operator is already carrier-scoped and is the authority.
+ */
+export async function companyIdForOperator(admin: AnyClient, operatorId: string): Promise<string> {
+  const { data, error } = await admin
+    .from('operators')
+    .select('company_id')
+    .eq('id', operatorId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not read operator ${operatorId}: ${error.message}`);
+  if (!data?.company_id) throw new Error(`No company for operator ${operatorId}`);
+  return data.company_id as string;
 }

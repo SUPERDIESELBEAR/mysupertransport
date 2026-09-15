@@ -194,9 +194,16 @@ Deno.serve(withErrorEnvelope(async (req) => {
     const nowIso = new Date().toISOString()
     const operatorName = [app?.first_name, app?.last_name].filter(Boolean).join(' ').trim() || null
 
+    // Service-role write: name the company from the operator being assigned.
+    const { data: sheetCo } = await supabase.from('operators')
+      .select('company_id').eq('id', payload.operatorId).maybeSingle()
+    const assignmentCompanyId = sheetCo?.company_id
+    if (!assignmentCompanyId) throw new Error(`No company for operator ${payload.operatorId}`)
+
     const { data: sheet, error: sheetError } = await supabase
       .from('onboard_assignment_sheets')
       .insert({
+        company_id: assignmentCompanyId,
         operator_id: payload.operatorId,
         access_token: accessToken,
         status,
@@ -230,6 +237,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
     }
 
     const sheetItems = payload.items.map(item => ({
+      company_id: assignmentCompanyId,
       sheet_id: sheet.id,
       device_type: item.deviceType,
       equipment_id: NON_INVENTORY_TYPES.has(item.deviceType) ? null : item.equipmentId,
@@ -245,11 +253,6 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
     // Mark equipment as assigned and create assignment records
     const now = new Date().toISOString()
-    // Service-role write: name the company from the operator being assigned.
-    const { data: asgCo } = await supabase.from('operators')
-      .select('company_id').eq('id', payload.operatorId).maybeSingle()
-    const assignmentCompanyId = asgCo?.company_id
-    if (!assignmentCompanyId) throw new Error(`No company for operator ${payload.operatorId}`)
     for (const item of inventoryItems) {
       // Paper backfill: devices the driver already holds keep their existing
       // inventory record — do not duplicate the assignment.

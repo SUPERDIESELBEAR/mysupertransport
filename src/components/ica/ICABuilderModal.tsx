@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useRef, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -335,7 +336,7 @@ export default function ICABuilderModal({
       if (contractId) {
         result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts').insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', payload)).select().single();
       }
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);
@@ -432,7 +433,7 @@ export default function ICABuilderModal({
       if (contractId) {
         result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts').insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', payload)).select().single();
       }
 
       if (result.error) throw result.error;
@@ -550,7 +551,7 @@ export default function ICABuilderModal({
       if (contractId) {
         result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts').insert(payload).select().single();
+        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', payload)).select().single();
       }
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);

@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useState, useMemo } from 'react';
 import { ArrowLeft, Phone, Mail, MessageSquare, Clock, CheckCircle2, Circle,
   BookmarkCheck, Bookmark, AlertTriangle, ExternalLink, ChevronDown, ChevronUp, BookOpen } from 'lucide-react';
@@ -54,9 +55,9 @@ export default function ServiceDetailPage({
           .eq('user_id', user.id);
         onCompletion(resource.id, false);
       } else {
-        await supabase.from('service_resource_completions').insert({
+        await supabase.from('service_resource_completions').insert(insertPayload('service_resource_completions', {
           resource_id: resource.id, user_id: user.id,
-        });
+        }));
         onCompletion(resource.id, true);
       }
     } catch {
@@ -74,9 +75,9 @@ export default function ServiceDetailPage({
           .eq('user_id', user.id);
         onBookmark(resource.id, false);
       } else {
-        await supabase.from('service_resource_bookmarks').insert({
+        await supabase.from('service_resource_bookmarks').insert(insertPayload('service_resource_bookmarks', {
           resource_id: resource.id, user_id: user.id,
-        });
+        }));
         onBookmark(resource.id, true);
       }
     } catch {

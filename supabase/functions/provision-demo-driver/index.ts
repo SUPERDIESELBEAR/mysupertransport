@@ -6,7 +6,7 @@ import {
   type DemoScenario,
 } from '../_shared/demo-scenarios.ts'
 import { createClient } from 'npm:@supabase/supabase-js@2'
-import { companyIdForUser } from '../_shared/tenancy.ts'
+import { companyIdForUser, companyIdForOperator } from '../_shared/tenancy.ts'
 
 // Creates a sandboxed demo driver account (auth user + application + operator +
 // onboarding_status) flagged with is_demo so it stays out of live staff views
@@ -101,6 +101,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
 
   // 5. Onboarding status + dispatch row.
   const { error: obErr } = await admin.from('onboarding_status').insert({
+    company_id: await companyIdForOperator(admin, op.id),
     operator_id: op.id,
     unit_number: unitNumber,
     ...onboardingStatusForScenario(scenario),

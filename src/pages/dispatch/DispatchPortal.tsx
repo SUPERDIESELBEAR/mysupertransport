@@ -492,11 +492,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const sendQuickMessage = async () => {
     if (!quickCompose || !composeBody.trim() || !session?.user?.id) return;
     setComposeSending(true);
-    const { error } = await supabase.from('messages').insert({
+    const { error } = await supabase.from('messages').insert(insertPayload('messages', {
       sender_id: session.user.id,
       recipient_id: quickCompose.operatorUserId,
       body: composeBody.trim(),
-    });
+    }));
     setComposeSending(false);
     if (error) {
       toast({ title: 'Failed to send', description: error.message, variant: 'destructive' });

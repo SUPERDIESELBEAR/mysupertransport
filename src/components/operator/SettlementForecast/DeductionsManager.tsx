@@ -1,3 +1,4 @@
+import { insertPayload } from '@/integrations/supabase/helpers';
 import { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
@@ -136,7 +137,7 @@ export default function DeductionsManager({ open, onOpenChange, operatorId, onSa
       installment_number: i + 1,
       installment_total: count,
     }));
-    const { error } = await supabase.from('forecast_deductions').insert(rows);
+    const { error } = await supabase.from('forecast_deductions').insert(rows.map((r) => insertPayload('forecast_deductions', r)));
     if (error) {
       toast({ title: 'Could not save', description: error.message, variant: 'destructive' });
       return;
@@ -154,12 +155,12 @@ export default function DeductionsManager({ open, onOpenChange, operatorId, onSa
       toast({ title: 'Fill in all fields', variant: 'destructive' });
       return;
     }
-    const { error } = await supabase.from('forecast_deductions').insert({
+    const { error } = await supabase.from('forecast_deductions').insert(insertPayload('forecast_deductions', {
       operator_id: operatorId,
       label: oneoffLabel.trim(),
       payday_date: oneoffPayday,
       amount,
-    });
+    }));
     if (error) {
       toast({ title: 'Could not save', description: error.message, variant: 'destructive' });
       return;
