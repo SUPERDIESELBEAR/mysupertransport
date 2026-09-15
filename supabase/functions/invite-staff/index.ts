@@ -147,6 +147,8 @@ Deno.serve(async (req) => {
       : 'SUPERTRANSPORT Management';
 
     let invitedUserId: string | null = null;
+    let inviteActionLink: string | null = null;
+
 
     if (manualCreate) {
       // ── Manual creation path: create user with password, confirm email immediately ──
