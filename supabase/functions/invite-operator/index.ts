@@ -173,7 +173,8 @@ Deno.serve(async (req) => {
           assigned_onboarding_staff: callerUser.id,
           // Service-role insert: auth.uid() is absent, so the company is named
           // from the caller's membership. The DB trigger refuses otherwise.
-          company_id: await companyIdForUser(supabaseAdmin, callerUser.id),
+          company_id: inviteCompanyId,
+
         })
         .select('id')
         .single();
