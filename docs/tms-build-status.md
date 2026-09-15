@@ -13872,3 +13872,68 @@ LESSON REAFFIRMED (standing rule): the pass report is written after the LAST
 change — client adaptations and the typecheck — not after the migration. Two
 build failures occurred during the client adaptation of this pass and were fixed
 before the report was written.
+
+---
+
+## 2026-09-15 — Truck-owner tenancy decisions (decision record; no code, no migrations)
+
+Report: `docs/passes/2026-09-15-1900-truck-owner-tenancy-decisions.md`. This is
+the decision record the tenancy pass will build from. The fleet-view half is a
+WISH LIST item, not a decision to build — see "Truck-owner fleet view (switcher
+first, summary later)" in `docs/tms-wish-list.md`.
+
+### The problem, as found
+
+The B6 Group 2 pass held back `operator_documents` (1,184 rows) and
+`document_acknowledgments` (365 rows) rather than break them. A user whose only
+role is `truck_owner` (`24ee1b9e-…`) holds neither a `company_members` row nor an
+`operators` row, so `current_company_id()` returns NULL for him — and a NOT NULL
+`company_id` under Shape 1 would have made his next write raise 42501. Four rows
+on `document_acknowledgments` belong to such a user today, and he reaches both
+tables through `OperatorPortal`. The path is real, not theoretical.
+
+CAUGHT BEFORE IT FIRED. Unlike the invite defect of 2026-09-15 (role never
+written after the email went out), this break was found by reading policies and
+code before any write failed. The held-back tables are guarded: a guard fails if
+either gains a `company_id` column before the resolver learns the third source.
+
+### What a truck owner is — established by the owner, 2026-09-15
+
+- may own several trucks leased to the carrier;
+- may drive one himself, in which case he is ALSO an operator;
+- may employ his own drivers for his other trucks, and pays them himself;
+- the settlement goes to the TRUCK OWNER regardless of who drives;
+- FOR THIS APP, a truck owner leases to ONE carrier only. Recorded here as a
+  SIMPLIFYING ASSUMPTION the schema depends on, so anyone later asked to support
+  multi-carrier owners knows it was a choice, not a discovery;
+- a hired driver is an ORDINARY OPERATOR: his own login, documents,
+  inspections, dispatch and loads;
+- a truck owner may briefly have NO drivers — between hires, or a truck idle.
+  Rare, but real;
+- a hired driver ALWAYS KNOWS he drives for a truck owner. No disclosure work is
+  needed. Recorded so a future reader does not treat the visibility as hidden.
+
+### The tenancy decision
+
+`truck_owners` gets its own `company_id`, NOT NULL — the resolver does NOT derive
+the company from the operators he owns.
+
+Reasoning: a truck owner belongs to the carrier BECAUSE HE LEASED IT A TRUCK,
+not because of who happens to be driving this week. Deriving through drivers
+would leave him resolving to nothing during the no-driver gap above — a truck
+owner logging in and unable to see his own truck. This is the same reasoning as
+`operators` carrying its own column rather than resolving through something else.
+
+`current_company_id()` then gains a THIRD source, in order:
+
+1. `company_members` (staff membership),
+2. his own `operators` row (driver),
+3. his `truck_owners` row (truck owner).
+
+Fail closed if none resolve, as today.
+
+This unblocks `operator_documents` and `document_acknowledgments`, which the B6
+Group 2 pass guarded against gaining the column. THE GUARD MUST BE UPDATED IN THE
+SAME PASS THAT ADDS THE COLUMN, or it will fail — the guard is doing its job, and
+removing the block without retiring the guard is a contradiction, not a fix.
+

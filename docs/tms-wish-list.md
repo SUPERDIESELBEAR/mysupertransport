@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-09
+Last updated: 2026-09-15
 
 ---
 
@@ -73,6 +73,35 @@ after the modules are complete rather than retrofitting isolation later.
 
 TRIGGER: after the module build is complete, and before any SaaS prospect is
 given access.
+
+### Truck-owner fleet view — switcher first, summary later
+
+A truck owner should see fuel, loads and anything related to ANY of his trucks.
+Shape decided 2026-09-15: A TRUCK SWITCHER FIRST, a fleet summary later.
+
+- The switcher reuses the existing per-driver screens by changing whose data
+  fills them — cheap, because those screens already exist.
+- A combined DETAIL view (every row labelled with its truck) is a redesign of
+  each screen, not an addition to them.
+- A combined MONEY summary is easy — settlements, fuel spend and loads
+  delivered are sums across his operators.
+
+The order and the reason: build the switcher, and let a month of real use decide
+whether the summary earns its place.
+
+OPEN QUESTION, nobody knows yet: whether owners think per-truck or per-fleet.
+This is the strongest argument for switcher-first — the switcher works under
+either answer.
+
+PREREQUISITE INVESTIGATION, not yet done: 16 policies already use
+`is_truck_owner_for_operator`. Whether they cover fuel and loads — and whether
+they would cover ALL his trucks rather than one — has NOT been established.
+That investigation happens before the switcher is built, not during it.
+
+TRIGGER: after the truck-owner tenancy pass ships (`truck_owners.company_id`,
+the resolver's third source), the `is_truck_owner_for_operator` investigation is
+done, and a truck owner has actually asked to see his second truck's data.
+
 
 ---
 
