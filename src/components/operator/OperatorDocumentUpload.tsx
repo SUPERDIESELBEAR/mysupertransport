@@ -186,12 +186,12 @@ export default function OperatorDocumentUpload({ operatorId, uploadedDocs, onboa
       const { data: urlData } = supabase.storage.from('operator-documents').getPublicUrl(path);
       const fileUrl = signedData?.signedUrl ?? urlData?.publicUrl;
 
-      const { error: insertError } = await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
         operator_id: operatorId,
         document_type: slot.key as any,
         file_name: file.name,
         file_url: fileUrl,
-      });
+      }));
       if (insertError) throw insertError;
 
       // ── Auto-sync to Inspection Binder / Vehicle Hub ──────────────────

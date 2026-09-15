@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { withTimeout } from '@/lib/withTimeout';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 type StageStatus = 'not_started' | 'in_progress' | 'complete' | 'action_required';
 
@@ -447,12 +448,12 @@ export default function OperatorStatusPage({
         console.error('[OperatorStatusPage] upload failed', { authUid, sessionExpired, message: uploadError.message });
         throw uploadError;
       }
-      const { error: insertError } = await supabase.from('operator_documents').insert({
+      const { error: insertError } = await supabase.from('operator_documents').insert(insertPayload('operator_documents', {
         operator_id: operatorId,
         document_type: 'pe_receipt' as never,
         file_name: file.name,
         file_url: path,
-      });
+      }));
       if (insertError) {
         await supabase.storage.from('operator-documents').remove([path]).catch(() => {});
         throw insertError;

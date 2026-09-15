@@ -9,6 +9,7 @@ import { useToast } from '@/hooks/use-toast';
 import { FilePreviewModal } from '@/components/inspection/DocRow';
 import { sanitizeRichHtml } from '@/lib/sanitize';
 import { resolveResourceUrl } from '@/lib/resourceUrl';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 interface DocumentViewerProps {
   doc: DriverDocument;
@@ -79,11 +80,11 @@ export default function DocumentViewer({ doc, userId, acknowledgment, autoOpenPd
 
   const handleAcknowledge = async () => {
     setAcknowledging(true);
-    const { error } = await supabase.from('document_acknowledgments').insert({
+    const { error } = await supabase.from('document_acknowledgments').insert(insertPayload('document_acknowledgments', {
       document_id: doc.id,
       user_id: userId,
       document_version: doc.version,
-    });
+    }));
     setAcknowledging(false);
 
     if (error) {

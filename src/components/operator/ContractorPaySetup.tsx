@@ -16,6 +16,7 @@ import { formatPhoneDisplay, formatPhoneInput } from '@/lib/utils';
 import { sanitizeRichHtml } from '@/lib/sanitize';
 import { withTimeout } from '@/lib/withTimeout';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { insertPayload } from '@/integrations/supabase/helpers';
 
 // ── Company payroll reference documents ──────────────────────────────────────
 const COMPANY_DOCS = [
@@ -211,12 +212,12 @@ export default function ContractorPaySetup({ operatorId, onSubmitted }: Contract
           .eq('document_id', doc.id);
         const { error } = await supabase
           .from('document_acknowledgments')
-          .insert({
+          .insert(insertPayload('document_acknowledgments', {
             user_id: user.id,
             document_id: doc.id,
             document_version: doc.version,
             acknowledged_at: new Date().toISOString(),
-          });
+          }));
         if (error) throw error;
         setHubAcks(prev => ({ ...prev, [doc.id]: doc.version }));
       }
