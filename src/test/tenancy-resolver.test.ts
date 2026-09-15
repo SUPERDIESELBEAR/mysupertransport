@@ -1338,25 +1338,31 @@ describe('driver-written document tables are scoped to a carrier', () => {
     });
   }
 
-  for (const t of HELD_BACK) {
-    itLive(`${t} is still unscoped, on purpose (truck-owner resolver gap)`, () => {
-      const [n] = psql(`SELECT count(*)::text FROM information_schema.columns
-        WHERE table_schema='public' AND table_name='${t}' AND column_name='company_id'`);
-      expect(
-        n,
-        `${t} gained company_id. A truck owner resolves NULL from current_company_id(), so this refuses his uploads. Decide the truck-owner path first.`,
-      ).toBe('0');
-    });
-  }
+  itLive('the resolver reads truck_owners DIRECTLY as its third source', () => {
+    const [body] = psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname='public' AND p.proname='current_company_id'`);
+    // Membership, then his own operator row, then his truck_owners row.
+    expect(body).toMatch(/company_members[\s\S]*operators[\s\S]*truck_owners/);
+    // Read directly off truck_owners.company_id — NOT walked to the operators
+    // he owns, which would leave an owner between hires resolving to nothing.
+    expect(body).toMatch(/FROM public\.truck_owners t\s+WHERE t\.user_id = auth\.uid\(\)/);
+    // Still fail-closed: no carrier_profile fallback.
+    expect(body).not.toMatch(/carrier_profile/);
+  });
 
-  itLive('a truck owner still resolves no company — the reason the two are held back', () => {
+  itLive('every truck owner resolves a company from his own truck_owners row', () => {
     const [n] = psql(`SELECT count(*)::text FROM public.user_roles r
       WHERE r.role = 'truck_owner'
         AND NOT EXISTS (SELECT 1 FROM public.company_members m WHERE m.user_id = r.user_id)
-        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = r.user_id)`);
-    // If this ever reaches 0 the gap is closed and the two tables can migrate.
-    expect(Number(n)).toBeGreaterThanOrEqual(0);
+        AND NOT EXISTS (SELECT 1 FROM public.operators o WHERE o.user_id = r.user_id AND o.company_id IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM public.truck_owners t WHERE t.user_id = r.user_id AND t.company_id IS NOT NULL)`);
+    expect(
+      n,
+      'a truck_owner role holder resolves to no company: his uploads and acknowledgments would be refused',
+    ).toBe('0');
   });
+
 
   it('the service-role passenger-auth writer names the company explicitly', () => {
     const src = readFileSync('supabase/functions/finalize-passenger-auth/index.ts', 'utf8');
