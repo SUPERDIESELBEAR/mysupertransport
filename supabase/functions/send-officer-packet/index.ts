@@ -313,12 +313,24 @@ async function handler(req: Request): Promise<Response> {
   if (body.link_mode) {
     shareToken = crypto.randomUUID();
     linkExpiresIso = new Date(Date.now() + LINK_TTL_HOURS * 3600_000).toISOString();
+    // TENANCY: share_tokens and officer_packet_links are PER-COMPANY since
+    // 2026-09-15. This runs as service role (and the caller may be a
+    // service-role token with no user at all), so the company comes from the
+    // packet's own driver — the operator row is already carrier-scoped.
+    let packetCompanyId: string;
+    try {
+      packetCompanyId = await companyIdForOperator(supabase, body.operator_id);
+    } catch (e) {
+      return fail(500, 'Could not create the download link',
+        e instanceof Error ? e.message : String(e));
+    }
     const { error: tokenError } = await supabase.from('share_tokens').insert({
       token: shareToken,
       scope: 'officer_packet',
       resource_id: body.entry_id,
       expires_at: linkExpiresIso,
       created_by: auth.actorId,
+      company_id: packetCompanyId,
     });
     if (tokenError) return fail(500, 'Could not create the download link', tokenError.message);
     const { error: linkError } = await supabase.from('officer_packet_links').insert({
@@ -326,6 +338,7 @@ async function handler(req: Request): Promise<Response> {
       operator_id: body.operator_id,
       storage_path: body.storage_path,
       bucket: PACKET_BUCKET,
+      company_id: packetCompanyId,
     });
     if (linkError) return fail(500, 'Could not create the download link', linkError.message);
     link = `${Deno.env.get('SUPABASE_URL')}/functions/v1/officer-packet-download?t=${shareToken}`;

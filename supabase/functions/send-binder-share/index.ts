@@ -8,6 +8,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { requireAuthedUser, ok, fail, withErrorEnvelope, sendResendDirect, buildAppUrl } from '../_shared/email/index.ts';
 import { binderShareHtml, binderShareText, binderShareSubject, type BinderShareDoc } from '../_shared/binder-share-email.ts';
 import { canShareBinderDocument } from '../_shared/binder-share-auth.ts';
+import { companyIdForAnyUser } from '../_shared/tenancy.ts';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MAX_DOCS = 30;

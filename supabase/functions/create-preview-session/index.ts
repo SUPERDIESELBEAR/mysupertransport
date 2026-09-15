@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,11 +98,23 @@ Deno.serve(async (req) => {
     const codeHash = await sha256(code);
     const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
 
+    // TENANCY: preview_sessions is PER-COMPANY since 2026-09-15. Service-role
+    // insert, so the row must name its company; the management/owner caller's
+    // company_members row is the source and there is no fallback.
+    let companyId: string;
+    try {
+      companyId = await companyIdForUser(supabaseAdmin, callerId);
+    } catch (e) {
+      console.error('create-preview-session tenancy:', e);
+      return json({ error: 'No company membership found for your account, so a preview session cannot be created.' }, 403);
+    }
+
     const { error: insertErr } = await supabaseAdmin.from('preview_sessions').insert({
       code_hash: codeHash,
       target_user_id: targetUserId,
       created_by: callerId,
       expires_at: expiresAt,
+      company_id: companyId,
     });
     if (insertErr) {
       console.error('preview_sessions insert failed:', insertErr.message);
