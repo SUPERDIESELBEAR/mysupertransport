@@ -85,6 +85,9 @@ describe('dispatch settlement — tables and columns', () => {
     const expected = [
       'approved_at:timestamp with time zone:YES',
       'approved_by:uuid:YES',
+      // B5 part two (2026-09-15) added company_id NOT NULL to every dispatch
+      // settlement table. It is tenancy, not money: no amount column changed.
+      'company_id:uuid:NO',
       'computed_at:timestamp with time zone:YES',
       'created_at:timestamp with time zone:NO',
       'created_by:uuid:YES',
@@ -115,7 +118,8 @@ describe('dispatch settlement — tables and columns', () => {
     const cols = psql(`SELECT column_name FROM information_schema.columns
       WHERE table_schema='public' AND table_name='dispatch_settlement_line_items' ORDER BY 1`);
     expect(cols).toEqual([
-      'amount', 'created_at', 'created_by', 'deduction_id', 'description',
+      // company_id: B5 part two (2026-09-15), tenancy only.
+      'amount', 'company_id', 'created_at', 'created_by', 'deduction_id', 'description',
       'dispatch_settlement_id', 'dispatcher_id', 'id', 'line_type', 'load_id',
     ]);
   });
@@ -147,7 +151,11 @@ describe('dispatch settlement — constraints', () => {
       'dispatch_settlements_period_month_first_check',
       'dispatch_settlements_payee_key_check',
       'dispatch_settlements_void_reason_check',
-      'dispatch_settlements_payee_period_key',
+      // B5 part two (2026-09-15) re-scoped this key per company: the table
+      // constraint dispatch_settlements_payee_period_key was replaced by the
+      // unique index dispatch_settlements_company_payee_period_uniq, asserted
+      // in its own test below. One payee, one month, PER COMPANY — unchanged
+      // in meaning for a single carrier.
       'dispatch_settlement_line_items_line_type_check',
       'dispatch_settlement_line_items_one_off_load_check',
       'dispatch_settlement_line_items_load_base_load_check',
