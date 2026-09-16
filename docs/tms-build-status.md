@@ -14317,3 +14317,68 @@ leaves the MAJORITY of rows unplaceable — a shape assertion, not a census.
 Giving `applications` and `pei_requests` a company. That is a REVERSAL of the
 GLOBAL declaration and its own pass — not an audit-log task. Recorded here with
 NO trigger: it is a consequence to know about, not work to schedule.
+
+## 2026-09-15 — B8, the token and share tables (the last batch)
+
+Report: `docs/passes/2026-09-15-2359-b8-token-share.md`.
+
+Seven tables took SHAPE 1 (`company_id` NOT NULL, no default, RESTRICT FK,
+`company_id` index, `aa_stamp_tenant_company_id` trigger). Measured before the
+migration: `share_tokens` 693, `share_token_access_log` 157,
+`document_short_links` 25, `binder_share_bundles` 8, `ica_review_links` 2,
+`officer_packet_links` 0, `preview_sessions` 119, `passenger_authorizations` 8 —
+**1,012 rows in the batch, not the 1,004 the re-cut recorded.**
+
+Three owner decisions settled the two contradictions the pass stopped on:
+
+1. **`document_short_links` is SHAPE 1.** THE RECORD WAS WRONG to call
+   `get_or_create_short_link` an anonymous writer: it raises
+   `authentication required` before writing and stamps `created_by` from the
+   caller. Corrected here.
+2. **`share_token_access_log` STAYS GLOBAL**, alongside `audit_log` and
+   `email_send_log`. A CROSS-CARRIER ABUSE LOG IS NOT TENANT DATA — its most
+   important rows are the ones with no tenant. Its 8 `not_found` rows have no
+   parent and never did; refusing on an unresolvable parent would delete that
+   class of row, and a nullable column would conflate "unknown token" with
+   "writer forgot" — the exact conflation the `audit_log` decision rejected.
+3. **THE THIRD STAMPING SHAPE NOW COVERS ZERO TABLES.** It was invented for a
+   case that turned out not to exist. Saying so is worth more than leaving it
+   defined.
+
+`share_tokens` also gained a company-scoped SELECT and UPDATE policy: both prior
+policies were ROLE TESTS ONLY, so a second carrier's dispatcher would have
+listed this carrier's share links including `resource_id`, which names its
+inspection documents. The anonymous path is unaffected and this was CONFIRMED,
+not assumed: `resolve_share_token` is definer, pinned to `public, extensions`,
+looks up by token, and contains no `current_company_id`. A real unauthenticated
+resolve of live token `c8119ab9` returned the document and logged `ok` in the
+global access log; `/inspect/<token>` rendered the viewer signed-out.
+
+Token, code and code-hash unique indexes stay GLOBAL and were deliberately NOT
+rescoped: every one is probed before any tenant is known.
+
+NOTED, not blocking: 4 of 693 `share_tokens` rows point at an
+`inspection_documents` row that no longer exists. Shape 1 derives the company
+from the staff creator, not the resource, so they backfilled.
+
+Five service-role writers now name the company explicitly, because service role
+carries no `auth.uid()` and the stamp trigger fails closed:
+`send-officer-packet` (`companyIdForOperator` — the packet's own driver, since
+the caller may be a service token with no user at all), `send-binder-share`
+(`companyIdForAnyUser`; an unresolvable company skips the OPTIONAL bundle link
+and the per-document links still send, matching the prior failed-insert
+behaviour), `send-ica-review-link` and `create-preview-session`
+(`companyIdForUser`, 403 when the staff caller has no membership),
+`send-passenger-auth` (the membership it already queried).
+
+REMAINING TENANCY SCOPE, measured after this pass: **48 public tables and 9,630
+rows still lack `company_id`** — 18 declared GLOBAL (including the three logs
+above and `carrier_profile` itself, which IS the company), `applications` (339)
+and its eight dependents plus the PEI tables that hang off it, `profiles` (170,
+GLOBAL by decision), and the settings/content tables already sorted. No batch
+remains that is merely unstarted: what is left is either declared GLOBAL or
+waits on the `applications` decision.
+
+VERIFICATION BOUNDARY: one carrier exists, so cross-carrier invisibility of the
+new `share_tokens` policy is STILL UNPROVEN. What is proven is the policy text,
+the fail-closed stamp, and the anonymous path.
