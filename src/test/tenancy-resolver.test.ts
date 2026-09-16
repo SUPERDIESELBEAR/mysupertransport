@@ -255,8 +255,11 @@ describe('current_company_id — the four protections', () => {
     // Both non-membership branches are keyed on the caller, not open.
     expect(code).toMatch(/operators\s+o\s+WHERE\s+o\.user_id\s*=\s*auth\.uid\(\)/i);
     expect(code).toMatch(/truck_owners\s+t\s+WHERE\s+t\.user_id\s*=\s*auth\.uid\(\)/i);
-    // No third fallback smuggled into the COALESCE.
-    expect((code.match(/coalesce/gi) ?? []).length).toBe(1);
+    // 2026-09-16, owner decision C: the COALESCE preference chain is GONE. The
+    // three sources are read together and an ambiguous caller resolves to NULL,
+    // so there is no chain into which a fourth fallback could be smuggled. This
+    // assertion replaces "exactly one COALESCE"; see the ambiguity guard below.
+    expect((code.match(/coalesce/gi) ?? []).length).toBe(0);
   });
 
   itLive('MEMBERSHIP FIRST — the membership branch precedes the operator branch', () => {
@@ -2151,6 +2154,84 @@ describe('restrictive tenant policy — exact shape, or declared pending', () =>
     }])).toEqual([
       `facilities: qual ${literal}`,
       `facilities: with_check ${literal}`,
+    ]);
+  });
+});
+
+/**
+ * OWNER DECISION C, 2026-09-16 — AN AMBIGUOUS COMPANY RESOLVES TO NOTHING.
+ *
+ * A person matching more than one distinct company across `company_members`,
+ * `operators` and `truck_owners` resolves to NULL, not to whichever row a
+ * `LIMIT 1` happened to return. Options rejected: one company per person
+ * enforced by constraint (too rigid), and pick-by-rule such as newest (silently
+ * shows the wrong carrier while both links are live).
+ *
+ * WHY THIS GUARD READS THE BODY INSTEAD OF BEHAVING.
+ * The sandbox psql role cannot execute `public.current_company_id()` at all —
+ * `ERROR: permission denied for function current_company_id` — and cannot
+ * insert the scratch `carrier_profile` / `company_members` rows an ambiguity
+ * needs. The behavioural proof was therefore run through the migration channel
+ * (a DO block that stages the ambiguity and then RAISEs, so nothing persists);
+ * its verbatim output is in `docs/passes/2026-09-16-2215-ambiguous-company-refused.md`.
+ * What CAN be asserted from here is the live body, which is what this does.
+ */
+function ambiguityProblems(def: string): string[] {
+  const code = def.replace(/--[^\n]*/g, '');
+  const problems: string[] = [];
+  if (/\bLIMIT\b/i.test(code)) problems.push('resolver body contains a LIMIT — it picks a row instead of refusing');
+  if (/\bcoalesce\b/i.test(code)) problems.push('resolver body contains COALESCE — a preference chain returns the first source, not a refusal');
+  if (!/count\(\*\)\s*=\s*1/i.test(code)) problems.push('resolver body does not require exactly one distinct company');
+  if (!/\bUNION\b/i.test(code)) problems.push('resolver body does not read the three sources together');
+  return problems;
+}
+
+describe('an ambiguous company resolves to NOTHING (owner decision C)', () => {
+  itLive('the live resolver picks no row and requires exactly one company', () => {
+    expect(ambiguityProblems(resolverDef())).toEqual([]);
+  });
+
+  itLive('the live resolver still reads exactly the three sources', () => {
+    const code = resolverDef().replace(/--[^\n]*/g, '');
+    const sources = (code.match(/FROM\s+public\.(\w+)/gi) ?? [])
+      .map(s => s.split('.')[1].toLowerCase()).sort();
+    expect(sources).toEqual(['company_members', 'operators', 'truck_owners']);
+  });
+
+  itLive('no OTHER database resolver derives a company from a user with a LIMIT', () => {
+    // stamp_company_from_recipient and stamp_eld_malfunction_notification_company_id
+    // derive from NEW.user_id / NEW.recipient_user_id and were changed in the same
+    // pass. stamp_inspection_document_company_id uses a bare scalar subquery,
+    // which raises 21000 on two rows, so it is included and must stay LIMIT-free.
+    const offenders = psql(`SELECT p.proname
+      FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+      WHERE n.nspname = 'public' AND p.prokind = 'f'
+        AND p.proname IN ('stamp_company_from_recipient',
+                          'stamp_eld_malfunction_notification_company_id',
+                          'stamp_inspection_document_company_id')
+        AND regexp_replace(pg_get_functiondef(p.oid), '--[^\n]*', '', 'g') ~* '\\mlimit\\M'
+      ORDER BY 1`);
+    expect(offenders).toEqual([]);
+  });
+
+  /**
+   * FIXTURE, disclosed as such: the resolver body as it stood BEFORE this pass,
+   * copied from `pg_get_functiondef` output on 2026-09-16. It is the honest way
+   * to demonstrate the check catches the defect — the sandbox role cannot
+   * CREATE OR REPLACE a function, so the old body cannot be staged live.
+   */
+  it('FIXTURE — the pre-decision body is flagged', () => {
+    const old = `
+      SELECT COALESCE(
+        (SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid() LIMIT 1),
+        (SELECT o.company_id FROM public.operators o WHERE o.user_id = auth.uid() LIMIT 1),
+        (SELECT t.company_id FROM public.truck_owners t WHERE t.user_id = auth.uid() LIMIT 1)
+      )`;
+    expect(ambiguityProblems(old)).toEqual([
+      'resolver body contains a LIMIT — it picks a row instead of refusing',
+      'resolver body contains COALESCE — a preference chain returns the first source, not a refusal',
+      'resolver body does not require exactly one distinct company',
+      'resolver body does not read the three sources together',
     ]);
   });
 });
