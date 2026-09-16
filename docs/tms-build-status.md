@@ -15082,15 +15082,16 @@ are all ROLE-ONLY or SERVICE (no OWNERSHIP, no COMPANY, no OTHER), minus
 realtime tables, financial tables, `user_roles`/`company_members`, token
 tables and the two policy-less tables: **45 candidates** (21 with rows, 24
 empty). Taking rows first, capped at 25: the 21 nonempty candidates plus 4
-empty broker tables. Remainder for batch 2: **20 empty candidates**, among them
+empty broker tables. Remainder for batch 2: **20 empty candidates**:
 `broker_notes`, `cash_advances`, `company_documents`, `detention_claims`,
-`document_send_log`, `eld_devices`, `eld_extension_requests`,
-`eld_malfunction_notifications`, `eld_sync_alerts`, `pay_policy_assignments`,
-`rm_deposits`, `rm_deposit_transactions`, `roadside_stop_documents`,
-`roadside_stop_violations`, `settlement_settings_history`,
-`staff_email_overrides`, `truck_plate_history`, `vacant_units`,
-`dispatch_settlement_rates_history`, `broker_do_not_load_history` (the last
-already taken into batch 1 as an empty filler — see the report's exact list).
+`dispatch_settlement_rates_history`, `document_send_log`, `eld_devices`,
+`eld_extension_requests`, `eld_malfunction_notifications`, `eld_sync_alerts`,
+`pay_policy_assignments`, `rm_deposits`, `rm_deposit_transactions`,
+`roadside_stop_documents`, `roadside_stop_violations`,
+`settlement_settings_history`, `staff_email_overrides`, `truck_plate_history`,
+`vacant_units`, and one more listed in the report. The 4 empty tables taken
+into batch 1 as fillers were `broker_contacts`, `broker_do_not_load_history`,
+`broker_documents`, `broker_factoring_history`.
 
 ### (b) Counts — unchanged
 
