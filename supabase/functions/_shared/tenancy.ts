@@ -64,28 +64,35 @@ export async function companyIdForUser(admin: AnyClient, userId: string): Promis
 }
 
 /**
- * The company of ANY signed-in caller, in the same order as the database
- * resolver `current_company_id()`: membership (staff), then his own operator
- * row (drivers), then his own truck_owners row (truck owners, read directly).
- * Throws when none of the three resolves — never falls back to a carrier.
+ * The company of ANY signed-in caller, from the same three sources as the
+ * database resolver `current_company_id()`: membership (staff), his own operator
+ * row (drivers), his own truck_owners row (truck owners, read directly).
+ *
+ * All three are read and combined — NOT tried in preference order, and never
+ * short-circuited on the first hit — so two distinct companies are seen and
+ * refused rather than resolved by whichever source happened to be read first.
+ * Throws when none resolves; never falls back to a carrier.
  *
  * Use this in service-role functions a DRIVER or TRUCK OWNER can invoke;
  * `companyIdForUser` is membership-only and is for staff-caller functions.
  */
 export async function companyIdForAnyUser(admin: AnyClient, userId: string): Promise<string> {
+  const found = new Set<string>();
   for (const table of ['company_members', 'operators', 'truck_owners'] as const) {
-    const { data, error } = await admin
-      .from(table)
-      .select('company_id')
-      .eq('user_id', userId)
-      .limit(1)
-      .maybeSingle();
-    if (error) throw new Error(`Could not resolve company from ${table}: ${error.message}`);
-    if (data?.company_id) return data.company_id as string;
+    for (const id of await distinctCompanies(admin, table, userId)) found.add(id);
   }
-  throw new Error(
-    `No company for user ${userId}: no company_members, operators or truck_owners row. Refusing to guess a company.`,
-  );
+  const companies = [...found];
+  if (companies.length > 1) {
+    throw new Error(
+      `User ${userId} belongs to more than one company (${companies.join(', ')}) across company_members, operators and truck_owners. Refusing to choose one.`,
+    );
+  }
+  if (companies.length === 0) {
+    throw new Error(
+      `No company for user ${userId}: no company_members, operators or truck_owners row. Refusing to guess a company.`,
+    );
+  }
+  return companies[0];
 }
 
 /**
