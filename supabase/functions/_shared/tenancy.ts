@@ -41,10 +41,9 @@ async function distinctCompanies(
 ): Promise<string[]> {
   const { data, error } = await admin.from(table).select('company_id').eq('user_id', userId);
   if (error) throw new Error(`Could not resolve company from ${table}: ${error.message}`);
-  const ids = (data ?? [])
-    .map((r: { company_id: string | null }) => r.company_id)
-    .filter((id: string | null): id is string => !!id);
-  return [...new Set(ids)];
+  const rows = (data ?? []) as { company_id: string | null }[];
+  const ids: string[] = rows.map((r) => r.company_id).filter((id): id is string => !!id);
+  return [...new Set<string>(ids)];
 }
 
 /** The company the staff caller belongs to. Throws when none, and when two. */
