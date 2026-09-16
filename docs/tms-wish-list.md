@@ -27,7 +27,9 @@ closed, and the removing pass says so.
 
 ### DECIDED, NOT BUILT
 
-- Restrictive-policy ROLLOUT: 143 company-bearing tables still pending, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- Restrictive-policy ROLLOUT: BATCH 1 (25 staff-only tables) done 2026-09-16 2300 UTC — 29 tables done, **118 company-bearing tables still pending**, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- A driver or truck owner cannot be linked to two carriers with one login (`operators_user_id_key` and `truck_owners_user_id_key` are unique system-wide). Design needed before a driver moves between SUPERDRIVE carriers: how he moves without taking his history with him. (record 2026-09-16 2226 UTC — ambiguity entry)
+- VERIFICATION GAP: `companyIdForUser` (edge) reads staff membership only; `current_company_id()` reads all three sources. A staff member who is also a driver or truck owner at another carrier gets empty screens while staff edge functions still act for his staff company. (record 2026-09-16 2300 UTC — "restrictive tenant policy, batch 1")
 - Next tenancy batch: the 12 per-carrier tables (owner decision 2026-09-16) — needs read enforcement as well as the column. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (a) and (d))
 - `driver_documents` joins DEFERRED content (nine tables now); `eld_cron_runs` stays GLOBAL. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (a))
 
@@ -44,7 +46,7 @@ closed, and the removing pass says so.
 
 ### OWNER DECISIONS OWED
 
-- ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 143 tables is under DECIDED, NOT BUILT.
+- ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 118 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
 - Nine content tables: SUPERDRIVE default vs carrier version. (record 2026-09-16 — "the unassigned tables…", section (c), content-tables bullet; "the owner's disposition decision…", section (a), DEFERRED content now nine)
