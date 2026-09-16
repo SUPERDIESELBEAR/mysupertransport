@@ -8,7 +8,51 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-15
+Last updated: 2026-09-16
+
+---
+
+## OWNER FOLLOW-UP LIST — before and during the second-carrier demo
+
+Kept at the owner's request (2026-09-16). One line per item, each pointing to the
+record entry that explains it. Items are removed only when the record shows them
+closed, and the removing pass says so.
+
+### RECENTLY CLOSED
+
+- Read-enforcement census ran: 148 tables have `company_id`, 12 test it on reads, 123 are readable by role alone, zero restrictive policies. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (c))
+- Disposition guard: all three failure branches demonstrated. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record" for the missing-list branch; "the owner's disposition decision, and the live read-enforcement census", section (e), for the duplicate-list and stale-entry branches)
+
+### DECIDED, NOT BUILT
+
+- Next tenancy batch: the 12 per-carrier tables (owner decision 2026-09-16) — needs read enforcement as well as the column. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (a) and (d))
+- `driver_documents` joins DEFERRED content (nine tables now); `eld_cron_runs` stays GLOBAL. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (a))
+
+### PREREQUISITES BEFORE A SECOND `carrier_profile` ROW
+
+- Cross-carrier read enforcement on the 123 tables readable by role alone. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (c) and (d))
+- `carrier_profile` INSERT/UPDATE/DELETE are role-only: another carrier's management could edit or delete SUPERTRANSPORT's profile. (same entry, section (c), "two further defects")
+- `generate-application-pdf`, `send-officer-packet`, `process-eld-escalations` read an arbitrary carrier. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (b), items 1–3)
+- `receive-rate-con-email` stops for SUPERTRANSPORT (`soleCompanyId`). (same entry, section (b), item 4)
+- No path creates carrier #2 with an owner and a membership. (same entry, section (b), item 5)
+
+### OWNER DECISIONS OWED
+
+- How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (d))
+- `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
+- `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
+- Nine content tables: SUPERDRIVE default vs carrier version. (record 2026-09-16 — "the unassigned tables…", section (c), content-tables bullet; "the owner's disposition decision…", section (a), DEFERRED content now nine)
+- `profiles`: staff of any carrier see every person's name. (record 2026-09-16 — "the unassigned tables…", section (c), `profiles` bullet)
+- `inspection_program_settings` read policy is `USING true`: any signed-in user of any carrier. (record 2026-09-16 — "the owner's disposition decision…", section (c), "two further defects")
+- `eld_cron_runs` read policy exposes cross-carrier job data (revisit with the `process-eld-escalations` fix). (record 2026-09-16 — "the owner's disposition decision…", section (a), "Noted for later")
+
+### VERIFICATION GAPS
+
+- Cross-carrier visibility never demonstrated with a real session. (record 2026-09-16 — "the owner's disposition decision…", section (e); "the unassigned tables…", section (f))
+- Deployed edge functions not confirmed to match the repo. (pass report `docs/passes/2026-09-16-1100-second-carrier-readiness.md`, "Deployed-vs-repo parity is NOT confirmed"; cited from the record entry's section (b))
+- Full tenancy-resolver run ends in `Error: [vitest-worker]: Timeout calling "onTaskUpdate"`. Quoted, not diagnosed. (record 2026-09-16 — "the owner's disposition decision…", section (e))
+- Test tools (`bootstrap-admin` non-owner branch, `create-test-operator`, `provision-test-driver`) break with two carriers. Tools only. (pass report `docs/passes/2026-09-16-1100-second-carrier-readiness.md`, Q1 table; cited from the record entry's section (b))
+- Record lines reading "CROSS-CARRIER ISOLATION REMAINS UNPROVEN" imply the isolation is built; for 123 tables it is not. Flag for correction. (record 2026-09-16 — "the owner's disposition decision…", section (c), "The correction this census forces"; the flagged lines sit in the 2026-09-15 B5/B6 entries of `docs/tms-build-status.md` and in `docs/passes/2026-09-15-2115-b6-group-3-driver-remainder.md`)
 
 ---
 
