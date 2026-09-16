@@ -19,20 +19,48 @@ type AnyClient = {
   from: (t: string) => any;
 };
 
-/** The company the staff caller belongs to. Throws when they belong to none. */
+/**
+ * AMBIGUITY IS REFUSED (owner decision C, 2026-09-16).
+ *
+ * The database resolver `current_company_id()` returns NULL when a user matches
+ * more than one distinct company. These helpers have no NULL to return — their
+ * callers need a company_id — so their equivalent is a THROW that NAMES the user.
+ * Picking one silently is the one outcome forbidden: it writes another carrier's
+ * row under this carrier's name.
+ *
+ * There is no `.limit(1)` anywhere below, deliberately. `maybeSingle()` on two
+ * membership rows does raise, but its message is
+ * `Could not resolve company membership: multiple rows returned` — it does not
+ * say WHOSE membership, and it reads like a transport failure rather than a
+ * refusal, so it was replaced.
+ */
+async function distinctCompanies(
+  admin: AnyClient,
+  table: string,
+  userId: string,
+): Promise<string[]> {
+  const { data, error } = await admin.from(table).select('company_id').eq('user_id', userId);
+  if (error) throw new Error(`Could not resolve company from ${table}: ${error.message}`);
+  const ids = (data ?? [])
+    .map((r: { company_id: string | null }) => r.company_id)
+    .filter((id: string | null): id is string => !!id);
+  return [...new Set(ids)];
+}
+
+/** The company the staff caller belongs to. Throws when none, and when two. */
 export async function companyIdForUser(admin: AnyClient, userId: string): Promise<string> {
-  const { data, error } = await admin
-    .from('company_members')
-    .select('company_id')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (error) throw new Error(`Could not resolve company membership: ${error.message}`);
-  if (!data?.company_id) {
+  const companies = await distinctCompanies(admin, 'company_members', userId);
+  if (companies.length > 1) {
+    throw new Error(
+      `User ${userId} is a member of more than one company (${companies.join(', ')}). Refusing to choose one.`,
+    );
+  }
+  if (companies.length === 0) {
     throw new Error(
       `No company membership for user ${userId}. Add a company_members row before creating records for them.`,
     );
   }
-  return data.company_id as string;
+  return companies[0];
 }
 
 /**
