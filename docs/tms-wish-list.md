@@ -38,8 +38,7 @@ closed, and the removing pass says so.
 - `generate-application-pdf`, `send-officer-packet`, `process-eld-escalations` read an arbitrary carrier. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (b), items 1–3)
 - `receive-rate-con-email` stops for SUPERTRANSPORT (`soleCompanyId`). (same entry, section (b), item 4)
 - No path creates carrier #2 with an owner and a membership. (same entry, section (b), item 5)
-- MULTI-COMPANY AMBIGUITY: `current_company_id()` ends in an unordered `LIMIT 1`, so a person who belongs to two companies resolves arbitrarily. Must be settled BEFORE carrier #2 exists — a restrictive policy built on an arbitrary answer hides the wrong rows. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
-- A dispatcher's `DELETE` on `brokers` returns `200` with an empty body and changes nothing (no DELETE policy for that role, and PostgREST reports a zero-row delete as success). Found by the pilot write test, not fixed there. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (b))
+(MULTI-COMPANY AMBIGUITY moved to RECENTLY CLOSED, 2026-09-16 2226 UTC. The dispatcher broker `DELETE` finding moved to VERIFICATION GAPS: it is a reporting gap, not a prerequisite.)
 
 
 ### OWNER DECISIONS OWED
