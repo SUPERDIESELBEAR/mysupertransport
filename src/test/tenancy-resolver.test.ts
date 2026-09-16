@@ -2094,7 +2094,7 @@ describe('restrictive tenant policy — exact shape, or declared pending', () =>
     const rows = psql(`SELECT tablename || '\t' || policyname || '\t' || cmd || '\t'
         || roles::text || '\t' || coalesce(qual,'') || '\t' || coalesce(with_check,'')
       FROM pg_policies WHERE schemaname = 'public' AND permissive = 'RESTRICTIVE'
-      ORDER BY 1, 2`).map(l => l.split('\t'));
+      ORDER BY 1`).map(l => l.split('\t'));
 
     const byTable = new Map<string, RestrictiveRow[]>();
     for (const [t, policyname, cmd, roles, qual, with_check] of rows) {
