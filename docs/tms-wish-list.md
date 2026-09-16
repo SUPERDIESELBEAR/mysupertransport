@@ -38,10 +38,13 @@ closed, and the removing pass says so.
 - `generate-application-pdf`, `send-officer-packet`, `process-eld-escalations` read an arbitrary carrier. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (b), items 1–3)
 - `receive-rate-con-email` stops for SUPERTRANSPORT (`soleCompanyId`). (same entry, section (b), item 4)
 - No path creates carrier #2 with an owner and a membership. (same entry, section (b), item 5)
+- MULTI-COMPANY AMBIGUITY: `current_company_id()` ends in an unordered `LIMIT 1`, so a person who belongs to two companies resolves arbitrarily. Must be settled BEFORE carrier #2 exists — a restrictive policy built on an arbitrary answer hides the wrong rows. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- A dispatcher's `DELETE` on `brokers` returns `200` with an empty body and changes nothing (no DELETE policy for that role, and PostgREST reports a zero-row delete as success). Found by the pilot write test, not fixed there. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (b))
+
 
 ### OWNER DECISIONS OWED
 
-- How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (d)) DECIDED 2026-09-16, restrictive policy per table; to be recorded by the precheck pass.
+- ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 143 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
 - Nine content tables: SUPERDRIVE default vs carrier version. (record 2026-09-16 — "the unassigned tables…", section (c), content-tables bullet; "the owner's disposition decision…", section (a), DEFERRED content now nine)
