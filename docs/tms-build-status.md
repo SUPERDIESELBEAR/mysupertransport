@@ -14512,3 +14512,152 @@ census in `tenancy-resolver.test.ts` was RED from B8 until this pass. B8 added s
 census list, so `expected [ 'active_dispatch', …(128) ] to deeply equal
 [ 'active_dispatch', …(121) ]`. B8's "suites passed" claim did not include this test.
 Corrected here by adding `B8_SHAPE_1` to the census.
+
+---
+
+## 2026-09-16 — the owner's disposition decision, and the live read-enforcement census
+
+Documentation and one temporarily-mutated-then-restored test file only. No migration, no
+function or application code, no data change. Carrier count: 1. Full report:
+`docs/passes/2026-09-16-1840-read-enforcement-census.md`.
+
+### (a) The owner's disposition decision, taken 2026-09-16 in conversation
+
+This SUPERSEDES the proposals in the 2026-09-16 1138 readiness pass wherever they differ.
+The nineteen residue tables are now decided:
+
+**PER-CARRIER, next batch (12):** `fuel_transactions`, `fuel_transaction_lines`,
+`fuel_import_batches`, `fuel_disagreement_acceptances`, `operator_broadcasts`,
+`operator_departing_events`, `operator_parking_events`, `equipment_return_confirmations`,
+`driver_optional_docs`, `onboard_assignment_sheet_sends`, `staff_event_acknowledgments`,
+`staff_help_query_log`.
+
+`staff_help_query_log` differs from the pass's GLOBAL proposal, on the owner's reasoning:
+staff questions describe their own carrier's business, and today any carrier's owner or
+management could read them. It has `user_id`; derive the company through membership.
+
+**DEFERRED content:** `driver_documents` — the Document Hub library — joins the eight,
+making nine.
+
+**GLOBAL:** `eld_cron_runs`. A run spans all carriers, so the row belongs to no one carrier.
+**Noted for later:** its read policy is `is_staff(auth.uid())`, so its cross-carrier run
+payloads are readable by ANY carrier's staff. Revisit alongside the
+`process-eld-escalations` timezone fix.
+
+The disposition lists in `src/test/tenancy-resolver.test.ts` were deliberately NOT changed in
+this pass. The batch that migrates the twelve moves them, and the guard fails until it does —
+which is the guard working.
+
+### (b) The arithmetic in the 2026-09-16 entry, reconciled
+
+That entry traced the gap to "B6 Group 3's 20 deferred candidates" and then listed 19 tables
+without showing the join. Both numbers are correct. From
+`docs/passes/2026-09-15-2115-b6-group-3-driver-remainder.md`:
+
+```
+88 lacking − 18 GLOBAL − 8 DEFERRED − 4 B7 logs − 7 B8 token/share = 51 candidates
+51 − 31 migrated by B6 Group 3                                    = 20 remaining
+```
+
+The 20 are today's 19 **plus `share_token_access_log`**, which B8 met inside the candidate
+pool and declared GLOBAL instead of migrating. 19 + 1 = 20, reconciled exactly with no
+residue. The whole-database chain agrees independently: 88 − 31 − 2 − 7 = 48, the live count
+of tables still lacking the column.
+
+One nuance rather than a smoothing: `email_send_state` is among the 19 and the 20, yet it was
+already decided GLOBAL on 2026-09-13 and separately guarded. It was never genuinely
+undecided — no batch simply subtracted it, which is why it surfaced in the residue.
+
+### (c) THE LIVE READ-ENFORCEMENT CENSUS — `company_id` is enforced on reads on 12 tables
+
+Measured live from `pg_policies`/`pg_policy` over every public base table that HAS
+`company_id`. The reviewer's reading of the migration files was right on the substance and
+off by one on the count:
+
+| measure | live |
+| --- | --- |
+| public base tables with `company_id` | 148 |
+| with at least one policy | 146 |
+| with NO policy at all | 2 (`document_short_links`, `message_notification_throttle`) |
+| policies on them | 436 |
+| **COMPANY** (predicate tests the ROW's `company_id`) | **19 policies over 12 tables** |
+| OWNERSHIP (binds the row to THIS person) | 171 |
+| **ROLE-ONLY** (`has_role`/`is_staff` and no company term) | **243** |
+| SERVICE | 1 |
+| OTHER | 2 |
+| tables where a ROLE-ONLY policy admits a READ | **123** |
+| tables whose every policy is COMPANY/OWNERSHIP/SERVICE | 18 |
+| RESTRICTIVE policies anywhere in `public` | **0** |
+
+The twelve: `accessorial_adjustments`, `ar_aging_snapshots`, `carrier_signature_settings`,
+`factoring_remittances`, `invoice_batches`, `invoice_line_items`, `invoice_number_config`,
+`invoices`, `payments`, `settlement_settings`, `share_tokens`, `unit_number_config`. Each
+policy is `(company_id = current_company_id()) AND <role test>`.
+
+`carrier_profile` is the reviewer's thirteenth. It has no `company_id` column at all — its
+`id` IS the company, and its SELECT policy is `(id = current_company_id())`. So "13
+company-scoped areas" is fair; "13 tables with a `company_id` predicate" is 12.
+
+**The correction this census forces.** `has_role()` and `is_staff()` are, live, company-aware
+about the CALLER: both require `auth.role() = 'service_role' OR ur.company_id =
+current_company_id()`. That scopes the caller's ROLE ROW to the caller's company. Neither
+takes the row being read, and neither can. So `is_staff(auth.uid())` is true for carrier B's
+dispatcher exactly as for carrier A's, and a policy whose whole predicate is a role test
+admits carrier B's staff to carrier A's rows.
+
+**B2–B8 stamped `company_id` and did not add a row-level company test.** Stamping decided
+where a row BELONGS; it never decided who may READ it. Those are two jobs and only one is
+done. `loads_staff_manage`, live, is
+`USING (has_role(auth.uid(),'dispatcher') OR has_role(auth.uid(),'management') OR has_role(auth.uid(),'owner'))`
+with the same `WITH CHECK`, on a table with a `NOT NULL company_id` and 17 rows.
+
+Any earlier wording in this record that treated a stamped column as tenant isolation of
+reads is wrong, and this entry is the correction. The 171 OWNERSHIP policies do isolate
+carriers, but only as a side effect of isolating PEOPLE — that protection vanishes the
+moment such a policy is widened to "staff may also see this."
+
+No other mechanism supplies the missing scope: zero restrictive policies, the two public
+views are `security_invoker=on` (so they inherit base-table policies rather than bypass
+them), and the six event triggers are Supabase/PostgREST plumbing. Definer functions do
+enforce their own rules, but they protect the path THROUGH them, not a direct PostgREST
+`SELECT`.
+
+**Two further defects surfaced, needing their own decision:**
+`inspection_program_settings`' read policy is `USING true` — any authenticated user of any
+role of any carrier. And `carrier_profile`'s INSERT/UPDATE/DELETE are role-only, so carrier
+B's management could edit carrier A's profile row.
+
+### (d) Closing it, when the owner calls for it
+
+For each of the 123, AND `company_id = current_company_id()` onto every ROLE-ONLY policy;
+where a policy is `has_role(...) OR <ownership>`, the company term attaches to the ROLE
+branch only, so a driver keeps reading his own row. In the same batches as the stamping, each
+verified with a real session — a wrongly tightened policy does not leak, it silently BREAKS a
+screen for people who use it daily. Anonymous and service routes stay unscoped by
+construction; `share_tokens` already shows the pattern.
+
+**Callers that resolve NO company and must never sit behind a company predicate:** anonymous
+token routes (`/inspect/:token`, tracking and share links, short links, officer packets, ICA
+review, `preview_sessions`); applicants (`applications` is GLOBAL by the 2026-09-13
+decision); service-role jobs (`auth.uid()` NULL, exempted explicitly inside
+`has_role`/`is_staff`, naming the company on write via `_shared/tenancy.ts`).
+
+Truck owners DO resolve now, from their own `truck_owners.company_id`. Live check this pass:
+**0** profiles resolve to no company — `company_members` ∪ `operators` ∪ `truck_owners`
+covers every profile. The gap recorded on 2026-09-15 is closed.
+
+### (e) Verification boundary
+
+Every statement in (c) is about POLICY TEXT and live FUNCTION BODIES. None of it is a
+demonstration that carrier B's dispatcher reads carrier A's loads: there is one carrier, and
+the sandbox role cannot `SET ROLE authenticated` to stage a transactional RLS read. The
+exposure is derived, not observed, and must be observed once the fictitious second carrier
+exists.
+
+The disposition guard's duplicate-list and stale-entry branches were each made to fail on
+purpose and quoted verbatim in the report, then reverted; `src/test/tenancy-resolver.test.ts`
+ends byte-identical to HEAD (md5 `2247a0f826f9be51c3e5a973acf59a1f`, `diff` empty,
+`git diff --stat` empty). The full file: `Tests 115 passed (115)` with `Errors 1 error` —
+`Error: [vitest-worker]: Timeout calling "onTaskUpdate"`, quoted in full in the report and
+NOT labelled harmless. Vitest itself says it "might cause false positive tests," so this is
+not being presented as a wholly clean run. Same error as the 1138 pass; still undiagnosed.
