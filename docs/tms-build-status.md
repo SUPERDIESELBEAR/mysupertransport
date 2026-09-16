@@ -14382,3 +14382,133 @@ waits on the `applications` decision.
 VERIFICATION BOUNDARY: one carrier exists, so cross-carrier invisibility of the
 new `share_tokens` policy is STILL UNPROVEN. What is proven is the policy text,
 the fail-closed stamp, and the anonymous path.
+
+---
+
+## 2026-09-16 — the unassigned tables, and the second-carrier readiness record
+
+Changes in this pass: this file, `src/test/tenancy-resolver.test.ts`, and the pass
+report. No migration, no function, no app code, no data change.
+
+### a) The B8 closing statement was WRONG
+
+B8 (2026-09-15) recorded: *"No batch remains that is merely unstarted: what is left
+is either declared GLOBAL or waits on the `applications` decision."* That is false.
+
+Live, 2026-09-16: 48 public base tables lack `company_id`. Subtract the 18 declared
+GLOBAL, the 8 DEFERRED content tables, and the three logs declared global by their
+own passes (`audit_log`, `email_send_log`, `share_token_access_log`) and **19 tables
+remain, of which 15 have no decision of any kind**:
+
+- carrier data, per-carrier on its face: `fuel_transactions` (69),
+  `fuel_transaction_lines` (125), `fuel_import_batches` (1),
+  `fuel_disagreement_acceptances` (0), `operator_broadcasts` (1),
+  `operator_departing_events` (2), `operator_parking_events` (2),
+  `equipment_return_confirmations` (0), `driver_optional_docs` (0),
+  `onboard_assignment_sheet_sends` (9), `staff_event_acknowledgments` (115)
+- content library, not per-driver data: `driver_documents` (11) — see (d)
+- infrastructure, arguably global: `eld_cron_runs` (1,091), `staff_help_query_log` (5)
+- already decided GLOBAL and separately guarded: `email_send_state` (1)
+- children of `applications`, unscopable while their parent is GLOBAL:
+  `pei_requests` (144), `pei_request_events` (527), `pei_responses` (16),
+  `pei_accidents` (1)
+
+WHERE THE GAP CAME FROM: B6 Group 3 measured 51 driver-written candidates and
+migrated 31, recording that "20 of the 51 candidates fall to later batches." B7 took
+the four large logs; B8 took the token and share tables. **No batch took the 20.**
+B8 then wrote its closing sentence from the shape of the remaining list rather than
+from a query of it.
+
+WHY NO GUARD CAUGHT IT: every prior tenancy guard asserts what was DECLARED — the 18
+GLOBAL tables carry no column, the 8 DEFERRED ones are untouched. A table that was
+never declared at all is invisible to all of them. The guard added this pass asserts
+the COMPLEMENT: every public base table lacking `company_id` must appear in exactly
+one named list (`GLOBAL`, `DEFERRED`, `GLOBAL_LOGS`, `AWAITING_APPLICATIONS`, or
+`UNASSIGNED`), no table may appear in two, and no list may name a table that now has
+the column. `UNASSIGNED` is an admission, not a fix; it cannot be forgotten.
+
+The 19 tables' writers and live policies are in the pass report. Proposals only — the
+owner decides.
+
+### b) PREREQUISITES before a second `carrier_profile` row exists
+
+From the readiness audit (`docs/passes/2026-09-16-1100-second-carrier-readiness.md`).
+Ranked by whether a wrong answer is DETECTABLE, not by likelihood; the first three
+print a plausible wrong answer on a document nobody in the chain can check:
+
+1. `generate-application-pdf` reads `carrier_profile` with `.limit(1)` as
+   service_role — the applicant's signed application PDF can carry another
+   carrier's name, USDOT and MC.
+2. `send-officer-packet` does the same — a roadside officer receives a federal
+   packet naming the wrong carrier and USDOT.
+3. `process-eld-escalations` takes an arbitrary carrier's
+   `home_terminal_timezone` and applies it to every carrier's malfunction clock.
+4. `receive-rate-con-email` calls `soleCompanyId`, which THROWS on two carriers —
+   inbound rate-con ingestion stops for SUPERTRANSPORT the moment the second row
+   exists. Loud, but only to the logs.
+5. `bootstrap_assign_owner` holds a bare scalar `(SELECT id FROM carrier_profile)`
+   and cannot be told which carrier (probed: `SQLSTATE 21000, more than one row
+   returned by a subquery used as an expression`). With `bootstrap-admin`'s
+   non-owner branch also on `soleCompanyId`, **no application, edge-function or
+   database-function path creates carrier #2 with an owner and a membership.** A
+   migration, or a parameterised `bootstrap_assign_owner`, is the only route.
+
+### c) ACCEPTED FOR THE DEMO, pending the owner's decision — NOT fixed
+
+- The whole `applications` family (`applications` and its eight dependents, plus the
+  four PEI tables) is fully visible and editable across carriers to any staff role.
+  `is_staff` establishes a role WITHIN the caller's company, but the row policies
+  carry no company predicate and the tables have no column to test. This is the
+  direct consequence of the `applications`-stays-GLOBAL decision.
+- `src/lib/application/identity.ts` falls back to `DEFAULT_COMPANY_IDENTITY`,
+  hard-coded `SUPERTRANSPORT, LLC / 2309365 / 788425`. `/apply` is anonymous and the
+  scoped `carrier_profile` read returns nothing there, so the fallback is the normal
+  path: carrier B's applicant would sign a disclosure on SUPERTRANSPORT letterhead.
+- The content tables show SUPERTRANSPORT's wording to carrier B: `faq`, `services`,
+  `service_resources`, `pipeline_config`, `message_templates`, `email_templates`,
+  `staff_help_knowledge`, `resource_documents`. `staff_help_knowledge` and
+  `email_templates` are the two a demo audience would notice.
+- `profiles` (GLOBAL) staff read is `is_staff(auth.uid())` with no company test, so
+  carrier B staff see every SUPERTRANSPORT person's name. `driver_documents`' read
+  policy is `is_visible = true AND auth.uid() IS NOT NULL` — any signed-in user of
+  any carrier.
+
+### d) Corrections to the readiness report
+
+- `driver_documents` is the **Document Hub content library** (`DocumentHub.tsx`,
+  `AdminDocumentList.tsx`, `DocumentEditorModal.tsx`), not per-driver data — it has
+  no driver column. It belongs with the DEFERRED content group, not with driver data.
+  The report treated it as driver data.
+- `driver_uploads` **HAS** `company_id`; the report's Q2 table listed it among the
+  columnless pre-operator tables.
+- `invite-staff`, not `bootstrap-admin`, is the normal staff-add path. The report's
+  Q1 B2 note ("B2 is the path used to add staff") overstates a tool.
+- `provision-demo-driver` is the in-app demo path and inserts into `applications`
+  directly; the report only examined `provision-test-driver` and
+  `create-test-operator`.
+
+### e) A tension left unresolved
+
+The 2026-09-13 `applications`-stays-GLOBAL decision rests in part on the reasoning
+that the fictitious company is SEEDED rather than APPLIED to. The same day's decision
+that the fictitious company gets its drivers by **walking two or three demo drivers
+through onboarding by hand** supersedes that premise: hand onboarding goes through
+`applications`. So the demo will create carrier-B application rows inside a GLOBAL
+table, mutually visible with SUPERTRANSPORT's. Recorded as a tension. Not resolved
+here, and not a reason to change either decision without the owner.
+
+### f) Verification boundary
+
+Cross-carrier RLS invisibility remains UNDEMONSTRATED. The sandbox database identity
+is `sandbox_exec`; `SET LOCAL ROLE authenticated` is refused
+(`permission denied to set role "authenticated"`), so no aborting-transaction probe
+can count what a carrier-B staff session would see. Every visibility claim above
+rests on live policy text, which is decisive about the absence of a company
+predicate, and is labelled as such.
+
+One further finding, recorded because it contradicts B8's own report: the stamped-table
+census in `tenancy-resolver.test.ts` was RED from B8 until this pass. B8 added seven
+`aa_stamp_tenant_company_id` triggers and did not add those seven tables to the
+census list, so `expected [ 'active_dispatch', …(128) ] to deeply equal
+[ 'active_dispatch', …(121) ]`. B8's "suites passed" claim did not include this test.
+Corrected here by adding `B8_SHAPE_1` to the census.

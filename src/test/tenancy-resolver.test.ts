@@ -556,10 +556,15 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     // Six from B2, the two singleton carriers from B3, the 31 empty tables from
     // B4. A new stamped table must be added here deliberately, so an accidental
     // stamp is a red suite.
+    //
+    // B8's seven token/share tables were stamped on 2026-09-15 and NOT added
+    // here, so this census was RED from that pass until 2026-09-16. That is the
+    // cost of a census assertion: it goes stale on correct work. The invariant
+    // at the foot of this file is the one that cannot.
     expect(rows.sort()).toEqual([
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
-      ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC,
+      ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1860,5 +1865,92 @@ describe('B8 — token and share tables', () => {
     for (const [file, pattern] of expectations) {
       expect(readFileSync(file, 'utf8'), file).toMatch(pattern);
     }
+  });
+});
+
+/**
+ * THE DISPOSITION INVARIANT (2026-09-16).
+ *
+ * Every guard before this one asserts what was DECLARED: the 18 GLOBAL tables
+ * carry no `company_id`, the 8 DEFERRED ones are untouched. None of them could
+ * notice a table that was never declared at all — which is exactly how B6
+ * Group 3's deferred candidates reached B8 with nobody having taken them, while
+ * the record read "no batch remains that is merely unstarted".
+ *
+ * So this asserts the complement instead: a public base table with no
+ * `company_id` must appear in EXACTLY ONE named list. A table with no column and
+ * no list FAILS. Adding a table to `UNASSIGNED` is not a fix — it is the
+ * admission that the owner has not decided yet — but it cannot be forgotten.
+ */
+const GLOBAL_LOGS = [
+  // Decided global by their own passes: cross-carrier infrastructure whose most
+  // important rows have no tenant (audit 2026-09-15, email log 2026-09-15,
+  // abuse log 2026-09-15) plus the shared send cursor (2026-09-13), which is
+  // also asserted individually above.
+  'audit_log', 'email_send_log', 'share_token_access_log', 'email_send_state',
+] as const;
+
+/**
+ * Children of `applications`, which stays GLOBAL (2026-09-13). They cannot be
+ * scoped while their parent is not; scoping them would be a decision about
+ * `applications`, not about them.
+ */
+const AWAITING_APPLICATIONS = [
+  'pei_requests', 'pei_request_events', 'pei_responses', 'pei_accidents',
+] as const;
+
+/**
+ * NO DECISION YET. Found live 2026-09-16, not by any batch. Proposals are in
+ * the record; the owner decides. Removing a table from here without either a
+ * `company_id` column or another list makes this file fail, deliberately.
+ */
+const UNASSIGNED = [
+  'fuel_transactions', 'fuel_transaction_lines', 'fuel_import_batches',
+  'fuel_disagreement_acceptances', 'operator_broadcasts',
+  'operator_departing_events', 'operator_parking_events',
+  'equipment_return_confirmations', 'driver_optional_docs',
+  'onboard_assignment_sheet_sends', 'staff_event_acknowledgments',
+  'driver_documents', 'eld_cron_runs', 'staff_help_query_log',
+] as const;
+
+describe('tenancy disposition — every table accounted for', () => {
+  itLive('no public base table lacks both a company_id and a disposition', () => {
+    const lacking = psql(`SELECT t.table_name FROM information_schema.tables t
+      WHERE t.table_schema = 'public' AND t.table_type = 'BASE TABLE'
+        AND NOT EXISTS (SELECT 1 FROM information_schema.columns c
+          WHERE c.table_schema = 'public' AND c.table_name = t.table_name
+            AND c.column_name = 'company_id')
+      ORDER BY 1`);
+    expect(lacking.length, 'the inventory query returned nothing — it broke')
+      .toBeGreaterThan(0);
+
+    const lists: Record<string, readonly string[]> = {
+      GLOBAL: GLOBAL_TABLES,
+      DEFERRED: DEFERRED_TABLES,
+      GLOBAL_LOGS,
+      AWAITING_APPLICATIONS,
+      UNASSIGNED,
+    };
+
+    const undeclared = lacking.filter(
+      t => !Object.values(lists).some(l => (l as readonly string[]).includes(t)),
+    );
+    expect(
+      undeclared,
+      'these tables have no company_id and no disposition: decide, or add them to UNASSIGNED',
+    ).toEqual([]);
+
+    // Exactly one list, so a table cannot be both global and pending.
+    const doubled = lacking.filter(
+      t => Object.values(lists).filter(l => (l as readonly string[]).includes(t)).length > 1,
+    );
+    expect(doubled, 'a table declared in two lists has two contradictory decisions').toEqual([]);
+
+    // And nothing may sit in a list while it HAS the column — that is a stale
+    // declaration, the other direction of the same rot.
+    const stale = Object.entries(lists).flatMap(([name, l]) =>
+      (l as readonly string[]).filter(t => !lacking.includes(t)).map(t => `${name}:${t}`),
+    );
+    expect(stale, 'these tables now have company_id but are still declared without it').toEqual([]);
   });
 });
