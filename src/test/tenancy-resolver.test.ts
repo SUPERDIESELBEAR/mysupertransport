@@ -291,13 +291,24 @@ describe('current_company_id — the four protections', () => {
     // The resolver widened WHO resolves. It must not widen WHAT anyone may do:
     // every company-scoped policy must ALSO test a staff role, unless it is on
     // the reasoned allowlist above.
+    //
+    // NARROWED 2026-09-16, restrictive-policy pilot: `permissive = 'PERMISSIVE'`.
+    // This guard is a rule about policies that GRANT access. A RESTRICTIVE
+    // policy can only ever REMOVE access — Postgres ANDs every applicable
+    // restrictive policy on top of the permissive ones — so a restrictive
+    // `company_id = current_company_id()` policy with no role test admits
+    // nobody and cannot be an offender. Without this narrowing the guard
+    // reports every `tenant_isolation` policy as a violation of a rule it
+    // does not break.
     const offenders = psql(`SELECT tablename || ' | ' || policyname FROM pg_policies
       WHERE schemaname = 'public'
+        AND permissive = 'PERMISSIVE'
         AND (coalesce(qual,'') || coalesce(with_check,'')) LIKE '%current_company_id%'
         AND (coalesce(qual,'') || coalesce(with_check,'')) NOT LIKE '%has_role%'
       ORDER BY 1`).filter(r => !COMPANY_SCOPED_WITHOUT_ROLE.includes(r));
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
+
 
   itLive('the allowlisted policies are SELECT-only', () => {
     for (const entry of COMPANY_SCOPED_WITHOUT_ROLE) {
@@ -1952,5 +1963,194 @@ describe('tenancy disposition — every table accounted for', () => {
       (l as readonly string[]).filter(t => !lacking.includes(t)).map(t => `${name}:${t}`),
     );
     expect(stale, 'these tables now have company_id but are still declared without it').toEqual([]);
+  });
+});
+
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * RESTRICTIVE TENANT POLICY — the invariant, and the rollout ledger
+ *
+ * Owner decision 2026-09-16: cross-carrier read enforcement is closed by ONE
+ * restrictive policy per table that has `company_id`, `TO authenticated`,
+ * requiring the row's company to equal the caller's. Permissive policies are
+ * not edited. A restrictive policy can only remove access, so a wrong one does
+ * not leak — it silently EMPTIES a screen. Hence: exact shape, or listed as
+ * pending. Nothing in between.
+ * ──────────────────────────────────────────────────────────────────────────── */
+
+/** The predicate as Postgres prints it back in `pg_policies`. */
+const RESTRICTIVE_PREDICATE =
+  '(company_id = ( SELECT current_company_id() AS current_company_id))';
+
+/** `company_members` is never a target: its `company_id` IS the assertion, it
+ * has no company stamp trigger, and it is service_role-only. */
+const RESTRICTIVE_EXEMPT = ['company_members'] as const;
+
+/** Pilot batch, 2026-09-16. */
+const RESTRICTIVE_DONE = [
+  'active_dispatch', 'brokers', 'cert_reminders', 'facilities',
+] as const;
+
+/**
+ * Tables that HAVE `company_id` and do NOT yet have the restrictive policy.
+ * Built from the live 148 minus `company_members` minus the pilot four.
+ * A table here that HAS the policy fails as stale; a table missing from both
+ * lists fails as undeclared. Batches empty this list.
+ */
+const PENDING_RESTRICTIVE = [
+  'accessorial_adjustments', 'ar_aging_snapshots', 'binder_share_bundles', 
+'blank_log_acknowledgments', 'broker_contacts', 
+'broker_do_not_load_history', 'broker_documents', 
+'broker_factoring_history', 'broker_notes', 
+'carrier_notification_settings', 'carrier_signature_settings', 
+'cash_advances', 'claim_flag_history', 'claim_flags', 'company_documents', 
+'company_settings', 'contractor_pay_setup', 'deduction_installments', 
+'deductions', 'detention_claims', 'dispatch_daily_log', 
+'dispatch_deductions', 'dispatch_settlement_charge_verdicts', 
+'dispatch_settlement_line_items', 'dispatch_settlement_load_contributions', 
+'dispatch_settlement_rates', 'dispatch_settlement_rates_history', 
+'dispatch_settlements', 'dispatch_status_history', 
+'document_acknowledgments', 'document_exceptions', 'document_send_log', 
+'document_short_links', 'document_version_history', 'documents', 
+'dot_consultant_email_settings', 'driver_staff_contact_suppressions', 
+'driver_staff_contacts', 'driver_uploads', 'driver_vault_documents', 
+'eld_devices', 'eld_extension_requests', 'eld_malfunction_events', 
+'eld_malfunction_notifications', 'eld_sync_alerts', 
+'equipment_assignments', 'equipment_items', 'equipment_receipts', 
+'equipment_serial_conflict_dismissals', 'factoring_remittances', 
+'fleet_settings', 'forecast_deductions', 'forecast_expenses', 
+'forecast_loads', 'ica_amendment_units', 'ica_amendments', 'ica_contracts', 
+'ica_driver_acknowledgments', 'ica_review_links', 
+'inspection_binder_order', 'inspection_cycles', 
+'inspection_document_versions', 'inspection_documents', 
+'inspection_program_payments', 'inspection_program_settings', 
+'insurance_email_settings', 'invoice_batches', 'invoice_line_items', 
+'invoice_number_config', 'invoices', 'lease_terminations', 
+'load_change_history', 'load_charges', 'load_documents', 
+'load_number_config', 'load_reference_citations', 'load_references', 
+'load_status_history', 'load_stops', 'loads', 
+'message_notification_throttle', 'message_reactions', 'message_threads', 
+'messages', 'mo_plate_assignments', 'mo_plates', 
+'notification_preferences', 'notification_role_defaults', 'notifications', 
+'officer_packet_links', 'onboard_assignment_sheet_items', 
+'onboard_assignment_sheets', 'onboarding_status', 
+'operator_broadcast_recipients', 'operator_documents', 
+'operator_offboarding_steps', 'operators', 'owner_transfers', 
+'pandadoc_documents', 'parser_diagnostics', 'passenger_authorizations', 
+'pay_policies', 'pay_policy_assignments', 'payments', 
+'pei_cadence_settings', 'preview_sessions', 'rate_con_ingest_queue', 
+'rm_deposit_transactions', 'rm_deposits', 'roadside_stop_documents', 
+'roadside_stop_violations', 'roadside_stops', 'rods_amendments', 
+'rods_correction_requests', 'rods_days', 'rods_divergences', 'rods_events', 
+'rods_unlock_events', 'service_help_requests', 
+'service_resource_bookmarks', 'service_resource_completions', 
+'service_resource_views', 'settlement_line_items', 'settlement_settings', 
+'settlement_settings_history', 'settlement_withheld_loads', 'settlements', 
+'share_tokens', 'staff_email_overrides', 'staff_help_messages', 
+'staff_help_threads', 'staff_messaging_settings', 'staff_ui_preferences', 
+'thread_participants', 'truck_dot_inspections', 
+'truck_maintenance_records', 'truck_owners', 'truck_plate_history', 
+'truck_state_permits', 'unit_number_config', 'user_roles', 
+'user_view_preferences', 'vacant_units',
+] as const;
+
+type RestrictiveRow = {
+  policyname: string; cmd: string; roles: string; qual: string; with_check: string;
+};
+
+/** Extracted so the branches that cannot be staged by DDL from the sandbox
+ * (a duplicate policy, a hand-written predicate) can be exercised against
+ * authored rows. */
+export function restrictiveShapeProblems(
+  table: string, rows: RestrictiveRow[],
+): string[] {
+  const problems: string[] = [];
+  if (rows.length === 0) return [`${table}: no restrictive policy`];
+  if (rows.length > 1) {
+    problems.push(`${table}: ${rows.length} restrictive policies (${rows.map(r => r.policyname).join(', ')})`);
+  }
+  for (const r of rows) {
+    if (r.policyname !== 'tenant_isolation') problems.push(`${table}: policy named ${r.policyname}`);
+    if (r.cmd !== 'ALL') problems.push(`${table}: cmd ${r.cmd}, expected ALL`);
+    if (r.roles !== '{authenticated}') problems.push(`${table}: roles ${r.roles}, expected {authenticated}`);
+    if (r.qual !== RESTRICTIVE_PREDICATE) problems.push(`${table}: qual ${r.qual}`);
+    if (r.with_check !== RESTRICTIVE_PREDICATE) problems.push(`${table}: with_check ${r.with_check}`);
+  }
+  return problems;
+}
+
+describe('restrictive tenant policy — exact shape, or declared pending', () => {
+  itLive('every company_id table either carries tenant_isolation or is pending', () => {
+    const tables = psql(`SELECT c.relname FROM pg_class c
+      JOIN pg_namespace n ON n.oid = c.relnamespace
+      WHERE n.nspname = 'public' AND c.relkind = 'r'
+        AND EXISTS (SELECT 1 FROM information_schema.columns col
+          WHERE col.table_schema = 'public' AND col.table_name = c.relname
+            AND col.column_name = 'company_id')
+      ORDER BY 1`);
+    expect(tables.length, 'the inventory query returned nothing — it broke').toBeGreaterThan(0);
+    expect(PENDING_RESTRICTIVE.length, 'the pending list is empty — either the rollout is finished and this guard must be rewritten, or the list was lost').toBeGreaterThan(0);
+
+    const rows = psql(`SELECT tablename || '\t' || policyname || '\t' || cmd || '\t'
+        || roles::text || '\t' || coalesce(qual,'') || '\t' || coalesce(with_check,'')
+      FROM pg_policies WHERE schemaname = 'public' AND permissive = 'RESTRICTIVE'
+      ORDER BY 1`).map(l => l.split('\t'));
+
+    const byTable = new Map<string, RestrictiveRow[]>();
+    for (const [t, policyname, cmd, roles, qual, with_check] of rows) {
+      if (!byTable.has(t)) byTable.set(t, []);
+      byTable.get(t)!.push({ policyname, cmd, roles, qual, with_check });
+    }
+
+    // No restrictive policy anywhere else in public.
+    const strays = [...byTable.keys()].filter(t => !tables.includes(t));
+    expect(strays, 'restrictive policies on tables without company_id').toEqual([]);
+
+    const undeclared = tables.filter(t =>
+      !(RESTRICTIVE_EXEMPT as readonly string[]).includes(t)
+      && !(RESTRICTIVE_DONE as readonly string[]).includes(t)
+      && !(PENDING_RESTRICTIVE as readonly string[]).includes(t));
+    expect(undeclared, 'these tables have company_id and no restrictive-policy disposition: migrate them, or add them to PENDING_RESTRICTIVE').toEqual([]);
+
+    const stale = (PENDING_RESTRICTIVE as readonly string[])
+      .filter(t => byTable.has(t))
+      .map(t => `${t}: declared pending but already carries a restrictive policy`);
+    expect(stale, 'stale PENDING_RESTRICTIVE entries').toEqual([]);
+
+    const problems = (RESTRICTIVE_DONE as readonly string[])
+      .flatMap(t => restrictiveShapeProblems(t, byTable.get(t) ?? []));
+    expect(problems, problems.join('\n')).toEqual([]);
+
+    // `company_members` must have none.
+    for (const t of RESTRICTIVE_EXEMPT) {
+      expect(byTable.get(t) ?? [], `${t} must carry no restrictive policy`).toEqual([]);
+    }
+  });
+
+  // AUTHORED FIXTURES, disclosed as such: the sandbox role cannot CREATE POLICY,
+  // so the duplicate and wrong-predicate branches are exercised against rows
+  // written by hand in the shape `pg_policies` returns.
+  it('FIXTURE — a second restrictive policy is a problem', () => {
+    const good: RestrictiveRow = {
+      policyname: 'tenant_isolation', cmd: 'ALL', roles: '{authenticated}',
+      qual: RESTRICTIVE_PREDICATE, with_check: RESTRICTIVE_PREDICATE,
+    };
+    expect(restrictiveShapeProblems('brokers', [good])).toEqual([]);
+    expect(restrictiveShapeProblems('brokers', [good, { ...good, policyname: 'tenant_isolation_v2' }]))
+      .toEqual([
+        'brokers: 2 restrictive policies (tenant_isolation, tenant_isolation_v2)',
+        'brokers: policy named tenant_isolation_v2',
+      ]);
+  });
+
+  it('FIXTURE — a predicate naming a literal uuid is a problem', () => {
+    const literal = '(company_id = \'6b54d0e6-8743-4284-b55b-8cd094b093dd\'::uuid)';
+    expect(restrictiveShapeProblems('facilities', [{
+      policyname: 'tenant_isolation', cmd: 'ALL', roles: '{authenticated}',
+      qual: literal, with_check: literal,
+    }])).toEqual([
+      `facilities: qual ${literal}`,
+      `facilities: with_check ${literal}`,
+    ]);
   });
 });
