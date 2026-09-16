@@ -280,7 +280,9 @@ describe('dispatch settlement — the rates are versioned and seeded, never hard
   itLive('the history table mirrors settlement_settings_history', () => {
     const cols = psql(`SELECT column_name FROM information_schema.columns WHERE table_schema='public'
       AND table_name='dispatch_settlement_rates_history' ORDER BY 1`);
-    expect(cols).toEqual(['changed_at', 'changed_by', 'field', 'id', 'new_value', 'previous_value']);
+    // company_id: B5 part two (2026-09-15), tenancy only.
+    expect(cols).toEqual(['changed_at', 'changed_by', 'company_id', 'field', 'id',
+      'new_value', 'previous_value']);
   });
 });
 
