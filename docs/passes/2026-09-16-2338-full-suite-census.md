@@ -1,6 +1,6 @@
 # Whole-suite census, the dispatch settlement tests repaired, and the narrowed grant-parity check proved to still catch
 
-2026-09-16, 23:40–23:50 UTC. BUILD MODE. Immutable record of one pass.
+2026-09-16, 23:20–23:38 UTC. BUILD MODE. Immutable record of one pass.
 
 Allowed changes, and the only changes made:
 
