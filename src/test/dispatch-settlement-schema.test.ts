@@ -199,8 +199,14 @@ describe('dispatch settlement — security', () => {
   });
 
   itLive('management and owner only — no operator or dispatcher reads the dispatch company settlement', () => {
+    // PERMISSIVE only. Restrictive-batch 1 (2026-09-16) added the
+    // `tenant_isolation` RESTRICTIVE policy to three of these tables; a
+    // restrictive policy GRANTS nothing — it can only subtract rows — so it is
+    // not a role-admission clause and must not be read as one here. The
+    // restrictive shape is asserted in tenancy-resolver.test.ts.
     const policies = psql(`SELECT tablename || '|' || policyname || '|' || coalesce(qual,'') || coalesce(with_check,'')
-      FROM pg_policies WHERE schemaname='public' AND tablename IN (${TABLE_LIST})`);
+      FROM pg_policies WHERE schemaname='public' AND tablename IN (${TABLE_LIST})
+        AND permissive = 'PERMISSIVE'`);
     expect(policies.length).toBeGreaterThanOrEqual(TABLES.length);
     for (const p of policies) {
       expect(p).toContain('management');
