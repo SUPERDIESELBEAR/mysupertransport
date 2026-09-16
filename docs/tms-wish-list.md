@@ -38,7 +38,7 @@ closed, and the removing pass says so.
 
 ### OWNER DECISIONS OWED
 
-- How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (d))
+- How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (d)) DECIDED 2026-09-16, restrictive policy per table; to be recorded by the precheck pass.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
 - Nine content tables: SUPERDRIVE default vs carrier version. (record 2026-09-16 — "the unassigned tables…", section (c), content-tables bullet; "the owner's disposition decision…", section (a), DEFERRED content now nine)
