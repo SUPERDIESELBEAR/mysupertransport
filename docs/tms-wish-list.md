@@ -23,6 +23,7 @@ closed, and the removing pass says so.
 - Read-enforcement census ran: 148 tables have `company_id`, 12 test it on reads, 123 are readable by role alone, zero restrictive policies. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (c))
 - Disposition guard: all three failure branches demonstrated. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record" for the missing-list branch; "the owner's disposition decision, and the live read-enforcement census", section (e), for the duplicate-list and stale-entry branches)
 - HOW to close read enforcement: DECIDED and now PILOTED — one restrictive `tenant_isolation` policy per company-bearing table. Built on 4 tables, policy count 560 → 564, no real session lost a row. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four")
+- MULTI-COMPANY AMBIGUITY: CLOSED 2026-09-16 (owner decision C). A person matching more than one distinct company across `company_members`, `operators` and `truck_owners` now resolves to NOTHING — `current_company_id()` has no `LIMIT` and no `COALESCE` chain, and the edge helpers `companyIdForUser` / `companyIdForAnyUser` throw naming the user. Live census: zero such users today, including inactive rows. A COMPANY SWITCHER REMAINS UNBUILT; its trigger is the first real person who needs two companies. (record 2026-09-16 2226 UTC — "an ambiguous company resolves to nothing"; `docs/passes/2026-09-16-2226-ambiguous-company-refused.md`)
 
 ### DECIDED, NOT BUILT
 
@@ -38,8 +39,7 @@ closed, and the removing pass says so.
 - `generate-application-pdf`, `send-officer-packet`, `process-eld-escalations` read an arbitrary carrier. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (b), items 1–3)
 - `receive-rate-con-email` stops for SUPERTRANSPORT (`soleCompanyId`). (same entry, section (b), item 4)
 - No path creates carrier #2 with an owner and a membership. (same entry, section (b), item 5)
-- MULTI-COMPANY AMBIGUITY: `current_company_id()` ends in an unordered `LIMIT 1`, so a person who belongs to two companies resolves arbitrarily. Must be settled BEFORE carrier #2 exists — a restrictive policy built on an arbitrary answer hides the wrong rows. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
-- A dispatcher's `DELETE` on `brokers` returns `200` with an empty body and changes nothing (no DELETE policy for that role, and PostgREST reports a zero-row delete as success). Found by the pilot write test, not fixed there. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (b))
+(MULTI-COMPANY AMBIGUITY moved to RECENTLY CLOSED, 2026-09-16 2226 UTC. The dispatcher broker `DELETE` finding moved to VERIFICATION GAPS: it is a reporting gap, not a prerequisite.)
 
 
 ### OWNER DECISIONS OWED
@@ -60,6 +60,7 @@ closed, and the removing pass says so.
 - Test tools (`bootstrap-admin` non-owner branch, `create-test-operator`, `provision-test-driver`) break with two carriers. Tools only. (pass report `docs/passes/2026-09-16-1100-second-carrier-readiness.md`, Q1 table; cited from the record entry's section (b))
 - Record lines reading "CROSS-CARRIER ISOLATION REMAINS UNPROVEN" imply the isolation is built; for 123 tables it is not. Flag for correction. The wording appears at `docs/tms-build-status.md` **line 14000** and **line 14083** — the reviewer's two line numbers CONFIRMED live 2026-09-16. A third occurrence at **line 14681** is the census entry quoting the wording in order to correct it, not a claim. (record 2026-09-16 — "the owner's disposition decision…", section (c), "The correction this census forces"; the flagged lines sit in the 2026-09-15 B5/B6 entries of `docs/tms-build-status.md` and in `docs/passes/2026-09-15-2115-b6-group-3-driver-remainder.md`)
 - The census classifier counted role-AND-author policies (e.g. `broker_notes` author update/delete) as ROLE-ONLY, so 123 is a slight over-count. (pass report `docs/passes/2026-09-16-1840-read-enforcement-census.md`, the classification section)
+- A zero-row DELETE returns success. The broker delete button is shown to management only (`BrokersListPage` `canDelete={isManagement}`, line 240), so no dispatcher reaches it today; a UI that shows delete to a role the policy refuses would report a false success. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (b); moved here from PREREQUISITES on 2026-09-16 2226 UTC)
 
 ### PARKED — named here so the follow-up list is complete; the detail lives elsewhere
 

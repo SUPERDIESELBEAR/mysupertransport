@@ -14929,3 +14929,144 @@ arbitrarily.
 
 144 company-bearing tables still have no restrictive policy (143 pending plus
 `company_members`, permanently exempt).
+
+---
+
+## 2026-09-16 2226 UTC — an ambiguous company resolves to NOTHING (owner decision C)
+
+### (a) The decision
+
+When a user matches MORE THAN ONE distinct company across `company_members`,
+`operators` and `truck_owners`, the resolver returns NO company.
+
+Options considered and why they lost:
+
+- **A. One company per person, enforced by constraint** — too rigid. A driver
+  who later joins a second carrier would need a new login.
+- **B. Pick one by rule (e.g. newest)** — still silently shows the WRONG
+  company while both links are live. Silent-wrong is the one outcome forbidden.
+- **C. Refuse (chosen)** — never shows wrong data; the failure is a visible
+  empty screen; it costs nothing today; a company switcher is built only when a
+  real person needs two companies.
+
+### (b) Live census — zero ambiguous users, inactive rows included
+
+```sql
+SELECT user_id, count(DISTINCT company_id) AS companies
+FROM (
+  SELECT user_id, company_id FROM public.company_members
+  UNION ALL SELECT user_id, company_id FROM public.operators     WHERE user_id IS NOT NULL
+  UNION ALL SELECT user_id, company_id FROM public.truck_owners  WHERE user_id IS NOT NULL
+) s
+WHERE company_id IS NOT NULL
+GROUP BY user_id HAVING count(DISTINCT company_id) > 1;
+```
+
+Result: **0 rows** (no filter on `status`/`is_active`; terminated operators and
+inactive truck-owner rows are included). `carrier_profile` = 1 row.
+
+### (c) Bodies before and after
+
+BEFORE (`current_company_id`) — a COALESCE preference chain, three `LIMIT 1`s:
+
+```sql
+SELECT COALESCE(
+  (SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid() LIMIT 1),
+  (SELECT o.company_id  FROM public.operators o        WHERE o.user_id  = auth.uid() LIMIT 1),
+  (SELECT t.company_id  FROM public.truck_owners t     WHERE t.user_id  = auth.uid() LIMIT 1)
+)
+```
+
+AFTER — the three sources UNIONed, `count(*) = 1` or NULL, no row-picking
+clause. Still `STABLE SECURITY DEFINER`, `SET search_path TO 'public',
+'extensions'`:
+
+```sql
+SELECT CASE WHEN count(*) = 1 THEN (array_agg(d.company_id))[1] END
+FROM (
+  SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = auth.uid()
+  UNION SELECT o.company_id FROM public.operators o    WHERE o.user_id  = auth.uid()
+  UNION SELECT t.company_id FROM public.truck_owners t WHERE t.user_id  = auth.uid()
+) d
+WHERE d.company_id IS NOT NULL
+```
+
+`(array_agg(...))[1]`, not `min()`: the first migration attempt failed with
+`ERROR: 42883: function min(uuid) does not exist`.
+
+Two trigger helpers derive a company from a USER and were changed by the same
+rule — they now collect DISTINCT companies and RAISE on more than one instead of
+choosing: `stamp_company_from_recipient()` and
+`stamp_eld_malfunction_notification_company_id()`. Other candidates inspected and
+NOT changed, with reasons: `stamp_tenant_company_id` and `assign_user_role` call
+the resolver; `has_role` compares a role's company against it;
+`stamp_inspection_document_company_id` derives from the RECORD's `driver_id`
+(bare scalar subquery — raises `21000` on two rows, so it cannot pick either);
+`bootstrap_assign_owner` reads the carrier row, not a user.
+
+GRANTS before and after are IDENTICAL (quoted rather than assumed):
+
+```
+postgres=X/postgres | authenticated=X/postgres | service_role=X/postgres | sandbox_exec_qgxpkcudwjmacrdcyvhj=X/postgres
+```
+
+### (d) Proof
+
+The sandbox psql role CANNOT execute the function —
+`ERROR: permission denied for function current_company_id` — and cannot insert
+scratch `carrier_profile`/`company_members` rows. The nearest honest means was
+used and is labelled as such: a migration-channel DO block that stages the
+ambiguity and then RAISEs, so nothing persists. Verbatim:
+
+```
+staff  one company  -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+staff  two companies -> NULL
+driver one company  -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+driver operator row + scratch membership -> NULL
+owner  one company  -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+owner  truck_owners row + scratch membership -> NULL
+```
+
+Ambiguity for a driver/owner is staged ACROSS sources, because
+`operators_user_id_key` and `truck_owners_user_id_key` are globally unique — the
+first attempt tried two operator rows and failed with `ERROR: 23505 duplicate
+key value violates unique constraint "operators_user_id_key"`. Afterwards
+`carrier_profile` = 1 row, scratch memberships = 0.
+
+### (e) Edge helpers
+
+`supabase/functions/_shared/tenancy.ts`: new `distinctCompanies()` (no
+`.limit(1)` anywhere); `companyIdForUser` throws naming the user on two
+memberships; `companyIdForAnyUser` reads all THREE sources together — no
+preference order, no short-circuit — and throws naming the user and the
+company ids on more than one, and on none. `maybeSingle()` on two rows does
+raise, but its message is `Could not resolve company membership: multiple rows
+returned`: it names nobody and reads like a transport failure, so it was
+replaced. The new test ran RED against the old code first (3 of 7 failing,
+quoted in the pass report), then 7/7 green.
+
+### (f) Counts, suites, deploys
+
+Real-session counts on the four pilot tables are UNCHANGED from the pilot:
+Marcus 53/13/2/80, Leo 53/13/2/80, Mae 53/13/2/80, Steve 0/0/2/1,
+Donald 0/0/0/1.
+
+11 suites, **194 tests passed**, plus the pre-existing unhandled
+`Error: [vitest-worker]: Timeout calling "onTaskUpdate"` (quoted, not
+diagnosed). `npx tsgo -p tsconfig.app.json --noEmit` exit 0;
+`deno check supabase/functions/_shared/tenancy.ts` clean.
+
+Deployed (all 15 importers of `_shared/tenancy.ts`): bootstrap-admin,
+create-preview-session, create-test-operator, get-staff-list, invite-operator,
+invite-staff, invite-truck-owner, manage-group-thread, provision-demo-driver,
+provision-test-driver, receive-rate-con-email, reset-demo-driver,
+send-binder-share, send-ica-review-link, send-officer-packet. Confirmed by the
+deploy tool naming all 15 and by a live call to `get-staff-list` returning
+`401 {"error":"Unauthorized"}` — live and refusing, not `404`.
+
+### (g) Boundary
+
+Still ONE carrier. Ambiguity is now refused, but no ambiguous user exists to
+refuse in production; the refusal is proven by the aborted staging block and by
+the live body, not by a real two-company person. Deployed-vs-repo parity of the
+15 functions rests on the deploy tool's own report.
