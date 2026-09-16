@@ -255,8 +255,11 @@ describe('current_company_id — the four protections', () => {
     // Both non-membership branches are keyed on the caller, not open.
     expect(code).toMatch(/operators\s+o\s+WHERE\s+o\.user_id\s*=\s*auth\.uid\(\)/i);
     expect(code).toMatch(/truck_owners\s+t\s+WHERE\s+t\.user_id\s*=\s*auth\.uid\(\)/i);
-    // No third fallback smuggled into the COALESCE.
-    expect((code.match(/coalesce/gi) ?? []).length).toBe(1);
+    // 2026-09-16, owner decision C: the COALESCE preference chain is GONE. The
+    // three sources are read together and an ambiguous caller resolves to NULL,
+    // so there is no chain into which a fourth fallback could be smuggled. This
+    // assertion replaces "exactly one COALESCE"; see the ambiguity guard below.
+    expect((code.match(/coalesce/gi) ?? []).length).toBe(0);
   });
 
   itLive('MEMBERSHIP FIRST — the membership branch precedes the operator branch', () => {
