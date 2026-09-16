@@ -53,6 +53,7 @@ closed, and the removing pass says so.
 - `profiles`: staff of any carrier see every person's name. (record 2026-09-16 — "the unassigned tables…", section (c), `profiles` bullet)
 - `inspection_program_settings` read policy is `USING true`: any signed-in user of any carrier. (record 2026-09-16 — "the owner's disposition decision…", section (c), "two further defects")
 - `eld_cron_runs` read policy exposes cross-carrier job data (revisit with the `process-eld-escalations` fix). (record 2026-09-16 — "the owner's disposition decision…", section (a), "Noted for later")
+- How failing test files get noticed: (1) every pass runs the whole suite, 6.5 min each; (2) a nightly full run, up to 24h blind and with nowhere to report; (3) a touched-table rule, which for a tenancy pass costs nearly the full suite anyway; (4) a DB-free subset per pass plus a weekly full run. Recommendation is (1). (record 2026-09-16 2340 UTC — "whole-suite census…", section (e))
 
 ### VERIFICATION GAPS
 
