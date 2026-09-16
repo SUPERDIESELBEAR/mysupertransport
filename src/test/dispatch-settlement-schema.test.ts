@@ -165,6 +165,13 @@ describe('dispatch settlement — constraints', () => {
     ]) expect(names).toContain(n);
   });
 
+  itLive('one payee, one month, per company — the re-scoped unique key', () => {
+    const def = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname='public'
+      AND indexname='dispatch_settlements_company_payee_period_uniq'`).join(' ');
+    expect(def).toContain('UNIQUE');
+    expect(def).toContain('company_id, payee_key, period_month');
+  });
+
   itLive('one load_base line per load per settlement — a partial unique index', () => {
     const def = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname='public'
       AND indexname='dispatch_settlement_line_items_load_base_uniq'`).join(' ');
