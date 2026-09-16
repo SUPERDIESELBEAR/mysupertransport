@@ -2,6 +2,11 @@
 
 2026-09-16, 23:20–23:38 UTC. BUILD MODE. Immutable record of one pass.
 
+Naming note: this file was first written seconds earlier as
+`2026-09-16-2350-full-suite-census.md`, an estimated clock time, and renamed to
+the real `date -u` value (`2026-09-16-2338`) the moment it was read. Same
+content, one file, no second report.
+
 Allowed changes, and the only changes made:
 
 - `src/test/dispatch-settlement-schema.test.ts` (repaired)

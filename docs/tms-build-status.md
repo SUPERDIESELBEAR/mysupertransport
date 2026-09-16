@@ -15167,7 +15167,7 @@ they hide nothing from the five real people who use the system today.
 
 ---
 
-## 2026-09-16, 23:40 UTC — WHOLE-SUITE CENSUS, the dispatch settlement tests repaired, and the narrowed grant-parity check proved to still catch
+## 2026-09-16, 23:38 UTC — WHOLE-SUITE CENSUS, the dispatch settlement tests repaired, and the narrowed grant-parity check proved to still catch
 
 Changes were limited to `src/test/dispatch-settlement-schema.test.ts`, this file,
 `docs/tms-wish-list.md` and the pass report. No migration was authored; the one
