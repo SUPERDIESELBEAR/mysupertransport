@@ -274,7 +274,7 @@ describe('dispatch settlement — the rates are versioned and seeded, never hard
   itLive('exactly one open rate row: 5% dispatch, 2% factoring, from 2026-01-01', () => {
     const rows = psql(`SELECT dispatch_pct || '|' || factoring_pct || '|' || effective_from || '|' || coalesce(effective_to::text,'open')
       FROM public.dispatch_settlement_rates ORDER BY effective_from`);
-    expect(rows).toEqual(['7.00|2.00|2026-01-01|open']);
+    expect(rows).toEqual(['5.00|2.00|2026-01-01|open']);
   });
 
   itLive('the history table mirrors settlement_settings_history', () => {
