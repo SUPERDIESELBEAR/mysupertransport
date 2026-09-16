@@ -22,11 +22,14 @@ closed, and the removing pass says so.
 
 - Read-enforcement census ran: 148 tables have `company_id`, 12 test it on reads, 123 are readable by role alone, zero restrictive policies. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (c))
 - Disposition guard: all three failure branches demonstrated. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record" for the missing-list branch; "the owner's disposition decision, and the live read-enforcement census", section (e), for the duplicate-list and stale-entry branches)
+- HOW to close read enforcement: DECIDED and now PILOTED — one restrictive `tenant_isolation` policy per company-bearing table. Built on 4 tables, policy count 560 → 564, no real session lost a row. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four")
 
 ### DECIDED, NOT BUILT
 
+- Restrictive-policy ROLLOUT: 143 company-bearing tables still pending, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
 - Next tenancy batch: the 12 per-carrier tables (owner decision 2026-09-16) — needs read enforcement as well as the column. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (a) and (d))
 - `driver_documents` joins DEFERRED content (nine tables now); `eld_cron_runs` stays GLOBAL. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (a))
+
 
 ### PREREQUISITES BEFORE A SECOND `carrier_profile` ROW
 
@@ -35,10 +38,13 @@ closed, and the removing pass says so.
 - `generate-application-pdf`, `send-officer-packet`, `process-eld-escalations` read an arbitrary carrier. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (b), items 1–3)
 - `receive-rate-con-email` stops for SUPERTRANSPORT (`soleCompanyId`). (same entry, section (b), item 4)
 - No path creates carrier #2 with an owner and a membership. (same entry, section (b), item 5)
+- MULTI-COMPANY AMBIGUITY: `current_company_id()` ends in an unordered `LIMIT 1`, so a person who belongs to two companies resolves arbitrarily. Must be settled BEFORE carrier #2 exists — a restrictive policy built on an arbitrary answer hides the wrong rows. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- A dispatcher's `DELETE` on `brokers` returns `200` with an empty body and changes nothing (no DELETE policy for that role, and PostgREST reports a zero-row delete as success). Found by the pilot write test, not fixed there. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (b))
+
 
 ### OWNER DECISIONS OWED
 
-- How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (d)) DECIDED 2026-09-16, restrictive policy per table; to be recorded by the precheck pass.
+- ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 143 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
 - Nine content tables: SUPERDRIVE default vs carrier version. (record 2026-09-16 — "the unassigned tables…", section (c), content-tables bullet; "the owner's disposition decision…", section (a), DEFERRED content now nine)

@@ -14797,3 +14797,135 @@ NOTHING WAS BUILT IN THIS PASS. No migration, no code, no test, no data change.
 Proposal (policy SQL, guard, per-batch real-session verification, pilot batch of
 four tables, batch order) is in
 `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`.
+
+---
+
+## 2026-09-16 2007 UTC — RESTRICTIVE TENANT POLICY, PILOT BATCH OF FOUR (BUILT AND VERIFIED, SINGLE CARRIER)
+
+The owner's read-enforcement decision of 2026-09-16 is now built on four tables.
+One migration added exactly one policy per table and edited nothing else:
+
+```sql
+CREATE POLICY tenant_isolation ON public.<table>
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (company_id = (SELECT public.current_company_id()))
+  WITH CHECK (company_id = (SELECT public.current_company_id()));
+```
+
+Tables: `cert_reminders`, `brokers`, `facilities`, `active_dispatch`.
+`brokers` REPLACED the pre-check's proposed `broker_notes`: `broker_notes` has 0
+rows, so a mistake there would have been invisible. `company_members` was not a
+target and never will be — its `company_id` IS the assertion being checked.
+
+Live catalog after the migration, quoted from `pg_policies`, all four identical:
+
+```
+cert_reminders |tenant_isolation|RESTRICTIVE|ALL|{authenticated}|(company_id = ( SELECT current_company_id() AS current_company_id))|(same)
+brokers        |tenant_isolation|RESTRICTIVE|ALL|{authenticated}|(company_id = ( SELECT current_company_id() AS current_company_id))|(same)
+facilities     |tenant_isolation|RESTRICTIVE|ALL|{authenticated}|(company_id = ( SELECT current_company_id() AS current_company_id))|(same)
+active_dispatch|tenant_isolation|RESTRICTIVE|ALL|{authenticated}|(company_id = ( SELECT current_company_id() AS current_company_id))|(same)
+```
+
+Total policy count 560 → 564, as predicted. Linter total 172, unchanged; no new
+finding type. `npx tsgo -p tsconfig.app.json --noEmit` exit 0.
+
+### (a) BEFORE and AFTER counts, real JWTs over REST — every number identical
+
+The sandbox cannot `SET ROLE`, so each identity was signed in for real
+(`lovable auth-session`) and counted through PostgREST with `Prefer: count=exact`.
+
+| identity | cert_reminders | brokers | facilities | active_dispatch |
+|---|---|---|---|---|
+| owner Marcus Mueller `5cca4f77` | 53 → 53 | 13 → 13 | 2 → 2 | 80 → 80 |
+| dispatcher Leo Wallace `7d80cc10` | 53 → 53 | 13 → 13 | 2 → 2 | 80 → 80 |
+| onboarding_staff Mae Lauron `2cedd3ac` | 53 → 53 | 13 → 13 | 2 → 2 | 80 → 80 |
+| driver Steve Figueroa `878be880` | 0 → 0 | 0 → 0 | 2 → 2 | 1 → 1 |
+| truck owner Donald Alleyne `24ee1b9e` | 0 → 0 | 0 → 0 | 0 → 0 | 1 → 1 |
+| service role (psql) | 53 | 13 | 2 | 80 |
+
+No screen lost a row. The two zeros for the driver and the truck owner are their
+PRE-EXISTING permissive policies refusing them, not the new policy: they read the
+same zeros before the migration. Steve's `facilities` 2 and the truck owner's 0
+are likewise unchanged. Recording them because a restrictive policy that empties
+a screen is the failure mode this pilot was designed to catch, and it did not
+occur.
+
+### (b) The write test, as dispatcher Leo, quoted
+
+- Bare insert, no `company_id` named → `201`, row stamped
+  `company_id = 6b54d0e6-8743-4284-b55b-8cd094b093dd`. The stamp trigger fires
+  BEFORE the `WITH CHECK`, so the sanctioned shape and the restrictive policy do
+  not fight.
+- Insert naming a foreign `company_id` (`0000…00ff`) → `201`, and the stored row
+  reads `6b54d0e6-…`: the stamp OVERWROTE the spoof. The restrictive policy is
+  never reached, because there is nothing left to refuse. Worth stating plainly:
+  on stamped tables the restrictive `WITH CHECK` is a SECOND line, not the first.
+- Ordinary update (`mc_number`) → `200`.
+- Update trying to move the row to another company → refused, verbatim:
+  `{"code":"42501","message":"new row violates row-level security policy \"tenant_isolation\" for table \"brokers\""}`
+  This is the new policy refusing by name. It is the one genuine refusal the
+  single-carrier system can produce.
+- `DELETE` as Leo → `200` with an EMPTY body, and BOTH rows still present. Not
+  the new policy: `brokers` has no DELETE policy for a dispatcher (`brokers_mgmt_all`
+  is management/owner), and PostgREST reports a zero-row delete as success. A
+  dispatcher deleting a broker in the UI would see no error and no effect. Noted
+  as a finding of this pass, not fixed in it.
+- Cleanup ran as the owner: both scratch rows deleted, `brokers` back to 13,
+  `SELECT count(*) … WHERE company_name LIKE 'SCRATCH%'` = 0. Zero residue.
+
+### (c) Guards, in `src/test/tenancy-resolver.test.ts`
+
+The pre-existing guard "no billing policy admits a caller merely because a
+company resolves" FAILED after the migration, naming all four
+`tenant_isolation` policies. That failure was WRONG, and the guard was narrowed
+with `permissive = 'PERMISSIVE'`: the rule is about policies that GRANT access,
+and a restrictive policy can only remove it. The narrowing is annotated in place.
+
+New guard: "every company_id table either carries tenant_isolation or is
+pending". It reads all 148 company-bearing tables and all restrictive policies
+live, and holds three ledgers: `RESTRICTIVE_DONE` (the pilot four),
+`RESTRICTIVE_EXEMPT` (`company_members`), `PENDING_RESTRICTIVE` (the other 143).
+Shape is checked exactly — one policy, named `tenant_isolation`, `ALL`,
+`{authenticated}`, both predicates byte-identical to the sanctioned text.
+
+Four branches demonstrated by deliberate breakage, then byte-identical restore
+(`diff` clean, guard green again):
+
+1. UNDECLARED — removed `brokers` from `RESTRICTIVE_DONE`:
+   `these tables have company_id and no restrictive-policy disposition … expected [ 'brokers' ] to deeply equal []`
+2. STALE — declared `brokers` pending while it carries the policy:
+   `stale PENDING_RESTRICTIVE entries: expected [ Array(1) ] to deeply equal []`
+3. MISSING — claimed `invoices` as done:
+   `invoices: no restrictive policy: expected [ 'invoices: no restrictive policy' ] to deeply equal []`
+4. DUPLICATE and WRONG PREDICATE — AUTHORED FIXTURES, disclosed as such in the
+   file. The sandbox role cannot `CREATE POLICY`, so a second policy and a
+   hand-written literal-uuid predicate cannot be staged in the database. The
+   shape check was extracted into `restrictiveShapeProblems()` and exercised
+   against rows written by hand in the shape `pg_policies` returns. These two
+   branches prove the CHECK, not the DATABASE.
+
+### (d) Suites
+
+12 named suites, 191 tests, all passed: `tenancy-resolver`, `policy-grant-parity`,
+`grant-parity-live`, `definer-live-catalog`, `definer-fail-open`,
+`definer-search-path`, `notification-isolation`, `operator-fuel-isolation`,
+`operator-settlement-isolation`, `operator-pay-exposure`,
+`function-reachability`, `caller-evaluated-functions`.
+
+One unhandled error, quoted not diagnosed — the same worker-timeout already on
+the record: `Error: [vitest-worker]: Timeout calling "onTaskUpdate"`. It is a
+reporter RPC timeout on a 369-second run, not an assertion.
+
+### (e) The boundary
+
+CROSS-CARRIER REFUSAL STILL NOT DEMONSTRATED: ONE CARRIER EXISTS. Everything
+above proves the policy is present, correctly shaped, and harmless to the
+existing carrier's screens, plus one real refusal of a company-change on update.
+It does NOT prove a second carrier's rows would be hidden, because there are no
+second-carrier rows to hide. That demonstration waits on carrier #2, which in
+turn waits on the ordering defect already recorded: `current_company_id()` ends
+in an unordered `LIMIT 1`, so a person belonging to two companies resolves
+arbitrarily.
+
+144 company-bearing tables still have no restrictive policy (143 pending plus
+`company_members`, permanently exempt).
