@@ -14661,3 +14661,139 @@ ends byte-identical to HEAD (md5 `2247a0f826f9be51c3e5a973acf59a1f`, `diff` empt
 `Error: [vitest-worker]: Timeout calling "onTaskUpdate"`, quoted in full in the report and
 NOT labelled harmless. Vitest itself says it "might cause false positive tests," so this is
 not being presented as a wholly clean run. Same error as the 1138 pass; still undiagnosed.
+
+2026-09-16 19:20 UTC — THE OWNER'S READ-ENFORCEMENT DECISION, AND ITS PRE-CHECK
+===============================================================================
+
+DECISION (owner, 2026-09-16, in conversation). Cross-carrier read enforcement
+will be closed by adding ONE RESTRICTIVE policy per table that has
+`company_id`, `FOR ALL TO authenticated`, requiring the ROW's `company_id` to
+equal the caller's company. Existing permissive policies are NOT edited.
+Reasons, as given: one rule per table instead of ~243 policy edits; a
+restrictive policy also constrains any permissive policy written in future (the
+census noted the 171 OWNERSHIP policies isolate carriers only by accident, as a
+side effect of isolating PEOPLE); and the guard becomes a simple invariant —
+every table with the column has exactly one such policy. Rollout in batches,
+each verified with a real session, because a wrong restrictive policy does not
+leak — it silently EMPTIES a screen.
+
+CORRECTION, appended, not edited. Lines 14000 and 14083 of this record read
+"CROSS-CARRIER ISOLATION REMAINS UNPROVEN", which reads as built-but-untested.
+For the tables the 18:40 census lists it was not built: 123 of the 148 tables
+with `company_id` carry at least one policy that admits a read on ROLE alone,
+and only 12 test the row's company. Those two lines are accurate about the
+absence of proof and wrong by implication about the presence of the mechanism.
+The lines stand; this is the correction.
+
+PRE-CHECK, all live (full queries and verbatim output in the pass report):
+
+(a) FORCE RLS: 0 of the 148 tables have `relforcerowsecurity`. All 148 are
+    owned by `postgres`; every SECURITY DEFINER function in `public` is owned by
+    `postgres` too, and a table owner without FORCE RLS is exempt from its own
+    policies — so definer paths are UNAFFECTED. Nothing to list.
+
+(b) MIS-STAMPED ROWS: 0. 149 child->parent foreign-key joins into
+    company-bearing parents were compared (`accessorial_adjustments.load_id ->
+    loads`, `active_dispatch.operator_id -> operators`, `broker_notes.broker_id
+    -> brokers`, and so on); every count is 0. Ten identity-derived tables were
+    compared against `company_members` u `operators` u `truck_owners` by
+    `user_id` (`notifications`, `user_roles`, `document_acknowledgments`,
+    `notification_preferences`, `user_view_preferences`, `staff_ui_preferences`,
+    `staff_help_threads`, three `service_resource_*`): every count 0. 54 tables
+    have NO company-bearing FK parent; of those the per-company settings
+    singletons and the identity tables are covered above, and the remainder
+    (e.g. `facilities`, `equipment_items`, `pay_policies`, `mo_plates`,
+    `company_documents`) have no derivation at all — with one carrier their
+    stamp is unfalsifiable.
+
+(c) SIGNED-IN CALLERS BEFORE A COMPANY EXISTS. One real exposure:
+    `src/hooks/useAuth.tsx:148` reads `user_roles` directly, and `user_roles`
+    has `company_id`. A staff user who is signed in BEFORE his
+    `company_members` row exists resolves NULL, so a restrictive policy would
+    return no roles and the portal would treat him as roleless. `assign_user_role`
+    now refuses staff roles without membership and the three invite functions
+    write membership, so the window is narrow — but it is real for any account
+    created before 2026-09-15. Applicants are safe: `ApplicationStatus.tsx` and
+    `SubmitSSN.tsx` read only `applications` (GLOBAL) and `profiles` (GLOBAL,
+    no `company_id`). A driver before his `operators` row cannot reach the
+    operator portal at all. `onboarding_status`, `ica_contracts`, `messages`,
+    `notifications` and `operators` all have the column and are all read only
+    after the operator row exists.
+
+(d) TOKEN AND PUBLIC PATHS. ZERO policies on the 148 tables admit `anon`, and
+    `anon` holds NO table grant on any of them. The only anon policy anywhere is
+    `applications | Public can submit application with email` (INSERT), on a
+    GLOBAL table. Every public link path therefore already runs through
+    SECURITY DEFINER functions or service_role, both of which bypass or predate
+    RLS — so a restrictive `TO authenticated` policy changes nothing for
+    /inspect, tracking, short links, officer packets or ICA review, whether the
+    reader is signed out, signed in at another carrier, or a driver. The one
+    thing to keep is that those definer functions must stay definer.
+
+(e) TWO COMPANIES FOR ONE USER. `company_members` UNIQUE is on
+    `(user_id, company_id)` — so a user CAN hold two membership rows.
+    `current_company_id()` is `LIMIT 1` on an unordered read of membership, then
+    operators, then truck_owners: with two rows it returns an ARBITRARY one, and
+    a restrictive policy would then hide the other carrier's rows
+    non-deterministically. Same for a truck owner with `truck_owners` rows in
+    two companies. Multi-company users are not supported today and this decision
+    does not make them supported; it makes the ambiguity visible.
+
+(f) WRITES. PostgreSQL 16 CREATE POLICY: "For INSERT, UPDATE, and MERGE
+    statements, WITH CHECK expressions are enforced after BEFORE triggers are
+    fired, and before any actual data modifications are made. Thus a BEFORE ROW
+    trigger may modify the data to be inserted, affecting the result of the
+    security policy check." So the stamp trigger fires first and the check sees
+    the stamped value. Live `pg_trigger`: 147 of the 148 tables carry a company
+    stamp trigger; the sole exception is `company_members` itself, which has no
+    stamp because its `company_id` IS the assertion and it is service_role-only.
+
+(g) SPEED. `current_company_id()` is `STABLE SECURITY DEFINER`, three
+    COALESCEd single-row reads. The policy must be written
+    `company_id = (SELECT public.current_company_id())` so it is evaluated once
+    per query, not per row. Only TWO of the 148 tables have no index leading on
+    `company_id`: `payments` (0 rows) and `invoice_line_items` (1 row). Nothing
+    to build first.
+
+(h) REALTIME. Realtime applies RLS per subscriber, so 21 subscribed tables are
+    affected: `messages`, `notifications`, `rods_days`, `rods_events`,
+    `active_dispatch`, `deductions`, `cert_reminders`, `onboarding_status`,
+    `onboard_assignment_sheets`, `inspection_documents`,
+    `truck_dot_inspections`, `rate_con_ingest_queue`, `message_reactions`,
+    `dispatch_status_history`, `accessorial_adjustments`,
+    `passenger_authorizations`, `operators`, `operator_documents`, `loads`,
+    `ica_contracts`, `equipment_assignments`, `driver_uploads`. Three subscribed
+    tables have no column and are unaffected: `applications`, `pipeline_config`,
+    `pei_requests`. A wrongly scoped restrictive policy shows up here as a live
+    view that stops updating, which is exactly the silent failure mode.
+
+(i) EXISTING GUARDS. `tenancy-resolver.test.ts` "no billing policy admits a
+    caller merely because a company resolves" (line ~294) matches ANY policy
+    mentioning `current_company_id` without `has_role`, minus an allowlist — a
+    restrictive policy mentions `current_company_id` and has no role test, so
+    EVERY new policy would trip it, and its companion "the allowlisted policies
+    are SELECT-only" would trip too because the policy is FOR ALL. That guard is
+    about PERMISSIVE grants; it must be narrowed to `permissive = 'PERMISSIVE'`
+    in the same migration batch, not weakened. `carrier_profile read scope`
+    (line ~732) expects exactly ONE SELECT policy on `carrier_profile` — that
+    table has no `company_id` and is out of scope, so it is unaffected. The B5
+    singleton guard (line ~1095) requires every policy to mention
+    `current_company_id`, which a restrictive policy satisfies. `company_members`
+    guard asserts no non-SELECT policy on that table — so `company_members` must
+    be EXCLUDED from the restrictive rollout, or that guard restated.
+
+(j) THE 12 NOT-YET-STAMPED TABLES can take column, stamp trigger and
+    restrictive policy in one migration each. The fuel caveat: `fuel_transactions`
+    (69 rows) and `fuel_transaction_lines` (125) are written by the import
+    committer, not by a user session, and unmatched rows are the point of the
+    weekly exception view — today all 69 have a non-null `operator_id`, but the
+    importer is allowed to leave it null, so a company derived from the operator
+    would be NULL for an unmatched row. Derive fuel company from
+    `fuel_import_batches` (the importing staff member's company), never from the
+    operator, or an unmatched row becomes invisible to the screen built to show
+    it.
+
+NOTHING WAS BUILT IN THIS PASS. No migration, no code, no test, no data change.
+Proposal (policy SQL, guard, per-batch real-session verification, pilot batch of
+four tables, batch order) is in
+`docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`.
