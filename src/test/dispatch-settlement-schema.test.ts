@@ -286,52 +286,70 @@ describe('dispatch settlement — the rates are versioned and seeded, never hard
   });
 });
 
+/**
+ * Since B5 part two (2026-09-15) every dispatch settlement table carries
+ * company_id NOT NULL, stamped by stamp_tenant_company_id(). That trigger
+ * refuses any row whose company it cannot resolve, which is what these
+ * fixtures used to hit: they were reaching a 42501 refusal BEFORE the CHECK or
+ * UNIQUE they exist to prove.
+ *
+ * They now write the way a real service-role writer writes — the way the edge
+ * functions do: the service_role claim, plus an EXPLICIT company_id read from
+ * carrier_profile's single row. Chosen over borrowing a staff member's JWT
+ * because these are schema tests: they should not fail the day one particular
+ * person's company_members row changes. No money expectation is touched.
+ */
+const AS_SERVICE_ROLE = `SET LOCAL request.jwt.claims = '{"role":"service_role"}';`;
+const CO = `(SELECT id FROM public.carrier_profile)`;
+
 describe('dispatch settlement — behaviour the schema must refuse', () => {
   itLive('period_month must be the first of a month', () => {
-    const err = psqlExpectError(`BEGIN; INSERT INTO public.dispatch_settlements
-      (period_month, factoring_pct, dispatch_pct) VALUES ('2026-03-15', 2, 5); ROLLBACK;`);
+    const err = psqlExpectError(`BEGIN; ${AS_SERVICE_ROLE} INSERT INTO public.dispatch_settlements
+      (company_id, period_month, factoring_pct, dispatch_pct)
+      VALUES (${CO}, '2026-03-15', 2, 5); ROLLBACK;`);
     expect(err).toContain('dispatch_settlements_period_month_first_check');
   });
 
   itLive('a second settlement for the same payee and month is refused', () => {
-    const err = psqlExpectError(`BEGIN;
-      INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
-        VALUES ('2099-01-01', 2, 5);
-      INSERT INTO public.dispatch_settlements (period_month, factoring_pct, dispatch_pct)
-        VALUES ('2099-01-01', 2, 5);
+    const err = psqlExpectError(`BEGIN; ${AS_SERVICE_ROLE}
+      INSERT INTO public.dispatch_settlements (company_id, period_month, factoring_pct, dispatch_pct)
+        VALUES (${CO}, '2099-01-01', 2, 5);
+      INSERT INTO public.dispatch_settlements (company_id, period_month, factoring_pct, dispatch_pct)
+        VALUES (${CO}, '2099-01-01', 2, 5);
       ROLLBACK;`);
-    expect(err).toContain('dispatch_settlements_payee_period_key');
+    // Re-scoped per company by B5 part two: the unique INDEX now raises.
+    expect(err).toContain('dispatch_settlements_company_payee_period_uniq');
   });
 
   itLive('a payee other than the dispatch company is refused — this table has one vendor', () => {
-    const err = psqlExpectError(`BEGIN; INSERT INTO public.dispatch_settlements
-      (period_month, payee_key, factoring_pct, dispatch_pct)
-      VALUES ('2099-01-01', 'someone_else', 2, 5); ROLLBACK;`);
+    const err = psqlExpectError(`BEGIN; ${AS_SERVICE_ROLE} INSERT INTO public.dispatch_settlements
+      (company_id, period_month, payee_key, factoring_pct, dispatch_pct)
+      VALUES (${CO}, '2099-01-01', 'someone_else', 2, 5); ROLLBACK;`);
     expect(err).toContain('dispatch_settlements_payee_key_check');
   });
 
   itLive('a load_base line without a load is refused', () => {
-    const err = psqlExpectError(`BEGIN;
-      INSERT INTO public.dispatch_settlements (id, period_month, factoring_pct, dispatch_pct)
-        VALUES ('00000000-0000-4000-8000-00000000d001', '2099-01-01', 2, 5);
+    const err = psqlExpectError(`BEGIN; ${AS_SERVICE_ROLE}
+      INSERT INTO public.dispatch_settlements (id, company_id, period_month, factoring_pct, dispatch_pct)
+        VALUES ('00000000-0000-4000-8000-00000000d001', ${CO}, '2099-01-01', 2, 5);
       INSERT INTO public.dispatch_settlement_line_items
-        (dispatch_settlement_id, line_type, amount, description)
-        VALUES ('00000000-0000-4000-8000-00000000d001', 'load_base', 100, 'x');
+        (dispatch_settlement_id, company_id, line_type, amount, description)
+        VALUES ('00000000-0000-4000-8000-00000000d001', ${CO}, 'load_base', 100, 'x');
       ROLLBACK;`);
     expect(err).toContain('dispatch_settlement_line_items_load_base_load_check');
   });
 
   itLive('an excluded charge with no reason is refused, and a reason with no exclusion too', () => {
-    const err = psqlExpectError(`BEGIN;
-      INSERT INTO public.dispatch_settlements (id, period_month, factoring_pct, dispatch_pct)
-        VALUES ('00000000-0000-4000-8000-00000000d002', '2099-01-01', 2, 5);
+    const err = psqlExpectError(`BEGIN; ${AS_SERVICE_ROLE}
+      INSERT INTO public.dispatch_settlements (id, company_id, period_month, factoring_pct, dispatch_pct)
+        VALUES ('00000000-0000-4000-8000-00000000d002', ${CO}, '2099-01-01', 2, 5);
       INSERT INTO public.dispatch_settlement_load_contributions
-        (id, dispatch_settlement_id, load_id, load_number, load_type, rate_type)
+        (id, dispatch_settlement_id, company_id, load_id, load_number, load_type, rate_type)
         SELECT '00000000-0000-4000-8000-00000000d003', '00000000-0000-4000-8000-00000000d002',
-               id, 'X', 'standard', 'flat' FROM public.loads ORDER BY created_at LIMIT 1;
+               ${CO}, id, 'X', 'standard', 'flat' FROM public.loads ORDER BY created_at LIMIT 1;
       INSERT INTO public.dispatch_settlement_charge_verdicts
-        (contribution_id, charge_type, classification, amount, excluded)
-        VALUES ('00000000-0000-4000-8000-00000000d003', 'lumper', 'revenue', 100, true);
+        (contribution_id, company_id, charge_type, classification, amount, excluded)
+        VALUES ('00000000-0000-4000-8000-00000000d003', ${CO}, 'lumper', 'revenue', 100, true);
       ROLLBACK;`);
     expect(err).toContain('dispatch_charge_verdicts_reason_presence_check');
   });
