@@ -23,6 +23,7 @@ closed, and the removing pass says so.
 - Read-enforcement census ran: 148 tables have `company_id`, 12 test it on reads, 123 are readable by role alone, zero restrictive policies. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", section (c))
 - Disposition guard: all three failure branches demonstrated. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record" for the missing-list branch; "the owner's disposition decision, and the live read-enforcement census", section (e), for the duplicate-list and stale-entry branches)
 - HOW to close read enforcement: DECIDED and now PILOTED — one restrictive `tenant_isolation` policy per company-bearing table. Built on 4 tables, policy count 560 → 564, no real session lost a row. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four")
+- MULTI-COMPANY AMBIGUITY: CLOSED 2026-09-16 (owner decision C). A person matching more than one distinct company across `company_members`, `operators` and `truck_owners` now resolves to NOTHING — `current_company_id()` has no `LIMIT` and no `COALESCE` chain, and the edge helpers `companyIdForUser` / `companyIdForAnyUser` throw naming the user. Live census: zero such users today, including inactive rows. A COMPANY SWITCHER REMAINS UNBUILT; its trigger is the first real person who needs two companies. (record 2026-09-16 2226 UTC — "an ambiguous company resolves to nothing"; `docs/passes/2026-09-16-2226-ambiguous-company-refused.md`)
 
 ### DECIDED, NOT BUILT
 
