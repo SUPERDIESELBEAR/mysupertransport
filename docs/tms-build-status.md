@@ -15070,3 +15070,96 @@ Still ONE carrier. Ambiguity is now refused, but no ambiguous user exists to
 refuse in production; the refusal is proven by the aborted staging block and by
 the live body, not by a real two-company person. Deployed-vs-repo parity of the
 15 functions rests on the deploy tool's own report.
+
+## 2026-09-16 23:00 UTC — restrictive tenant policy, BATCH 1 (staff-only tables)
+
+Full report: `docs/passes/2026-09-16-2300-restrictive-batch-1.md`.
+
+### (a) The batch, chosen live
+
+From PENDING_RESTRICTIVE, every table whose permissive authenticated policies
+are all ROLE-ONLY or SERVICE (no OWNERSHIP, no COMPANY, no OTHER), minus
+realtime tables, financial tables, `user_roles`/`company_members`, token
+tables and the two policy-less tables: **45 candidates** (21 with rows, 24
+empty). Taking rows first, capped at 25: the 21 nonempty candidates plus 4
+empty broker tables. Remainder for batch 2: **20 empty candidates**:
+`broker_notes`, `cash_advances`, `company_documents`, `detention_claims`,
+`dispatch_settlement_rates_history`, `document_send_log`, `eld_devices`,
+`eld_extension_requests`, `eld_malfunction_notifications`, `eld_sync_alerts`,
+`pay_policy_assignments`, `rm_deposits`, `rm_deposit_transactions`,
+`roadside_stop_documents`, `roadside_stop_violations`,
+`settlement_settings_history`, `staff_email_overrides`, `truck_plate_history`,
+`vacant_units`, and one more listed in the report. The 4 empty tables taken
+into batch 1 as fillers were `broker_contacts`, `broker_do_not_load_history`,
+`broker_documents`, `broker_factoring_history`.
+
+### (b) Counts — unchanged
+
+125 real-session counts (Marcus Mueller owner, Leo Wallace dispatcher, Mae
+Lauron onboarding_staff, Steve Figueroa driver, Donald Alleyne truck owner ×
+25 tables), taken through PostgREST with `Prefer: count=exact` before and
+after: **IDENTICAL: all 125 counts unchanged**. Service-role counts could NOT
+be taken: `ERROR:  permission denied to set role "service_role"` for all 25
+tables. That is an unproven line, not a passing one.
+
+### (c) Writes (Mae, Equipment Inventory — `src/components/equipment/EquipmentInventory.tsx`, write path `EquipmentItemModal.tsx:186-189`)
+
+Insert without `company_id` → stamped SUPERTRANSPORT. Insert with a spoofed
+`company_id` → accepted, then OVERWRITTEN by the stamp trigger. Normal update
+→ success. Update setting a random `company_id` → refused:
+`{"code":"42501","message":"new row violates row-level security policy
+\"tenant_isolation\" for table \"equipment_items\""}`. First cleanup attempt
+returned `error code: 1101` and left 2 scratch rows; deleting by id returned
+204 each, residue 0, total back to 219.
+
+### (d) The guard, shown failing
+
+`equipment_items` left in PENDING_RESTRICTIVE →
+`AssertionError: stale PENDING_RESTRICTIVE entries ... "equipment_items:
+declared pending but already carries a restrictive policy"`. Restored
+byte-identically (`cmp` clean), suite green: **122/122**.
+
+### (e) A guard that was WRONG, found by this batch
+
+`grant_parity_report()` looped over ALL policies, so the RESTRICTIVE
+`tenant_isolation` on `parser_diagnostics` was read as admitting authenticated
+for INSERT — a table whose INSERT is deliberately RPC-only. Verbatim:
+`parser_diagnostics | authenticated | INSERT | policy "tenant_isolation" admits
+authenticated for INSERT but the role holds no INSERT grant`. A restrictive
+policy can only remove rows; the report now filters `p.polpermissive`. After
+the fix the report returns zero rows. This is the pre-check's section (i)
+coming true: guards written before restrictive policies existed can misread
+them.
+
+### (f) Suites, counts, typecheck
+
+Policy count **589** = 564 + 25, restrictive policies **29** = 4 + 25. Linter
+total unchanged at **172** (same five categories). `npx tsgo -p
+tsconfig.app.json --noEmit` exit 0.
+
+Green: tenancy-resolver 122/122; tenancy-helper-ambiguity, definer-live-catalog,
+definer-search-path, definer-fail-open, policy-grant-parity,
+notification-isolation, function-reachability (60 tests); grant-parity-live
+after the fix; and of the batch-naming suites — actor-stamp-fk, billing-schema,
+caller-evaluated-functions, dispatch-settlement-screen, equipment-serial-guard,
+fuel-import-live, invoice-dispatch-reconciliation, load-dispatcher-editing,
+operator-pay-exposure, payments-schema, return-sheet-device-enum,
+settlement-adjustment-seam, shared-pay-percentage-source-guard,
+e2e/blueGraceLoadPath.
+
+RED and NOT caused by this pass: `dispatch-settlement-schema.test.ts`, **10
+failures**. Two causes, both predating this pass: expected column lists that
+omit `company_id` (`expected [ …(25) ] to deeply equal [ …(24) ]`, extra
+`"company_id:uuid:NO"`), and scratch inserts as the sandbox psql role now
+refused by the earlier stamp trigger — `ERROR:  Cannot resolve a company for
+this public.dispatch_settlements row: the caller holds no company_members row
+and no server-side company was named.` `dispatch_settlements.company_id` was
+added in B5 part two on 2026-09-15, before this pass; the restrictive policies
+are `TO authenticated` and cannot reach the sandbox role. Left failing and
+reported rather than edited, since the suite is outside this batch.
+
+### (g) Boundary
+
+Still ONE carrier: none of these 25 policies has been shown to hide another
+carrier's row, because no other carrier's row exists. What is proven is that
+they hide nothing from the five real people who use the system today.
