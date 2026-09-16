@@ -291,13 +291,24 @@ describe('current_company_id — the four protections', () => {
     // The resolver widened WHO resolves. It must not widen WHAT anyone may do:
     // every company-scoped policy must ALSO test a staff role, unless it is on
     // the reasoned allowlist above.
+    //
+    // NARROWED 2026-09-16, restrictive-policy pilot: `permissive = 'PERMISSIVE'`.
+    // This guard is a rule about policies that GRANT access. A RESTRICTIVE
+    // policy can only ever REMOVE access — Postgres ANDs every applicable
+    // restrictive policy on top of the permissive ones — so a restrictive
+    // `company_id = current_company_id()` policy with no role test admits
+    // nobody and cannot be an offender. Without this narrowing the guard
+    // reports every `tenant_isolation` policy as a violation of a rule it
+    // does not break.
     const offenders = psql(`SELECT tablename || ' | ' || policyname FROM pg_policies
       WHERE schemaname = 'public'
+        AND permissive = 'PERMISSIVE'
         AND (coalesce(qual,'') || coalesce(with_check,'')) LIKE '%current_company_id%'
         AND (coalesce(qual,'') || coalesce(with_check,'')) NOT LIKE '%has_role%'
       ORDER BY 1`).filter(r => !COMPANY_SCOPED_WITHOUT_ROLE.includes(r));
     expect(offenders, offenders.join('\n')).toEqual([]);
   });
+
 
   itLive('the allowlisted policies are SELECT-only', () => {
     for (const entry of COMPANY_SCOPED_WITHOUT_ROLE) {
