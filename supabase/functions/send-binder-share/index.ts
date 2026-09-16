@@ -8,6 +8,7 @@ import { createClient } from 'npm:@supabase/supabase-js@2';
 import { requireAuthedUser, ok, fail, withErrorEnvelope, sendResendDirect, buildAppUrl } from '../_shared/email/index.ts';
 import { binderShareHtml, binderShareText, binderShareSubject, type BinderShareDoc } from '../_shared/binder-share-email.ts';
 import { canShareBinderDocument } from '../_shared/binder-share-auth.ts';
+import { companyIdForAnyUser } from '../_shared/tenancy.ts';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const MAX_DOCS = 30;
@@ -182,20 +183,35 @@ Deno.serve(withErrorEnvelope(async (req) => {
   // ── 4. Bundle link: one URL that pages through every shared document ──────
   let bundleUrl: string | null = null;
   if (tokens.length > 1) {
-    const { data: bundle, error: bundleErr } = await supabase
-      .from('binder_share_bundles')
-      .insert({
-        created_by: userId,
-        driver_name: driverName.slice(0, 120),
-        unit_number: (body.unitNumber ?? null)?.toString().slice(0, 32) || null,
-        doc_tokens: tokens,
-      })
-      .select('token')
-      .single();
-    if (bundleErr) {
-      console.error(`[send-binder-share] bundle create failed: ${bundleErr.message}`);
-    } else if (bundle?.token) {
-      bundleUrl = buildAppUrl(`/inspect/all/${bundle.token}`);
+    // TENANCY: per-company since 2026-09-15; service-role insert, so the row
+    // names its company. Callers are staff OR drivers, hence
+    // companyIdForAnyUser (membership → operator → truck owner). The bundle
+    // link is an optional convenience: an unresolvable company skips it and
+    // the per-document links still go out, matching the existing behaviour on
+    // a failed bundle insert.
+    let bundleCompanyId: string | null = null;
+    try {
+      bundleCompanyId = await companyIdForAnyUser(supabase, userId);
+    } catch (e) {
+      console.error(`[send-binder-share] bundle company unresolved: ${e instanceof Error ? e.message : String(e)}`);
+    }
+    if (bundleCompanyId) {
+      const { data: bundle, error: bundleErr } = await supabase
+        .from('binder_share_bundles')
+        .insert({
+          created_by: userId,
+          driver_name: driverName.slice(0, 120),
+          unit_number: (body.unitNumber ?? null)?.toString().slice(0, 32) || null,
+          doc_tokens: tokens,
+          company_id: bundleCompanyId,
+        })
+        .select('token')
+        .single();
+      if (bundleErr) {
+        console.error(`[send-binder-share] bundle create failed: ${bundleErr.message}`);
+      } else if (bundle?.token) {
+        bundleUrl = buildAppUrl(`/inspect/all/${bundle.token}`);
+      }
     }
   }
 

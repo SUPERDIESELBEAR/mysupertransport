@@ -6,6 +6,7 @@ import {
   sendTemplateEmail,
 } from '../_shared/email/index.ts'
 import { buildAppUrl } from '../_shared/app-url.ts'
+import { companyIdForUser } from '../_shared/tenancy.ts'
 
 // Creates a tokenized, watermarked ICA review link and emails it to a prospect.
 
@@ -36,6 +37,18 @@ Deno.serve(withErrorEnvelope(async (req) => {
     return fail(400, 'A valid recipient email address is required.')
   }
 
+  // TENANCY: ica_review_links is PER-COMPANY since 2026-09-15. This runs as
+  // service role, so no auth.uid() reaches the stamp trigger and the row must
+  // name its company. The sending staff member's membership is the source.
+  let companyId: string
+  try {
+    companyId = await companyIdForUser(supabase, userId)
+  } catch (e) {
+    return fail(403, 'No company membership found for this staff account, so the review link cannot be created.', {
+      cause: e instanceof Error ? e.message : String(e),
+    })
+  }
+
   const { data: link, error: insertError } = await supabase
     .from('ica_review_links')
     .insert({
@@ -43,6 +56,7 @@ Deno.serve(withErrorEnvelope(async (req) => {
       recipient_email: recipientEmail,
       note,
       created_by: userId,
+      company_id: companyId,
     })
     .select('token, expires_at')
     .single()
