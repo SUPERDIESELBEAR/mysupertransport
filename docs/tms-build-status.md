@@ -15857,3 +15857,245 @@ failure is `src/pages/dispatch/__tests__/brokersPage.test.tsx` >
 `Error: Test timed out in 5000ms`. Re-run alone: 8/8 green in 2,993 ms, the
 named test in 1,084 ms. Load flake under a 425-second whole-suite run, not a
 defect — and one green re-run is one sample.
+
+---
+
+## 2026-09-17 14:50 UTC — the five blind migration readers, and restrictive tenant policy BATCH 3
+
+BUILD MODE. Read first, as instructed:
+`docs/passes/2026-09-17-1314-drizzle-folder-explained.md`,
+`docs/passes/2026-09-17-1235-cleanup-and-batch-2.md`, and
+`docs/passes/2026-09-16-1920-restrictive-policy-precheck.md` ("Batch order
+after the pilot"). Nothing in the prompt contradicted the live system or the
+record.
+
+### (a) SIGN-IN RULE — owner decision 2026-09-17, now standing
+
+Sign in ONCE per test identity per pass and reuse that session for every count
+and probe. Five identities were minted once at the start of this pass (Marcus
+Mueller, Leo Wallace, Mae Lauron, Steve Figueroa, Donald Alleyne) and the same
+five sessions served BEFORE counts, AFTER counts, the write probes and the
+driver screens. Session material was never printed, logged or summarised.
+Note for the next pass: session files must live OUTSIDE `/tmp`, which the
+sandbox clears between commands; `/root/sess` survived.
+
+### (b) STEP 1 — the five blind readers, now on the shared reader
+
+All five moved onto `migrationSources()` in
+`src/test/helpers/migrationFunctions.ts`, which enumerates
+`supabase/migrations` then `drizzle/migrations` (Drizzle LAST, so the
+newest-definition rule still resolves to the newest text):
+
+| reader | what it checks | proof it now reads `drizzle/migrations` |
+|---|---|---|
+| `src/test/resume-token-reuse.test.ts` | resolved (newest) body of `consume_application_resume_token` | new test asserts a `drizzle/` source is enumerated |
+| `src/test/notification-priority.test.ts` | `priority` literals against `notifications_priority_check` | same |
+| `src/test/settlement-foundation.test.ts` | forbidden vocabulary walk ("escrow", "holdback") over `src` + migrations | DEMONSTRATED, see below |
+| `src/lib/__tests__/settlementRun.test.ts` | `store_settlement_run` refusal rules | new test asserts a `drizzle/` source is enumerated |
+| `src/components/dispatch/loadDetail/__tests__/verbatimVerificationCard.test.tsx` | envelope keys the migration writes | same |
+
+Focused run of the five files: 81 tests, all passed.
+
+The vocabulary walk was demonstrated, not merely asserted. First attempt was
+INVALID and is recorded as such: `printf` read the leading `--` of a SQL
+comment as an option, wrote no file, and the test passed for the wrong reason.
+Repeated with `echo` writing `SELECT 'escrow';` to
+`drizzle/migrations/zz_scratch_vocab.sql`, the test FAILED naming
+`/dev-server/drizzle/migrations/zz_scratch_vocab.sql`. The scratch file was
+deleted and the test passed again. The platform had auto-committed the scratch
+file, so its deletion appeared in `git status`; it is deleted in this pass.
+
+The matching line was removed from the OWNER FOLLOW-UP LIST under VERIFICATION
+GAPS.
+
+### (c) STEP 2 — the batch, chosen live
+
+Candidates: tables with `company_id`, no `tenant_isolation` policy, at least
+one OWNERSHIP-class permissive policy and NO OTHER-class policy (census classes
+of 2026-09-16 1840: SERVICE → COMPANY → ROLE-ONLY → OWNERSHIP → OTHER;
+`has_role(...) OR ownership` is ROLE-ONLY). Query, verbatim:
+
+```sql
+WITH pol AS (
+  SELECT tablename, policyname, coalesce(qual,'')||' '||coalesce(with_check,'') AS pred
+  FROM pg_policies WHERE schemaname='public' AND permissive='PERMISSIVE'
+), cls AS (
+  SELECT tablename, policyname,
+    CASE WHEN pred ILIKE '%service_role%' THEN 'SERVICE'
+         WHEN pred ILIKE '%company_id%' THEN 'COMPANY'
+         WHEN pred ILIKE '%has_role%' OR pred ILIKE '%is_staff%' THEN 'ROLE-ONLY'
+         WHEN pred ILIKE '%auth.uid()%' OR pred ILIKE '%is_own_operator%'
+           OR pred ILIKE '%is_own_rods_operator%'
+           OR pred ILIKE '%is_truck_owner_for_operator%'
+           OR pred ILIKE '%is_thread_participant%' THEN 'OWNERSHIP'
+         ELSE 'OTHER' END AS class
+  FROM pol
+), t AS (SELECT table_name FROM information_schema.columns
+         WHERE table_schema='public' AND column_name='company_id')
+SELECT cls.tablename,
+       count(*) FILTER (WHERE class='OWNERSHIP') AS own,
+       count(*) FILTER (WHERE class='OTHER') AS other
+FROM cls JOIN t ON t.table_name=cls.tablename
+GROUP BY cls.tablename
+HAVING count(*) FILTER (WHERE class='OWNERSHIP') > 0
+   AND count(*) FILTER (WHERE class='OTHER') = 0
+ORDER BY 1;
+```
+
+EXCLUDED as instructed: realtime-subscribed tables (pre-check section h:
+`messages`, `notifications`, `rods_days`, `active_dispatch`, `rods_events`,
+`onboarding_status`, `deductions`, `cert_reminders`,
+`onboard_assignment_sheets`, `inspection_documents`, `truck_dot_inspections`,
+`rate_con_ingest_queue`, `message_reactions`, `dispatch_status_history`,
+`accessorial_adjustments`, `operator_documents`, `loads`, `ica_contracts`,
+`equipment_assignments`, `driver_uploads`); financial tables
+(`settlements`, `settlement_line_items`, `settlement_withheld_loads`,
+`load_charges`, `contractor_pay_setup`, `inspection_program_payments`,
+`forecast_loads`, `forecast_expenses`, `forecast_deductions`); `user_roles`;
+`company_members`; token/share tables (`binder_share_bundles`); and every
+ELD or RODS table — `blank_log_acknowledgments`, `eld_malfunction_events`,
+`rods_amendments`, `rods_correction_requests`, `rods_days`,
+`rods_divergences`, `rods_events`, `rods_unlock_events`, `roadside_stops`,
+`inspection_cycles`, plus the realtime-excluded `truck_dot_inspections` and
+`inspection_documents`.
+
+The batch is the 25 remaining candidates, taking FIRST every table where Steve
+Figueroa or Donald Alleyne can see rows, because only those prove a visible row
+stays visible. Remainder after this batch: 50 candidate tables, listed by the
+same query, including the ELD/RODS set above.
+
+### (d) BEFORE / AFTER counts — real sessions, unchanged
+
+Counts over PostgREST with `Prefer: count=exact`, `Range: 0-0`. Order:
+Marcus / Leo / Mae / Steve / Donald. Every AFTER row is byte-identical to its
+BEFORE row (`diff` clean for all five identities), so one table serves for both:
+
+| table | Marcus | Leo | Mae | Steve | Donald |
+|---|---|---|---|---|---|
+| document_acknowledgments | 365 | 365 | 365 | 6 | 4 |
+| driver_vault_documents | 843 | 843 | 843 | 14 | 1 |
+| inspection_binder_order | 2 | 2 | 2 | 2 | 2 |
+| ica_driver_acknowledgments | 9 | 9 | 9 | 0 | 1 |
+| truck_owners | 5 | 5 | 5 | 0 | 1 |
+| operator_offboarding_steps | 100 | 0 | 100 | 0 | 0 |
+| load_stops | 37 | 37 | 37 | 0 | 0 |
+| onboard_assignment_sheet_items | 31 | 31 | 31 | 0 | 0 |
+| load_documents | 25 | 25 | 25 | 0 | 0 |
+| load_references | 19 | 19 | 19 | 0 | 0 |
+| truck_maintenance_records | 19 | 19 | 19 | 0 | 0 |
+| load_status_history | 16 | 16 | 16 | 0 | 0 |
+| load_reference_citations | 14 | 14 | 14 | 0 | 0 |
+| notification_preferences | 8 | 0 | 0 | 0 | 0 |
+| service_resource_views | 11 | 11 | 11 | 0 | 0 |
+| inspection_document_versions | 8 | 8 | 8 | 0 | 0 |
+| user_view_preferences | 2 | 0 | 0 | 0 | 0 |
+| equipment_receipts | 3 | 3 | 3 | 0 | 0 |
+| service_resource_completions | 2 | 2 | 2 | 0 | 0 |
+| staff_ui_preferences | 1 | 0 | 0 | 0 | 0 |
+| operator_broadcast_recipients | 1 | 0 | 1 | 0 | 0 |
+| service_help_requests | 1 | 1 | 1 | 0 | 0 |
+| document_exceptions | 0 | 0 | 0 | 0 | 0 |
+| documents | 0 | 0 | 0 | 0 | 0 |
+| driver_staff_contacts | 0 | 0 | 0 | 0 | 0 |
+
+Zero differences; the STOP condition did not trigger. The zeros are
+pre-existing permissive refusals, read the same way BEFORE the migration, not
+the new policy emptying a screen.
+
+### (e) Migration
+
+`drizzle/migrations/0001_restrictive_tenant_policy_batch_3.sql`, the pilot's
+exact policy per table, 25 statements, nothing else touched:
+
+```sql
+CREATE POLICY tenant_isolation ON public.<table>
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (company_id = (SELECT public.current_company_id()))
+  WITH CHECK (company_id = (SELECT public.current_company_id()));
+```
+
+Live after: public policies **634** (609 + 25), restrictive **74** (49 + 25),
+rows named `tenant_isolation` **74**. Linter total **172**, unchanged, no new
+finding type. `npx tsgo -p tsconfig.app.json --noEmit` → exit 0.
+
+CORRECTION to the platform tool's own claim: the tool reported
+`src/integrations/supabase/types.ts` regenerated. `git show --stat` of the
+migration commit `fe2144fc2` lists the migration, the two meta files,
+`public/version.json` and `src/test/tenancy-resolver.test.ts` — `types.ts` is
+NOT in it. This is the SECOND pass in which that claim was untrue; treat it as
+untrusted and check `git` every time.
+
+### (f) Write test — as Steve Figueroa, on `document_acknowledgments`
+
+Screen and file: the driver's document viewer,
+`src/components/documents/DocumentViewer.tsx` line 83, inserts an
+acknowledgment when the driver confirms he has read a document.
+
+| step | result |
+|---|---|
+| insert without `company_id` | `201`, stamped `6b54d0e6-8743-4284-b55b-8cd094b093dd` |
+| insert with `company_id = 000000ff-…-0000000000ff` | `201`, **stored as `6b54d0e6-…`** — the stamp overwrote the spoof |
+| update `document_version` | `200`, **empty body, nothing changed** |
+| update `company_id` to a random company | `200`, **empty body, nothing changed** |
+| cleanup | both rows deleted; `document_version IN (901,902)` = 0, table back to 365 |
+
+STATED PLAINLY: a driver CANNOT demonstrate the `tenant_isolation` refusal on
+any batch table, because no batch table grants him UPDATE. `pg_policies` on
+`document_acknowledgments` shows only "Users can insert own acknowledgments"
+(INSERT) and two SELECT policies for him; his UPDATE matches zero rows and
+PostgREST reports that as `200` with an empty body — the same pre-existing
+zero-row-success reporting gap already on the follow-up list, not the new
+policy.
+
+So the refusal was demonstrated on a batch table by the role that CAN update
+one — dispatcher Leo Wallace on `load_stops`, disclosed as an addition:
+
+| step | result |
+|---|---|
+| update `stop_notes` (normal column) | `200`, row returned, `company_id` still `6b54d0e6-…` |
+| update `company_id` to a random company | `403` `{"code":"42501","message":"new row violates row-level security policy \"tenant_isolation\" for table \"load_stops\""}` |
+| restore | `stop_notes` set back to `null`, its original value |
+| residue | `load_stops WHERE stop_notes LIKE 'SCRATCH%'` = **0** |
+
+One false start recorded rather than hidden: the first normal-column update
+used `notes` and returned `PGRST204` — the column is `stop_notes`. The probe
+was wrong, not the system.
+
+### (g) Driver screens — signed in as Steve in the preview
+
+Chromium at 420×1600 with Steve's one session restored to `localStorage`:
+
+- **Driver home** (`/operator`) — full render: ICA signed card, "Welcome,
+  Steve!", 89% / 8 of 9 done, FULLY ONBOARDED, all nine stage cards, the
+  QPassport action card, Truck & Equipment with devices. Not empty.
+- **Upload documents** (`/operator/documents`) — Form 2290 (Schedule-1.pdf),
+  Truck Title (Title.jpg), Truck Photos with five named photos, all "Received".
+- **My Documents vault** (`/operator?view=my-docs`, `MyDocumentsFolders`, the
+  screen that reads `driver_vault_documents`) — folders populated: Periodic DOT
+  Inspections, CDL front and back, Medical Certificate, Lease Agreement (ICA),
+  Form 2290, plus COMPANY DOCUMENTS (IFTA, Insurance, UCR, MC).
+- **Inspection binder** (`/operator?view=inspection-binder`, reads
+  `inspection_binder_order`) — renders with its documents.
+
+All consistent with the before counts (Steve: 6 acknowledgments, 14 vault
+documents, 2 binder rows). Console errors were only the pre-existing React
+"Function components cannot be given refs" warnings from `App`; no RLS or
+query error. Screenshots under `/tmp/browser/b3/`.
+
+### (h) Guard
+
+`src/test/tenancy-resolver.test.ts`: the 25 tables moved from
+`PENDING_RESTRICTIVE` (98 → 73) to `RESTRICTIVE_DONE` (49 → 74). The guard was
+run BEFORE the ledger edit and FAILED as designed, quoted:
+
+```
+stale PENDING_RESTRICTIVE entries
++   "truck_owners: declared pending but already carries a restrictive policy",
++   "user_view_preferences: declared pending but already carries a restrictive policy",
++ ]
+ ❯ src/test/tenancy-resolver.test.ts:2124:56
+```
+
+After the edit: 122 tests, all passed (plus the known
+`[vitest-worker]: Timeout calling "onTaskUpdate"` reporter error, not an
+assertion).
