@@ -47,6 +47,24 @@ export const MIGRATIONS_DIR = path.resolve(
 );
 
 /**
+ * The SECOND migration folder, added 2026-09-17.
+ *
+ * The platform's migration tool now writes applied migrations as Drizzle Kit
+ * custom migrations under `drizzle/migrations`, and writes NOTHING to
+ * `supabase/migrations`. Batch 2 of the restrictive tenant policy
+ * (`0000_restrictive_tenant_policy_batch_2.sql`) landed there and was therefore
+ * invisible to every file-reading guard in this project — a guard that reads
+ * only half of history reports green on text it never saw.
+ *
+ * Order matters: Drizzle files are applied AFTER everything in
+ * `supabase/migrations`, so they come last and win the last-definition rule.
+ */
+export const DRIZZLE_MIGRATIONS_DIR = path.resolve(
+  __dirname,
+  "../../../drizzle/migrations",
+);
+
+/**
  * Migrations staged in a draft. A draft cannot run DDL against the shared
  * database, so schema work lands here first and applies on accept. Guards that
  * read migration TEXT must still see it, otherwise a staged function ships
@@ -96,11 +114,41 @@ export function stripComments(sql: string): string {
   return sql.replace(/--[^\n]*/g, "");
 }
 
-/** Migration files in applied order. */
+/** One migration file: a label for reports plus its absolute path. */
+export interface MigrationSource {
+  /** `20260916_x.sql`, or `drizzle/0000_x.sql` for the Drizzle folder. */
+  file: string;
+  /** Absolute path, so callers never rebuild it from the wrong root. */
+  path: string;
+}
+
+/**
+ * EVERY migration file, both folders, in applied order.
+ *
+ * Guards must read this rather than one directory: see DRIZZLE_MIGRATIONS_DIR.
+ */
+export function migrationSources(): MigrationSource[] {
+  const read = (dir: string, prefix: string): MigrationSource[] => {
+    let names: string[] = [];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return [];
+    }
+    return names
+      .filter((f) => f.endsWith(".sql"))
+      .sort()
+      .map((f) => ({ file: prefix + f, path: path.join(dir, f) }));
+  };
+  return [
+    ...read(MIGRATIONS_DIR, ""),
+    ...read(DRIZZLE_MIGRATIONS_DIR, "drizzle/"),
+  ];
+}
+
+/** Migration files in applied order, labelled as `migrationSources` labels them. */
 export function migrationFiles(): string[] {
-  return readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .sort();
+  return migrationSources().map((s) => s.file);
 }
 
 /** Splits a top-level comma list, respecting nesting and quotes. */
@@ -289,10 +337,8 @@ function matchParen(s: string, open: number): number {
 export function resolveMigrationFunctions(): Map<string, ResolvedFunction> {
   const resolved = new Map<string, ResolvedFunction>();
 
-  for (const file of migrationFiles()) {
-    const sql = stripComments(
-      readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"),
-    );
+  for (const { file, path: full } of migrationSources()) {
+    const sql = stripComments(readFileSync(full, "utf8"));
 
     // --- CREATE [OR REPLACE] FUNCTION ---------------------------------
     const createRe =
