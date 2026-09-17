@@ -15,6 +15,13 @@
       "when": 1789656304204,
       "tag": "0001_restrictive_tenant_policy_batch_3",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789658332497,
+      "tag": "0002_restrictive_tenant_policy_batch_4",
+      "breakpoints": true
     }
   ]
 }
