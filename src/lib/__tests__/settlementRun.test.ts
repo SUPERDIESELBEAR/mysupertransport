@@ -6,8 +6,8 @@
  * settlement is read rather than recomputed.
  */
 import { describe, it, expect } from 'vitest';
-import { readFileSync, readdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { readFileSync } from 'node:fs';
+import { migrationSources } from '@/test/helpers/migrationFunctions';
 import { gatherSettlementRun, previewFromGathered, runPayload } from '@/lib/settlementRun';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -205,11 +205,17 @@ describe('a settlement is a statement, not a live calculation', () => {
 });
 
 describe('the writer', () => {
-  const sql = readdirSync('supabase/migrations')
-    .filter(f => f.endsWith('.sql'))
-    .map(f => readFileSync(join('supabase/migrations', f), 'utf8'))
+  // 2026-09-17: both migration folders, via the shared reader. Reading only
+  // `supabase/migrations` made this blind to platform-written migrations.
+  const sources = migrationSources();
+  const sql = sources
+    .map(s => readFileSync(s.path, 'utf8'))
     .filter(s => s.includes('store_settlement_run'))
     .join('\n');
+
+  it('reads the drizzle migration folder too', () => {
+    expect(sources.some(s => s.file.startsWith('drizzle/'))).toBe(true);
+  });
 
   it('refuses an existing settlement rather than silently overwriting', () => {
     expect(sql).toMatch(/refused_existing/);

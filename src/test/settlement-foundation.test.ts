@@ -325,8 +325,14 @@ describe('Repair & Maintenance Deposit', () => {
 });
 
 describe('forbidden vocabulary', () => {
+  it('reads the drizzle migration folder too', () => {
+    expect(migrationSources().some(s => s.file.startsWith('drizzle/'))).toBe(true);
+  });
+
   it('no source or migration string says "escrow" or "holdback"', () => {
-    const roots = ['src', 'supabase/migrations'];
+    // 2026-09-17: migration files come from the shared reader, which covers
+    // `drizzle/migrations` as well; only `src` is still walked directly.
+    const roots = ['src'];
     // The ICA legal text says the deposit is NOT an escrow account. That
     // sentence is the contract's and stays.
     const allowed = new Set(['src/components/ica/ICADocumentView.tsx']);
