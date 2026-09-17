@@ -57,6 +57,13 @@
       "when": 1789680871501,
       "tag": "0007_restrictive_tenant_policy_money_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1789683838756,
+      "tag": "0008_grant_parity_report_execute_to_harness_role",
+      "breakpoints": true
     }
   ]
 }

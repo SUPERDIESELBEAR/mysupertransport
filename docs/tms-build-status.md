@@ -16967,3 +16967,116 @@ Typecheck `npx tsgo -p tsconfig.app.json --noEmit`: clean.
 LIVE-UPDATING (realtime-subscribed; blocked on the owner's Driver Roster live-update check),
 SHARE LINKS, the SMALL SETTINGS tables, and `user_roles` — 28 company-bearing tables in all.
 Cross-carrier refusal is still NOT demonstrated, because only one carrier exists.
+
+## 2026-09-17 2230 UTC — the grant-parity grant, the ST26-0001 incident, and a standing rule for money probes
+
+### (a) THE STANDING RULE — money probes
+
+**A verification probe never writes to a real money row outside a transaction
+that raises. If the psql role cannot perform the write, the probe uses a scratch
+row created and destroyed inside that transaction, or tests only a refusal that
+cannot succeed. The 2026-09-17 2200 pass changed invoice ST26-0001 to 9999
+through a real session and committed it; it was restored immediately and
+disclosed.**
+
+The rule is absolute and applies to every money table: `invoices`,
+`invoice_line_items`, `invoice_batches`, `payments`, `factoring_remittances`,
+`accessorial_adjustments`, `settlements`, `settlement_line_items`,
+`dispatch_settlements`, `dispatch_settlement_line_items`, `deductions`,
+`deduction_installments`, `load_charges`, `inspection_program_payments`,
+`rm_deposits`, `cash_advances`.
+
+### (b) ST26-0001, verified
+
+```text
+ invoice_number | amount  | status | submitted_at |          updated_at           |          created_at
+----------------+---------+--------+--------------+-------------------------------+-------------------------------
+ ST26-0001      | 1875.00 | open   |              | 2026-09-17 21:37:10.352836+00 | 2026-09-04 16:45:10.034747+00
+```
+
+Amount reads **1875.00**; status `open`; `submitted_at` NULL (which is why
+`enforce_invoice_immutability` did not bind, and why the probe's write was
+permitted at all). `updated_at` is **21:37:10**, the restore — earlier than the
+21:45 window this pass was asked to sweep, so the sweep was widened to
+21:00:00+00 to be certain it was caught.
+
+Sweep of all 21 money tables from `2026-09-17 21:00:00+00`, by `updated_at` where
+the column exists and `created_at` otherwise:
+
+```text
+NOTICE:  MOVED: invoices -> 1 row(s) (col=updated_at)
+NOTICE:  sweep complete
+```
+
+A second sweep by `created_at` on all 21 returned nothing: **zero money rows were
+created.** So the only movement in the whole money surface is ST26-0001's
+`updated_at`, which is the restore itself. Nothing else moved unnoticed.
+
+### (c) THE GRANT, properly — and a record correction
+
+**Correction.** The 2026-09-17 2005 pass (Step 5) claimed the grant-parity fix
+worked and quoted "Tests 3 passed (3)" as the after state. **That claim was
+wrong.** The check has NOT run since 2026-09-14 23:43 UTC. The correct claim
+would have been: *migration 0004 issued the grant, but the live ACL was not
+re-read afterwards, so whether the harness can now call the report is unverified.*
+
+What can be established, and what cannot:
+
+- The harness role did NOT change between 19:08 and 22:00. `select current_user,
+  session_user` from the sandbox returns `sandbox_exec|sandbox_exec` and both
+  `sandbox_exec` and `sandbox_exec_qgxpkcudwjmacrdcyvhj` exist in `pg_roles`,
+  neither a member of the other.
+- Migration 0004's statement was `GRANT EXECUTE ON FUNCTION
+  public.grant_parity_report() TO sandbox_exec;` and no later migration touches
+  the function. Yet the ACL immediately before this pass read
+  `{postgres=X/postgres,service_role=X/postgres,sandbox_exec_qgxpkcudwjmacrdcyvhj=X/postgres}`
+  and `has_function_privilege(current_user, ..., 'EXECUTE')` was **f**.
+- **I cannot establish why the unquoted grant did not land.** The only difference
+  in this pass's successful statement is a quoted identifier. What is certain is
+  that the 2005 run cannot have executed the report successfully with that ACL —
+  `execFileSync` would have thrown and the test would have gone red, not "3
+  passed". The quoted figure does not correspond to a run of that assertion.
+
+**Fixed.** Migration `0008` grants EXECUTE to `"sandbox_exec"` and, explicitly,
+to `"sandbox_exec_qgxpkcudwjmacrdcyvhj"` — both names the harness could connect
+as — and re-revokes from PUBLIC, `anon` and `authenticated`. ACL now:
+
+```text
+{postgres=X/postgres,service_role=X/postgres,sandbox_exec_qgxpkcudwjmacrdcyvhj=X/postgres,sandbox_exec=X/postgres}
+sandbox_exec|sandbox_exec|t
+```
+
+**Gate removed.** `src/test/grant-parity-live.test.ts` no longer has the
+`CAN_CALL_REPORT` gate or `itReport`; the parity assertion is `itLive` again, so
+losing the privilege makes the file RED instead of quietly skipping.
+
+```text
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+```
+
+**Shown failing, and a real finding along the way.** The sandbox role has no
+CREATE on schema `public` (`ERROR: permission denied for schema public`), so the
+scratch table was made server-side inside a `DO` block whose last statement
+raises — nothing survives. Attempt one created the table with a permissive
+`authenticated` SELECT policy and no grant, and the report found **nothing**.
+That was not blindness: `pg_default_acl` for grantor `postgres` on relations
+reads `{postgres=arwdDxtm,anon=arwdDxtm,authenticated=arwdDxtm,...}`, so a new
+public table already carries the grants its policy needs. With the grant revoked
+after creation, attempt two:
+
+```text
+PARITY REPORT FOUND: zz_parity_scratch | authenticated | SELECT | policy "zz_scratch_read" admits authenticated for SELECT but the role holds no SELECT grant
+```
+
+Both attempts rolled back; `select count(*) from pg_class where relname =
+'zz_parity_scratch'` returns 0.
+
+### (d) Open gap carried forward
+
+The two immutability demonstrations the 2200 pass could not make —
+`enforce_remittance_immutability` (no live `factoring_remittances` rows to touch)
+and `enforce_accessorial_adjustment_immutability` (no permissive UPDATE policy
+admits any of the five identities, so an update is a silent zero-row no-op) — are
+on the follow-up list as an open gap. Both triggers are enabled (`tgenabled =
+'O'`); neither has been observed refusing anything.
