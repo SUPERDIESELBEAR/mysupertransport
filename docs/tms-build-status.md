@@ -16847,3 +16847,123 @@ a one-migration change and this entry is the place it starts.
 
 Full suite and typecheck run on the documentation-only tree; results verbatim in the pass
 report.
+
+---
+
+## 2026-09-17 2200 UTC — restrictive tenant policy, THE MONEY BATCH (21 tables)
+
+Migration `drizzle/migrations/0007_restrictive_tenant_policy_money_batch.sql`. Twenty-one
+`CREATE POLICY` statements, nothing else: no permissive policy edited, no column, no
+trigger, no grant, no row.
+
+```sql
+CREATE POLICY tenant_isolation ON public.<table>
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (company_id = (SELECT public.current_company_id()))
+  WITH CHECK (company_id = (SELECT public.current_company_id()));
+```
+
+### (a) The twenty-one, and which are a no-op
+
+NO-OP (the 2026-09-16 read-enforcement CENSUS twelve — their permissive policies already
+read `(company_id = current_company_id()) AND <role test>`, so the restrictive rule adds a
+second copy of a test that already ran): `invoices`, `invoice_line_items`,
+`invoice_batches`, `invoice_number_config`, `payments`, `factoring_remittances`,
+`ar_aging_snapshots`, `accessorial_adjustments`, `settlement_settings`,
+`carrier_signature_settings`, `share_tokens`, `unit_number_config`.
+
+A REAL new refusal (permissive policies were role-only or driver-scoped, never company-scoped):
+`settlements`, `settlement_line_items`, `settlement_withheld_loads`, `dispatch_settlements`,
+`dispatch_settlement_line_items`, `deductions`, `deduction_installments`, `load_charges`,
+`inspection_program_payments`.
+
+`share_tokens` is treated as a MONEY table here, not a share-link table: its public token
+path never reads it as `authenticated`, so a `RESTRICTIVE ... TO authenticated` policy
+cannot affect an unauthenticated share link. The share-link GROUP (`document_short_links`,
+`officer_packet_links`, `ica_review_links`, `binder_share_bundles`, `preview_sessions`)
+stays pending.
+
+### (b) Counts, five real sessions, before and after
+
+One sign-in each: Marcus Mueller (owner), Leo Wallace (dispatcher), Mae Lauron
+(onboarding staff), Steve Figueroa (driver), Donald Alleyne (truck owner). All 21 tables
+read over PostgREST with `count=exact` before and after. **DIFFERING KEYS: NONE** — every
+figure identical for every identity.
+
+Screen figures, before and after: Steve's My Settlements shows **no settlements** ("No
+settlements yet. They appear here once your work week is closed."); the Billing Queue
+shows **nothing ready to invoice** for Marcus and for Mae. The one live settlement
+(`f77911b0-…`, PAID, $327.94, another driver) and the one live invoice (`ST26-0001`,
+$1,875.00, open) are unchanged. The Dispatch Settlement screen still renders its real
+arithmetic — eligible base $16,080.47, factoring -$321.61, dispatch fee $787.94 over
+7 loads. Late Accessorials shows nothing because its default filter is
+`pending_approval` and the two live adjustments are `draft` and `approved`; that is the
+filter, not a lost row.
+
+### (c) Write probes
+
+Money probes ran inside a transaction ended by `RAISE EXCEPTION`; residue count 0.
+
+- `invoices` insert, no `company_id` → stamped `6b54d0e6-…`.
+- `invoices` insert, spoofed `…00ff` → stored as `6b54d0e6-…`.
+- `settlements` insert, no `company_id` → stamped `6b54d0e6-…`; spoofed → real value stored.
+- `settlements` UPDATE moving the row to a random company, as Marcus over a real session →
+  `42501 new row violates row-level security policy "tenant_isolation" for table "settlements"`.
+  Postgres named the policy; quoted because it did.
+- `invoices` UPDATE moving the row → `42501 new row violates row-level security policy for
+  table "invoices"` (no policy name printed, so none is claimed).
+- Immutability: `enforce_settlement_immutability` refused a net change —
+  `Settlement f77911b0-… is PAID and is immutable. Corrections go through an adjustment on a
+  later settlement, referencing the original.` All five money immutability triggers remain
+  enabled (`tgenabled = 'O'`).
+
+**Recorded against this pass, not hidden:** the invoice probe that changed `amount` to 9999
+COMMITTED, because an UPDATE cannot be run inside the aborting psql transaction (the psql
+role has no UPDATE privilege) and had to go through a real session. `ST26-0001` was restored
+to `1875.00` immediately; only `updated_at` moved. The change was permitted by design, not by
+a defect: `enforce_invoice_immutability` binds only from `submitted_at IS NOT NULL`, and this
+invoice has never been submitted. `enforce_remittance_immutability` and
+`enforce_accessorial_adjustment_immutability` could not be made to fire live — there are zero
+remittance rows, and no permissive UPDATE policy admits any of the five identities on
+`accessorial_adjustments`, so an update there is a silent zero-row no-op. Their bodies were
+read from the live catalog instead.
+
+### (d) Guards and totals
+
+Four guards had to be narrowed to permissive policies, each for the same reason: they
+assert who is ADMITTED, and a restrictive policy can only REMOVE access. Each now asserts
+the restrictive policy separately, by name and shape — `billing-schema` (two cases),
+`accessorial-adjustment-schema` (two cases), `operator-settlement-isolation` (one case).
+The disposition ledger moved all 21 into `RESTRICTIVE_DONE`; `PENDING_RESTRICTIVE` is now
+**28**. Shown failing once as stale (`stale PENDING_RESTRICTIVE entries: expected [ Array(1) ]
+to deeply equal []`) and restored byte-identical, green.
+
+Live totals: **691 policies in `public`, 131 RESTRICTIVE** (110 → 131). Linter **172**,
+unchanged, no new finding type.
+
+### (e) Suites
+
+Money suites all green: `settlement-foundation` (29), `dispatch-settlement-schema` (32),
+`payments-schema` (13), `invoice-dispatch-reconciliation` (6), `billing-schema`,
+`accessorial-adjustment-schema` (57), `accessorial-approval-rules`,
+`settlement-adjustment-seam`, `inspection-bonus-settlement`, `load-charge-gate-order`,
+`dispatch-settlement-screen`, `operator-settlement-isolation`, `tenancy-resolver`.
+
+Full suite: **2 failed | 2019 passed | 16 skipped (2037)**, 3 unhandled reporter timeouts
+(`[vitest-worker]: Timeout calling "onTaskUpdate"`). Re-run alone,
+`accessorial-adjustment-schema` passed (57 tests) — its failure was the known `EAUTHQUERY`
+psql contention. `grant-parity-live` failed the same way it has since 2026-09-17:
+`ERROR: permission denied for function grant_parity_report`. Migration 0004's grant went to
+the role `sandbox_exec_<project>`, which is NOT the role the harness connects as
+(`sandbox_exec`), so it never took effect. Granting the report to `authenticated` or PUBLIC
+is not acceptable — it reads every table's grants — so the call is now GATED with a loud
+skip banner rather than worked around. The live policy-versus-grant comparison therefore
+does NOT run in this harness; that is stated in the banner and listed as a follow-up.
+
+Typecheck `npx tsgo -p tsconfig.app.json --noEmit`: clean.
+
+### (f) What remains
+
+LIVE-UPDATING (realtime-subscribed; blocked on the owner's Driver Roster live-update check),
+SHARE LINKS, the SMALL SETTINGS tables, and `user_roles` — 28 company-bearing tables in all.
+Cross-carrier refusal is still NOT demonstrated, because only one carrier exists.
