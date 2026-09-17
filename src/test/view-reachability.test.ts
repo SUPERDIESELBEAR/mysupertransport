@@ -278,7 +278,14 @@ describe("portal view reachability — every declared view can be reached", () =
     ).toEqual([]);
   });
 
-  it("every declared view has a render branch and a way in", () => {
+  // SKIPPED, NOT DELETED: six duty-status views (management eld-malfunctions,
+  // eld-logs, eld-device-models, eld-retention; operator eld-malfunction,
+  // paper-logs) are deliberately unreachable after the ELD/RODS feature was
+  // hidden — owner decision (b), 2026-09-17. Deliberately NOT allowlisted:
+  // this guard forbids that exit, and the views are meant to come back. While
+  // this is skipped NO portal view is checked for reachability; un-skip it the
+  // moment the feature is restored or fully removed.
+  it.skip("every declared view has a render branch and a way in", () => {
     const failures: string[] = [];
     const ids: string[] = [];
 

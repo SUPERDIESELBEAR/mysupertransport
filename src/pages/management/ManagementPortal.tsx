@@ -63,13 +63,12 @@ import FleetDetailDrawer from '@/components/fleet/FleetDetailDrawer';
 import DuplicatePlatesPanel from '@/components/management/DuplicatePlatesPanel';
 import InspectionProgramPanel from './InspectionProgramPanel';
 import EquipmentInventory from '@/components/equipment/EquipmentInventory';
-import ELDMalfunctionsPanel from '@/components/management/eld/ELDMalfunctionsPanel';
-import RodsStorageHealthCard from '@/components/management/eld/RodsStorageHealthCard';
-import RodsUnlockEventsPanel from '@/components/management/eld/RodsUnlockEventsPanel';
-import RodsDivergencesPanel from '@/components/management/eld/RodsDivergencesPanel';
-import RodsAdminLogsPanel from '@/components/management/eld/RodsAdminLogsPanel';
-import RetentionArchivePanel from '@/components/management/eld/RetentionArchivePanel';
-import ELDDeviceModelsPanel from '@/components/management/eld/ELDDeviceModelsPanel';
+// The seven duty-status management panels (ELDMalfunctionsPanel,
+// RodsStorageHealthCard, RodsUnlockEventsPanel, RodsDivergencesPanel,
+// RodsAdminLogsPanel, RetentionArchivePanel, ELDDeviceModelsPanel) are no
+// longer imported: the feature is hidden (owner decision (b), 2026-09-17).
+// Every one of them remains under src/components/management/eld/.
+import EldHiddenNotice from '@/components/eld/EldHiddenNotice';
 import MoPlateRegistry from '@/components/mo-plates/MoPlateRegistry';
 import DocumentHub from '@/components/documents/DocumentHub';
 import PageHeading from '@/components/shared/PageHeading';
@@ -190,11 +189,13 @@ const HELP_SECTIONS: { label: string; path: ManagementView }[] = [
 ];
 const HELP_VIEWS = new Set<string>([...HELP_SECTIONS.map(s => s.path), 'help']);
 
-/** ELD tooling folded into Onboard Systems as tabs. */
+/**
+ * Onboard Systems tabs. The 'ELD Malfunctions' and 'Device Models' tabs were
+ * removed when the duty-status feature was hidden (owner decision (b),
+ * 2026-09-17); restore them here to bring the panels back.
+ */
 const ONBOARD_TABS: { label: string; path: ManagementView }[] = [
   { label: 'Inventory',        path: 'equipment' },
-  { label: 'ELD Malfunctions', path: 'eld-malfunctions' },
-  { label: 'Device Models',    path: 'eld-device-models' },
 ];
 const ONBOARD_VIEWS = new Set<string>(ONBOARD_TABS.map(t => t.path));
 
@@ -1098,7 +1099,7 @@ export default function ManagementPortal() {
         { label: 'Driver App Preview',  icon: <Smartphone className="h-4 w-4" />,     path: 'operator-preview' },
         { label: 'Fleet Compliance',    icon: <ShieldCheck className="h-4 w-4" />,    path: 'compliance', badge: criticalExpiryCount || undefined },
         { label: 'Document Hub',        icon: <Library className="h-4 w-4" />,        path: 'docs-hub' },
-        { label: 'Paper Logs (RODS)',   icon: <FileText className="h-4 w-4" />,       path: 'eld-logs' },
+        // 'Paper Logs (RODS)' removed — hidden feature (2026-09-17).
         { label: 'Lease Terminations',  icon: <FileSignature className="h-4 w-4" />,  path: 'terminations' },
       ],
     },
@@ -1143,7 +1144,7 @@ export default function ManagementPortal() {
       label: 'Safety & Compliance',
       items: [
         { label: 'DOT Inspection Binder', icon: <Shield className="h-4 w-4" />,   path: 'inspection-binder' },
-        { label: 'Retention Archive',     icon: <Library className="h-4 w-4" />,  path: 'eld-retention' },
+        // 'Retention Archive' removed — hidden feature (2026-09-17).
       ],
     },
     {
@@ -2400,28 +2401,13 @@ export default function ManagementPortal() {
           <EquipmentInventory isManagement={true} section={searchParams.get('section') as any} />
         )}
 
-        {view === 'eld-malfunctions' && (
-          <div className="space-y-6">
-            <ELDMalfunctionsPanel focusEventId={searchParams.get('event')} />
-            <RodsDivergencesPanel focusId={searchParams.get('divergence')} />
-            <RodsUnlockEventsPanel />
-            <RodsStorageHealthCard />
-          </div>
-        )}
-
-        {view === 'eld-logs' && (
-          <RodsAdminLogsPanel
-            operatorId={searchParams.get('op')}
-            logDate={searchParams.get('date')}
-          />
-        )}
-
-        {view === 'eld-device-models' && (
-          <ELDDeviceModelsPanel />
-        )}
-
-        {view === 'eld-retention' && (
-          <RetentionArchivePanel />
+        {/* Duty-status management views: HIDDEN (owner decision (b),
+            2026-09-17). The view names stay legal so a bookmarked URL renders
+            a plain notice instead of falling through to a blank screen; the
+            panels themselves are untouched under components/management/eld/. */}
+        {(view === 'eld-malfunctions' || view === 'eld-logs'
+          || view === 'eld-device-models' || view === 'eld-retention') && (
+          <EldHiddenNotice />
         )}
 
         {view === 'vehicle-hub' && (
