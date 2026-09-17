@@ -67,6 +67,7 @@ closed, and the removing pass says so.
 
 ### VERIFICATION GAPS
 
+- `src/test/grant-parity-live.test.ts` > "no public table admits a role its grants do not" fails with `ERROR: permission denied for function grant_parity_report`. `psql` connects as `sandbox_exec`; the function ACL grants EXECUTE to `sandbox_exec_qgxpkcudwjmacrdcyvhj`. Harness permission, not a product defect — the grant-parity report is therefore NOT being checked by the suite. TRIGGER: the next pass permitted to run a migration adds `GRANT EXECUTE ON FUNCTION public.grant_parity_report() TO sandbox_exec`. (record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up…", Verification)
 - Cross-carrier visibility never demonstrated with a real session. (record 2026-09-16 — "the owner's disposition decision…", section (e); "the unassigned tables…", section (f))
 - Deployed edge functions not confirmed to match the repo. (pass report `docs/passes/2026-09-16-1100-second-carrier-readiness.md`, "Deployed-vs-repo parity is NOT confirmed"; cited from the record entry's section (b))
 - Full tenancy-resolver run ends in `Error: [vitest-worker]: Timeout calling "onTaskUpdate"`. Quoted, not diagnosed. (record 2026-09-16 — "the owner's disposition decision…", section (e))
