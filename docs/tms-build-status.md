@@ -15744,3 +15744,116 @@ The restrictive-ledger guard was also broken deliberately (`zz_stale_probe`
 added to `RESTRICTIVE_DONE`), failed with
 `zz_stale_probe: no restrictive policy`, and the file was restored
 (MD5 `e219fb122e5a9c8a529188b166dff562`) and passed.
+
+---
+
+## 2026-09-17 — the Drizzle migration folder, explained
+
+The reviewer found Drizzle files in commits since `22fc7cc` that the batch 2
+pass report never mentioned. Answers, with the evidence named.
+
+**(a) Who added them.** The Lovable platform's migration tool, not this agent
+by choice. `git show --stat a3ff8dc3a` ("Changes", 2026-09-17 11:59:21 +0000)
+adds `drizzle.config.ts`, `drizzle/schema.ts`,
+`drizzle/migrations/0000_restrictive_tenant_policy_batch_2.sql`,
+`drizzle/migrations/meta/0000_snapshot.json`,
+`drizzle/migrations/meta/_journal.json`, and the `drizzle-kit` / `drizzle-orm`
+/ `postgres` dependencies in `package.json` + `bun.lock` — in ONE commit with
+the batch 2 SQL. No agent command in that pass wrote a Drizzle file; the tool
+that applied the migration wrote them.
+
+**(b) Is this where all future migrations go.** Yes. The platform's migration
+tool now creates every migration as a Drizzle Kit CUSTOM migration under
+`drizzle/migrations`, writes NOTHING to `supabase/migrations`, and owns the
+journal and snapshots. `supabase/migrations` remains the historical record and
+must be read, never appended to by hand. This is not a one-off.
+
+**(c) Was batch 2 applied.** Yes. Live: `609` policies in `public`, `49`
+restrictive policies, and `20` rows named `tenant_isolation` for the batch 2
+tables. It is NOT in `supabase_migrations.schema_migrations` — that table's
+newest row is `20260916225721`. Drizzle keeps its own ledger, live table
+`drizzle.__drizzle_migrations`. So the applied-migration history now lives in
+TWO ledgers, and a query against the Supabase one alone under-reports.
+
+**(d) Why the report omitted them, and why it listed `types.ts`.** The
+files-changed list was written from the changes this agent intended, not from
+`git`. Files a platform tool wrote were therefore invisible to it, and
+`src/integrations/supabase/types.ts` was listed because the tool normally
+regenerates it — `git` shows it UNCHANGED in `22fc7cc..HEAD`. That listing is
+an error, corrected below.
+
+### Safety of the blank `drizzle/schema.ts`
+
+`drizzle/schema.ts` contains exactly one comment line and no table
+definitions. `drizzle-kit generate` and `drizzle-kit push` diff that file
+against the database, so either would read 193 live tables as "not in the
+schema" and propose dropping them. Checked: `package.json` has NO script
+invoking `drizzle-kit` (only the dependency), there is no `.github` directory
+and no other CI configuration, and `LOVABLE_DB_MIGRATION_URL` — the only
+connection `drizzle.config.ts` names — is NOT set in the sandbox, so a
+hand-run `drizzle-kit` command here has no database to reach. Nothing in this
+repository can run `push` or `generate` against this database today. Neither
+command was run. What DOES run is the platform tool's own sequence: create an
+empty custom migration, write the SQL verbatim, `drizzle-kit check`, then
+Drizzle's migrator over a connection the tool supplies. The blank schema is
+safe only for as long as nobody adds a `db:push` script; that is a standing
+hazard, not a resolved one.
+
+### Guards that read a migration folder
+
+Every file that reads migration text, and whether a Drizzle-only migration was
+invisible to it before this pass:
+
+| Reader | Checks | Was blind |
+|---|---|---|
+| `src/test/helpers/migrationFunctions.ts` | shared resolver: newest definition of every SQL function, staged-draft detection; feeds `definer-search-path`, `definer-fail-open`, `actor-stamp-fk`, `notification-isolation`, `pgFake` and others | YES — FIXED |
+| `src/test/policy-grant-parity.test.ts` | policy/grant parity per table | YES — FIXED |
+| `src/test/resume-token-reuse.test.ts` | resolved body of `consume_application_resume_token` | YES — still blind |
+| `src/test/notification-priority.test.ts` | notification `priority` literals against the check constraint | YES — still blind |
+| `src/test/settlement-foundation.test.ts` | forbidden vocabulary ("escrow", "holdback") across `src` and migrations | YES — still blind |
+| `src/lib/__tests__/settlementRun.test.ts` | `store_settlement_run` refusal rules | YES — still blind |
+| `src/components/dispatch/loadDetail/__tests__/verbatimVerificationCard.test.tsx` | envelope keys the migration writes | YES — still blind |
+| `src/lib/eld/offline/__tests__/parityFixtures.test.ts` | cites one migration path in a comment; reads no folder | n/a |
+
+Because (b) is settled, the SHARED reader was changed. `migrationSources()`
+now returns `{ file, path }` for both folders — `supabase/migrations` first,
+then `drizzle/migrations` labelled `drizzle/…` and applied LAST, so the
+newest-definition rule still picks the truly newest text. `migrationFiles()`
+is kept as the labels of that list. `policy-grant-parity` was moved onto the
+shared reader (its cutoff now admits every Drizzle file, which carries no
+timestamp prefix) and carries a new test that FAILS if the folder is not read:
+it asserts the batch 2 file is enumerated and that exactly 20 policies named
+`tenant_isolation` parse out of it, `broker_notes` among them. 5/5 green, and
+the four shared-reader consumers stay green (51/51 across the five files).
+
+The five readers still blind own their local `readdirSync` and their own
+selection logic; converting them was outside this pass's permitted changes and
+is recorded as a gap, not deferred silently.
+
+### Correction to the batch 2 pass report's files-changed list
+
+`docs/passes/2026-09-17-1235-cleanup-and-batch-2.md` lists
+`src/integrations/supabase/types.ts` as regenerated. It was NOT: `git` shows no
+change to it in `22fc7cc..HEAD`. Remove it. Add, as files that commit really
+changed: `package.json`, `bun.lock`, `drizzle.config.ts`, `drizzle/schema.ts`,
+`drizzle/migrations/0000_restrictive_tenant_policy_batch_2.sql`,
+`drizzle/migrations/meta/0000_snapshot.json`,
+`drizzle/migrations/meta/_journal.json`. The report itself is immutable and is
+not edited; this entry is the correction of record.
+
+### Standing rule
+
+**A pass report lists every file the commit changed, checked against `git`,
+including files a platform tool wrote.** `git diff --stat` for the commit is
+the source; the agent's memory of its own edits is not.
+
+### Full suite
+
+Run because tests changed: 204 files — 201 passed, 1 failed, 2 skipped; 2,026
+tests — 2,010 passed, 1 failed, 15 skipped, plus two
+`[vitest-worker]: Timeout calling "onTaskUpdate"` unhandled errors. The one
+failure is `src/pages/dispatch/__tests__/brokersPage.test.tsx` >
+"offers delete only when the broker has zero loads",
+`Error: Test timed out in 5000ms`. Re-run alone: 8/8 green in 2,993 ms, the
+named test in 1,084 ms. Load flake under a 425-second whole-suite run, not a
+defect — and one green re-run is one sample.

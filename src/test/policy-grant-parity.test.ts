@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync, readdirSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
+import { migrationSources } from "./helpers/migrationFunctions";
 
 /**
  * Grants-versus-policies parity guard.
@@ -20,8 +20,6 @@ import path from "node:path";
  */
 const CUTOFF = "20260730180000";
 
-const MIGRATIONS_DIR = path.resolve(__dirname, "../../supabase/migrations");
-
 /** Policies whose predicate can only ever be satisfied by a signed-in user. */
 const AUTH_SCOPED = /auth\.uid|is_staff|has_role|auth\.jwt/i;
 /** Policies that exist only to document that service_role bypasses RLS. */
@@ -36,11 +34,18 @@ type Policy = {
   body: string;
 };
 
-function migrationFiles(): string[] {
-  return readdirSync(MIGRATIONS_DIR)
-    .filter((f) => f.endsWith(".sql"))
-    .filter((f) => (f.match(/^\d+/)?.[0] ?? "0") >= CUTOFF)
-    .sort();
+/**
+ * Both migration folders, cutoff applied. Drizzle files (labelled
+ * `drizzle/...`) carry no timestamp prefix and are always newer than the
+ * cutoff, so they are always in scope — before 2026-09-17 this guard could not
+ * see them at all.
+ */
+function migrationSourcesInScope(): { file: string; path: string }[] {
+  return migrationSources().filter(
+    (s) =>
+      s.file.startsWith("drizzle/") ||
+      (s.file.match(/^\d+/)?.[0] ?? "0") >= CUTOFF,
+  );
 }
 
 function stripComments(sql: string): string {
@@ -81,7 +86,7 @@ function policies(file: string, sql: string): Policy[] {
 }
 
 /** Collects `table -> role -> privileges` from every GRANT across migrations. */
-function grantIndex(files: string[]): Map<string, Set<string>> {
+function grantIndex(files: { file: string; path: string }[]): Map<string, Set<string>> {
   const index = new Map<string, Set<string>>();
   // `[^;]` — a GRANT never spans a statement boundary. With `[\s\S]` the
   // engine backtracks across `GRANT EXECUTE ON FUNCTION f(uuid, text) TO ...`
@@ -89,10 +94,8 @@ function grantIndex(files: string[]): Map<string, Set<string>> {
   // swallows the NEXT table grant along with it, silently hiding it.
   const re = /GRANT\s+([^;]*?)\s+ON\s+(?:TABLE\s+)?([a-z0-9_."]+)\s+TO\s+([^;]+);/gi;
 
-  for (const file of files) {
-    const sql = stripComments(
-      readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"),
-    );
+  for (const src of files) {
+    const sql = stripComments(readFileSync(src.path, "utf8"));
     let m: RegExpExecArray | null;
     while ((m = re.exec(sql)) !== null) {
       const privs = m[1].toUpperCase();
@@ -134,12 +137,10 @@ function hasGrant(
  * Only `public` tables matter: `app_private` is deliberately grant-free and
  * reachable only from SECURITY DEFINER functions and service_role.
  */
-function tablesCreatedInScope(files: string[]): Set<string> {
+function tablesCreatedInScope(files: { file: string; path: string }[]): Set<string> {
   const created = new Set<string>();
-  for (const file of files) {
-    const sql = stripComments(
-      readFileSync(path.join(MIGRATIONS_DIR, file), "utf8"),
-    );
+  for (const src of files) {
+    const sql = stripComments(readFileSync(src.path, "utf8"));
     const re = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?([a-z0-9_."]+)/gi;
     let m: RegExpExecArray | null;
     while ((m = re.exec(sql)) !== null) {
@@ -154,15 +155,32 @@ function tablesCreatedInScope(files: string[]): Set<string> {
 }
 
 describe("policy / grant parity", () => {
-  const files = migrationFiles();
+  const files = migrationSourcesInScope();
   const grants = grantIndex(files);
   const inScope = tablesCreatedInScope(files);
-  const allPolicies = files.flatMap((f) =>
-    policies(f, stripComments(readFileSync(path.join(MIGRATIONS_DIR, f), "utf8"))),
+  const allPolicies = files.flatMap((s) =>
+    policies(s.file, stripComments(readFileSync(s.path, "utf8"))),
   );
 
   it("finds migrations to lint", () => {
     expect(files.length).toBeGreaterThan(0);
+  });
+
+  /**
+   * The Drizzle folder is a SECOND place migrations live (2026-09-17). Batch 2
+   * of the restrictive tenant policy went there and to nowhere else, so a guard
+   * that reads only `supabase/migrations` was green on text it never saw.
+   */
+  it("reads the drizzle migration folder too", () => {
+    const drizzleFiles = files.filter((s) => s.file.startsWith("drizzle/"));
+    expect(drizzleFiles.map((s) => s.file)).toContain(
+      "drizzle/0000_restrictive_tenant_policy_batch_2.sql",
+    );
+    const batch2 = allPolicies.filter(
+      (p) => p.file === "drizzle/0000_restrictive_tenant_policy_batch_2.sql",
+    );
+    expect(batch2.map((p) => p.name)).toEqual(Array(20).fill("tenant_isolation"));
+    expect(batch2.map((p) => p.table)).toContain("broker_notes");
   });
 
   it("a policy admitting authenticated is backed by a matching grant", () => {
