@@ -5,6 +5,14 @@ its handler and its rejection classification exist; nothing enqueues one. This
 file records what any future caller owes, so the guarantees the online path has
 today are not quietly dropped when the offline path lands.
 
+
+> **2026-09-17 — demo driver for offline runs.** Any offline-path verification
+> uses demo operator **ELD Demo Driver**
+> (`1fd52882-08a2-48e0-b08a-c24eb9beab21`, auth user
+> `d934adaa-4dd0-4365-a7e5-c657cf0561e3`), not the older
+> `ee993ec0-e0a2-4d0f-aa05-6d22eb931405`, which is no longer flagged `is_demo`
+> and which `reset-demo-driver` refuses.
+
 ## AC-1 — a certification always carries a token
 
 One `p_certification_token` per certification *attempt set*, generated once and

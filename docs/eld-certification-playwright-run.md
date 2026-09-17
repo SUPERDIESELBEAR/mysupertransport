@@ -5,6 +5,19 @@ handoff (`create-preview-session`), demo operator Marcus Mueller. Every case
 resets through `reset-demo-driver` and purges in a `finally` through the
 `purge-rods-day` edge function (the authoritative path).
 
+
+> **2026-09-17 — demo driver replaced.** The historical runs below were made as
+> demo operator `ee993ec0-e0a2-4d0f-aa05-6d22eb931405` (Marcus Mueller). That
+> operator is now `is_demo=false, is_active=false` and `reset-demo-driver`
+> refuses it (`403 Refusing to reset a live (non-demo) driver`). Owner decision
+> 2026-09-17: provision a fresh demo driver instead of changing it back. New
+> demo driver for every later ELD run:
+> **ELD Demo Driver** — operator `1fd52882-08a2-48e0-b08a-c24eb9beab21`,
+> auth user `d934adaa-4dd0-4365-a7e5-c657cf0561e3`,
+> login `eld-demo-driver@demo.mysupertransport.com`, roles `{operator}` only,
+> `is_demo=true`, company `6b54d0e6-8743-4284-b55b-8cd094b093dd`
+> (SUPERTRANSPORT, LLC). Runs below are not rewritten.
+
 Scripts: `/tmp/browser/eld/{common,case_g2,case_a,case_a_realclock,case_a_wait}.py`.
 
 ## (g) Direct route to Paper Logs — PASS (regression closed)
