@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789646353188,
+      "tag": "0000_restrictive_tenant_policy_batch_2",
+      "breakpoints": true
+    }
+  ]
+}
