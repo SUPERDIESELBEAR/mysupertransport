@@ -300,7 +300,30 @@ describe('dispatch settlement — the rates are versioned and seeded, never hard
  * person's company_members row changes. No money expectation is touched.
  */
 const AS_SERVICE_ROLE = `SET LOCAL request.jwt.claims = '{"role":"service_role"}';`;
-const CO = `(SELECT id FROM public.carrier_profile)`;
+
+/**
+ * SUPERTRANSPORT, named explicitly by its USDOT number.
+ *
+ * `(SELECT id FROM public.carrier_profile)` used to stand here. That is a bare
+ * scalar subquery over the whole table: correct while one carrier exists, and
+ * SQLSTATE 21000 ("more than one row returned by a subquery used as an
+ * expression") the day a second carrier row is inserted — a failure that would
+ * read as a dispatch settlement defect rather than as this fixture's fault.
+ * `usdot_number` carries a globally unique index, so this stays a single row.
+ */
+const SUPERTRANSPORT_USDOT = '2309365';
+const CO = `(SELECT id FROM public.carrier_profile WHERE usdot_number = '${SUPERTRANSPORT_USDOT}')`;
+
+describe('dispatch settlement — the fixture carrier', () => {
+  itLive(`carrier_profile holds exactly one row for USDOT ${SUPERTRANSPORT_USDOT}`, () => {
+    const rows = psql(`SELECT id FROM public.carrier_profile WHERE usdot_number = '${SUPERTRANSPORT_USDOT}'`);
+    // Said plainly, because every fixture below writes as this carrier: without
+    // this row the inserts fail on a NOT NULL company_id and the message names
+    // the column, not the missing carrier.
+    expect(rows, `No carrier_profile row with usdot_number = ${SUPERTRANSPORT_USDOT}. `
+      + 'The dispatch settlement fixtures write as SUPERTRANSPORT and cannot run without it.').toHaveLength(1);
+  });
+});
 
 describe('dispatch settlement — behaviour the schema must refuse', () => {
   itLive('period_month must be the first of a month', () => {
