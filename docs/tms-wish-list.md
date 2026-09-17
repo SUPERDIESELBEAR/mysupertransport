@@ -26,7 +26,11 @@ closed, and the removing pass says so.
 - MULTI-COMPANY AMBIGUITY: CLOSED 2026-09-16 (owner decision C). A person matching more than one distinct company across `company_members`, `operators` and `truck_owners` now resolves to NOTHING — `current_company_id()` has no `LIMIT` and no `COALESCE` chain, and the edge helpers `companyIdForUser` / `companyIdForAnyUser` throw naming the user. Live census: zero such users today, including inactive rows. A COMPANY SWITCHER REMAINS UNBUILT; its trigger is the first real person who needs two companies. (record 2026-09-16 2226 UTC — "an ambiguous company resolves to nothing"; `docs/passes/2026-09-16-2226-ambiguous-company-refused.md`)
 - How failing test files get noticed: ANSWERED 2026-09-17 (owner) — option (1): every pass that changes the database, app code, edge functions or tests runs the WHOLE suite once as its last check before its report, quoting the summary lines verbatim. Docs-only passes may skip it and must say so. `EAUTHQUERY` failures are re-run. Cost about 6.5 minutes. Possible later revision: a DB-free subset every pass plus one weekly full run. (record 2026-09-17 — "cleanup after the suite census, and restrictive batch 2", section (a))
 
+- ELD/RODS keep / hide / remove: **DECIDED 2026-09-17 — HIDE (option (b))**. The ways in were removed (routes, navigation entries, PWA shortcut, the two duty-status cron jobs 402/412, the background sync runner); every table, row, policy, function, trigger, bucket, component and library was KEPT, and the inspection binder stays reachable. Reversible: the exact hidden list is in the record. Emails that stopped: hourly RODS certification reminders and ELD malfunction escalations. (record 2026-09-17 (later) — "ELD/RODS HIDDEN (owner decision (b))…"; `docs/passes/2026-09-17-2005-eld-hidden.md`)
+
 ### DECIDED, NOT BUILT
+
+- ELD/RODS FULL REMOVAL, if the feature is still unused later — the binder must be unpicked first (`inspection_documents` 774 rows, `truck_dot_inspections` 105, `v_compliance_items`, the MO plate expiry sync, the `/inspect/:token` links and onboarding's binder writes all survive the feature). Costs and breakages: record 2026-09-17 1730 UTC, Part B5 option (c).
 
 - ELD/RODS tables: restrictive batch DONE 2026-09-17 **WITHOUT the offline sync test** — `drizzle/migrations/0003_restrictive_tenant_policy_eld_batch.sql` applied the policy to the ten non-realtime tables (`blank_log_acknowledgments`, `eld_malfunction_events`, `inspection_cycles`, `roadside_stops`, `rods_amendments`, `rods_correction_requests`, `rods_days`, `rods_divergences`, `rods_events`, `rods_unlock_events`). The owner stopped that pass; the offline sync path was NOT re-tested after the policies landed. `truck_dot_inspections` and `inspection_documents` remain PENDING — both are realtime-subscribed, so the owner's live-update check comes first. ELD work is ON HOLD pending the removal decision below. (record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up, and the ELD/RODS removal inventory")
 
@@ -50,7 +54,7 @@ closed, and the removing pass says so.
 
 ### OWNER DECISIONS OWED
 
-- **Keep, hide or remove the ELD/RODS feature.** Inventory: record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up, and the ELD/RODS removal inventory", Part B; pass report `docs/passes/2026-09-17-1730-eld-tidyup-and-removal-inventory.md`. 27 tables, ~52 functions, ~69 triggers, 4 cron jobs, 13 edge functions, 3 storage buckets, 4 routes. No real driver has any record of duty status; the inspection binder (`inspection_documents` 774 rows, `truck_dot_inspections` 105) is the load-bearing part and is not duty-status data. Options (a) keep, (b) hide but keep the data, (c) export and remove, with costs, are in Part B5.
+- ~~**Keep, hide or remove the ELD/RODS feature.**~~ DECIDED 2026-09-17: **HIDE** (option (b)) — moved to RECENTLY CLOSED above.
 - ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 118 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
@@ -67,7 +71,6 @@ closed, and the removing pass says so.
 
 ### VERIFICATION GAPS
 
-- `src/test/grant-parity-live.test.ts` > "no public table admits a role its grants do not" fails with `ERROR: permission denied for function grant_parity_report`. `psql` connects as `sandbox_exec`; the function ACL grants EXECUTE to `sandbox_exec_qgxpkcudwjmacrdcyvhj`. Harness permission, not a product defect — the grant-parity report is therefore NOT being checked by the suite. TRIGGER: the next pass permitted to run a migration adds `GRANT EXECUTE ON FUNCTION public.grant_parity_report() TO sandbox_exec`. (record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up…", Verification)
 - Cross-carrier visibility never demonstrated with a real session. (record 2026-09-16 — "the owner's disposition decision…", section (e); "the unassigned tables…", section (f))
 - Deployed edge functions not confirmed to match the repo. (pass report `docs/passes/2026-09-16-1100-second-carrier-readiness.md`, "Deployed-vs-repo parity is NOT confirmed"; cited from the record entry's section (b))
 - Full tenancy-resolver run ends in `Error: [vitest-worker]: Timeout calling "onTaskUpdate"`. Quoted, not diagnosed. (record 2026-09-16 — "the owner's disposition decision…", section (e))
