@@ -16522,3 +16522,137 @@ acknowledgment would be destroyed. Note 49 CFR 395.8(k)(1) — six months'
 retention — is quoted by `purge_rods_day` itself; on the B2 reading these rows
 are demo/harness rows, but `ee993ec0` is flagged non-demo, so the flag would
 have to be settled before anything is dropped.
+
+---
+
+## 2026-09-17 (later) — ELD/RODS HIDDEN (owner decision (b)), the grant-parity harness grant, and two record corrections
+
+BUILD MODE pass. The feature is HIDDEN, not removed: every table, row, policy,
+function, trigger, bucket, component, hook and library stays. What was taken
+away are the ways IN. Reversible by design.
+
+### (a) Two record corrections, appended not rewritten
+
+1. **Offline sync test wording.** The 2026-09-17 1730 UTC entry says the offline
+   sync path was NOT tested after the ELD restrictive policies landed. That is
+   wrong. The stopped turn DID run the offline queue/sync Playwright cases both
+   before and after migration `0003`, but quoted no results. The correct
+   statement is **"tested, results not quoted"**.
+2. **`ee993ec0` flag change — downgraded, still a gap.** The owner says his team
+   likely deactivated a driver around 13:37 UTC on 2026-09-17, which matches
+   `updated_at = 2026-09-17 13:37:42` and `is_demo` → false / `is_active` →
+   false. Nothing records it — no `audit_log` row, `deactivated_by` NULL — so it
+   remains a gap, **downgraded from unexplained to probably explained**.
+
+### (b) The line drawn before anything changed
+
+HIDDEN (every way a driver or staff member reached duty status):
+
+- `/roadside` boot branch in `src/main.tsx`; `/roadside` removed from the
+  service-worker `navigateFallbackAllowlist` in `vite.config.ts`; the Roadside
+  shortcut removed from `public/manifest.json`.
+- `/eld/*` in `src/App.tsx` (was `/eld/officer-email`), now the plain notice.
+- `SyncRunnerMount` no longer mounted in `src/App.tsx`.
+- Operator portal (`src/pages/operator/OperatorPortal.tsx`): the Paper Logs and
+  ELD Malfunction navigation entries, the malfunction banner, the roadside cache
+  hydration, and the lazy view imports. The two view values still resolve and
+  render the notice.
+- Management portal (`src/pages/management/ManagementPortal.tsx`): the Paper
+  Logs (RODS), Retention Archive, ELD Malfunctions and Device Models entries and
+  their lazy imports. Their view values render the notice.
+- Cron: jobs **402 `rods-certification-reminders-hourly`** and **412
+  `process-eld-escalations`** unscheduled in migration `0004`. The edge
+  functions they called are untouched.
+- **Officer packets fall on the HIDE side**: they are the roadside/duty-status
+  staff workflow (officer email sheet + `/roadside`), zero rows, and nothing
+  outside the feature depends on them. They are NOT the inspection binder's
+  `/inspect/:token` share links, which stay.
+
+KEEP REACHABLE (verified working by hand, section (e)): the inspection binder
+(driver and management), `truck_dot_inspections`, `inspection_documents` and
+their versions, `v_compliance_items` and the compliance alerts panel, the MO
+plate expiry sync and License Plate Registry, `/inspect/:token` and the document
+short links, binder share bundles, onboarding's binder writes, the quarterly
+inspection program, and job 7 `daily-inspection-expiry-check`.
+
+Nothing was deleted: `src/lib/eld/`, `src/roadside/` and the ELD components all
+remain in the repo.
+
+### (c) Typed-in URLs render a notice, never a crash or a redirect
+
+`src/lib/eld/featureVisibility.ts` (`ELD_FEATURE_HIDDEN = true`,
+`ELD_HIDDEN_MESSAGE = 'This feature is not available.'`) and
+`src/components/eld/EldHiddenNotice.tsx`. A redirect was rejected: it loses the
+person who typed the URL and hides the fact that the screen is gone.
+
+### (d) The writing stopped, and the cron correction
+
+`src/lib/eld/offline/queue/runner.ts` — `startSyncRunner()` returns immediately
+when `ELD_FEATURE_HIDDEN` is true, before registering any listener or flushing
+the queue. This is the second line of defence; `src/App.tsx` no longer mounts
+the runner at all. No service-worker `sync` or `periodicsync` task exists
+(`public/service-worker.js` is a one-release cleanup worker). A source sweep
+found no other driver-session writer to the ten ELD tables.
+
+**Contradiction with the prompt, resolved by the owner.** The prompt said four
+cron jobs. The live `cron.job` catalog had only **two** duty-status jobs (402,
+412). `daily-inspection-expiry-check` (job 7) sends CDL / medical / IRP / IFTA /
+insurance / Periodic DOT Inspection expiry emails and is on the KEEP side; the
+fourth named job, `cron-inspection-reminders`, has source but **no `cron.job`
+row at all**. The owner directed: stop only the two log jobs, keep inspection
+and document expiry reminders. **Emails that stop:** hourly RODS certification
+reminders and ELD malfunction escalations. Nothing else.
+
+### (e) Verified by hand — real sessions, one sign-in per identity
+
+- **Steve Figueroa (driver).** Home shows Home / Status / Upload Docs /
+  Document Hub / Binder / DOT / My Docs / My Truck / Resources / Pay Setup /
+  Settlements / Fuel / Forecast / ICA / Dispatch / Messages / FAQ / Alerts —
+  **no Logs entry**. `/operator/paper-logs`, `/operator/eld-malfunction`,
+  `/roadside` and `/eld/officer-email` each render "This feature is not
+  available." His Upload Documents screen listed Form 2290, Truck Title, twelve
+  truck photos, inspection report and other documents; the binder rendered.
+- **Mae Lauron (management).** The sidebar's SAFETY & COMPLIANCE section
+  contains only **DOT Inspection Binder** — no Paper Logs (RODS), no Retention
+  Archive, no ELD entries. `?view=eld-logs`, `?view=eld-malfunctions` and
+  `?view=eld-retention` render the notice. Still working: Fleet Compliance
+  ("Compliance Alerts 8, 4 expired · CDL or medical cert expiring within 30
+  days"), License Plate Registry, and Onboard Systems ("ELD 61 — 11 Available ·
+  43 Assigned", which is equipment inventory, not duty status).
+- **Signed out.** `/inspect/c8119ab9-…` renders "Roadside Document Viewer ·
+  Secure Link · CDL (Back) · Valid · Expires: Nov 24, 2028" with Open/Save.
+
+Note: the driver binder still carries the line "Always carry at least 8 days of
+paper log pages in your vehicle." That is binder guidance, not a way in, and was
+left alone.
+
+### (f) The grant-parity harness grant — and how long it had been dark
+
+Migration `0004` adds `GRANT EXECUTE ON FUNCTION public.grant_parity_report() TO
+sandbox_exec`. `psql` connects as `sandbox_exec` (both `current_user` and
+`session_user`); the old ACL named the ref-suffixed role
+`sandbox_exec_qgxpkcudwjmacrdcyvhj`. Before the fix:
+
+```text
+ERROR:  permission denied for function grant_parity_report
+```
+
+After: `src/test/grant-parity-live.test.ts` passes **3 of 3**. A catalog sweep
+of every `public` function whose name contains `parity` or `report` found no
+sibling with the same problem — `grant_parity_report()` is the only one.
+
+**It had been dark longer than batch 4.** The same error is quoted in
+`docs/passes/2026-09-14-2343-federal-breaks-tenancy.md`, so the live check has
+not run since **at least 2026-09-14 23:43 UTC** — three days, not since batch
+4's 15:45 UTC run.
+
+### (g) Tests skipped, not deleted
+
+- `src/test/view-reachability.test.ts` — the aggregate "every view is reachable"
+  case, `it.skip`, reason names this decision: six ELD/operator-management views
+  are deliberately unreachable now.
+- `src/test/navigation-title-invariant.test.ts` — the removed **Device Models**
+  placement moved into a documented `hiddenPlacements` array with a scoped
+  `it.skip.each`.
+
+Nothing covering the binder or any KEEP REACHABLE item was touched.
