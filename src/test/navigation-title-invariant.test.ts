@@ -17,7 +17,7 @@ const identicalPageNames: Placement[] = [
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'PEI Q'.*path: 'pei-queue'/, pageFile: 'src/components/pei/PEIQueuePanel.tsx', title: /title="PEI Q"/ },
   { file: 'src/pages/staff/StaffPortal.tsx', menu: /label: 'PEI Q'.*path: 'pei-queue'/, pageFile: 'src/components/pei/PEIQueuePanel.tsx', title: /title="PEI Q"/ },
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Overview'.*path: 'overview'/, pageFile: 'src/pages/management/ManagementPortal.tsx', title: /title="Overview"/ },
-  { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Device Models'.*path: 'eld-device-models'/, pageFile: 'src/components/management/eld/ELDDeviceModelsPanel.tsx', title: /title="Device Models"/ },
+  // 'Device Models' moved to hiddenPlacements below — ELD/RODS hidden, owner decision (b) 2026-09-17.
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /label: 'Document Hub'.*view: 'docs-hub'|view: 'docs-hub'.*label: 'Document Hub'/, pageFile: 'src/components/documents/DocumentHub.tsx', title: /Document Hub/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'pay-setup'.*label: 'Pay Setup'/, pageFile: 'src/pages/operator/OperatorPortal.tsx', title: /title="Pay Setup"/ },
   { file: 'src/pages/operator/OperatorPortal.tsx', menu: /view: 'dispatch'.*label: 'Dispatch'/, pageFile: 'src/components/operator/OperatorDispatchStatus.tsx', title: /title="Dispatch"/ },
