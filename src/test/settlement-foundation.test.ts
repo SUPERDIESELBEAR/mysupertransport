@@ -15,6 +15,7 @@ import {
   hasUnsettledWork, IGNORED_ACTIVE_PREDICATES, selectSettlementPopulation,
   type UnsettledWork,
 } from '@/lib/settlementPopulation';
+import { migrationSources } from '@/test/helpers/migrationFunctions';
 
 /**
  * MODULE 4 PASS 1 — SETTLEMENT FOUNDATION.
@@ -325,8 +326,14 @@ describe('Repair & Maintenance Deposit', () => {
 });
 
 describe('forbidden vocabulary', () => {
+  it('reads the drizzle migration folder too', () => {
+    expect(migrationSources().some(s => s.file.startsWith('drizzle/'))).toBe(true);
+  });
+
   it('no source or migration string says "escrow" or "holdback"', () => {
-    const roots = ['src', 'supabase/migrations'];
+    // 2026-09-17: migration files come from the shared reader, which covers
+    // `drizzle/migrations` as well; only `src` is still walked directly.
+    const roots = ['src'];
     // The ICA legal text says the deposit is NOT an escrow account. That
     // sentence is the contract's and stays.
     const allowed = new Set(['src/components/ica/ICADocumentView.tsx']);
@@ -336,8 +343,12 @@ describe('forbidden vocabulary', () => {
       if (st.isFile()) return [p];
       return fs.readdirSync(p).flatMap(f => walk(path.join(p, f)));
     };
-    for (const root of roots) {
-      for (const file of walk(root)) {
+    const files = [
+      ...roots.flatMap(walk),
+      ...migrationSources().map(s => s.path),
+    ];
+    {
+      for (const file of files) {
         if (!/\.(ts|tsx|sql)$/.test(file)) continue;
         if (allowed.has(file)) continue;
         if (file.endsWith('settlement-foundation.test.ts')) continue;

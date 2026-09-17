@@ -116,13 +116,17 @@ describe('VerbatimVerificationCard against the writer\u2019s own output', () => 
 });
 
 describe('envelope shape contract', () => {
+  it('reads the drizzle migration folder too', async () => {
+    const { migrationSources } = await import('@/test/helpers/migrationFunctions');
+    expect(migrationSources().some(s => s.file.startsWith('drizzle/'))).toBe(true);
+  });
+
   it('the keys the card reads are the keys the migration writes', async () => {
-    const { readFileSync, readdirSync } = await import('node:fs');
-    const dir = 'supabase/migrations';
-    const bodies = readdirSync(dir)
-      .filter(f => f.endsWith('.sql'))
-      .sort()
-      .map(f => readFileSync(`${dir}/${f}`, 'utf8'))
+    const { readFileSync } = await import('node:fs');
+    // 2026-09-17: shared reader, so a platform-written migration is not missed.
+    const { migrationSources } = await import('@/test/helpers/migrationFunctions');
+    const bodies = migrationSources()
+      .map(s => readFileSync(s.path, 'utf8'))
       .filter(sql => sql.includes('SET verbatim_verification = jsonb_build_object'));
 
     expect(bodies.length).toBeGreaterThan(0);

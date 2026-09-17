@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
+import { migrationSources } from '@/test/helpers/migrationFunctions';
 
 /**
  * Notification priority values must be ones the check constraint allows.
@@ -10,13 +11,15 @@ import path from 'node:path';
  * at the trigger — the request looked filed and the driver was never told.
  * A literal that the database will reject is a defect the type system cannot
  * see, so it is checked here, from the constraint itself.
+ *
+ * 2026-09-17: migration text now comes from the shared reader
+ * (`migrationSources`), which reads BOTH `supabase/migrations` and
+ * `drizzle/migrations`.
  */
-const MIGRATIONS_DIR = path.resolve(__dirname, '../../supabase/migrations');
 const FUNCTIONS_DIR = path.resolve(__dirname, '../../supabase/functions');
 
 function migrationSql(): string[] {
-  return readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith('.sql')).sort()
-    .map((f) => readFileSync(path.join(MIGRATIONS_DIR, f), 'utf8'));
+  return migrationSources().map((s) => readFileSync(s.path, 'utf8'));
 }
 
 /** The allowed set, taken from the LAST definition of the check constraint. */
@@ -48,8 +51,15 @@ describe('notification priority literals', () => {
     expect(allowed.length).toBeGreaterThan(0);
   });
 
+  it('reads the drizzle migration folder too', () => {
+    expect(migrationSources().some((s) => s.file.startsWith('drizzle/'))).toBe(true);
+  });
+
   it('no migration or edge function writes a priority outside it', () => {
-    const files = [...walkSql(MIGRATIONS_DIR), ...walkSql(FUNCTIONS_DIR)];
+    const files = [
+      ...migrationSources().map((s) => s.path),
+      ...walkSql(FUNCTIONS_DIR),
+    ];
     const offenders: string[] = [];
     for (const file of files) {
       const text = readFileSync(file, 'utf8');
