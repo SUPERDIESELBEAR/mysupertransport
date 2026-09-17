@@ -24,10 +24,11 @@ closed, and the removing pass says so.
 - Disposition guard: all three failure branches demonstrated. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record" for the missing-list branch; "the owner's disposition decision, and the live read-enforcement census", section (e), for the duplicate-list and stale-entry branches)
 - HOW to close read enforcement: DECIDED and now PILOTED — one restrictive `tenant_isolation` policy per company-bearing table. Built on 4 tables, policy count 560 → 564, no real session lost a row. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four")
 - MULTI-COMPANY AMBIGUITY: CLOSED 2026-09-16 (owner decision C). A person matching more than one distinct company across `company_members`, `operators` and `truck_owners` now resolves to NOTHING — `current_company_id()` has no `LIMIT` and no `COALESCE` chain, and the edge helpers `companyIdForUser` / `companyIdForAnyUser` throw naming the user. Live census: zero such users today, including inactive rows. A COMPANY SWITCHER REMAINS UNBUILT; its trigger is the first real person who needs two companies. (record 2026-09-16 2226 UTC — "an ambiguous company resolves to nothing"; `docs/passes/2026-09-16-2226-ambiguous-company-refused.md`)
+- How failing test files get noticed: ANSWERED 2026-09-17 (owner) — option (1): every pass that changes the database, app code, edge functions or tests runs the WHOLE suite once as its last check before its report, quoting the summary lines verbatim. Docs-only passes may skip it and must say so. `EAUTHQUERY` failures are re-run. Cost about 6.5 minutes. Possible later revision: a DB-free subset every pass plus one weekly full run. (record 2026-09-17 — "cleanup after the suite census, and restrictive batch 2", section (a))
 
 ### DECIDED, NOT BUILT
 
-- Restrictive-policy ROLLOUT: BATCH 1 (25 staff-only tables) done 2026-09-16 2300 UTC — 29 tables done, **118 company-bearing tables still pending**, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four", section (e); `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- Restrictive-policy ROLLOUT: BATCH 2 (20 tables, all empty) done 2026-09-17 — **49 tables done, 98 company-bearing tables still pending**, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-17 — "cleanup after the suite census, and restrictive batch 2"; `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
 - A driver or truck owner cannot be linked to two carriers with one login (`operators_user_id_key` and `truck_owners_user_id_key` are unique system-wide). Design needed before a driver moves between SUPERDRIVE carriers: how he moves without taking his history with him. (record 2026-09-16 2226 UTC — ambiguity entry)
 - VERIFICATION GAP: `companyIdForUser` (edge) reads staff membership only; `current_company_id()` reads all three sources. A staff member who is also a driver or truck owner at another carrier gets empty screens while staff edge functions still act for his staff company. (record 2026-09-16 2300 UTC — "restrictive tenant policy, batch 1")
 - Next tenancy batch: the 12 per-carrier tables (owner decision 2026-09-16) — needs read enforcement as well as the column. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (a) and (d))
@@ -53,7 +54,12 @@ closed, and the removing pass says so.
 - `profiles`: staff of any carrier see every person's name. (record 2026-09-16 — "the unassigned tables…", section (c), `profiles` bullet)
 - `inspection_program_settings` read policy is `USING true`: any signed-in user of any carrier. (record 2026-09-16 — "the owner's disposition decision…", section (c), "two further defects")
 - `eld_cron_runs` read policy exposes cross-carrier job data (revisit with the `process-eld-escalations` fix). (record 2026-09-16 — "the owner's disposition decision…", section (a), "Noted for later")
-- How failing test files get noticed: (1) every pass runs the whole suite, 6.5 min each; (2) a nightly full run, up to 24h blind and with nowhere to report; (3) a touched-table rule, which for a tenancy pass costs nearly the full suite anyway; (4) a DB-free subset per pass plus a weekly full run. Recommendation is (1). (record 2026-09-16 2338 UTC — "whole-suite census…", section (e))
+
+### WAITING ON THE OWNER
+
+- Live-update check, owner to test: open the Driver Roster on one screen, change a driver's dispatch status on another, and confirm the roster updates WITHOUT a refresh. Must be done before any rollout batch that includes a realtime-subscribed table (pre-check section h). The pilot already put `active_dispatch` and `cert_reminders` under the rule, so this also confirms the pilot. (record 2026-09-16 2007 UTC — "restrictive tenant policy, pilot batch of four"; `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`, section h)
+
+
 
 ### VERIFICATION GAPS
 

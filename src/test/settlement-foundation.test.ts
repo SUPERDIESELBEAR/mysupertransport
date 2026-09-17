@@ -422,11 +422,19 @@ describe('settlement foundation — live schema', () => {
   // line items. Nothing else moved, and both doors are scoped by auth.uid() —
   // a policy that merely mentions the operator role without tying the row to
   // the caller is the failure this asserts against.
+  //
+  // EVERY scan below reads PERMISSIVE policies only. A RESTRICTIVE policy is
+  // the opposite of a door: it ANDs with the permissive set and can only ever
+  // remove rows, so `tenant_isolation` (added to `cash_advances`, `rm_deposits`
+  // and `rm_deposit_transactions` by restrictive batch 2, 2026-09-17) read as
+  // three newly OPEN doors here and failed this assertion. Same narrowing as
+  // `grant_parity_report()` needed on 2026-09-16 for the same reason.
   itLive('settlement data is closed to operators except their own settlement rows', () => {
     const open = psql(`
       select tablename || '.' || policyname
       from pg_policies
       where schemaname='public'
+        and permissive = 'PERMISSIVE'
         and tablename in ('deductions','deduction_installments',
                           'rm_deposits','rm_deposit_transactions','cash_advances')
         and coalesce(qual,'') !~ 'management'
@@ -437,6 +445,7 @@ describe('settlement foundation — live schema', () => {
       select tablename || '.' || policyname
       from pg_policies
       where schemaname='public'
+        and permissive = 'PERMISSIVE'
         and tablename in ('settlements','settlement_line_items','settlement_withheld_loads')
         and coalesce(qual,'') !~ 'management'
         and coalesce(qual,'') !~ 'auth\\.uid\\(\\)'
@@ -448,6 +457,7 @@ describe('settlement foundation — live schema', () => {
       select tablename || '.' || policyname
       from pg_policies
       where schemaname='public'
+        and permissive = 'PERMISSIVE'
         and tablename in ('settlements','settlement_line_items','settlement_withheld_loads')
         and coalesce(qual,'') !~ 'management'
         and cmd <> 'SELECT'

@@ -1989,19 +1989,30 @@ const RESTRICTIVE_PREDICATE =
  * has no company stamp trigger, and it is service_role-only. */
 const RESTRICTIVE_EXEMPT = ['company_members'] as const;
 
-/** Pilot batch (4) plus BATCH 1, staff-only tables (25), both 2026-09-16. */
+/**
+ * Pilot batch (4) and BATCH 1, staff-only tables (25), both 2026-09-16, plus
+ * BATCH 2 (20) on 2026-09-17 — batch 1's empty remainder, re-derived live.
+ */
 const RESTRICTIVE_DONE = [
   'active_dispatch', 'broker_contacts', 'broker_do_not_load_history',
-  'broker_documents', 'broker_factoring_history', 'brokers',
-  'carrier_notification_settings', 'cert_reminders', 'claim_flag_history',
-  'claim_flags', 'company_settings', 'dispatch_settlement_charge_verdicts',
+  'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',
+  'carrier_notification_settings', 'cash_advances', 'cert_reminders',
+  'claim_flag_history', 'claim_flags', 'company_documents',
+  'company_settings', 'detention_claims', 'dispatch_deductions',
+  'dispatch_settlement_charge_verdicts',
   'dispatch_settlement_load_contributions', 'dispatch_settlement_rates',
-  'document_version_history', 'dot_consultant_email_settings',
-  'equipment_items', 'equipment_serial_conflict_dismissals', 'facilities',
-  'fleet_settings', 'insurance_email_settings', 'load_change_history',
-  'load_number_config', 'mo_plate_assignments', 'mo_plates',
-  'notification_role_defaults', 'parser_diagnostics', 'pay_policies',
-  'pei_cadence_settings',
+  'dispatch_settlement_rates_history', 'document_send_log',
+  'document_version_history', 'dot_consultant_email_settings', 'eld_devices',
+  'eld_extension_requests', 'eld_malfunction_notifications',
+  'eld_sync_alerts', 'equipment_items',
+  'equipment_serial_conflict_dismissals', 'facilities', 'fleet_settings',
+  'insurance_email_settings', 'load_change_history', 'load_number_config',
+  'mo_plate_assignments', 'mo_plates', 'notification_role_defaults',
+  'parser_diagnostics', 'pay_policies', 'pay_policy_assignments',
+  'pei_cadence_settings', 'rm_deposit_transactions', 'rm_deposits',
+  'roadside_stop_documents', 'roadside_stop_violations',
+  'settlement_settings_history', 'staff_email_overrides',
+  'truck_plate_history', 'vacant_units',
 ] as const;
 
 /**
@@ -2012,17 +2023,13 @@ const RESTRICTIVE_DONE = [
  */
 const PENDING_RESTRICTIVE = [
   'accessorial_adjustments', 'ar_aging_snapshots', 'binder_share_bundles',
-  'blank_log_acknowledgments', 'broker_notes', 'carrier_signature_settings',
-  'cash_advances', 'company_documents', 'contractor_pay_setup',
-  'deduction_installments', 'deductions', 'detention_claims',
-  'dispatch_daily_log', 'dispatch_deductions',
-  'dispatch_settlement_line_items', 'dispatch_settlement_rates_history',
+  'blank_log_acknowledgments', 'carrier_signature_settings',
+  'contractor_pay_setup', 'deduction_installments', 'deductions',
+  'dispatch_daily_log', 'dispatch_settlement_line_items',
   'dispatch_settlements', 'dispatch_status_history',
-  'document_acknowledgments', 'document_exceptions', 'document_send_log',
-  'document_short_links', 'documents', 'driver_staff_contact_suppressions',
-  'driver_staff_contacts', 'driver_uploads', 'driver_vault_documents',
-  'eld_devices', 'eld_extension_requests', 'eld_malfunction_events',
-  'eld_malfunction_notifications', 'eld_sync_alerts',
+  'document_acknowledgments', 'document_exceptions', 'document_short_links',
+  'documents', 'driver_staff_contact_suppressions', 'driver_staff_contacts',
+  'driver_uploads', 'driver_vault_documents', 'eld_malfunction_events',
   'equipment_assignments', 'equipment_receipts', 'factoring_remittances',
   'forecast_deductions', 'forecast_expenses', 'forecast_loads',
   'ica_amendment_units', 'ica_amendments', 'ica_contracts',
@@ -2039,21 +2046,18 @@ const PENDING_RESTRICTIVE = [
   'onboard_assignment_sheet_items', 'onboard_assignment_sheets',
   'onboarding_status', 'operator_broadcast_recipients', 'operator_documents',
   'operator_offboarding_steps', 'operators', 'owner_transfers',
-  'pandadoc_documents', 'passenger_authorizations', 'pay_policy_assignments',
-  'payments', 'preview_sessions', 'rate_con_ingest_queue',
-  'rm_deposit_transactions', 'rm_deposits', 'roadside_stop_documents',
-  'roadside_stop_violations', 'roadside_stops', 'rods_amendments',
-  'rods_correction_requests', 'rods_days', 'rods_divergences', 'rods_events',
-  'rods_unlock_events', 'service_help_requests',
-  'service_resource_bookmarks', 'service_resource_completions',
-  'service_resource_views', 'settlement_line_items', 'settlement_settings',
-  'settlement_settings_history', 'settlement_withheld_loads', 'settlements',
-  'share_tokens', 'staff_email_overrides', 'staff_help_messages',
-  'staff_help_threads', 'staff_messaging_settings', 'staff_ui_preferences',
-  'thread_participants', 'truck_dot_inspections',
-  'truck_maintenance_records', 'truck_owners', 'truck_plate_history',
-  'truck_state_permits', 'unit_number_config', 'user_roles',
-  'user_view_preferences', 'vacant_units',
+  'pandadoc_documents', 'passenger_authorizations', 'payments',
+  'preview_sessions', 'rate_con_ingest_queue', 'roadside_stops',
+  'rods_amendments', 'rods_correction_requests', 'rods_days',
+  'rods_divergences', 'rods_events', 'rods_unlock_events',
+  'service_help_requests', 'service_resource_bookmarks',
+  'service_resource_completions', 'service_resource_views',
+  'settlement_line_items', 'settlement_settings',
+  'settlement_withheld_loads', 'settlements', 'share_tokens',
+  'staff_help_messages', 'staff_help_threads', 'staff_messaging_settings',
+  'staff_ui_preferences', 'thread_participants', 'truck_dot_inspections',
+  'truck_maintenance_records', 'truck_owners', 'truck_state_permits',
+  'unit_number_config', 'user_roles', 'user_view_preferences',
 ] as const;
 
 type RestrictiveRow = {
