@@ -174,15 +174,26 @@ describe('equipment receipt — live schema', () => {
     expect(writes).toEqual([]);
   });
 
-  itLive('the only SELECT policy is staff-scoped', () => {
+  itLive('the only PERMISSIVE policy is staff-scoped, plus tenant isolation', () => {
+    // 2026-09-17: the table gained the RESTRICTIVE `tenant_isolation` policy.
+    // Restrictive policies only ever SUBTRACT rows, so the claim this guard
+    // makes — nothing but staff can read — still holds; it is asserted over
+    // the permissive policies, and the restrictive one is asserted by shape.
     const pols = psql(`
       select policyname || '|' || cmd || '|' || coalesce(qual,'')
       from pg_policies
       where schemaname='public' and tablename='equipment_return_confirmations'
+        and permissive = 'PERMISSIVE'
       order by 1`);
     expect(pols.length).toBe(1);
     expect(pols[0]).toContain('|SELECT|');
     expect(pols[0]).toContain('is_staff');
+
+    const restrictive = psql(`
+      select policyname || '|' || cmd from pg_policies
+      where schemaname='public' and tablename='equipment_return_confirmations'
+        and permissive = 'RESTRICTIVE'`);
+    expect(restrictive).toEqual(['tenant_isolation|ALL']);
   });
 
   itLive('at most one open confirmation per operator', () => {

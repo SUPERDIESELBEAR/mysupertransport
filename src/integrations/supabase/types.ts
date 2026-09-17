@@ -3664,6 +3664,7 @@ export type Database = {
       }
       driver_optional_docs: {
         Row: {
+          company_id: string
           created_at: string
           doc_name: string
           driver_id: string
@@ -3672,6 +3673,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          company_id: string
           created_at?: string
           doc_name: string
           driver_id: string
@@ -3680,6 +3682,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          company_id?: string
           created_at?: string
           doc_name?: string
           driver_id?: string
@@ -3687,7 +3690,15 @@ export type Database = {
           updated_at?: string
           updated_by?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "driver_optional_docs_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       driver_staff_contact_suppressions: {
         Row: {
@@ -4922,6 +4933,7 @@ export type Database = {
       }
       equipment_return_confirmations: {
         Row: {
+          company_id: string
           confirmed_at: string
           confirmed_by: string | null
           created_at: string
@@ -4934,6 +4946,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id: string
           confirmed_at?: string
           confirmed_by?: string | null
           created_at?: string
@@ -4946,6 +4959,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           confirmed_at?: string
           confirmed_by?: string | null
           created_at?: string
@@ -4958,6 +4972,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "equipment_return_confirmations_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "equipment_return_confirmations_confirmed_by_fkey"
             columns: ["confirmed_by"]
@@ -5493,6 +5514,7 @@ export type Database = {
         Row: {
           accepted_at: string
           accepted_by: string
+          company_id: string
           created_at: string
           disagreement_fields: Json
           id: string
@@ -5503,6 +5525,7 @@ export type Database = {
         Insert: {
           accepted_at?: string
           accepted_by: string
+          company_id: string
           created_at?: string
           disagreement_fields?: Json
           id?: string
@@ -5513,6 +5536,7 @@ export type Database = {
         Update: {
           accepted_at?: string
           accepted_by?: string
+          company_id?: string
           created_at?: string
           disagreement_fields?: Json
           id?: string
@@ -5529,6 +5553,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "fuel_disagreement_acceptances_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fuel_disagreement_acceptances_transaction_id_fkey"
             columns: ["transaction_id"]
             isOneToOne: false
@@ -5539,6 +5570,7 @@ export type Database = {
       }
       fuel_import_batches: {
         Row: {
+          company_id: string
           created_at: string
           date_range_end: string | null
           date_range_start: string | null
@@ -5562,6 +5594,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           date_range_end?: string | null
           date_range_start?: string | null
@@ -5585,6 +5618,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           date_range_end?: string | null
           date_range_start?: string | null
@@ -5609,6 +5643,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "fuel_import_batches_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "fuel_import_batches_imported_by_fkey"
             columns: ["imported_by"]
             isOneToOne: false
@@ -5620,6 +5661,7 @@ export type Database = {
       fuel_transaction_lines: {
         Row: {
           amount: number
+          company_id: string
           created_at: string
           id: string
           line_type: Database["public"]["Enums"]["fuel_line_type"]
@@ -5628,6 +5670,7 @@ export type Database = {
         }
         Insert: {
           amount: number
+          company_id: string
           created_at?: string
           id?: string
           line_type: Database["public"]["Enums"]["fuel_line_type"]
@@ -5636,6 +5679,7 @@ export type Database = {
         }
         Update: {
           amount?: number
+          company_id?: string
           created_at?: string
           id?: string
           line_type?: Database["public"]["Enums"]["fuel_line_type"]
@@ -5643,6 +5687,13 @@ export type Database = {
           transaction_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "fuel_transaction_lines_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "fuel_transaction_lines_transaction_id_fkey"
             columns: ["transaction_id"]
@@ -5661,6 +5712,7 @@ export type Database = {
           cash_advance_emoney_amount: number
           cash_advance_insta_amount: number
           city: string | null
+          company_id: string
           created_at: string
           created_by: string | null
           daycode: string | null
@@ -5702,6 +5754,7 @@ export type Database = {
           cash_advance_emoney_amount?: number
           cash_advance_insta_amount?: number
           city?: string | null
+          company_id: string
           created_at?: string
           created_by?: string | null
           daycode?: string | null
@@ -5743,6 +5796,7 @@ export type Database = {
           cash_advance_emoney_amount?: number
           cash_advance_insta_amount?: number
           city?: string | null
+          company_id?: string
           created_at?: string
           created_by?: string | null
           daycode?: string | null
@@ -5782,6 +5836,13 @@ export type Database = {
             columns: ["batch_id"]
             isOneToOne: false
             referencedRelation: "fuel_import_batches"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "fuel_transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -8803,6 +8864,7 @@ export type Database = {
       }
       onboard_assignment_sheet_sends: {
         Row: {
+          company_id: string
           created_at: string
           id: string
           kind: string
@@ -8813,6 +8875,7 @@ export type Database = {
           sheet_id: string
         }
         Insert: {
+          company_id: string
           created_at?: string
           id?: string
           kind?: string
@@ -8823,6 +8886,7 @@ export type Database = {
           sheet_id: string
         }
         Update: {
+          company_id?: string
           created_at?: string
           id?: string
           kind?: string
@@ -8833,6 +8897,13 @@ export type Database = {
           sheet_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "onboard_assignment_sheet_sends_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "onboard_assignment_sheet_sends_sheet_id_fkey"
             columns: ["sheet_id"]
@@ -9486,6 +9557,7 @@ export type Database = {
       operator_broadcasts: {
         Row: {
           body: string
+          company_id: string
           completed_at: string | null
           created_at: string
           cta_label: string | null
@@ -9505,6 +9577,7 @@ export type Database = {
         }
         Insert: {
           body: string
+          company_id: string
           completed_at?: string | null
           created_at?: string
           cta_label?: string | null
@@ -9524,6 +9597,7 @@ export type Database = {
         }
         Update: {
           body?: string
+          company_id?: string
           completed_at?: string | null
           created_at?: string
           cta_label?: string | null
@@ -9541,13 +9615,22 @@ export type Database = {
           status?: string
           subject?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "operator_broadcasts_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       operator_departing_events: {
         Row: {
           action: string
           changed_at: string
           changed_by: string | null
+          company_id: string
           created_at: string
           expected_date: string | null
           id: string
@@ -9558,6 +9641,7 @@ export type Database = {
           action: string
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           created_at?: string
           expected_date?: string | null
           id?: string
@@ -9568,6 +9652,7 @@ export type Database = {
           action?: string
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           created_at?: string
           expected_date?: string | null
           id?: string
@@ -9580,6 +9665,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_departing_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -9710,6 +9802,7 @@ export type Database = {
           action: string
           changed_at: string
           changed_by: string | null
+          company_id: string
           created_at: string
           expected_return: string | null
           id: string
@@ -9721,6 +9814,7 @@ export type Database = {
           action: string
           changed_at?: string
           changed_by?: string | null
+          company_id: string
           created_at?: string
           expected_return?: string | null
           id?: string
@@ -9732,6 +9826,7 @@ export type Database = {
           action?: string
           changed_at?: string
           changed_by?: string | null
+          company_id?: string
           created_at?: string
           expected_return?: string | null
           id?: string
@@ -9745,6 +9840,13 @@ export type Database = {
             columns: ["changed_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_parking_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
           {
@@ -13100,6 +13202,7 @@ export type Database = {
       staff_event_acknowledgments: {
         Row: {
           acknowledged_at: string
+          company_id: string
           event_date: string
           event_type: string
           id: string
@@ -13109,6 +13212,7 @@ export type Database = {
         }
         Insert: {
           acknowledged_at?: string
+          company_id: string
           event_date: string
           event_type: string
           id?: string
@@ -13118,6 +13222,7 @@ export type Database = {
         }
         Update: {
           acknowledged_at?: string
+          company_id?: string
           event_date?: string
           event_type?: string
           id?: string
@@ -13126,6 +13231,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_event_acknowledgments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_event_acknowledgments_operator_id_fkey"
             columns: ["operator_id"]
@@ -13234,6 +13346,7 @@ export type Database = {
       staff_help_query_log: {
         Row: {
           answered_from: string
+          company_id: string
           created_at: string
           id: string
           matched_faq_ids: string[]
@@ -13244,6 +13357,7 @@ export type Database = {
         }
         Insert: {
           answered_from: string
+          company_id: string
           created_at?: string
           id?: string
           matched_faq_ids?: string[]
@@ -13254,6 +13368,7 @@ export type Database = {
         }
         Update: {
           answered_from?: string
+          company_id?: string
           created_at?: string
           id?: string
           matched_faq_ids?: string[]
@@ -13263,6 +13378,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "staff_help_query_log_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "staff_help_query_log_thread_id_fkey"
             columns: ["thread_id"]

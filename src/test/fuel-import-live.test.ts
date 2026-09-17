@@ -168,12 +168,17 @@ describe("fuel import structure", () => {
     // Every fuel policy must be staff-gated. A policy resolving through
     // operators.user_id would be a per-driver read, which this pass does not
     // have — driver-facing fuel arrives with settlements in Module 4.
+    //
+    // 2026-09-17: the RESTRICTIVE `tenant_isolation` policy is excluded by
+    // name. It is company-scoped, not staff-gated, but a restrictive policy
+    // can only SUBTRACT rows — it cannot grant an operator anything.
     const offenders = psql(`
       select tablename || '.' || policyname || ' (' || cmd || '): ' ||
              coalesce(qual, with_check, '')
         from pg_policies
        where schemaname = 'public'
          and tablename in (${FUEL_TABLES.map((t) => `'${t}'`).join(",")})
+         and not (permissive = 'RESTRICTIVE' and policyname = 'tenant_isolation')
          and coalesce(qual, '') || coalesce(with_check, '') not like '%has_role%'
          and coalesce(qual, '') || coalesce(with_check, '') not like '%is_staff%'
        order by 1

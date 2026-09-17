@@ -579,6 +579,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
+      ...TWELVE_TENANT_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1797,6 +1798,74 @@ const B8_SHAPE_1 = [
   'share_tokens',
 ] as const;
 
+/**
+ * THE TWELVE, 2026-09-17 (migration 0005). Only ONE of the twelve stamps from
+ * the caller's own membership: `fuel_import_batches`, written by
+ * `commit_fuel_import` in the importing staff member's session. The other eleven
+ * derive tenancy from a parent row or from the person the row is about, so they
+ * carry their own stamp trigger names and are asserted in their own describe.
+ */
+const TWELVE_TENANT_STAMPED = ['fuel_import_batches'] as const;
+
+/** table -> the stamp function that must fire BEFORE INSERT OR UPDATE. */
+const TWELVE_STAMPS: readonly [string, string][] = [
+  ['fuel_import_batches', 'stamp_tenant_company_id'],
+  ['fuel_transactions', 'stamp_company_from_fuel_batch'],
+  ['fuel_transaction_lines', 'stamp_company_from_fuel_transaction'],
+  ['fuel_disagreement_acceptances', 'stamp_company_from_fuel_transaction'],
+  ['operator_broadcasts', 'stamp_company_from_user_ref'],
+  ['operator_departing_events', 'stamp_company_from_operator'],
+  ['operator_parking_events', 'stamp_company_from_operator'],
+  ['equipment_return_confirmations', 'stamp_company_from_operator'],
+  ['driver_optional_docs', 'stamp_company_from_user_ref'],
+  ['onboard_assignment_sheet_sends', 'stamp_company_from_osas_sheet'],
+  ['staff_event_acknowledgments', 'stamp_company_from_user_ref'],
+  ['staff_help_query_log', 'stamp_company_from_user_ref'],
+];
+
+describe('the twelve — fuel, operator events, staff acknowledgments', () => {
+  itLive('company_id is NOT NULL with no default, one carrier, no nulls', () => {
+    for (const [t] of TWELVE_STAMPS) {
+      const [shape] = psql(`SELECT a.attnotnull::text || ' ' || a.atthasdef::text
+        FROM pg_attribute a WHERE a.attname = 'company_id'
+          AND a.attrelid = 'public.${t}'::regclass`);
+      expect(shape, `${t} company_id shape`).toBe('true false');
+      const [rows] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text
+          || ' ' || coalesce(bool_and(company_id = (SELECT id FROM public.carrier_profile))::text, 'empty')
+        FROM public.${t}`);
+      expect(rows, `${t} rows`).toMatch(/^0 (true|empty)$/);
+    }
+  });
+
+  itLive('each carries its derived stamp trigger, firing before validation', () => {
+    for (const [t, fn] of TWELVE_STAMPS) {
+      const rows = psql(`SELECT p.proname FROM pg_trigger tg
+        JOIN pg_proc p ON p.oid = tg.tgfoid
+        WHERE NOT tg.tgisinternal AND tg.tgenabled = 'O'
+          AND tg.tgrelid = 'public.${t}'::regclass
+          AND (tg.tgtype & 2) = 2
+          AND p.proname LIKE 'stamp%company%'
+        ORDER BY tg.tgname`);
+      expect(rows, `${t} stamp trigger`).toEqual([fn]);
+    }
+  });
+
+  itLive('fuel tenancy comes from the import batch, never the driver', () => {
+    // An unmatched fuel row has no operator at all, so a driver-derived stamp
+    // could not have stamped it. This asserts the derivation actually used.
+    const [n] = psql(`SELECT count(*)::text FROM public.fuel_transactions t
+      JOIN public.fuel_import_batches b ON b.id = t.batch_id
+      WHERE t.company_id <> b.company_id`);
+    expect(n, 'fuel_transactions disagreeing with their batch').toBe('0');
+    const [lines] = psql(`SELECT count(*)::text FROM public.fuel_transaction_lines l
+      JOIN public.fuel_transactions t ON t.id = l.transaction_id
+      WHERE l.company_id <> t.company_id`);
+    expect(lines, 'fuel lines disagreeing with their transaction').toBe('0');
+  });
+});
+
+
+
 describe('B8 — token and share tables', () => {
   itLive('all seven carry a server-stamped NOT NULL company_id with a RESTRICT FK', () => {
     const rows = psql(`
@@ -1917,14 +1986,17 @@ const AWAITING_APPLICATIONS = [
  * NO DECISION YET. Found live 2026-09-16, not by any batch. Proposals are in
  * the record; the owner decides. Removing a table from here without either a
  * `company_id` column or another list makes this file fail, deliberately.
+ *
+ * 2026-09-17: the twelve per-carrier tables (fuel, operator events, driver
+ * optional docs, OSAS sends, staff acknowledgments and the staff help query
+ * log) left this list by being STAMPED — migration
+ * `0005_stamp_twelve_tables_tenancy.sql` — not by being decided away. What
+ * remains here is genuinely undecided: `driver_documents` (whose rows predate
+ * the operator rows they belong to) and `eld_cron_runs` (job telemetry, and
+ * the ELD feature is hidden).
  */
 const UNASSIGNED = [
-  'fuel_transactions', 'fuel_transaction_lines', 'fuel_import_batches',
-  'fuel_disagreement_acceptances', 'operator_broadcasts',
-  'operator_departing_events', 'operator_parking_events',
-  'equipment_return_confirmations', 'driver_optional_docs',
-  'onboard_assignment_sheet_sends', 'staff_event_acknowledgments',
-  'driver_documents', 'eld_cron_runs', 'staff_help_query_log',
+  'driver_documents', 'eld_cron_runs',
 ] as const;
 
 describe('tenancy disposition — every table accounted for', () => {
@@ -2052,6 +2124,15 @@ const RESTRICTIVE_DONE = [
   'truck_maintenance_records', 'truck_owners',
   'truck_plate_history', 'truck_state_permits', 'user_view_preferences',
   'vacant_units',
+  // THE TWELVE, 2026-09-17, migration 0005_stamp_twelve_tables_tenancy.sql:
+  // stamped and policied in the same pass. Fuel tenancy derives from the IMPORT
+  // BATCH, never the driver, because an unmatched fuel row has no driver at all.
+  'fuel_import_batches', 'fuel_transactions', 'fuel_transaction_lines',
+  'fuel_disagreement_acceptances', 'operator_broadcasts',
+  'operator_departing_events', 'operator_parking_events',
+  'equipment_return_confirmations', 'driver_optional_docs',
+  'onboard_assignment_sheet_sends', 'staff_event_acknowledgments',
+  'staff_help_query_log',
 ] as const;
 
 /**
