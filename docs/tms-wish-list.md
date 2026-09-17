@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-16
+Last updated: 2026-09-17
 
 ---
 
@@ -28,9 +28,10 @@ closed, and the removing pass says so.
 
 ### DECIDED, NOT BUILT
 
-- ELD/RODS tables: their own restrictive batch, with offline sync tested. The tables: `blank_log_acknowledgments`, `eld_malfunction_events`, `rods_amendments`, `rods_correction_requests`, `rods_days`, `rods_divergences`, `rods_events`, `rods_unlock_events`, `roadside_stops`, `inspection_cycles`, `truck_dot_inspections`, `inspection_documents`. Excluded from BATCH 3 for this reason. (record 2026-09-17 1450 UTC — "the five blind migration readers, and restrictive tenant policy BATCH 3")
+- ELD/RODS tables: restrictive batch DONE 2026-09-17 **WITHOUT the offline sync test** — `drizzle/migrations/0003_restrictive_tenant_policy_eld_batch.sql` applied the policy to the ten non-realtime tables (`blank_log_acknowledgments`, `eld_malfunction_events`, `inspection_cycles`, `roadside_stops`, `rods_amendments`, `rods_correction_requests`, `rods_days`, `rods_divergences`, `rods_events`, `rods_unlock_events`). The owner stopped that pass; the offline sync path was NOT re-tested after the policies landed. `truck_dot_inspections` and `inspection_documents` remain PENDING — both are realtime-subscribed, so the owner's live-update check comes first. ELD work is ON HOLD pending the removal decision below. (record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up, and the ELD/RODS removal inventory")
 
-- Restrictive-policy ROLLOUT: BATCH 4 (14 driver-facing ownership tables) done 2026-09-17 — **88 tables done, 59 company-bearing tables still pending**, of which 49 were the live ownership candidate set before this batch; `operators` and `passenger_authorizations` are additional realtime exclusions found in source but missing from the pre-check's realtime list, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-17 — "cleanup after the suite census, and restrictive batch 2"; `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+- Restrictive-policy ROLLOUT: the ELD/RODS batch (10 tables) done 2026-09-17 after BATCH 4 — **98 tables done, 49 company-bearing tables still pending**; live totals 658 policies in `public`, 98 RESTRICTIVE. `operators` and `passenger_authorizations` are additional realtime exclusions found in source but missing from the pre-check's realtime list, plus `company_members` permanently exempt. Batch order and the fuel caveat (derive from `fuel_import_batches`, never from the operator) are in the pre-check. (record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up…"; `docs/passes/2026-09-16-1920-restrictive-policy-precheck.md`)
+
 - A driver or truck owner cannot be linked to two carriers with one login (`operators_user_id_key` and `truck_owners_user_id_key` are unique system-wide). Design needed before a driver moves between SUPERDRIVE carriers: how he moves without taking his history with him. (record 2026-09-16 2226 UTC — ambiguity entry)
 - VERIFICATION GAP: `companyIdForUser` (edge) reads staff membership only; `current_company_id()` reads all three sources. A staff member who is also a driver or truck owner at another carrier gets empty screens while staff edge functions still act for his staff company. (record 2026-09-16 2300 UTC — "restrictive tenant policy, batch 1")
 - Next tenancy batch: the 12 per-carrier tables (owner decision 2026-09-16) — needs read enforcement as well as the column. (record 2026-09-16 — "the owner's disposition decision, and the live read-enforcement census", sections (a) and (d))
@@ -49,6 +50,7 @@ closed, and the removing pass says so.
 
 ### OWNER DECISIONS OWED
 
+- **Keep, hide or remove the ELD/RODS feature.** Inventory: record 2026-09-17 1730 UTC — "the stopped ELD turn tidied up, and the ELD/RODS removal inventory", Part B; pass report `docs/passes/2026-09-17-1730-eld-tidyup-and-removal-inventory.md`. 27 tables, ~52 functions, ~69 triggers, 4 cron jobs, 13 edge functions, 3 storage buckets, 4 routes. No real driver has any record of duty status; the inspection binder (`inspection_documents` 774 rows, `truck_dot_inspections` 105) is the load-bearing part and is not duty-status data. Options (a) keep, (b) hide but keep the data, (c) export and remove, with costs, are in Part B5.
 - ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 118 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
 - `/apply` falls back to SUPERTRANSPORT's hard-coded identity. (same entry, section (c))
