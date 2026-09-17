@@ -33,7 +33,18 @@ const ROOTS = [SRC, FUNCTIONS];
  * empty if at all possible: every entry is a hole, and an allowlist that grows
  * is how a guard becomes decorative.
  */
-const UNREADABLE_ALLOWLIST: { at: string; reason: string }[] = [];
+const UNREADABLE_ALLOWLIST: { at: string; reason: string }[] = [
+  {
+    at: 'supabase/functions/_shared/tenancy.ts:42',
+    reason:
+      'The table name is a PARAMETER — distinctCompanies(admin, table, userId) is '
+      + 'called with company_members, operators and truck_owners in turn (ambiguity '
+      + 'pass, 2026-09-16). There is no single root to resolve, so nothing here can '
+      + 'be checked statically. It is safe for this guard\'s purpose: the select is '
+      + "`company_id` only, a column all three tables carry (tenancy-resolver.test.ts "
+      + 'asserts that live), and it embeds nothing.',
+  },
+];
 
 /** Parse table names and their FK targets out of the generated types file. */
 function loadSchema() {
