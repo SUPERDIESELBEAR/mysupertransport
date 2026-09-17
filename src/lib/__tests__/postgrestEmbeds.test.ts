@@ -362,13 +362,44 @@ type Site = { file: string; line: number; root: string | null; selects: string[]
 const FROM = /\.from\(\s*['"]([a-z0-9_]+)['"]\s*\)/g;
 
 /**
+ * `const notesTable = () => (supabase as …).from('application_interview_notes')`
+ * — a one-statement local accessor that hides the table name behind a call.
+ * Without this the nearest-preceding-`.from()` rule attributes the select to
+ * whatever unrelated table was queried above it (`InterviewNotesPanel.tsx`
+ * read `audit_log`'s columns for a note query, and the guard failed on a table
+ * the component never touches).
+ */
+const HELPER_FROM = /(?:const|let)\s+([A-Za-z_$][\w$]*)\s*=[^;]{0,400}?=>[^;]{0,400}?\.from\(\s*['"]([a-z0-9_]+)['"]\s*\)/g;
+
+/** Every call site of a table-returning local helper, with the table it opens. */
+function helperCallSites(text: string): { index: number; table: string }[] {
+  const helpers = new Map<string, string>();
+  for (const m of text.matchAll(HELPER_FROM)) helpers.set(m[1], m[2]);
+  if (!helpers.size) return [];
+  const out: { index: number; table: string }[] = [];
+  for (const [name, table] of helpers) {
+    const call = new RegExp(`\\b${name}\\(`, 'g');
+    for (const m of text.matchAll(call)) {
+      // Skip the definition itself: it already contributes its own `.from()`.
+      if (/(?:const|let)\s+$/.test(text.slice(Math.max(0, m.index! - 12), m.index!))) continue;
+      out.push({ index: m.index!, table });
+    }
+  }
+  return out;
+}
+
+/**
  * Every `.select(` in a file, paired with the table it reads from — the
- * nearest preceding `.from('table')` with no other `.select(` in between, so
- * long `.insert({...}).select(...)` chains still resolve.
+ * nearest preceding `.from('table')` (or call of a local `.from()` helper) with
+ * no other `.select(` in between, so long `.insert({...}).select(...)` chains
+ * still resolve.
  */
 function selectSites(file: string): Site[] {
   const text = fs.readFileSync(file, 'utf8');
-  const froms = [...text.matchAll(FROM)].map((m) => ({ index: m.index!, table: m[1] }));
+  const froms = [
+    ...[...text.matchAll(FROM)].map((m) => ({ index: m.index!, table: m[1] })),
+    ...helperCallSites(text),
+  ].sort((a, b) => a.index - b.index);
   const sites: Site[] = [];
   const re = /\.select\(/g;
   let prevSelect = -1;
