@@ -24,6 +24,16 @@ const identicalPageNames: Placement[] = [
   { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Fuel Exceptions'.*path: 'fuel-exceptions'/, pageFile: 'src/pages/management/FuelExceptionsPage.tsx', title: /title="Fuel Exceptions"/ },
 ];
 
+/**
+ * Placements whose menu entry was removed when the ELD / RODS duty-status
+ * feature was hidden (owner decision (b), 2026-09-17). Kept, not deleted:
+ * restoring the feature means moving these rows back into
+ * identicalPageNames and un-skipping the case below.
+ */
+const hiddenPlacements: Placement[] = [
+  { file: 'src/pages/management/ManagementPortal.tsx', menu: /label: 'Device Models'.*path: 'eld-device-models'/, pageFile: 'src/components/management/eld/ELDDeviceModelsPanel.tsx', title: /title="Device Models"/ },
+];
+
 const deliberateExceptions = [
   { menu: 'FAQ', title: 'Frequently Asked Questions', reason: 'The expanded page title is clearer than the compact menu label.' },
   { menu: 'My Truck', title: 'Unit {n}', reason: 'A driver benefits more from seeing the assigned unit number.' },
@@ -31,6 +41,12 @@ const deliberateExceptions = [
 
 describe('routed page titles match their menu labels', () => {
   it.each(identicalPageNames)('$file menu agrees with $pageFile', ({ file, menu, pageFile, title }) => {
+    expect(read(file)).toMatch(menu);
+    expect(read(pageFile)).toMatch(title);
+  });
+
+  // SKIPPED: the ELD/RODS menu entries were removed when the feature was hidden (owner decision (b), 2026-09-17).
+  it.skip.each(hiddenPlacements)('HIDDEN FEATURE — $file menu agrees with $pageFile', ({ file, menu, pageFile, title }) => {
     expect(read(file)).toMatch(menu);
     expect(read(pageFile)).toMatch(title);
   });
