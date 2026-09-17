@@ -16759,3 +16759,91 @@ view, so the list cannot quietly go stale, and it may only shrink.
 
 160 tables carry `company_id`; **110 restrictive `tenant_isolation` policies,
 670 policies in `public`**; 50 company-bearing tables still pending.
+
+---
+
+## 2026-09-17 2050 UTC — two corrections: the "twelve" misread, and the stamp premise that does not hold
+
+Documentation only. No migration, no function change, no data change. Carrier count: 1.
+Full report: `docs/passes/2026-09-17-2050-stamp-refuses-mismatch.md`.
+
+### (a) CORRECTION to the 2026-09-17 (later) entry — the two "twelves" are THE SAME SET
+
+The 1940 pass entry above ("the twelve unstamped tables, and the reachability guard
+turned back on") opens with **THE SET IS NOT THE 2026-09-16 "TWELVE"** and claims "the
+2026-09-16 disposition record's twelve are the MONEY tables". Its pass report repeats it,
+and the OWNER FOLLOW-UP LIST carried the same attribution. **That claim is FALSE.** The
+1940 entry is left standing, as the rule requires; this is the correction.
+
+What the 2026-09-16 disposition actually says, verbatim, `docs/tms-build-status.md`
+lines 14529–14533:
+
+```
+**PER-CARRIER, next batch (12):** `fuel_transactions`, `fuel_transaction_lines`,
+`fuel_import_batches`, `fuel_disagreement_acceptances`, `operator_broadcasts`,
+`operator_departing_events`, `operator_parking_events`, `equipment_return_confirmations`,
+`driver_optional_docs`, `onboard_assignment_sheet_sends`, `staff_event_acknowledgments`,
+`staff_help_query_log`.
+```
+
+That is, element for element, the twelve the 1940 pass stamped. There was no second set
+and no divergence from the owner's disposition: **the WORK was exactly the work the owner
+decided, and only the DESCRIPTION of it was wrong.**
+
+**How the misreading happened, as far as can be told.** Section (a) of the 2026-09-16
+entry is the disposition — the twelve to migrate. Section (c) of the SAME entry is the
+read-enforcement census, and it ends with its own sentence beginning "The twelve:",
+listing `accessorial_adjustments`, `ar_aging_snapshots`, `carrier_signature_settings`,
+`factoring_remittances`, `invoice_batches`, `invoice_line_items`, `invoice_number_config`,
+`invoices`, `payments`, `settlement_settings`, `share_tokens`, `unit_number_config` — the
+twelve tables that already ENFORCE `company_id` on reads. Two unrelated groups of twelve,
+one entry, the same opening words. The 1940 pass matched on the phrase rather than on the
+section, found a set that did not match its prompt, and reported a contradiction that was
+its own. The lesson is procedural: a "contradiction found in the record" must quote the
+line and its section heading before it is written down as one.
+
+### (b) The stamp premise does not hold live — the four functions ALREADY overwrite
+
+This pass was asked to change `stamp_company_from_user_ref`,
+`stamp_company_from_fuel_batch`, `stamp_company_from_fuel_transaction` and
+`stamp_company_from_osas_sheet` because they "fill a NULL `company_id` but let a supplied
+value stand". **Live, none of them does.** Each derives the company and then assigns it
+unconditionally — `NEW.company_id := v_company;` — on `BEFORE INSERT OR UPDATE`. A
+supplied value cannot stand; it is overwritten before the row is stored. Two live probes,
+each in a rolled-back transaction under Marcus's claims, inserting an explicit
+`company_id = 000000000000000000000000000000ff`:
+
+```
+staff_event_acknowledgments  RETURNING company_id -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+driver_optional_docs         RETURNING company_id -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+```
+
+So the 1940 report's Step 5 finding — "spoofed `company_id` → 201, and the spoofed value
+SURVIVED" — is also **wrong**. The most likely cause is that its probe read back its own
+request payload rather than the row PostgREST returned; nothing in the trigger can leave a
+spoofed value in place.
+
+**There is also no stamp function that raises on a MISMATCH to copy.** Live search of
+every trigger function in `public`: the only ones comparing a company value and raising
+are `enforce_invoice_immutability`, `enforce_remittance_immutability` and
+`enforce_accessorial_adjustment_immutability`, and they compare `NEW.company_id IS DISTINCT
+FROM OLD.company_id` on an already-submitted row — new-versus-old immutability, not
+derived-versus-supplied. The named shape does not exist.
+
+**No migration was written, and this is a judgement call recorded as one.** Converting
+silent-correction into a raise would not close a hole — the hole is already closed — it
+would only change a correct write into a failed one. It also cannot be reached by any
+writer today: every writer of the twelve was read, and **not one supplies `company_id`**
+(`useDriverOptionalDocs.ts`, `useStaffBirthdayAnniversaryEvents.ts`, `staff-help-chat`,
+`send-operator-broadcast`, `send-osas-to-operator`'s two `onboard_assignment_sheet_sends`
+inserts, and `commit_fuel_import`). `send-osas-to-operator` DOES pass an explicit
+`company_id` on `onboard_assignment_sheets`, `onboard_assignment_sheet_items` and
+`equipment_assignments`, derived from the OPERATOR — while the sends trigger derives from
+the SHEET. With a second carrier those two derivations could disagree, and a raise there
+would fail a send that today succeeds. If the owner wants the loud shape regardless, it is
+a one-migration change and this entry is the place it starts.
+
+### (c) Suite
+
+Full suite and typecheck run on the documentation-only tree; results verbatim in the pass
+report.
