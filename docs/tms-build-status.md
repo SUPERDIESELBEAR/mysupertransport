@@ -16203,3 +16203,322 @@ part of the app — but the two commits are noise in the history. No third
 occurrence of the tool falsely claiming a regenerated file this pass: the
 migration tool said it regenerated `src/integrations/supabase/types.ts`, and
 git shows only the migration SQL, its snapshot and the journal.
+
+---
+
+## 2026-09-17 1730 UTC — the stopped ELD turn tidied up, and the ELD/RODS removal inventory
+
+ELD batch completed only as a policy migration; offline sync NOT tested; ELD
+work ON HOLD pending the owner's removal decision.
+
+Nothing in this pass changed the database, app code or edge functions. The only
+files changed are `src/test/tenancy-resolver.test.ts` (ledger move),
+`docs/tms-build-status.md`, `docs/tms-wish-list.md` and the pass report.
+
+### PART A — tidy-up
+
+**(A1) 0003 IS live.** `drizzle/migrations/0003_restrictive_tenant_policy_eld_batch.sql`
+applied. Live: **658 policies in `public`, 98 RESTRICTIVE, 98 distinct tables
+carrying `tenant_isolation`** — up from 88. All ten target tables carry it:
+`blank_log_acknowledgments`, `eld_malfunction_events`, `inspection_cycles`,
+`roadside_stops`, `rods_amendments`, `rods_correction_requests`, `rods_days`,
+`rods_divergences`, `rods_events`, `rods_unlock_events`.
+`drizzle.__drizzle_migrations` row 4:
+`id=4, hash=2c9b7c9e2466d20a819baa1136e97963d6e74183d1be6f054a8496295b749ef1,
+created_at=1789663363994 (2026-09-17 16:42:43 UTC)`.
+
+**(A2) The `ee993ec0` trace: NOTHING RECORDS IT.** `audit_log` holds no row for
+the `is_demo` → false / `is_active` → false change on operator
+`ee993ec0-e0a2-4d0f-aa05-6d22eb931405`. Every `audit_log` row naming that
+operator is either a `rods_day_purged` entry (actor `service_role`) or an
+onboarding/ICA/insurance entry by Marcus Mueller between 2026-04-03 and
+2026-07-30 — none touches either flag. The `operators` row shows
+`updated_at = 2026-09-17 13:37:42`, `deactivated_at = 2026-07-31 22:59:50`,
+`deactivated_by = NULL`. So the deactivation is dated 2026-07-31 with no actor,
+and the last write to the row is 2026-09-17 13:37:42 with no audit trail. No
+profile or login change was found. The VERIFICATION GAPS line stays.
+
+**(A3) The stopped turn did run Playwright, a reset and a purge.** Before and
+after the migration it ran online draft save, certification, offline
+queue/sync and roadside render against the new demo driver
+(`1fd52882-08a2-48e0-b08a-c24eb9beab21`). The documented certification defect A
+was NOT reproduced. `reset-demo-driver` reported `rodsDaysPurged = 2`, and the
+post-migration cases wrote fresh rows. Residue for that demo driver, live now:
+`rods_days` 2, `rods_events` 4, `eld_malfunction_events` 1, and 0 on
+`blank_log_acknowledgments`, `inspection_cycles`, `roadside_stops`,
+`rods_amendments`, `rods_correction_requests`, `rods_divergences`,
+`rods_unlock_events`, `eld_devices`, `eld_sync_alerts`,
+`eld_extension_requests`. That residue is is_demo data and is left in place.
+
+**(A4) Ledger moved.** Before the edit the guard failed exactly as expected,
+naming all ten: `"rods_unlock_events: declared pending but already carries a
+restrictive policy"` and nine siblings (1 failed, 121 passed). After moving the
+ten from `PENDING_RESTRICTIVE` to `RESTRICTIVE_DONE`:
+**122 passed**, with the known `[vitest-worker]: Timeout calling "onTaskUpdate"`
+reporter error.
+
+**(A5) Expected-count check — GREEN.** One session per identity; the five
+sessions minted in the stopped turn were reused (valid until ~2026-09-18 14:00
+UTC), so no identity was signed in twice. Service-side totals:
+`blank_log_acknowledgments` 1, `eld_malfunction_events` 1, `inspection_cycles` 0,
+`roadside_stops` 0, `rods_amendments` 0, `rods_correction_requests` 3,
+`rods_days` 4, `rods_divergences` 0, `rods_events` 4, `rods_unlock_events` 0.
+Marcus, Leo and Mae each saw exactly those ten numbers. Steve's and Donald's
+admitted rows were computed independently on the service side — for each table
+`count(*) WHERE operator_id IN (SELECT id FROM operators WHERE user_id = <uid>)`
+(`rods_events` via its `rods_days` parent) — and came out **0 on all ten** for
+both: Steve owns operator `2c24ca65-5933-431e-b6af-a3b8085ee109`, which has no
+rows on any of the ten; Donald (`truck_owner`) owns no operator row, and none of
+the ten has a truck-owner policy. Both saw 0 on all ten. No mismatch.
+
+**(A6) Refusal.** As Marcus (staff `UPDATE` via `eld_events_staff_update`),
+moving `eld_malfunction_events.cb14bf82-522d-4f16-ade6-ed96247c1a2a` to
+company `11111111-2222-3333-4444-555555555555`:
+`HTTP 403, 42501, "new row violates row-level security policy
+\"tenant_isolation\" for table \"eld_malfunction_events\""`. The row still reads
+`company_id = 6b54d0e6-8743-4284-b55b-8cd094b093dd`. Nothing to restore, zero
+residue.
+
+### PART B — ELD/RODS removal inventory (read only)
+
+**(B1) In use — barely, and only by test and demo activity.** 27 tables belong
+to the feature (the 12 on the follow-up list plus 15 more found live).
+Populated: `eld_cron_runs` 1120 (job log, GLOBAL), `inspection_documents` 774,
+`truck_dot_inspections` 105, `binder_share_bundles` 8,
+`inspection_document_versions` 8, `eld_device_models` 6, `rods_days` 4,
+`rods_events` 4, `rods_correction_requests` 3, `inspection_binder_order` 2,
+`blank_log_acknowledgments` 1, `eld_malfunction_events` 1,
+`inspection_program_settings` 1. **Empty (0 rows):** `inspection_cycles`,
+`roadside_stops`, `roadside_stop_documents`, `roadside_stop_violations`,
+`rods_amendments`, `rods_divergences`, `rods_unlock_events`, `eld_devices`,
+`eld_extension_requests`, `eld_malfunction_notifications`,
+`eld_revoked_list_checks`, `eld_sync_alerts`, `inspection_program_payments`,
+`officer_packet_links`.
+
+Duty-status rows by operator: `1fd52882` (is_demo, the new demo driver) —
+`rods_days` 2 (2026-09-16, 2026-09-17), `rods_events` 4,
+`eld_malfunction_events` 1. `ee993ec0` (**is_demo now false**, the ex-demo
+driver of A2) — `rods_days` 2 (2026-08-03 and 2026-08-18),
+`rods_correction_requests` 3 (2026-07-30 to 2026-08-01),
+`blank_log_acknowledgments` 1 (2026-08-03). Distinct non-demo operators writing
+duty status in the last 30 days: **0**. In the last 90 days: **1**, and that one
+is `ee993ec0`.
+
+**(B2) Real records of duty status: none, on the plain reading.** No driver who
+was ever a live SUPERTRANSPORT contractor has RODS days, events,
+certifications, amendments or roadside records. The only rows outside the
+current demo driver belong to `ee993ec0`, the harness operator whose `is_demo`
+flag was flipped to false by an unrecorded change (A2) and which is also
+`is_active = false` and deactivated 2026-07-31. Its dates are 2026-07-30 to
+2026-08-18. `roadside_stops`, `rods_amendments`, `rods_divergences` and
+`rods_unlock_events` are empty for everyone. Nothing was exported.
+
+**(B3) What would have to go, by name.**
+
+*Tables (27):* the 14 empty ones and the 13 populated ones listed in B1.
+
+*Views:* none exclusively — `v_compliance_items` reads `inspection_documents`
+(it does not read any `rods_*` table).
+
+*Functions (52 in `public`):* `acknowledge_eld_sync_alert`,
+`acknowledge_rods_divergence`, `archive_inspection_document_version`,
+`audit_roadside_stop`, `certify_rods_day` (two overloads),
+`clear_binder_pending_on_stage2_received`, `discard_rods_amendment`,
+`enforce_eld_event_driver_update`, `enforce_eld_extension_request_write`,
+`enforce_eld_notification_immutability`, `enforce_eld_signature_lock`,
+`enforce_eld_suppression_rules`,
+`enforce_inspection_document_versions_immutability`,
+`enforce_rods_certified_continuity`, `enforce_rods_correction_request_insert`,
+`enforce_rods_correction_request_update`, `enforce_rods_day_lock`,
+`enforce_rods_day_source_document`, `enforce_rods_divergence_append_only`,
+`enforce_rods_event_lock`, `enforce_single_live_binder_document`,
+`get_eld_compliance_timeline`, `get_eld_escalation_ledger`,
+`grant_inspection_grace`, `inspection_grace_used`, `is_own_rods_operator`,
+`log_inspection_expiry_change`, `notify_rods_correction_request`,
+`project_eld_extension_request`, `purge_rods_day` (three overloads),
+`raise_eld_sync_alert`, `recompute_eld_extension_projection`,
+`record_rods_divergence`, `record_rods_purge_storage_result`,
+`record_rods_unlock`, `request_inspection_grace`,
+`resolve_officer_packet_token`, `review_inspection_grace_request`,
+`stamp_eld_malfunction_notification_company_id`,
+`stamp_eld_sync_alert_company_id`, `stamp_inspection_document_company_id`,
+`stamp_inspection_document_version_company_id`, `stamp_roadside_stop`,
+`sync_application_expiry_to_binder`, `sync_dot_binder_to_vh`,
+`sync_dot_to_inspection_documents`, `sync_inspection_doc_to_dot`,
+`touch_inspection_program_row`.
+
+*Triggers (69 across those tables), the feature-specific ones:*
+`trg_eld_event_driver_update`, `trg_eld_events_is_demo`,
+`trg_eld_suppression_rules`, `trg_eld_notification_immutability`,
+`trg_eld_extension_requests_write/_project/_is_demo`,
+`trg_revoked_list_checks_no_update/_no_delete`, `rods_days_lock_update`,
+`rods_days_lock_delete`, `rods_days_certified_continuity`,
+`rods_days_source_document`, `trg_rods_days_is_demo`, `rods_events_lock`,
+`rods_divergences_append_only`, `rods_divergences_is_demo`,
+`trg_rods_correction_request_insert/_update`,
+`trg_notify_rods_correction_request_insert/_update`,
+`trg_audit_roadside_stop`, `trg_stamp_roadside_stop`,
+`trg_archive_inspection_document_version`, `trg_single_live_binder_document`,
+`trg_inspection_document_versions_immutable`,
+`trg_log_inspection_expiry_change`, `trg_public_share_token_readonly`,
+`trg_sync_dot_binder_to_vh`, `trg_sync_inspection_doc_to_dot`,
+`trg_sync_irp_expiry_to_mo_plate`, `notify_operators_on_fleet_share_trigger`,
+`trg_compute_dot_next_due`, `touch_inspection_cycles`,
+`touch_inspection_payments`, plus each table's `aa_stamp_tenant_company_id` and
+`updated_at` triggers.
+
+*Cron jobs (4):* `rods-certification-reminders-hourly` (jobid 402, `5 * * * *`),
+`process-eld-escalations` (jobid 412, `0 * * * *`),
+`daily-inspection-expiry-check` (jobid 7, `0 15 * * *`),
+`cron-inspection-reminders` (invoked as a function; the `check-inspection-expiry`
+job is jobid 7).
+
+*Edge functions (13):* `purge-rods-day`, `sweep-rods-orphans`,
+`rods-certification-reminders`, `process-eld-escalations`,
+`send-eld-malfunction-notice`, `send-officer-packet`,
+`officer-packet-download`, `send-binder-share`, `backfill-binder-urls`,
+`check-inspection-expiry`, `cron-inspection-reminders`,
+`sync-onboarding-doc-to-binder`, and the shared `_shared/eld/` module
+(`amendmentChain.ts`, `escalationLadder.ts`, `revokedListReminder.ts`).
+
+*Storage buckets (3):* `rods-logs`, `eld-notices`, `inspection-documents`.
+
+*Routes (4):* `/roadside` (its own module graph, booted in `src/main.tsx`, not
+through the router), `/eld/officer-email`, `/inspect/:token`,
+`/inspect/all/:token`.
+
+*Screens and components:* `src/roadside/RoadsideEntry.tsx`;
+`src/pages/InspectionSharePage.tsx`; `src/pages/BinderShareBundlePage.tsx`;
+`src/components/eld/` (`CachePacketChip`, `DemoSuppressionSheet`,
+`DemoWatermarkOverlay`, `OfficerEmailSheet`, `RoadsideDayRender`,
+`RoadsideDayView`, `RoadsidePacket`); `src/components/operator/rods/`
+(`AuthorizedUnlockDialog`, `BolPhotoCard`, `CertifyDayModal`,
+`CertifyMismatchDialog`, `CorrectionRequestBanner`, `LocationPicker`,
+`LogSyncBanner`, `RodsDayEditor`, `RodsDayStrip`, `RodsGrid`, `RodsView`,
+`TapLogEntry`); `src/components/operator/eld/` (`ELDMalfunctionBanner`,
+`ELDMalfunctionView`); `src/components/management/eld/`
+(`ELDMalfunctionsPanel`, `RodsStorageHealthCard`, `RodsDivergencesPanel`,
+`RetentionArchivePanel`, `ELDDeviceModelsPanel`); `src/components/inspection/`
+(`OperatorInspectionBinder`, `InspectionBinderAdmin`, `ComplianceAlertsPanel`);
+`src/components/fleet/QuarterlyInspectionPanel.tsx`.
+
+*Hooks:* `src/hooks/useEldMalfunction.ts`, `src/hooks/useRodsDay.ts`,
+`src/hooks/useRodsDays.ts`.
+
+*Library:* the whole of `src/lib/eld/` — `amendmentDiff`, `buildAmendmentDraft`,
+`carrierIdentity`, `certifyPreflight`, `constants`, `correctionRequests`,
+`demoSuppression`, `escalationLedger`, `extensionRequest`, `noticeDelivery`,
+`pendingNotice`, `renderDutyStatusGrid`, `renderMalfunctionNotice`,
+`rodsHeaderFields`, and `src/lib/eld/offline/**`.
+
+*Offline (Dexie) store:* database `superdrive_roadside`
+(`src/lib/eld/offline/db.ts`), tables `local_meta`, `rods_pdfs`,
+`rods_documents`, `notice_pdfs`, `signature_images`, `roadside_manifest`,
+`rods_days_cache`, `rods_events_cache`, `pending_mutations`, `sync_queue`,
+`merged_packets`, `rods_divergences`.
+
+*Service worker behaviour:* the `navigateFallbackAllowlist` entry
+`/^\/roadside\/?$/` in `vite.config.ts` (offline navigation to `/roadside`), the
+`/roadside` shortcut in `public/manifest.json`, and the sync runner booted from
+`src/App.tsx` (`src/lib/eld/offline/queue/runner.ts`, with `store`, `kick`,
+`alerts`, `certifyDay`, `divergenceSync`, `noticeDrain`, `types`).
+
+*Emails:* the notice in `send-eld-malfunction-notice`, the officer packet in
+`send-officer-packet`, the binder share in `send-binder-share`, and the
+certification reminder in `rods-certification-reminders`.
+
+*Settings:* `inspection_program_settings` (one row) and the ELD/RODS rows on
+`ManagementPortal.tsx`; the "ELD Installed" / "ELD Serial #" / "Truck
+Inspection" rows on `OperatorPortal.tsx`.
+
+*Tests:* `src/lib/eld/__tests__/**`, `src/lib/eld/offline/__tests__/**`,
+`src/components/operator/rods/__tests__/**`,
+`src/test/rods-live-certification.test.ts`,
+`src/lib/__tests__/inspectionBonus.test.ts`,
+`src/lib/__tests__/inspectionProgram.test.ts`.
+
+*Docs (6):* `docs/eld-certification-playwright-run.md`,
+`docs/eld-demo-boundary-2026-08-01.md`, `docs/eld-mail-queue-acl-2026-08-01.md`,
+`docs/eld-officer-packet-sharing.md`, `docs/eld-offline-certification.md`,
+`docs/eld-pass-b-acceptance-2026-08-01.md`.
+
+**(B4) What depends on it.** (a) = removal breaks it; (b) = dead link or empty
+section only.
+
+- `src/App.tsx` — imports `DemoSuppressionSheet`, `OfficerEmailSheet`,
+  `InspectionSharePage`, `BinderShareBundlePage` and boots the sync runner. **(a)**
+- `src/main.tsx` — the `/roadside` boot branch. **(a)**
+- `src/pages/operator/OperatorPortal.tsx` — `useEldMalfunction`,
+  `ELDMalfunctionBanner`, `OperatorInspectionBinder`, `RodsView`, and the
+  driver's ELD/inspection onboarding rows. **(a)**
+- `src/pages/management/ManagementPortal.tsx` — the five management ELD panels. **(a)**
+- `src/pages/staff/OperatorDetailPanel.tsx` — `OperatorBinderPanel`,
+  `RoadsideStopsCard`. **(a)**
+- `src/components/fleet/QuarterlyInspectionPanel.tsx` — reads and writes
+  `inspection_cycles`. **(a)**
+- Inspection binder / inspection documents: `inspection_documents` (774 rows) is
+  the DOT binder itself and is fed by `truck_dot_inspections` (105) through
+  `trg_sync_dot_to_inspection_documents` / `trg_sync_inspection_doc_to_dot`, and
+  by onboarding through `sync-onboarding-doc-to-binder` and
+  `sync_application_expiry_to_binder`. It also drives `v_compliance_items` and
+  `trg_sync_irp_expiry_to_mo_plate` (MO plate expiry). **(a)** — this is the
+  live, load-bearing part of the feature and is NOT duty-status data.
+- Share links: `/inspect/:token` and `/inspect/all/:token`, `share_tokens`,
+  `binder_share_bundles` (8 rows), `document_short_links` and
+  `src/pages/ShortLinkRedirect.tsx`. Removing the pages leaves issued links
+  dead. **(b)**, but **(a)** for `ShortLinkRedirect`'s `inspect` branch.
+- Officer packets: `officer_packet_links` (0 rows),
+  `resolve_officer_packet_token`, `send-officer-packet`,
+  `officer-packet-download`. Nothing outside the feature reads them. **(b)**
+- Compliance monitoring: `check-inspection-expiry`, `cron-inspection-reminders`,
+  `cert_reminders` and `PipelineDashboard`'s Stage-5 `eld_installed` /
+  `truck_inspection` checks. **(b)** for the pipeline logic, **(a)** where it
+  imports feature types.
+- Notifications: `notify_rods_correction_request` writes `notifications`;
+  `notify_operators_on_fleet_share_trigger` writes them for binder shares.
+  Removal leaves already-sent notifications pointing at gone screens. **(b)**
+- Cutover/demo purge: `reset-demo-driver` calls `purge-rods-day` and reports
+  `rodsDaysPurged`; `sweep-rods-orphans` and `record_rods_purge_storage_result`
+  belong to the same procedure; the documented cutover purge counts RODS rows.
+  Removing the feature would require rewriting that procedure. **(a)**
+- Tenancy guards: `src/test/tenancy-resolver.test.ts` names all ten tables in
+  `RESTRICTIVE_DONE` plus `truck_dot_inspections` and `inspection_documents` in
+  `PENDING_RESTRICTIVE`; `src/test/settlement-foundation.test.ts` names
+  `src/roadside`. **(a)**
+- Navigation: operator sidebar Logs entry, management portal ELD rows, the
+  `/roadside` PWA shortcut in `public/manifest.json`. **(b)**
+
+**(B5) Options, not a recommendation.**
+
+*(a) Keep.* Takes: finishing what the ELD batch left — re-testing the offline
+sync path with the restrictive policies live, and a batch for
+`truck_dot_inspections` and `inspection_documents` (both realtime-subscribed, so
+the owner's live-update check comes first). Breaks: nothing new. Real records
+from B2: unaffected; `ee993ec0`'s rows keep sitting in the tables as non-demo
+data even though they were harness rows.
+
+*(b) Hide from drivers and staff, keep the data.* Takes: removing the
+`/roadside` boot branch, the operator Logs view, the management ELD panels and
+the manifest shortcut; stopping the four cron jobs; leaving tables, functions,
+triggers, buckets and RLS in place. Breaks: nothing outside the feature, PROVIDED
+the inspection binder is treated as staying — the binder, `truck_dot_inspections`,
+`v_compliance_items`, MO plate expiry sync and `/inspect/:token` are the
+load-bearing part and must not be hidden with the rest. Issued `/inspect` links
+keep working. Real records from B2: retained, unreadable in the app, still
+reachable by a service-side query.
+
+*(c) Export and remove entirely.* Takes: exporting the 13 populated tables
+first; unpicking the binder from the feature (the hard part — 774 inspection
+documents, 105 DOT inspections, the two sync triggers, the compliance view, the
+MO plate trigger and onboarding's binder writes all survive the feature);
+dropping 27 tables, ~52 functions, ~69 triggers, 4 cron jobs, 13 edge functions
+and 3 storage buckets; deleting 4 routes and everything under `src/lib/eld/`,
+`src/roadside/`, `src/components/eld|inspection|operator/rods|operator/eld|management/eld`;
+rewriting the demo reset and cutover purge procedures; removing the ten tables
+from the tenancy ledger. Breaks: every **(a)** item in B4 until rewritten;
+issued `/inspect` and officer-packet links die. Real records from B2: the four
+`rods_days`, four `rods_events`, three correction requests and one blank-log
+acknowledgment would be destroyed. Note 49 CFR 395.8(k)(1) — six months'
+retention — is quoted by `purge_rods_day` itself; on the B2 reading these rows
+are demo/harness rows, but `ee993ec0` is flagged non-demo, so the flag would
+have to be settled before anything is dropped.

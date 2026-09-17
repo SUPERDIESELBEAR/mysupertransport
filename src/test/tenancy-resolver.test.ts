@@ -1999,9 +1999,17 @@ const RESTRICTIVE_EXEMPT = ['company_members'] as const;
  * BATCH 4 additionally excluded `operators` and `passenger_authorizations`:
  * source shows live subscriptions on both even though the pre-check's
  * realtime list omits them.
+ *
+ * Plus the ELD/RODS batch (10) on 2026-09-17, applied as
+ * `drizzle/migrations/0003_restrictive_tenant_policy_eld_batch.sql`. That pass
+ * was stopped by the owner after the migration: visibility was confirmed
+ * unchanged for all five identities, but the offline sync path was NOT
+ * re-tested after the policies landed. `truck_dot_inspections` and
+ * `inspection_documents` stay pending — both are realtime-subscribed.
  */
 const RESTRICTIVE_DONE = [
-  'active_dispatch', 'broker_contacts', 'broker_do_not_load_history',
+  'active_dispatch', 'blank_log_acknowledgments', 'broker_contacts',
+  'broker_do_not_load_history',
   'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',
   'carrier_notification_settings', 'cash_advances', 'cert_reminders',
   'claim_flag_history', 'claim_flags', 'company_documents',
@@ -2014,11 +2022,13 @@ const RESTRICTIVE_DONE = [
   'document_version_history', 'documents', 'dot_consultant_email_settings',
   'driver_staff_contact_suppressions',
   'driver_staff_contacts', 'driver_vault_documents', 'eld_devices',
-  'eld_extension_requests', 'eld_malfunction_notifications',
+  'eld_extension_requests', 'eld_malfunction_events',
+  'eld_malfunction_notifications',
   'eld_sync_alerts', 'equipment_items', 'equipment_receipts',
   'equipment_serial_conflict_dismissals', 'facilities', 'fleet_settings',
   'ica_amendment_units', 'ica_amendments',
   'ica_driver_acknowledgments', 'inspection_binder_order',
+  'inspection_cycles',
   'inspection_document_versions',
   'insurance_email_settings', 'lease_terminations',
   'load_change_history', 'load_documents',
@@ -2030,7 +2040,9 @@ const RESTRICTIVE_DONE = [
   'owner_transfers', 'pandadoc_documents',
   'parser_diagnostics', 'pay_policies', 'pay_policy_assignments',
   'pei_cadence_settings', 'rm_deposit_transactions', 'rm_deposits',
-  'roadside_stop_documents', 'roadside_stop_violations',
+  'roadside_stop_documents', 'roadside_stop_violations', 'roadside_stops',
+  'rods_amendments', 'rods_correction_requests', 'rods_days',
+  'rods_divergences', 'rods_events', 'rods_unlock_events',
   'service_help_requests', 'service_resource_bookmarks',
   'service_resource_completions',
   'service_resource_views',
@@ -2050,15 +2062,15 @@ const RESTRICTIVE_DONE = [
  */
 const PENDING_RESTRICTIVE = [
   'accessorial_adjustments', 'ar_aging_snapshots', 'binder_share_bundles',
-  'blank_log_acknowledgments', 'carrier_signature_settings',
+  'carrier_signature_settings',
   'contractor_pay_setup', 'deduction_installments', 'deductions',
   'dispatch_settlement_line_items',
   'dispatch_settlements', 'dispatch_status_history', 'document_short_links',
   'driver_uploads',
-  'eld_malfunction_events', 'equipment_assignments', 'factoring_remittances',
+  'equipment_assignments', 'factoring_remittances',
   'forecast_deductions', 'forecast_expenses', 'forecast_loads',
   'ica_contracts',
-  'ica_review_links', 'inspection_cycles', 'inspection_documents',
+  'ica_review_links', 'inspection_documents',
   'inspection_program_payments', 'inspection_program_settings',
   'invoice_batches', 'invoice_line_items', 'invoice_number_config',
   'invoices', 'load_charges', 'loads',
@@ -2067,9 +2079,7 @@ const PENDING_RESTRICTIVE = [
   'onboard_assignment_sheets', 'onboarding_status', 'operator_documents',
   'operators',
   'passenger_authorizations', 'payments', 'preview_sessions',
-  'rate_con_ingest_queue', 'roadside_stops', 'rods_amendments',
-  'rods_correction_requests', 'rods_days', 'rods_divergences', 'rods_events',
-  'rods_unlock_events',
+  'rate_con_ingest_queue',
   'settlement_line_items', 'settlement_settings',
   'settlement_withheld_loads', 'settlements', 'share_tokens',
   'truck_dot_inspections',
