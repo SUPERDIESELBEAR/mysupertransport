@@ -245,6 +245,22 @@ function explain(
 
 const allowed = new Set(KNOWN_NO_NAV_ENTRIES.map((e) => `${e.portal}::${e.view}`));
 
+/**
+ * DELIBERATELY UNREACHABLE, 2026-09-17 (owner decision (b)): the six duty-status
+ * views left in place while the ELD/RODS feature is hidden. Named one by one so
+ * the guard still checks every other view. This list may only SHRINK, and every
+ * entry must still be a declared union member — a stale entry fails below.
+ */
+const HIDDEN_VIEWS: readonly string[] = [
+  "management::eld-malfunctions",
+  "management::eld-device-models",
+  "management::eld-logs",
+  "management::eld-retention",
+  "operator::eld-malfunction",
+  "operator::paper-logs",
+];
+const hidden = new Set(HIDDEN_VIEWS);
+
 describe("portal view reachability — every declared view can be reached", () => {
   it("every allowlist entry carries a written reason", () => {
     const bad = KNOWN_NO_NAV_ENTRIES.filter(
@@ -278,14 +294,27 @@ describe("portal view reachability — every declared view can be reached", () =
     ).toEqual([]);
   });
 
-  // SKIPPED, NOT DELETED: six duty-status views (management eld-malfunctions,
-  // eld-logs, eld-device-models, eld-retention; operator eld-malfunction,
-  // paper-logs) are deliberately unreachable after the ELD/RODS feature was
-  // hidden — owner decision (b), 2026-09-17. Deliberately NOT allowlisted:
-  // this guard forbids that exit, and the views are meant to come back. While
-  // this is skipped NO portal view is checked for reachability; un-skip it the
-  // moment the feature is restored or fully removed.
-  it.skip("every declared view has a render branch and a way in", () => {
+  // UN-SKIPPED 2026-09-17. The wholesale skip left EVERY portal view unchecked
+  // to excuse six of them. HIDDEN_VIEWS below names those six exactly — the
+  // duty-status screens made deliberately unreachable when the ELD/RODS feature
+  // was hidden (owner decision (b), 2026-09-17) — so every OTHER view is still
+  // checked. This is not the allowlist: those entries claim a view IS reachable
+  // by another path; these six are reachable by NO path on purpose, and the list
+  // must be emptied when the feature is restored or the views are deleted.
+  it("the hidden-view list is exactly the six declared duty-status views", () => {
+    const declared = new Set(
+      PORTALS.flatMap((p) => unionMembers(p).map((v) => `${p.portal}::${v}`)),
+    );
+    const stale = HIDDEN_VIEWS.filter((id) => !declared.has(id));
+    expect(
+      stale,
+      "these HIDDEN_VIEWS entries are no longer declared views — delete them " +
+        "from the list rather than leaving a name that excuses nothing.",
+    ).toEqual([]);
+    expect(HIDDEN_VIEWS.length, "HIDDEN_VIEWS may only shrink").toBeLessThanOrEqual(6);
+  });
+
+  it("every declared view has a render branch and a way in", () => {
     const failures: string[] = [];
     const ids: string[] = [];
 
@@ -295,6 +324,7 @@ describe("portal view reachability — every declared view can be reached", () =
         const render = hasRenderBranch(text, spec, view);
         const wayIn = hasWayIn(text, spec, view);
         if (render && wayIn) continue;
+        if (hidden.has(`${spec.portal}::${view}`)) continue;
         if (allowed.has(`${spec.portal}::${view}`)) continue;
         ids.push(`${spec.portal}::${view}`);
         failures.push(explain(spec, view, render, wayIn));
@@ -307,6 +337,8 @@ describe("portal view reachability — every declared view can be reached", () =
         `THIS GUARD IS GREEN since 2026-09-12 — its one shipped finding ` +
         `(management 'app-errors') was deleted, not allowlisted. A report here ` +
         `is a NEW defect: wire the view up or delete it. Do not allowlist it.\n` +
+        `Six duty-status views are named in HIDDEN_VIEWS while the ELD/RODS ` +
+        `feature is hidden; nothing else is excused.\n` +
         failures.join("\n" + "-".repeat(74) + "\n"),
     ).toEqual([]);
   });

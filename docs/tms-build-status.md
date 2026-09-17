@@ -16656,3 +16656,106 @@ not run since **at least 2026-09-14 23:43 UTC** — three days, not since batch
   `it.skip.each`.
 
 Nothing covering the binder or any KEEP REACHABLE item was touched.
+
+---
+
+## 2026-09-17 (later) — the twelve unstamped tables, and the reachability guard turned back on
+
+Migration: `drizzle/migrations/0005_stamp_twelve_tables_tenancy.sql`.
+
+**THE SET IS NOT THE 2026-09-16 "TWELVE".** The 2026-09-16 disposition record's
+twelve are the MONEY tables, and every one of them already carried `company_id`
+(verified live this pass). The twelve in this pass are the twelve public base
+tables that still had NO `company_id` and NO disposition: `fuel_transactions`,
+`fuel_transaction_lines`, `fuel_import_batches`, `fuel_disagreement_acceptances`,
+`operator_broadcasts`, `operator_departing_events`, `operator_parking_events`,
+`equipment_return_confirmations`, `driver_optional_docs`,
+`onboard_assignment_sheet_sends`, `staff_event_acknowledgments`,
+`staff_help_query_log`. All twelve were confirmed live to lack the column before
+any write.
+
+### Derivations, decided before the first write
+
+| table | derives from | underivable rows |
+|---|---|---|
+| `fuel_import_batches` | `created_by` → `profiles` → `company_members` | 0 of 1 |
+| `fuel_transactions` | `batch_id` → `fuel_import_batches` | 0 of 69 |
+| `fuel_transaction_lines` | `transaction_id` → `fuel_transactions` | 0 of 125 |
+| `fuel_disagreement_acceptances` | `transaction_id` → `fuel_transactions` | 0 of 0 |
+| `operator_broadcasts` | `created_by` user → membership | 0 of 1 |
+| `operator_departing_events` | `operator_id` → `operators` | 0 of 2 |
+| `operator_parking_events` | `operator_id` → `operators` | 0 of 2 |
+| `equipment_return_confirmations` | `operator_id` → `operators` | 0 of 0 |
+| `driver_optional_docs` | `driver_id` user → operator row | 0 of 0 |
+| `onboard_assignment_sheet_sends` | `sheet_id` → `onboard_assignment_sheets` | 0 of 9 |
+| `staff_event_acknowledgments` | `staff_user_id` → membership | 0 of 115 |
+| `staff_help_query_log` | staff member's membership | 0 of 5 |
+
+**FUEL DERIVES FROM THE IMPORT BATCH, NEVER THE DRIVER** — pre-check (b): an
+unmatched fuel row has no driver at all, so a driver-derived stamp could not
+have stamped it. `fuel_import_batches` itself derives from the importing staff
+member's membership. A live guard now asserts no fuel row disagrees with its
+batch and no line disagrees with its transaction.
+
+### Counts, five real sessions, before and after
+
+One sign-in each (Marcus, Leo, Mae, Steve, Donald), all twelve tables, before
+the migration and again after. **Every count identical.** Marcus/Leo/Mae:
+`fuel_transactions` 69, `fuel_transaction_lines` 125, `fuel_import_batches` 1,
+`operator_departing_events` 2, `operator_parking_events` 2,
+`onboard_assignment_sheet_sends` 9, `staff_event_acknowledgments` 7–10 by role,
+`staff_help_query_log` 0 or 5. Steve and Donald: zero on all twelve, before and
+after.
+
+### Writes, `staff_event_acknowledgments` (Staff Directory birthday/anniversary
+tiles, `src/hooks/useStaffBirthdayAnniversaryEvents.ts`)
+
+- insert without `company_id` → **201**, stamped `6b54d0e6-…`. Trigger works.
+- **spoofed `company_id` → 201, and the spoofed value SURVIVED.** The stamp
+  trigger only fills a NULL; it does not overwrite. With one carrier the
+  restrictive policy has nothing to compare against, so this is a REAL
+  weakness of the shape, honestly recorded — not a policy bypass, and not
+  fixed this pass. The other stamp shapes that RAISE on a mismatch are the
+  model to copy.
+- update, and an attempted move to a random company → **200 with an empty
+  body**: no permissive UPDATE policy exists, so the row is invisible to the
+  write and nothing changes. A silent no-op, not a refusal message.
+- insert as another user → **403 / 42501**. Postgres never names the policy in
+  the error, so the claim is "RLS refused it", not "`tenant_isolation` refused
+  it".
+- Cleanup verified: zero residue.
+
+LIVE WRITE PATHS: `operator_departing_events` (`DepartingControl.tsx`),
+`staff_event_acknowledgments`, `driver_optional_docs`
+(`useDriverOptionalDocs.ts`), `onboard_assignment_sheet_sends`
+(`SignOffSheetList.tsx` + `send-osas-to-operator`), the fuel tables
+(`commit_fuel_import`), `operator_broadcasts` (`send-operator-broadcast`),
+`staff_help_query_log` (`staff-help-chat`).
+DORMANT: `operator_parking_events` (no writer found in source),
+`equipment_return_confirmations`, `fuel_disagreement_acceptances`.
+
+### Guards, each shown failing once
+
+- Disposition guard: removed `driver_documents` from `UNASSIGNED` → *"these
+  tables have no company_id and no disposition"*, `[ 'driver_documents' ]`.
+  Restored, green.
+- Restrictive guard: removed `staff_help_query_log` from `RESTRICTIVE_DONE` →
+  *"these tables have company_id and no restrictive-policy disposition"*,
+  `[ 'staff_help_query_log' ]`. Restored, green.
+- Reachability guard: added a scratch `'scratch-unreachable'` view to the
+  management union → *"1 declared view(s) cannot be reached or cannot render"*.
+  Restored, 5 of 5 green.
+
+### The reachability skip is gone
+
+`HIDDEN_VIEWS` names the six deliberately unreachable duty-status views
+(management `eld-malfunctions`, `eld-logs`, `eld-device-models`,
+`eld-retention`; operator `eld-malfunction`, `paper-logs`). It is NOT the
+allowlist — allowlist entries claim another way in; these six have none on
+purpose. A second case fails if a name in the list is no longer a declared
+view, so the list cannot quietly go stale, and it may only shrink.
+
+### Live totals after this pass
+
+160 tables carry `company_id`; **110 restrictive `tenant_isolation` policies,
+670 policies in `public`**; 50 company-bearing tables still pending.

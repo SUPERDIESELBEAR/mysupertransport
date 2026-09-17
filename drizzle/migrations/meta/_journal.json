@@ -36,6 +36,13 @@
       "when": 1789670464549,
       "tag": "0004_hide_eld_unschedule_duty_status_crons_and_grant_parity_report",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789673462387,
+      "tag": "0005_stamp_twelve_tables_tenancy",
+      "breakpoints": true
     }
   ]
 }
