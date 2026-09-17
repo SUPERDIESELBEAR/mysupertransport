@@ -204,3 +204,22 @@ mistake and picked up by two automatic commits, `7d704b4cc` (added) and
 
 `git diff --stat` for the pass (see the closing message for the pasted output
 of the final commit).
+
+`git diff --stat 9c7619279^ HEAD` (batch-4 migration commit through this
+report), verbatim:
+
+```
+ docs/passes/2026-09-17-1545-restrictive-batch-4.md | 206 +++++++++++++++++++++
+ docs/tms-build-status.md                           | 104 +++++++++++
+ docs/tms-wish-list.md                              |   2 +-
+ .../0002_restrictive_tenant_policy_batch_4.sql     |  69 +++++++
+ drizzle/migrations/meta/0002_snapshot.json         |  18 ++
+ drizzle/migrations/meta/_journal.json              |   7 +
+ public/version.json                                |   4 +-
+ src/test/tenancy-resolver.test.ts                  |  49 +++--
+ 8 files changed, 437 insertions(+), 22 deletions(-)
+```
+
+`public/version.json` is written by the platform on each deploy, not by this
+pass. Everything else is the pass: the migration and its Drizzle metadata, the
+ledger move, the two records, and this report.
