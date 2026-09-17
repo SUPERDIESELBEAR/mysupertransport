@@ -1992,42 +1992,54 @@ const RESTRICTIVE_EXEMPT = ['company_members'] as const;
 /**
  * Pilot batch (4) and BATCH 1, staff-only tables (25), both 2026-09-16, plus
  * BATCH 2 (20) on 2026-09-17 — batch 1's empty remainder, re-derived live —
- * plus BATCH 3 (25) on 2026-09-17, the driver-facing ownership tables, chosen
- * live from PENDING_RESTRICTIVE (at least one OWNERSHIP policy, no OTHER
- * policy), excluding realtime-subscribed, financial, token, `user_roles`,
- * `company_members` and every ELD/RODS table.
+ * plus BATCH 3 (25) and BATCH 4 (14) on 2026-09-17, the driver-facing
+ * ownership tables, chosen live from PENDING_RESTRICTIVE (at least one
+ * OWNERSHIP policy, no OTHER policy), excluding realtime-subscribed,
+ * financial, token, `user_roles`, `company_members` and every ELD/RODS table.
+ * BATCH 4 additionally excluded `operators` and `passenger_authorizations`:
+ * source shows live subscriptions on both even though the pre-check's
+ * realtime list omits them.
  */
 const RESTRICTIVE_DONE = [
   'active_dispatch', 'broker_contacts', 'broker_do_not_load_history',
   'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',
   'carrier_notification_settings', 'cash_advances', 'cert_reminders',
   'claim_flag_history', 'claim_flags', 'company_documents',
-  'company_settings', 'detention_claims', 'dispatch_deductions',
+  'company_settings', 'detention_claims', 'dispatch_daily_log',
+  'dispatch_deductions',
   'dispatch_settlement_charge_verdicts',
   'dispatch_settlement_load_contributions', 'dispatch_settlement_rates',
   'dispatch_settlement_rates_history', 'document_acknowledgments',
   'document_exceptions', 'document_send_log',
   'document_version_history', 'documents', 'dot_consultant_email_settings',
+  'driver_staff_contact_suppressions',
   'driver_staff_contacts', 'driver_vault_documents', 'eld_devices',
   'eld_extension_requests', 'eld_malfunction_notifications',
   'eld_sync_alerts', 'equipment_items', 'equipment_receipts',
   'equipment_serial_conflict_dismissals', 'facilities', 'fleet_settings',
+  'ica_amendment_units', 'ica_amendments',
   'ica_driver_acknowledgments', 'inspection_binder_order',
   'inspection_document_versions',
-  'insurance_email_settings', 'load_change_history', 'load_documents',
+  'insurance_email_settings', 'lease_terminations',
+  'load_change_history', 'load_documents',
   'load_number_config', 'load_reference_citations', 'load_references',
-  'load_status_history', 'load_stops',
+  'load_status_history', 'load_stops', 'message_threads',
   'mo_plate_assignments', 'mo_plates', 'notification_preferences',
   'notification_role_defaults', 'onboard_assignment_sheet_items',
   'operator_broadcast_recipients', 'operator_offboarding_steps',
+  'owner_transfers', 'pandadoc_documents',
   'parser_diagnostics', 'pay_policies', 'pay_policy_assignments',
   'pei_cadence_settings', 'rm_deposit_transactions', 'rm_deposits',
   'roadside_stop_documents', 'roadside_stop_violations',
-  'service_help_requests', 'service_resource_completions',
+  'service_help_requests', 'service_resource_bookmarks',
+  'service_resource_completions',
   'service_resource_views',
   'settlement_settings_history', 'staff_email_overrides',
-  'staff_ui_preferences', 'truck_maintenance_records', 'truck_owners',
-  'truck_plate_history', 'user_view_preferences', 'vacant_units',
+  'staff_help_messages', 'staff_help_threads', 'staff_messaging_settings',
+  'staff_ui_preferences', 'thread_participants',
+  'truck_maintenance_records', 'truck_owners',
+  'truck_plate_history', 'truck_state_permits', 'user_view_preferences',
+  'vacant_units',
 ] as const;
 
 /**
@@ -2040,28 +2052,27 @@ const PENDING_RESTRICTIVE = [
   'accessorial_adjustments', 'ar_aging_snapshots', 'binder_share_bundles',
   'blank_log_acknowledgments', 'carrier_signature_settings',
   'contractor_pay_setup', 'deduction_installments', 'deductions',
-  'dispatch_daily_log', 'dispatch_settlement_line_items',
+  'dispatch_settlement_line_items',
   'dispatch_settlements', 'dispatch_status_history', 'document_short_links',
-  'driver_staff_contact_suppressions', 'driver_uploads',
+  'driver_uploads',
   'eld_malfunction_events', 'equipment_assignments', 'factoring_remittances',
   'forecast_deductions', 'forecast_expenses', 'forecast_loads',
-  'ica_amendment_units', 'ica_amendments', 'ica_contracts',
+  'ica_contracts',
   'ica_review_links', 'inspection_cycles', 'inspection_documents',
   'inspection_program_payments', 'inspection_program_settings',
   'invoice_batches', 'invoice_line_items', 'invoice_number_config',
-  'invoices', 'lease_terminations', 'load_charges', 'loads',
-  'message_notification_throttle', 'message_reactions', 'message_threads',
+  'invoices', 'load_charges', 'loads',
+  'message_notification_throttle', 'message_reactions',
   'messages', 'notifications', 'officer_packet_links',
   'onboard_assignment_sheets', 'onboarding_status', 'operator_documents',
-  'operators', 'owner_transfers', 'pandadoc_documents',
+  'operators',
   'passenger_authorizations', 'payments', 'preview_sessions',
   'rate_con_ingest_queue', 'roadside_stops', 'rods_amendments',
   'rods_correction_requests', 'rods_days', 'rods_divergences', 'rods_events',
-  'rods_unlock_events', 'service_resource_bookmarks',
+  'rods_unlock_events',
   'settlement_line_items', 'settlement_settings',
   'settlement_withheld_loads', 'settlements', 'share_tokens',
-  'staff_help_messages', 'staff_help_threads', 'staff_messaging_settings',
-  'thread_participants', 'truck_dot_inspections', 'truck_state_permits',
+  'truck_dot_inspections',
   'unit_number_config', 'user_roles',
 ] as const;
 

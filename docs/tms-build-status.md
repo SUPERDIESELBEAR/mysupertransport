@@ -16099,3 +16099,107 @@ stale PENDING_RESTRICTIVE entries
 After the edit: 122 tests, all passed (plus the known
 `[vitest-worker]: Timeout calling "onTaskUpdate"` reporter error, not an
 assertion).
+
+## 2026-09-17 15:45 UTC — restrictive tenant policy BATCH 4 (driver-facing ownership tables, continued)
+
+Method as BATCH 3. Sessions: all five identities (Marcus Mueller, Leo Wallace,
+Mae Lauron, Steve Figueroa, Donald Alleyne) had to be **renewed** — the
+sandbox had dropped the batch-3 session files (`/root/sess` was empty). Signed
+in once per identity and reused for before counts, after counts and the write
+probes. Steve and Donald needed a **second** sign-in for the browser pass,
+because only their access tokens (not the full session objects the browser
+needs) had been persisted from the first sign-in. Recorded, not hidden.
+
+### (a) Candidate derivation and the count reconciliation
+
+Batch 3's query, unchanged (OWNERSHIP > 0, OTHER = 0, no `tenant_isolation`
+yet), returned **51** tables. Two of them, `company_members` and `user_roles`,
+are standing exclusions, leaving **49** eligible candidates.
+
+Reconciliation with batch 3's "73 pending / 50 remaining": live catalog had
+148 company-bearing tables and 74 with `tenant_isolation`, so 74 lacked it —
+one of those 74 is `company_members`, permanently exempt, which is exactly the
+73 pending in the ledger. Batch 3's "50 remaining" counted the same population
+under a different exclusion set; the honest live figure was 49 ownership
+candidates. No contradiction, arithmetic explained.
+
+Extra exclusion found in source, not in the pre-check's realtime list (h):
+`operators` and `passenger_authorizations` both carry live subscriptions in
+app code. Excluded from this batch and stated in the test-file comment.
+
+### (b) The batch — 14 tables
+
+`dispatch_daily_log` (5,962 rows), `lease_terminations` (37), and twelve empty
+tables: `driver_staff_contact_suppressions`, `ica_amendment_units`,
+`ica_amendments`, `message_threads`, `owner_transfers`, `pandadoc_documents`,
+`service_resource_bookmarks`, `staff_help_messages`, `staff_help_threads`,
+`staff_messaging_settings`, `thread_participants`, `truck_state_permits`.
+Fewer than 25 because the rest of the 49 are ELD/RODS, realtime, financial, or
+otherwise excluded.
+
+Counts, per identity, BEFORE and AFTER the migration — identical in every
+cell. `dispatch_daily_log`: Marcus/Leo/Mae 5,962, Steve 121, Donald 25.
+`lease_terminations`: Marcus/Leo/Mae 37, Steve 1, Donald 0. All other twelve:
+0 for everyone. Counts were taken with `select=company_id`, because
+`staff_messaging_settings` has no `id` column.
+
+### (c) Migration
+
+`drizzle/migrations/0002_restrictive_tenant_policy_batch_4.sql` — the pilot's
+exact policy, one per table, nothing else. Live after: **648 policies, 88
+restrictive, 88 tables carrying `tenant_isolation`**. Linter total unchanged
+at 172.
+
+### (d) Writes
+
+No batch table lets a driver or truck owner both INSERT and UPDATE through the
+app. `service_resource_bookmarks` gives a driver INSERT and DELETE only (no
+UPDATE policy); `message_threads` and `thread_participants` are written by the
+`manage-group-thread` edge function under service role, not by the driver's
+own session. So, as batch 3 did, the refusal ran as the staff role that can.
+
+- Driver (Steve), `service_resource_bookmarks`, screen Resource Center →
+  Service Library bookmark button (`src/components/service-library/ResourceViewer.tsx:84`):
+  insert without `company_id` → 201, stamped `6b54d0e6…`. Insert with
+  `company_id` spoofed to `000000ff-…00ff` → 201, stored value again
+  `6b54d0e6…` (spoof overwritten). Update attempt → empty `200` (no UPDATE
+  policy), no row changed. Both scratch rows deleted; table back to 0 rows.
+- Staff (Leo), `staff_messaging_settings`, screen Staff Availability card
+  (`src/components/staff/StaffAvailabilityCard.tsx:150`): insert self without
+  `company_id` → 201 stamped; normal note update → 200; update `company_id` to
+  a random company → **HTTP 403, 42501, `new row violates row-level security
+  policy "tenant_isolation" for table "staff_messaging_settings"`**. Leo has no
+  DELETE policy, so the scratch row was removed privileged; table back to 0.
+
+Zero residue: both tables 0 rows after cleanup.
+
+### (e) Screens
+
+As Steve: `/operator/messages` — "No messages yet" (matches `message_threads`
+0). `/operator/resources` — Service Library renders, My Bookmarks empty
+(matches 0). `/operator/ica` — "ICA Fully Executed", no amendments listed
+(matches `ica_amendments` 0). As Donald: `/owner/messages` same empty state;
+`/owner/home` renders his day, settlements/fuel/binder tiles. No errors.
+
+Staff screens worth a glance: Management → Lease Terminations
+(`/management`, `LeaseTerminationsPage`), Staff → Dispatch Daily Log
+(`/staff`, `DispatchDailyLogView`), Staff → Help threads
+(`StaffHelpPanel`), Management → ICA amendments (`ICAAmendmentsPage`),
+Management → Owner transfers (`OwnerTransfersPage`).
+
+### (f) Guard
+
+`src/test/tenancy-resolver.test.ts` ledger guard failed first with 14 stale
+`PENDING_RESTRICTIVE` entries ("declared pending but already carries a
+restrictive policy"), then passed after the move: 122 tests passed, with the
+known `[vitest-worker]: Timeout calling "onTaskUpdate"` reporter error.
+
+### (g) Scratch residue committed by the platform
+
+A scratch Playwright script written to the project root by mistake
+(`screens.py`) was picked up by two automatic commits, `7d704b4cc` (added) and
+`c9278d00e` (removed). Nothing of the project was lost — the file was never
+part of the app — but the two commits are noise in the history. No third
+occurrence of the tool falsely claiming a regenerated file this pass: the
+migration tool said it regenerated `src/integrations/supabase/types.ts`, and
+git shows only the migration SQL, its snapshot and the journal.
