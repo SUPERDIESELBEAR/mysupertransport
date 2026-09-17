@@ -15615,3 +15615,132 @@ by passes that ran only their own named suites.
 - Still failing after this pass, by design: `postgrestEmbeds.test.ts` (2) and
   `actor-stamp-fk.test.ts` (1). Both listed under VERIFICATION GAPS in
   `docs/tms-wish-list.md`.
+
+---
+
+## 2026-09-17 — cleanup after the suite census, and restrictive tenant policy BATCH 2
+
+### (a) Owner decisions recorded, 2026-09-17
+
+1. WHOLE SUITE, EVERY PASS. Any pass that changes the database, app code, edge
+   functions or tests runs the entire Vitest suite once as its LAST check before
+   writing its report, and quotes the summary lines verbatim. A docs-only pass
+   may skip it but must SAY it skipped it. `EAUTHQUERY` failures are re-run
+   rather than reported. Failures not caused by the pass are reported, not
+   hidden and not fixed unless the prompt asks. Cost is about 6.5 minutes.
+   Possible later revision: a DB-free subset every pass plus one weekly full run.
+2. Batch 1's screen list looked right to the owner. No action.
+3. Wish list: the test-detection question moved to RECENTLY CLOSED (answered),
+   and a new `WAITING ON THE OWNER` section carries the live-update check —
+   Driver Roster on one screen, dispatch status changed on another, roster
+   updates with no refresh. Required before any batch containing a
+   realtime-subscribed table (pre-check section h). The pilot already covered
+   `active_dispatch` and `cert_reminders`, so the test also confirms the pilot.
+
+### (b) Cleanups
+
+1. `dispatch-settlement-schema.test.ts` fixtures now select SUPERTRANSPORT
+   EXPLICITLY by USDOT `2309365` and assert exactly one matching carrier, so the
+   file fails clearly rather than silently binding to whichever carrier came
+   first. 31/31.
+2. `postgrestEmbeds` scanner (NOT app code) now follows `.from()` calls returned
+   by helpers and tolerates the one dynamic table expression in
+   `supabase/functions/_shared/tenancy.ts:42`. A deliberate nonexistent-column
+   fixture failed, was removed, and the scanner passed 6/6.
+3. The quarterly-inspection draft migration was SUPERSEDED: `inspection_cycles`,
+   `inspection_program_settings`, `inspection_program_payments`,
+   `grant_inspection_grace`, `inspection_grace_used` and
+   `touch_inspection_program_row` are all live, and no tested `*_by` column on
+   those tables is a `profiles` FK (`inspection_cycles` has only
+   `company_id → carrier_profile`, `inspection_id → truck_dot_inspections`,
+   `operator_id → operators`). The draft directory was the ONLY SQL file under
+   `.lovable/drafts/`; it was deleted and `actor-stamp-fk.test.ts` passed 16/16.
+
+### (c) BATCH 2 — 20 tables, re-derived live, all empty
+
+Candidates were re-derived from `pg_policies` (every permissive policy admitting
+`authenticated` is ROLE-ONLY or SERVICE), excluding realtime tables, financial
+tables, `user_roles` / `company_members`, token tables, and the two tables with
+no policies. The result was exactly batch 1's 20-table empty remainder:
+
+`broker_notes`, `cash_advances`, `company_documents`, `detention_claims`,
+`dispatch_deductions`, `dispatch_settlement_rates_history`, `document_send_log`,
+`eld_devices`, `eld_extension_requests`, `eld_malfunction_notifications`,
+`eld_sync_alerts`, `pay_policy_assignments`, `rm_deposit_transactions`,
+`rm_deposits`, `roadside_stop_documents`, `roadside_stop_violations`,
+`settlement_settings_history`, `staff_email_overrides`, `truck_plate_history`,
+`vacant_units`.
+
+Each received exactly one policy, permissive policies untouched:
+
+```sql
+CREATE POLICY tenant_isolation ON public.<table>
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (company_id = (SELECT public.current_company_id()))
+  WITH CHECK (company_id = (SELECT public.current_company_id()));
+```
+
+Public policies 589 → 609; restrictive 29 → 49. Ledger: 49 done, 98 pending.
+Linter total unchanged at 172.
+
+BEFORE and AFTER counts were taken with real sessions (Marcus Mueller, Leo
+Wallace, Mae Lauron, Steve Figueroa, Donald Alleyne; PostgREST,
+`Prefer: count=exact`) and were IDENTICAL: zero on every table for every
+identity, before and after. THAT PROVES LITTLE. All twenty tables are empty, so
+the unchanged counts show only that nothing broke — they cannot show that a row
+would still be visible. The write probe below is the evidence.
+
+Donald Alleyne's user id was corrected to
+`24ee1b9e-2391-4cf4-873d-e9db3b14b7d0` after a first lookup returned
+`user_not_found`; two lookups used wrong column names before
+`truck_owners.legal_first_name / legal_last_name / email`.
+
+### (d) The write probe
+
+Path: `src/lib/brokerRelationship.ts`, broker detail notes. As Leo Wallace:
+
+- insert with NO `company_id` → stamped `6b54d0e6-8743-4284-b55b-8cd094b093dd`
+- insert with a SPOOFED `company_id` → overwritten with the real company
+- normal update → succeeded
+- update naming a random company → HTTP 403,
+  `{"code":"42501", ... "new row violates row-level security policy "tenant_isolation" for table "broker_notes""}`
+- cleanup → residue count 0
+
+### (e) A GREEN CHECK THAT WENT RED FOR THE RIGHT REASON, AND WAS WRONG
+
+The whole-suite run failed one file, and the failure was CAUSED BY THIS PASS:
+
+```
+FAIL  src/test/settlement-foundation.test.ts > settlement data is closed to operators except their own settlement rows
+AssertionError: expected [ …(3) ] to deeply equal []
++   "cash_advances.tenant_isolation",
++   "rm_deposit_transactions.tenant_isolation",
++   "rm_deposits.tenant_isolation",
+```
+
+The scan read `pg_policies` without filtering `permissive`, so it counted a
+RESTRICTIVE policy as an OPEN DOOR. A restrictive policy is the opposite of a
+door: it ANDs with the permissive set and can only ever REMOVE rows. All three
+scans in that test now carry `and permissive = 'PERMISSIVE'`.
+
+This is the SECOND time the same confusion appeared: `grant_parity_report()`
+needed the identical narrowing on 2026-09-16 during batch 1. Any check that
+enumerates policies to prove data is CLOSED must filter to permissive policies,
+or every future restrictive batch will make it fail.
+
+The narrowed scan was then shown to STILL CATCH: adding `broker_notes` to its
+table list produced
+
+```
++   "broker_notes.broker_notes_author_delete",
++   "broker_notes.broker_notes_author_update",
++   "broker_notes.broker_notes_staff_insert",
++   "broker_notes.broker_notes_staff_select",
+```
+
+and the file was restored byte-identically (MD5 `11a5eeca3d3014bd03133cc249369a75`).
+
+The restrictive-ledger guard was also broken deliberately (`zz_stale_probe`
+added to `RESTRICTIVE_DONE`), failed with
+`zz_stale_probe: no restrictive policy`, and the file was restored
+(MD5 `e219fb122e5a9c8a529188b166dff562`) and passed.
