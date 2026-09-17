@@ -435,10 +435,10 @@ describe('accessorial_adjustments — tenancy and access', () => {
     expect(policies.length).toBeGreaterThan(0);
   });
 
-  itLive('admits no row belonging to another company, on every policy', () => {
+  itLive('admits no row belonging to another company, on every permissive policy', () => {
     const rows = psql(`SELECT policyname || '|' || cmd || '|' || roles::text
       || '|' || coalesce(qual,'') || '|' || coalesce(with_check,'')
-      FROM pg_policies WHERE tablename='${T}'`);
+      FROM pg_policies WHERE tablename='${T}' AND permissive = 'PERMISSIVE'`);
     expect(rows.length).toBeGreaterThan(0);
     for (const row of rows) {
       const [, , roles, qual, withCheck] = row.split('|');
@@ -449,6 +449,27 @@ describe('accessorial_adjustments — tenancy and access', () => {
       }
     }
   });
+
+  /**
+   * 2026-09-17 MONEY BATCH. The restrictive policy is asserted separately: it
+   * only REMOVES access, and Postgres prints its predicate as a sub-select
+   * (`company_id = ( SELECT current_company_id() ...)`), not as the permissive
+   * policies' inline call.
+   */
+  itLive('carries the restrictive tenant_isolation policy', () => {
+    const rows = psql(`SELECT policyname || '|' || cmd || '|' || roles::text
+      || '|' || coalesce(qual,'') || '|' || coalesce(with_check,'')
+      FROM pg_policies WHERE tablename='${T}' AND permissive = 'RESTRICTIVE'`);
+    expect(rows).toHaveLength(1);
+    const [name, cmd, roles, qual, withCheck] = rows[0].split('|');
+    expect(name).toBe('tenant_isolation');
+    expect(cmd).toBe('ALL');
+    expect(roles).toBe('{authenticated}');
+    for (const predicate of [qual, withCheck]) {
+      expect(predicate).toContain('current_company_id()');
+    }
+  });
+
 
   itLive('reads to dispatcher, management and owner — and to no operator', () => {
     const [qual] = psql(`SELECT qual FROM pg_policies
@@ -617,8 +638,10 @@ describe('accessorial_adjustments — EXACTLY ONE WRITER PER STATE CHANGE', () =
     // public tables. RLS is. If no policy admits INSERT, no client can insert,
     // so max(sequence)+1 can only be reached through the definer writer.
     const cmds = psql(`SELECT DISTINCT polcmd::text FROM pg_policy
-      WHERE polrelid='public.accessorial_adjustments'::regclass ORDER BY 1`);
+      WHERE polrelid='public.accessorial_adjustments'::regclass AND polpermissive
+      ORDER BY 1`);
     expect(cmds).toEqual(['r']);
+
 
     // ...and the allocation sits AFTER every refusal in the body, so a refused
     // attempt cannot reach it. Asserted by position, not by reading the code.

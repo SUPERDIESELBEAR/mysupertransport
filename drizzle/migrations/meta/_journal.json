@@ -50,6 +50,13 @@
       "when": 1789676244506,
       "tag": "0006_revoke_execute_on_twelve_stamp_functions",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1789680871501,
+      "tag": "0007_restrictive_tenant_policy_money_batch",
+      "breakpoints": true
     }
   ]
 }
