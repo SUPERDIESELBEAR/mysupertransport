@@ -15,6 +15,7 @@ import {
   hasUnsettledWork, IGNORED_ACTIVE_PREDICATES, selectSettlementPopulation,
   type UnsettledWork,
 } from '@/lib/settlementPopulation';
+import { migrationSources } from '@/test/helpers/migrationFunctions';
 
 /**
  * MODULE 4 PASS 1 — SETTLEMENT FOUNDATION.
@@ -342,8 +343,12 @@ describe('forbidden vocabulary', () => {
       if (st.isFile()) return [p];
       return fs.readdirSync(p).flatMap(f => walk(path.join(p, f)));
     };
-    for (const root of roots) {
-      for (const file of walk(root)) {
+    const files = [
+      ...roots.flatMap(walk),
+      ...migrationSources().map(s => s.path),
+    ];
+    {
+      for (const file of files) {
         if (!/\.(ts|tsx|sql)$/.test(file)) continue;
         if (allowed.has(file)) continue;
         if (file.endsWith('settlement-foundation.test.ts')) continue;
