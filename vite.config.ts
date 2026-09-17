@@ -62,9 +62,11 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         skipWaiting: true,
         // A cold launch from the installed home-screen shortcut issues a real
-        // navigation request. Without this fallback /roadside 404s offline.
+        // navigation request; this fallback keeps those launches working offline.
+        // /roadside was removed from the allowlist when the duty-status feature
+        // was hidden (owner decision (b), 2026-09-17).
         navigateFallback: "/index.html",
-        navigateFallbackAllowlist: [/^\/roadside\/?$/, /^\/$/, /^\/dashboard/, /^\/operator/, /^\/owner/],
+        navigateFallbackAllowlist: [/^\/$/, /^\/dashboard/, /^\/operator/, /^\/owner/],
         navigateFallbackDenylist: [
           /^\/management\//, /^\/staff\//, /^\/dispatch\//,
           /^\/~oauth/, /^\/api\//,

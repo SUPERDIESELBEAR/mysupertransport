@@ -29,6 +29,13 @@
       "when": 1789663363994,
       "tag": "0003_restrictive_tenant_policy_eld_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789670464549,
+      "tag": "0004_hide_eld_unschedule_duty_status_crons_and_grant_parity_report",
+      "breakpoints": true
     }
   ]
 }

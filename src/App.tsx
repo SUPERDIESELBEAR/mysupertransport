@@ -60,7 +60,10 @@ const DispatchPortal = lazyWithRetry(() => import("./pages/dispatch/DispatchPort
 const DeactivationPage = lazyWithRetry(() => import("./pages/management/DeactivationPage"));
 // Officer email merge. Split out because it pulls pdf-lib, and deliberately
 // outside /roadside's module graph for the same reason.
-const OfficerEmailSheet = lazyWithRetry(() => import("./components/eld/OfficerEmailSheet"));
+// OfficerEmailSheet is intentionally no longer imported: officer packets are
+// hidden with the rest of the duty-status feature. The component still exists
+// at ./components/eld/OfficerEmailSheet.
+import EldHiddenNotice from "./components/eld/EldHiddenNotice";
 
 const queryClient = new QueryClient();
 
@@ -125,25 +128,15 @@ function GuardTrace({ route, branch, children }: { route: string; branch: string
   return <>{children}</>;
 }
 
-/**
- * Starts the ELD sync runner (and, through it, the pending-notice drain) once
- * a session exists. Mounted below the auth guard, never in main.tsx: the
- * runner imports the Supabase client, and /roadside boots through its own
- * module graph that must stay Supabase-free. The import is dynamic so the
- * queue never enters the entry chunk.
+/*
+ * The ELD sync runner used to be mounted here (SyncRunnerMount) for every
+ * authenticated session, which is what kept a driver's phone writing
+ * duty-status rows in the background. The duty-status feature is hidden
+ * (owner decision (b), 2026-09-17), so nothing starts the runner any more.
+ * src/lib/eld/offline/queue/runner.ts is untouched and also refuses to start
+ * while ELD_FEATURE_HIDDEN is true; restoring the feature means re-adding this
+ * mount and flipping that flag.
  */
-function SyncRunnerMount() {
-  useEffect(() => {
-    let cancelled = false;
-    void import("@/lib/eld/offline/queue/runner").then(({ startSyncRunner }) => {
-      if (!cancelled) startSyncRunner();
-    }).catch((err) => {
-      console.error("[eld-sync] runner failed to start", err);
-    });
-    return () => { cancelled = true; };
-  }, []);
-  return null;
-}
 
 function AppRoutes() {
   const { user, loading, roles, rolesLoaded, isManagement, isOnboardingStaff, isDispatcher, isOperator, isTruckOwner, activeRole } = useAuth();
@@ -165,7 +158,7 @@ function AppRoutes() {
 
   return (
     <Suspense fallback={<PortalFallback />}>
-    {user ? <SyncRunnerMount /> : null}
+    
     <Routes>
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
@@ -185,13 +178,10 @@ function AppRoutes() {
       <Route path="/qpassport/view" element={<QPassportView />} />
       <Route path="/passenger-auth/:token" element={<PassengerAuthSign />} />
       <Route path="/preview-login" element={<PreviewLogin />} />
-      <Route path="/eld/officer-email" element={
-        !user ? <LoginRedirect /> : (
-          <Suspense fallback={<PortalFallback />}>
-            <OfficerEmailSheet onClose={() => { window.location.href = '/roadside'; }} />
-          </Suspense>
-        )
-      } />
+      {/* Officer packets are part of the hidden duty-status feature (owner
+          decision (b), 2026-09-17). The sheet component remains in the repo;
+          a typed URL renders a plain notice instead of the sheet. */}
+      <Route path="/eld/*" element={<EldHiddenNotice />} />
 
       {/* Protected routes */}
       <Route path="/dashboard" element={

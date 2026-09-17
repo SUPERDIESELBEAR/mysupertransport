@@ -8,14 +8,6 @@
   "orientation": "portrait",
   "background_color": "#111111",
   "theme_color": "#b8923a",
-  "shortcuts": [
-    {
-      "name": "Roadside records",
-      "short_name": "Roadside",
-      "description": "Show the last 8 days of logs to an officer — works offline",
-      "url": "/roadside"
-    }
-  ],
   "icons": [
     {
       "src": "/icon-192.png",

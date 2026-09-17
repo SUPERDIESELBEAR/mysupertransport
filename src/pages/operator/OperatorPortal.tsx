@@ -1,8 +1,9 @@
 import { insertPayload } from '@/integrations/supabase/helpers';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
-import { useEldMalfunction } from '@/hooks/useEldMalfunction';
-import ELDMalfunctionBanner from '@/components/operator/eld/ELDMalfunctionBanner';
-import { useRoadsideHydration } from '@/hooks/useRoadsideHydration';
+// Duty-status hooks and the malfunction banner are no longer imported here:
+// the feature is hidden (owner decision (b), 2026-09-17). useEldMalfunction,
+// useRoadsideHydration and ELDMalfunctionBanner all remain in the repo.
+import EldHiddenNotice from '@/components/eld/EldHiddenNotice';
 import { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import OperatorNotificationPreferencesModal from '@/components/operator/OperatorNotificationPreferencesModal';
 import { useAuth } from '@/hooks/useAuth';
@@ -63,8 +64,8 @@ import PageHeading from '@/components/shared/PageHeading';
 const SettlementForecast = lazyWithRetry(() => import('@/components/operator/SettlementForecast'));
 const MySettlements = lazyWithRetry(() => import('@/components/operator/MySettlements'));
 const MyFuel = lazyWithRetry(() => import('@/components/operator/MyFuel'));
-const ELDMalfunctionView = lazyWithRetry(() => import('@/components/operator/eld/ELDMalfunctionView'));
-const RodsView = lazyWithRetry(() => import('@/components/operator/rods/RodsView'));
+// ELDMalfunctionView and RodsView are no longer lazily loaded here — hidden
+// feature (owner decision (b), 2026-09-17). Both components remain in the repo.
 import { useAppRefresh } from '@/hooks/useAppRefresh';
 import { Skeleton } from '@/components/ui/skeleton';
 import DestinationSkeleton from '@/components/operator/DestinationSkeleton';
@@ -782,14 +783,10 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   }, [user, fetchUnreadNotifCount, fireNotification]);
 
   const displayName = profile?.first_name ?? 'Operator';
-  // Hydration belongs to the authenticated shell, not to one tab. It used to
-  // run only inside the ELD malfunction view, so a driver who went straight to
-  // Paper Logs — or was stopped before ever opening that tab — had an empty
-  // roadside cache and no carrier snapshot, which blocks creating a log at all.
-  useRoadsideHydration(
-    operatorId,
-    [profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || null,
-  );
+  // The roadside cache hydration call that used to run here was removed with
+  // the rest of the duty-status feature (owner decision (b), 2026-09-17): it
+  // warmed the offline log cache on every driver session. useRoadsideHydration
+  // remains at src/hooks/useRoadsideHydration.ts.
   const effectiveOnboardingStatus = isIcaComplete(onboardingStatus, latestIcaContract)
     ? { ...onboardingStatus, ica_status: 'complete' }
     : onboardingStatus;
@@ -1202,7 +1199,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
 
   const icaActionDot = isIcaActionRequired(effectiveOnboardingStatus, latestIcaContract);
   const icaComplete = isIcaComplete(effectiveOnboardingStatus, latestIcaContract);
-  const { activeEvent: eldActiveEvent } = useEldMalfunction(operatorId ?? null);
+  // useEldMalfunction() no longer runs here — hidden feature (2026-09-17).
 
   const navItems = [
     { view: 'home' as OperatorView, label: 'Home', icon: <Home className="h-5 w-5" />, showIf: isFullyOnboarded },
@@ -1213,8 +1210,9 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
     { view: 'my-docs' as OperatorView, label: 'My Documents', shortLabel: 'My Docs', icon: <FolderOpen className="h-5 w-5" /> },
     { view: 'my-truck' as OperatorView, label: 'My Truck', icon: <Truck className="h-5 w-5" /> },
     { view: 'onboard-systems' as OperatorView, label: 'Onboard Systems', shortLabel: 'Devices', icon: <HardDrive className="h-5 w-5" />, badge: osasPendingCount || undefined, showIf: osasSheetTotal > 0 },
-    { view: 'eld-malfunction' as OperatorView, label: 'ELD Malfunction', shortLabel: 'ELD', icon: <AlertTriangle className="h-5 w-5" />, criticalDot: !!eldActiveEvent },
-    { view: 'paper-logs' as OperatorView, label: 'Paper Logs', shortLabel: 'Logs', icon: <ClipboardList className="h-5 w-5" />, showIf: !!eldActiveEvent, criticalDot: !!eldActiveEvent },
+    // 'ELD Malfunction' and 'Paper Logs' navigation entries removed here —
+    // hidden feature (owner decision (b), 2026-09-17). Restore by re-adding
+    // these two rows and the useEldMalfunction() call above.
     { view: 'resource-center' as OperatorView, label: 'Resource Center', shortLabel: 'Resources', icon: <BookOpen className="h-5 w-5" /> },
     { view: 'pay-setup' as OperatorView, label: 'Pay Setup', icon: <CreditCard className="h-5 w-5" /> },
     { view: 'settlements' as OperatorView, label: 'My Settlements', shortLabel: 'Settlements', icon: <Wallet className="h-5 w-5" /> },
@@ -1527,10 +1525,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         )}
       </header>
 
-      <ELDMalfunctionBanner
-        event={eldActiveEvent}
-        onOpen={() => navigateToView('eld-malfunction')}
-      />
+      {/* ELDMalfunctionBanner removed — hidden feature (2026-09-17). */}
 
       <div
         ref={contentScrollRef}
@@ -2063,35 +2058,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
           </div>
         )}
 
-        {/* ── ELD MALFUNCTION VIEW ── */}
-        {view === 'eld-malfunction' && (
-          operatorId ? (
-            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
-              <ELDMalfunctionView
-                operatorId={operatorId}
-                driverName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
-                unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
-              />
-            </Suspense>
-          ) : (
-            <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
-          )
-        )}
-
-        {/* ── ICA AMENDMENT SIGN VIEW ── */}
-        {view === 'paper-logs' && (
-          operatorId ? (
-            <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading…</div>}>
-              <RodsView
-                operatorId={operatorId}
-                driverName={[profile?.first_name, profile?.last_name].filter(Boolean).join(' ') || displayName}
-                unitNumber={(onboardingStatus?.unit_number as string | null) ?? null}
-              />
-            </Suspense>
-          ) : (
-            <div className="py-16 text-center text-muted-foreground text-sm">Loading your operator profile…</div>
-          )
-        )}
+        {/* ── DUTY-STATUS VIEWS: HIDDEN (owner decision (b), 2026-09-17) ──
+            ELDMalfunctionView and RodsView are still in the repo; these two
+            routes render a plain notice so a typed URL neither crashes nor
+            lands the driver on a blank screen. */}
+        {(view === 'eld-malfunction' || view === 'paper-logs') && <EldHiddenNotice />}
 
         {view === 'ica-amendment' && (() => {
           const amendmentId = new URLSearchParams(location.search).get('id') ?? '';

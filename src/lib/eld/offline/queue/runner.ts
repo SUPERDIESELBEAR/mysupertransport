@@ -19,6 +19,7 @@
  *              believes is certified is not.
  */
 import { type SyncQueueEntry } from '../db';
+import { ELD_FEATURE_HIDDEN } from '@/lib/eld/featureVisibility';
 import { DETERMINISTIC_SERVER_ATTEMPT_LIMIT, isCascadeExempt, SERVER_ATTEMPT_LIMIT } from './types';
 import { classifyError, isDuplicateDateRejection } from './classify';
 import { isRowNotWritable } from '@/lib/eld/rodsWrite';
@@ -280,6 +281,11 @@ async function tick(): Promise<void> {
  * does not double-drain, because drainQueue self-serialises and coalesces.
  */
 export function startSyncRunner(): void {
+  // Second line of defence. App.tsx no longer mounts the runner at all, but a
+  // phone must not resume writing duty-status rows just because some future
+  // caller imports this again while the feature is hidden (owner decision (b),
+  // 2026-09-17). Nothing is deleted; flip ELD_FEATURE_HIDDEN to re-arm.
+  if (ELD_FEATURE_HIDDEN) return;
   if (started || typeof window === 'undefined') return;
   started = true;
   setDrainKick(requestPass);
