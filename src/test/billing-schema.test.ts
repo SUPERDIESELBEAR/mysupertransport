@@ -405,12 +405,35 @@ describe('billing — the immutability rules are attached', () => {
 });
 
 describe('billing — access', () => {
-  itLive('RLS is enabled on every billing table and each has a policy', () => {
+  /**
+   * 2026-09-17 MONEY BATCH: every billing table also carries the RESTRICTIVE
+   * `tenant_isolation` policy. A restrictive policy can only REMOVE access, so
+   * it is asserted separately, by name and shape, and excluded from the
+   * permissive checks below — which are about who is ADMITTED.
+   */
+  itLive('RLS is enabled on every billing table and each has one permissive policy', () => {
     const rows = psql(`SELECT c.relname || '|' || c.relrowsecurity::text || '|' ||
-        (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid)::text
+        (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid AND p.polpermissive)::text
       FROM pg_class c WHERE c.relnamespace='public'::regnamespace
         AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
     expect(rows).toEqual(TABLES.map(t => `${t}|true|1`));
+  });
+
+  itLive('every billing table carries the restrictive tenant_isolation policy', () => {
+    const rows = psql(`SELECT c.relname || '|' || p.polname || '|' || p.polcmd::text || '|' ||
+        pg_get_expr(p.polqual, p.polrelid) || '|' || pg_get_expr(p.polwithcheck, p.polrelid)
+      FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+      WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
+        AND NOT p.polpermissive ORDER BY 1`);
+    expect(rows).toHaveLength(TABLES.length);
+    for (const row of rows) {
+      const [table, name, cmd, using, check] = row.split('|');
+      expect(name, `${table} restrictive policy name`).toBe('tenant_isolation');
+      expect(cmd, `${table} restrictive policy command`).toBe('*');
+      for (const expr of [using, check]) {
+        expect(expr, `${table} restrictive predicate`).toContain('current_company_id()');
+      }
+    }
   });
 
   /**
@@ -419,14 +442,15 @@ describe('billing — access', () => {
    * to see. An operator's isolation is absolute here — there is no operator
    * predicate to get wrong because there is no operator access at all.
    */
-  itLive('every policy names management and owner, scopes to the company, and names no other role', () => {
+  itLive('every permissive policy names management and owner, scopes to the company, and names no other role', () => {
     const policies = psql(`SELECT c.relname || '|' || p.polname || '|' ||
         pg_get_expr(p.polqual, p.polrelid) || '|' ||
         coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') || '|' || p.polcmd::text || '|' ||
         (SELECT string_agg(r.rolname, ',' ORDER BY r.rolname)
            FROM unnest(p.polroles) x JOIN pg_roles r ON r.oid = x)
       FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
-      WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
+      WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
+        AND p.polpermissive ORDER BY 1`);
     expect(policies).toHaveLength(TABLES.length);
     for (const row of policies) {
       const [table, , using, check, cmd, roles] = row.split('|');
@@ -446,6 +470,7 @@ describe('billing — access', () => {
       }
     }
   });
+
 
   itLive('anon reaches no billing table', () => {
     const grants = psql(`SELECT c.relname || '|' || a.privilege_type

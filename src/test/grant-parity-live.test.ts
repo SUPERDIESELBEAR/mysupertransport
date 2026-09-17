@@ -45,6 +45,43 @@ function psql(sql: string): string[] {
   return out.split("\n").map((l) => l.trim()).filter(Boolean);
 }
 
+/**
+ * 2026-09-17: the report itself cannot be CALLED from this harness.
+ *
+ * The sandbox psql session connects as the role `sandbox_exec`, which is
+ * deliberately not permitted to execute database functions. Migration 0004 tried
+ * to grant it EXECUTE; the grant landed on a DIFFERENT role
+ * (`sandbox_exec_<project>`), which is not the role the harness connects as, so
+ * the call still raises `permission denied for function grant_parity_report`.
+ * Granting it to `authenticated` or PUBLIC is not acceptable — the report reads
+ * every table's grants — so the call is GATED rather than worked around, and its
+ * absence is announced loudly instead of passing quietly.
+ */
+const CAN_CALL_REPORT = HAS_DB && (() => {
+  try {
+    return psql(
+      "select has_function_privilege(current_user, 'public.grant_parity_report()', 'EXECUTE')::text",
+    )[0] === "t";
+  } catch {
+    return false;
+  }
+})();
+
+if (HAS_DB && !CAN_CALL_REPORT) {
+  skipBanner("grant-parity-live.test.ts CANNOT CALL grant_parity_report()", [
+    "The harness role may not execute database functions, so the ONE check",
+    "that compares live policies against live grants did not run. The",
+    "function's existence is still asserted below. Until this is run by a role",
+    "that may call it, a grant made or revoked out of band would go unseen.",
+  ]);
+}
+
+const itReport = gatedIt({
+  enabled: CAN_CALL_REPORT,
+  reason: "the harness role may not execute grant_parity_report()",
+  details: ["Nothing else in the suite compares live policies to live grants."],
+});
+
 describe("live grant / policy parity", () => {
   itLive("grant_parity_report() exists and is readable from the catalog", () => {
     const rows = psql(
@@ -54,13 +91,14 @@ describe("live grant / policy parity", () => {
     expect(rows).toEqual(["1"]);
   });
 
-  itLive("no public table admits a role its grants do not", () => {
+  itReport("no public table admits a role its grants do not", () => {
     const offenders = psql(
       "select table_name || ' | ' || role_name || ' | ' || command || ' | ' || detail " +
         "from public.grant_parity_report() order by 1",
     );
     expect(offenders, offenders.join("\n")).toEqual([]);
   });
+
 
   itLive("parser_diagnostics is written only through the definer RPC", () => {
     // The table the bad audit accused of missing grants. It had them; the real

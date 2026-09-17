@@ -37,18 +37,24 @@ function psql(sql: string): string[] {
 const TABLES = ['settlements', 'settlement_line_items', 'settlement_withheld_loads'];
 
 describe('operator settlement isolation', () => {
-  itLive('every settlement SELECT policy for authenticated is self-scoped', () => {
+  itLive('every permissive settlement SELECT policy for authenticated is self-scoped', () => {
+    // 2026-09-17 MONEY BATCH: these tables also carry the RESTRICTIVE
+    // tenant_isolation policy, whose predicate is company-scoped and names no
+    // driver. It is excluded here because a restrictive policy cannot ADMIT a
+    // row — it can only remove one — so it can never widen driver visibility.
+    // Its presence and shape are asserted in tenancy-resolver.test.ts.
     const offenders = psql(
       "select c.relname || ' | ' || p.polname from pg_policy p " +
         'join pg_class c on c.oid = p.polrelid ' +
         "join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public' " +
         `where c.relname in (${TABLES.map(t => `'${t}'`).join(',')}) ` +
-        "and p.polcmd in ('r','*') " +
+        "and p.polpermissive and p.polcmd in ('r','*') " +
         "and coalesce(pg_get_expr(p.polqual, p.polrelid),'') !~* 'auth\\.uid\\(\\)' " +
         'order by 1',
     );
     expect(offenders).toEqual([]);
   });
+
 
   itLive('anon holds no privilege on any settlement table', () => {
     const granted = psql(

@@ -2133,6 +2133,22 @@ const RESTRICTIVE_DONE = [
   'equipment_return_confirmations', 'driver_optional_docs',
   'onboard_assignment_sheet_sends', 'staff_event_acknowledgments',
   'staff_help_query_log',
+  // THE MONEY BATCH (21), 2026-09-17, migration
+  // 0007_restrictive_tenant_policy_money_batch.sql. The first twelve are the
+  // 2026-09-16 read-enforcement census tables, whose permissive policies
+  // ALREADY read `(company_id = current_company_id()) AND <role test>`, so the
+  // restrictive rule is a no-op for them; the remaining nine did not test
+  // company on reads, so for those it is a real new refusal. `share_tokens` is
+  // treated here as a money table: its PUBLIC token path never reads it as
+  // `authenticated`, so a RESTRICTIVE ... TO authenticated policy cannot touch
+  // a share link.
+  'invoices', 'invoice_line_items', 'invoice_batches', 'invoice_number_config',
+  'payments', 'factoring_remittances', 'ar_aging_snapshots',
+  'accessorial_adjustments', 'settlement_settings',
+  'carrier_signature_settings', 'share_tokens', 'unit_number_config',
+  'settlements', 'settlement_line_items', 'settlement_withheld_loads',
+  'dispatch_settlements', 'dispatch_settlement_line_items', 'deductions',
+  'deduction_installments', 'load_charges', 'inspection_program_payments',
 ] as const;
 
 /**
@@ -2142,30 +2158,25 @@ const RESTRICTIVE_DONE = [
  * lists fails as undeclared. Batches empty this list.
  */
 const PENDING_RESTRICTIVE = [
-  'accessorial_adjustments', 'ar_aging_snapshots', 'binder_share_bundles',
-  'carrier_signature_settings',
-  'contractor_pay_setup', 'deduction_installments', 'deductions',
-  'dispatch_settlement_line_items',
-  'dispatch_settlements', 'dispatch_status_history', 'document_short_links',
+  'binder_share_bundles',
+  'contractor_pay_setup', 'dispatch_status_history', 'document_short_links',
   'driver_uploads',
-  'equipment_assignments', 'factoring_remittances',
+  'equipment_assignments',
   'forecast_deductions', 'forecast_expenses', 'forecast_loads',
   'ica_contracts',
   'ica_review_links', 'inspection_documents',
-  'inspection_program_payments', 'inspection_program_settings',
-  'invoice_batches', 'invoice_line_items', 'invoice_number_config',
-  'invoices', 'load_charges', 'loads',
+  'inspection_program_settings',
+  'loads',
   'message_notification_throttle', 'message_reactions',
   'messages', 'notifications', 'officer_packet_links',
   'onboard_assignment_sheets', 'onboarding_status', 'operator_documents',
   'operators',
-  'passenger_authorizations', 'payments', 'preview_sessions',
+  'passenger_authorizations', 'preview_sessions',
   'rate_con_ingest_queue',
-  'settlement_line_items', 'settlement_settings',
-  'settlement_withheld_loads', 'settlements', 'share_tokens',
   'truck_dot_inspections',
-  'unit_number_config', 'user_roles',
+  'user_roles',
 ] as const;
+
 
 type RestrictiveRow = {
   policyname: string; cmd: string; roles: string; qual: string; with_check: string;
