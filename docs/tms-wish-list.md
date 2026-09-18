@@ -18,7 +18,7 @@ Kept at the owner's request (2026-09-16). One line per item, each pointing to th
 record entry that explains it. Items are removed only when the record shows them
 closed, and the removing pass says so.
 
-- Permissions module: decisions recorded 2026-09-18; inventory done; build not started. Ten-ish sensitive actions, enforced in the database. Three actions are protected by the user interface alone today — delete an account (labelled "Owner only", enforced nowhere), deactivate a driver, terminate a lease — plus 64 edge functions with no role check. (record 2026-09-18 1944 UTC; `docs/passes/2026-09-18-1944-permissions-decisions-and-inventory.md`)
+- Permissions module: decisions recorded 2026-09-18; inventory done; build STARTED. **Permanent account deletion is CLOSED 2026-09-18 2030 UTC** — the `get-staff-list` `delete_user` branch now requires the `owner` role (403 "Only the owner can delete accounts"), demonstrated on two throwaway accounts: management deleted the first before the fix, was refused on the second, the owner deleted it. Still protected by the user interface alone: deactivate a driver, terminate a lease. Plus the 23 irreversible/outbound edge functions listed under DECIDED, NOT BUILT. (records 2026-09-18 1944 UTC and 2026-09-18 2030 UTC; `docs/passes/2026-09-18-2030-owner-only-delete.md`)
 
 - Birthday field in the staff directory: no permissions gate exists, front or back; the preview shows it for BOTH Mae and the owner, and the published 2026-09-15 bundle contains it. Confirm it appears for Mae after a HARD RELOAD of the published app — if it still does not, capture her browser's `version.json` and bundle hash first. (record 2026-09-18 1927 UTC; `docs/passes/2026-09-18-1927-staff-birthday-visibility.md`)
 
@@ -40,6 +40,8 @@ closed, and the removing pass says so.
 - The wholesale skip on `view-reachability` is GONE: the six deliberately hidden duty-status views are named in `HIDDEN_VIEWS` and every other portal view is checked again. Shown failing on a seventh unreachable view, then restored. (same record, Step 7)
 
 ### DECIDED, NOT BUILT
+
+- **Irreversible or outbound edge functions with no role check** — 23 functions that delete, purge, export, decrypt or send mail outside the company, with no role test inside them. Nine read no `Authorization` header at all, so anyone holding the publishable key can call them: `purge-rods-day`, `sweep-rods-orphans`, `delete-osas-sheet`, `file-executed-ica`, `set-demo-flag`, `send-ica-review-link`, `send-equipment-return-instructions`, `send-osas-to-operator`, and (cron-secret aside) `purge-deleted-operator-documents`. The rest are callable by any signed-in session: `decrypt-ssn`, `encrypt-ssn`, `export-retention-archive`, `reset-demo-driver`, `download-qpassport`, `send-lease-termination`, `send-insurance-request`, `send-return-receipt-pdf`, `send-release-note`, `send-transactional-email`, `send-dot-consultant-request`, `send-test-email`, `notify-owner-transfer`, `pei-auto-cadence`. The queue for later permissions passes. (record 2026-09-18 2030 UTC, section (e))
 
 - ELD/RODS FULL REMOVAL, if the feature is still unused later — the binder must be unpicked first (`inspection_documents` 774 rows, `truck_dot_inspections` 105, `v_compliance_items`, the MO plate expiry sync, the `/inspect/:token` links and onboarding's binder writes all survive the feature). Costs and breakages: record 2026-09-17 1730 UTC, Part B5 option (c).
 
