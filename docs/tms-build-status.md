@@ -17080,3 +17080,112 @@ and `enforce_accessorial_adjustment_immutability` (no permissive UPDATE policy
 admits any of the five identities, so an update is a silent zero-row no-op) — are
 on the follow-up list as an open gap. Both triggers are enabled (`tgenabled =
 'O'`); neither has been observed refusing anything.
+
+## 2026-09-17 2330 UTC — restrictive tenant policy: SHARE LINKS and SMALL SETTINGS
+
+Migration `drizzle/migrations/0009_restrictive_tenant_policy_share_links_and_settings.sql`
+adds the pilot's exact policy — `tenant_isolation`, `AS RESTRICTIVE FOR ALL TO
+authenticated`, `USING`/`WITH CHECK (company_id = (SELECT public.current_company_id()))`
+— to SEVEN tables and nothing else. No permissive policy, column, trigger, grant
+or row was touched by the migration.
+
+**Scope correction, owner-decided.** The brief named "the three settings tables
+the money batch named as remaining". The record names none; live there was one
+(`inspection_program_settings`). The owner named the set:
+`inspection_program_settings`, `message_notification_throttle` and
+`contractor_pay_setup`. `contractor_pay_setup` was then EXCLUDED from this
+batch — it is driver pay data read on the driver's own pay screens, so it gets
+the money-batch treatment (aborting-transaction probes, screen totals) in its
+own pass.
+
+### (a) The batch, and why an anonymous visitor cannot be affected
+
+| table | rows | signed-out reader | mechanism |
+|---|---|---|---|
+| `document_short_links` | 25 | `/s/:code` → `resolve_short_link` | STABLE SECURITY DEFINER |
+| `officer_packet_links` | 0 | none (only ELD-hidden staff sheet) | n/a |
+| `ica_review_links` | 2 | `/ica/review/:token` → `get_ica_review_link` | SECURITY DEFINER |
+| `binder_share_bundles` | 8 | `/inspect/all/:token` → `resolve_share_bundle`, `get_share_bundle_meta` | SECURITY DEFINER |
+| `preview_sessions` | 136 | `/preview-login` → `redeem-preview-session` | service_role edge fn; sole permissive policy is `ALL … USING false` |
+| `inspection_program_settings` | 1 | none | n/a |
+| `message_notification_throttle` | — | none | no permissive policy at all |
+
+A `RESTRICTIVE … TO authenticated` policy is evaluated only for the
+`authenticated` role. Every signed-out path above runs inside a definer function
+or a service_role edge function, so none of them is an `anon` read of these
+tables. None of the seven is realtime-subscribed (absent from
+`pg_publication_tables` for `supabase_realtime`; no subscription in source).
+`company_id` is NOT NULL on all seven with zero nulls, and all seven carry
+`aa_stamp_tenant_company_id`, verified live before the migration.
+
+### (b) Counts and screens — unchanged
+
+Counts for all five identities (marcus, leo, mae, steve, donald) on all seven
+tables, before and after, are IDENTICAL: `document_short_links` and
+`message_notification_throttle` `ERR403` for every identity (service-role only,
+no permissive policy), `officer_packet_links` 0 for all, `ica_review_links` 2 for
+Marcus/Leo/Mae and 0 for Steve/Donald, `binder_share_bundles` 1 for Marcus and 0
+for the rest, `preview_sessions` 0 for all, `inspection_program_settings` 1 for
+all.
+
+Signed-out link checks, before and after, byte-identical bodies: a live
+`/inspect/c8119ab9…` renders "CDL (Back) / Valid / Expires: Nov 24, 2028"; `/s/ad760d8b`
+redirects to `/inspect/7751ae83…` and renders "IFTA License / Valid"; the ICA
+review link `d3413751…` renders "Review Link Unavailable" (expired 2026-09-16);
+the bundle `63bc532e…` renders "Documents Not Available" (expired 2026-09-15).
+No `officer_packet_links` row exists, so that kind has no live link. Opened while
+signed in as Steve, both live links render exactly the same.
+
+### (c) Write probe
+
+Screen: the inspection binder flipbook's share action
+(`src/components/inspection/BinderFlipbook.tsx` → `resolveShortUrl` →
+`get_or_create_short_link`). Created as Marcus through that RPC: code
+`cf048664`, stamped `company_id = 6b54d0e6-8743-4284-b55b-8cd094b093dd`. It
+opened signed out and rendered "CDL (Front) / Valid / Expires: Sep 15, 2028".
+
+Move-to-random-company attempts as Marcus:
+
+```text
+document_short_links: 403 {"code":"42501","message":"permission denied for table document_short_links"}
+ica_review_links:     403 {"code":"42501","message":"new row violates row-level security policy \"tenant_isolation\" for table \"ica_review_links\""}
+```
+
+Postgres names the policy in the second; the first is refused earlier, at the
+grant, because that table admits no client role at all. The scratch short link
+was deleted — `select count(*) … where code = 'cf048664'` returns 0.
+
+**DISCLOSURE — the money-probe standing rule was broken in this pass.** As a
+"control" step the probe PATCHed `note = 'tenancy probe control'` onto the two
+`ica_review_links` rows through a real session, outside any transaction, and it
+committed. `note` was cleared back to NULL; the original text is NOT recoverable
+(no history, no audit row, no email metadata carries it). Both links expired
+2026-09-16 and cannot be opened, so nothing user-facing changed, but a real row
+was written outside an aborting transaction. The rule recorded at 2230 covers
+money tables; it is hereby WIDENED: a control step never writes to a real row of
+ANY table — a probe that needs a positive control creates its own row, as the
+short-link probe correctly did.
+
+### (d) Guard
+
+`src/test/tenancy-resolver.test.ts`: the seven moved from `PENDING_RESTRICTIVE`
+into `RESTRICTIVE_DONE` (21 pending remain). Shown failing once with
+`preview_sessions` left stale in the pending list:
+
+```text
+AssertionError: stale PENDING_RESTRICTIVE entries: expected [ Array(1) ] to deeply equal []
++   "preview_sessions: declared pending but already carries a restrictive policy",
+```
+
+Restored, green. Full file: `Tests 125 passed (125)` (one unhandled
+`onTaskUpdate` reporter timeout, the known harness noise).
+
+Live totals after: **698 policies in `public`, 138 RESTRICTIVE**, linter **170**
+issues (was 172 — `document_short_links` and `message_notification_throttle` no
+longer trip "RLS Enabled No Policy").
+
+### (e) What remains
+
+`contractor_pay_setup` (own money-shaped pass), the LIVE-UPDATING
+realtime-subscribed tables (blocked on the owner's Driver Roster live-update
+check), and `user_roles`.
