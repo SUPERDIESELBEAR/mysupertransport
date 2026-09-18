@@ -15632,8 +15632,9 @@ by passes that ran only their own named suites.
 2. Batch 1's screen list looked right to the owner. No action.
 3. Wish list: the test-detection question moved to RECENTLY CLOSED (answered),
    and a new `WAITING ON THE OWNER` section carries the live-update check —
-   Driver Roster on one screen, dispatch status changed on another, roster
-   updates with no refresh. Required before any batch containing a
+   Driver Hub on one screen, dispatch status changed on another, hub
+   updates with no refresh. (Named "Driver Roster" when written; corrected
+   2026-09-17 2350.) Required before any batch containing a
    realtime-subscribed table (pre-check section h). The pilot already covered
    `active_dispatch` and `cert_reminders`, so the test also confirms the pilot.
 
@@ -16964,7 +16965,7 @@ Typecheck `npx tsgo -p tsconfig.app.json --noEmit`: clean.
 
 ### (f) What remains
 
-LIVE-UPDATING (realtime-subscribed; blocked on the owner's Driver Roster live-update check),
+LIVE-UPDATING (realtime-subscribed; blocked on the owner's Driver Hub live-update check),
 SHARE LINKS, the SMALL SETTINGS tables, and `user_roles` — 28 company-bearing tables in all.
 Cross-carrier refusal is still NOT demonstrated, because only one carrier exists.
 
@@ -17187,5 +17188,133 @@ longer trip "RLS Enabled No Policy").
 ### (e) What remains
 
 `contractor_pay_setup` (own money-shaped pass), the LIVE-UPDATING
-realtime-subscribed tables (blocked on the owner's Driver Roster live-update
+realtime-subscribed tables (blocked on the owner's Driver Hub live-update
 check), and `user_roles`.
+
+
+## 2026-09-17 2350 UTC — restrictive tenant policy: the LIVE-UPDATING (realtime) batch
+
+### (a) THE OWNER'S LIVE-UPDATE CHECK — PASSED
+
+The owner ran the check on the pilot's tables on 2026-09-17: with the **Driver
+Hub** open in one window and a dispatch status changed in another, the hub
+updated **without a refresh**. The restrictive policy does not break realtime
+delivery. Two names the record had wrong, corrected throughout: the screen is
+the **Driver Hub**, not the Driver Roster, and **Truck Down is set from the
+Staff portal's Pipeline dashboard**, not from the Dispatch Board.
+
+### (b) THE BATCH — derived two ways and reconciled
+
+Way 1, what the database publishes (`pg_publication_tables` where
+`pubname = 'supabase_realtime'`, 17 tables): only **7** of the pending tables
+are published — `ica_contracts`, `message_reactions`, `messages`,
+`notifications`, `onboarding_status`, `operator_documents`,
+`rate_con_ingest_queue`.
+
+Way 2, what the app listens for (120 `.channel(` / `postgres_changes` lines in
+source): **15** pending tables — the 7 above plus `dispatch_status_history`,
+`driver_uploads`, `equipment_assignments`, `inspection_documents`,
+`onboard_assignment_sheets`, `operators`, `passenger_authorizations`,
+`truck_dot_inspections`.
+
+THE GAP THAT MATTERS: those last **8 are subscribed in source but not
+published**, so those subscriptions cannot be receiving events today at all.
+That is a PRE-EXISTING condition, measured before the migration as well as
+after; this batch neither caused it nor fixed it.
+
+Two errors in the pre-check's section (h): it lists `loads` as
+realtime-subscribed — source has NO subscription on `loads` anywhere (the
+Dispatch Board listens to `active_dispatch` and `operators`) — and it lists
+`deductions`, which nothing subscribes to. The batch was run at the owner's
+direction over all **19** eligible pending tables (`loads` and the three
+forecast tables included, being the same dispatch surface), not the "expected
+16" of the brief, which matched neither derivation.
+
+Row counts at migration time: dispatch_status_history 1510, driver_uploads 6,
+equipment_assignments 278, forecast_deductions 1, forecast_expenses 276,
+forecast_loads 279, ica_contracts 65, inspection_documents 777, loads 18,
+message_reactions 0, messages 10, notifications 10938, onboard_assignment_sheets
+13, onboarding_status 156, operator_documents 1184, operators 156,
+passenger_authorizations 8, rate_con_ingest_queue 5, truck_dot_inspections 105.
+
+### (c) COUNTS AND SCREEN FIGURES — unchanged
+
+Counts for all five identities (Marcus, Leo, Mae, Steve, Donald) on all 19
+tables: `diff` of before against after returned nothing —
+**COUNTS IDENTICAL FOR ALL FIVE IDENTITIES**. `document_short_links`-style 403s
+do not arise here; every table answered for every identity.
+
+Screen figures, captured with real sessions before and after and identical in
+both: Dispatch Board (Leo) — 35 Total Active, 20 Dispatched, 10 Home, 4 Truck
+Down, 1 Not Dispatched; "1 of 35 drivers on the board have loads in SUPERDRIVE",
+"5 loads have a status past Available but no driver assigned"; Claim 1, Awaiting
+paperwork 1, No load 34, Late/due today 1. Loads (Leo) — AVAILABLE 4,
+COVERED/DISPATCHED 2, IN TRANSIT 2, DELIVERED 6, READY TO INVOICE 0. Driver Hub
+(Leo) — 46 drivers. Steve's operator home — "No load assigned right now".
+
+### (d) LIVE-UPDATE TEST, BEFORE AND AFTER — identical
+
+A real Marcus session subscribed to all 15 subscribed tables using the screens'
+own channel and filter shapes (`src/pages/staff/StaffPortal.tsx`,
+`src/components/messaging/useMessageThread.ts`,
+`src/pages/dispatch/RateConInboxPage.tsx`,
+`src/components/drivers/DriverRoster.tsx`,
+`src/pages/dispatch/DispatchPortal.tsx`,
+`src/components/inspection/ComplianceAlertsPanel.tsx`).
+
+One finding worth keeping: a SINGLE channel carrying all fifteen bindings
+subscribes successfully and then delivers NOTHING. It would have reported a
+false negative for every table. One channel per table — as the screens
+themselves do — delivers correctly. The measurement was redone that way.
+
+Events received, before | after: messages 1 | 1, message_reactions 1 | 1,
+notifications 1 | 1, rate_con_ingest_queue 1 | 1, driver_uploads 0 | 0 (written
+in both runs; unpublished, so no event is possible). Not exercised, and said so
+rather than assumed: dispatch_status_history, equipment_assignments,
+ica_contracts, inspection_documents, onboard_assignment_sheets,
+onboarding_status, operator_documents, operators, passenger_authorizations,
+truck_dot_inspections — each needs either a real row (forbidden by the probe
+rule) or an insert with staff-notifying / onboarding-syncing side effects
+(`notify_staff_on_docs_uploaded`, `sync_ica_completion_to_onboarding`), and
+`onboarding_status` has one row per operator already, so a self-created row is
+impossible without creating an operator.
+
+Every subscription that delivered before delivered after. Nothing changed.
+
+### (e) WRITE PROBES — `messages` (Staff portal Messages screen)
+
+All inside a transaction that ROLLED BACK, with a second carrier created and
+destroyed inside it (`00000000-…-099`, "PROBE CARRIER"):
+
+- blank insert: `stamped_from_blank = 6b54d0e6-8743-4284-b55b-8cd094b093dd` —
+  the stamp filled the real carrier.
+- spoofed insert naming the probe carrier:
+  `stored_after_spoof = 6b54d0e6-8743-4284-b55b-8cd094b093dd` — the spoof was
+  overwritten, not honoured.
+- move-to-another-company: **NOT DEMONSTRATED, and here is why.**
+  `stamp_tenant_company_id` runs BEFORE INSERT **OR UPDATE** and rewrites
+  `company_id` unconditionally, so an UPDATE can never present a foreign
+  company to the restrictive policy — there is nothing left to refuse. The psql
+  role has no UPDATE grant on these tables and cannot `set role authenticated`
+  ("permission denied to set role \"authenticated\""), and only one
+  `carrier_profile` row exists, so no genuine cross-carrier row exists to
+  attempt. This is recorded as a gap, not as a pass.
+
+Residue after both realtime runs and the probes: `msg=0 notif=0 react=0 up=0
+queue=0`.
+
+### (f) GUARD
+
+`src/test/tenancy-resolver.test.ts` failed first on the stale list — 19 lines of
+"declared pending but already carries a restrictive policy", `Tests 1 failed |
+2 passed | 122 skipped` — then passed after the 19 moved into
+`RESTRICTIVE_DONE`: `Tests 3 passed | 122 skipped (125)`.
+
+Live totals: **717 policies in `public`, 157 RESTRICTIVE, 157 named
+`tenant_isolation`**; linter **170** issues, unchanged.
+
+### (g) What remains
+
+`contractor_pay_setup` (driver pay data on the driver's own screens — its own
+money-shaped pass) and `user_roles`. Cross-carrier refusal is still NOT
+demonstrated anywhere, because only one carrier exists.
