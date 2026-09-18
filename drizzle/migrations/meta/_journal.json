@@ -85,6 +85,13 @@
       "when": 1789738877590,
       "tag": "0011_restrictive_tenant_policy_contractor_pay_setup",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1789756784835,
+      "tag": "0012_restrictive_tenant_policy_user_roles",
+      "breakpoints": true
     }
   ]
 }
