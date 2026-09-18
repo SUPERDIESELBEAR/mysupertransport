@@ -17758,3 +17758,125 @@ Nothing to build. One line added to the OWNER FOLLOW-UP LIST: confirm the field
 appears for Mae after a hard reload of the published app. If it does NOT, this
 finding is wrong and the next pass should capture her browser's `version.json`
 and bundle hash before anything else.
+
+---
+
+## 2026-09-18 1944 UTC — the owner's roles-and-permissions decisions, and the sensitive-action inventory
+
+Docs only. **No migration, no code, no test, no data change; changes confined to
+`docs/tms-build-status.md`, `docs/tms-wish-list.md` and the pass report. The full
+suite was deliberately SKIPPED — this pass is documentation only.** Read first:
+`docs/passes/2026-09-18-1927-staff-birthday-visibility.md` and the role facts in
+this record. Nothing in the decisions below contradicts the live system or the
+record; where today's database is NARROWER or WIDER than a decision, that is
+recorded in section (b) as work to build, not as a contradiction.
+
+### (a) DECISIONS — owner, in conversation, 2026-09-18
+
+Numbered so later passes can cite them as "decision 2026-09-18 P1" etc.
+
+**P1. The OWNER IS UNRESTRICTED.** Every function, always. No toggle, setting or
+policy may remove anything from the owner. Any permissions table must be
+incapable of denying the owner.
+
+**P2. DISPATCHER MAY SEE DRIVER PAY AND SETTLEMENT DATA.** Read access to what a
+driver is paid and to settlements is part of the dispatcher's job.
+
+**P3. ONBOARDING STAFF MAY SEE LOADS AND THEIR DETAILS, READ ONLY.** They do not
+create loads and do not change them.
+
+**P4. DISPATCHER AND ONBOARDING STAFF STAY SEPARATE ROLES.** The owner had
+considered merging them under one name; that is SET ASIDE because of P3 — one
+role cannot both edit and not edit loads. They share a baseline and differ where
+it matters.
+
+**P5. TRUCK OWNER SEES EVERYTHING TO DO WITH HIS TRUCKS** — loads, work,
+documents, and the drivers on them. Nothing beyond his trucks.
+
+**P6. DEACTIVATION AND LEASE TERMINATION: OWNER AND MANAGEMENT ONLY.**
+
+**P7. SENDING COMPANY DOCUMENTS (W-9, COI, MC certificate) TO A BROKER: OWNER,
+MANAGEMENT, DISPATCHER.**
+
+**P8. PERMISSIONS ARE ENFORCED IN THE DATABASE, NOT BY HIDING BUTTONS.** A toggle
+that only hides a control is not a permission. Every permission ships with a
+database refusal; the hidden button is cosmetic.
+
+**P9. PERMISSIONS ATTACH TO ROLES.** Per-person exceptions are possible but used
+sparingly, and only when a real case appears.
+
+**P10. THE FIRST VERSION COVERS ROUGHLY TEN SENSITIVE ACTIONS.** Everything else
+keeps working exactly as it does today.
+
+**P11. ORDER OF WORK:** tenancy rollout (done 2026-09-18) → the staff-directory
+birthday question (done 2026-09-18, not a permissions gate) → this record →
+build, a few actions at a time.
+
+### (b) INVENTORY — the sensitive actions, as the app stands today
+
+How this was looked for: `pg_policies` read live for every table named below
+(permissive policies only, since the restrictive `tenant_isolation` policy is
+about company, not role); the definitions of `is_staff`, `is_truck_owner_for_operator`
+and `assign_user_role` read live; every one of the 111 edge functions scanned for
+a `'role'` check (`rg "'role'" supabase/functions/*/index.ts`) — **64 have none**;
+`supabase/config.toml` read for `verify_jwt`; and the screens found by grepping
+`src/` for each table name and for the action strings.
+
+| action | where it happens | what enforces it TODAY | who can do it today | decisions |
+|---|---|---|---|---|
+| Create or edit a load | Dispatch board / load forms, `src/pages/dispatch/*`, `loads` table | **DB policy** `loads_staff_manage` FOR ALL: management, owner, dispatcher | mgmt, owner, dispatcher (+ operator UPDATE on own load only) | P3, P4 — already correct |
+| View loads read-only | Staff portal | **DB policy** `loads_onboarding_staff_read` SELECT only | onboarding staff | P3 — **already exactly as decided** |
+| View an invoice | no invoice screen exists yet (`rg "from('invoices')" src` → no hits); `invoices` table only | **DB policy** `invoices management and owner only` FOR ALL, company-scoped | mgmt, owner | P2 — dispatcher is EXCLUDED today |
+| Create or edit an invoice | same — engine only, no UI | same single FOR ALL policy, plus `enforce_invoice_immutability` trigger | mgmt, owner | P10 |
+| Run or reopen a settlement | `src/lib/settlementRun.ts`, `src/lib/dispatchSettlementRun.ts`; operator view `src/components/operator/MySettlements/` | **DB policy** `Management manages settlements` / `Management manages dispatch settlements` FOR ALL; immutability triggers | mgmt, owner (operator reads own) | P2 — **dispatcher CANNOT see settlements today; P2 requires he can** |
+| View driver pay data | `contractor_pay_setup`, `pay_policies` | **DB policy** `Staff can view all pay setup records` = `is_staff()`; `pay_policies_read_staff` = all four staff roles | ALL staff incl. onboarding staff | P2 satisfied for dispatcher; **WIDER than P2 — onboarding staff also sees it** |
+| Edit pay policies | `src/components/management/FuelDiscountPassthroughSettings.tsx` and the policy editor | **DB policies** insert/update/delete = management, owner | mgmt, owner | P10 |
+| Deactivate a driver | `/management/deactivation`, `DeactivationPage.tsx`, `DeactivationWizardContent.tsx`, `OperatorDetailPanel.tsx` | route guard `isManagement` in `src/App.tsx:230` = **UI**; `operators` UPDATE policy is `is_staff()` | **route: mgmt/owner; DATABASE: ANY staff, dispatcher and onboarding staff included** | **P6 — UI-ONLY TODAY** |
+| Terminate a lease | `DeactivationWizardContent.tsx:736`, `components/ica/LeaseTerminationBuilderModal.tsx:132`, `TerminationsView.tsx` | **DB policy** `Staff manage lease terminations` = `is_staff()` FOR ALL | **ANY staff**; the ICA modal is reachable from the STAFF portal's operator panel | **P6 — DATABASE TOO WIDE** |
+| Send a company document (W-9, COI, MC) | no send UI built yet; `company_documents` + `document_send_log` tables (`rg document_send_log src` → types and one test only) | **DB policies**: `company_documents_select_staff` and `document_send_log_insert_staff` = all four staff roles | all staff | **P7 — onboarding staff must be excluded** |
+| Grant or remove a staff role | Staff Directory panel → `get-staff-list` actions `add` / `remove` | edge function top check `role in ('management','owner')`, then a **SERVICE-ROLE write** straight to `user_roles` — it does NOT call `assign_user_role`, so that function's own guards (no owner role, company membership required) are bypassed | mgmt, owner | P8, P9 — the service-role seam |
+| Suspend an account | Staff Directory panel → `get-staff-list` action `deactivate_user` | edge function top check only (management OR owner); service-role write to `profiles.account_status` | mgmt, owner | P10 |
+| Delete an account permanently | same panel, button labelled **"Owner only"**; action `delete_user` | **the label is the only owner restriction.** The branch (line 164) checks only "not yourself"; the caller check at the top admits management. `verify_jwt = false` for this function, so the Bearer token is validated in code | **UI says owner; DATABASE/FUNCTION allows any management user** | **P8 — UI-ONLY TODAY, the clearest instance** |
+| Delete a user via `delete-user-account` | separate function | **real owner check** (`.eq('role','owner')`, line 44-53) plus an owner-removal guard | owner | P1 — correct pattern to copy |
+| Edit a broker's factoring status | broker screens, `brokers` table | **DB policy** `brokers_staff_update` = dispatcher OR onboarding staff, plus `brokers_mgmt_all` | mgmt, owner, dispatcher, onboarding staff | money-adjacent; P10 candidate |
+| Truck owner's view of his trucks | operator/truck-owner screens | **DB** `is_truck_owner_for_operator()` in `operators`, `contractor_pay_setup` and siblings | truck owner, own operators only | P5 — pattern exists, coverage unaudited |
+
+Other actions found that move money, change access, or send something outside
+the company (found by the same scan), each listed with its protection:
+
+- **Send payroll documents / binder share / officer packet / broadcasts** —
+  `send-payroll-docs`, `send-binder-share`, `send-officer-packet`,
+  `send-operator-broadcast` all DO check a role.
+- **`send-lease-termination`, `send-deactivation-notice` companions, `send-insurance-request`,
+  `send-ica-review-link`, `send-equipment-return-instructions`, `send-osas-to-operator`,
+  `send-transactional-email`, `send-release-note`, `send-return-receipt-pdf`,
+  `set-demo-flag`, `export-retention-archive`, `decrypt-ssn`, `encrypt-ssn`,
+  `provision-demo-driver`, `provision-test-driver`, `reset-demo-driver`,
+  `purge-deleted-operator-documents` — NO ROLE CHECK inside the function.** Some
+  are cron-only, several are callable from a signed-in session. These send mail
+  outside the company, reveal SSNs, or create accounts. **Protected by nothing
+  but which screen shows the button.**
+- **`user_roles` has no INSERT, UPDATE or DELETE policy at all** — the only
+  in-database grant path is `assign_user_role()` (management/owner, refuses
+  `owner`, requires company membership). Every UI grant goes around it through
+  the service role, as noted in the table.
+
+**MARKED PLAINLY — actions whose ONLY protection today is the user interface:**
+delete an account permanently (labelled "Owner only", enforced nowhere);
+deactivate a driver (route guard only — the database lets any staff do it);
+terminate a lease (any staff in the database); and the 64 edge functions with no
+role check, of which the callable senders above are the live risk.
+
+### (c) OPEN QUESTIONS FOR THE OWNER — carried to the wish list, not answered here
+
+1. Where does a permission check belong when an action runs through an edge
+   function using the service role, which bypasses every row rule? (In the
+   function before the write, in a database function the function must call, or
+   both?)
+2. How is a READ-ONLY role expressed for a table the app also writes — a
+   SELECT-only policy per role (today's `loads` pattern), or one policy that
+   tests the permission table per command?
+3. What happens to an IN-FLIGHT action when a permission is removed mid-task —
+   refuse at the next write and lose the draft, or let the open task finish?
+4. Do per-person exceptions live on the same table as the role permissions, or a
+   separate one that overrides it?

@@ -18,6 +18,8 @@ Kept at the owner's request (2026-09-16). One line per item, each pointing to th
 record entry that explains it. Items are removed only when the record shows them
 closed, and the removing pass says so.
 
+- Permissions module: decisions recorded 2026-09-18; inventory done; build not started. Ten-ish sensitive actions, enforced in the database. Three actions are protected by the user interface alone today — delete an account (labelled "Owner only", enforced nowhere), deactivate a driver, terminate a lease — plus 64 edge functions with no role check. (record 2026-09-18 1944 UTC; `docs/passes/2026-09-18-1944-permissions-decisions-and-inventory.md`)
+
 - Birthday field in the staff directory: no permissions gate exists, front or back; the preview shows it for BOTH Mae and the owner, and the published 2026-09-15 bundle contains it. Confirm it appears for Mae after a HARD RELOAD of the published app — if it still does not, capture her browser's `version.json` and bundle hash first. (record 2026-09-18 1927 UTC; `docs/passes/2026-09-18-1927-staff-birthday-visibility.md`)
 
 ### RECENTLY CLOSED
@@ -67,6 +69,11 @@ closed, and the removing pass says so.
 
 ### OWNER DECISIONS OWED
 
+- PERMISSIONS BUILD, four questions (record 2026-09-18 1944 UTC, section (c)):
+  - Where does a permission check belong when an action runs through an edge function using the SERVICE ROLE, which bypasses row rules — in the function, in a database function it must call, or both?
+  - How is a READ-ONLY role expressed for a table the app also writes — a SELECT-only policy per role (today's `loads` shape), or one policy that tests the permission table per command?
+  - What happens to an IN-FLIGHT action when a permission is removed mid-task — refuse at the next write, or let the open task finish?
+  - Do PER-PERSON exceptions live on the same table as the role permissions, or a separate overriding one?
 - ~~**Keep, hide or remove the ELD/RODS feature.**~~ DECIDED 2026-09-17: **HIDE** (option (b)) — moved to RECENTLY CLOSED above.
 - ~~How to close read enforcement: edit each role-only policy, or add one restrictive company policy per table.~~ ANSWERED 2026-09-16: one restrictive policy per table. Moved to RECENTLY CLOSED above; the rollout of the remaining 118 tables is under DECIDED, NOT BUILT.
 - `applications` family (and the 4 PEI tables) visible across carriers, in tension with hand-onboarding the demo drivers. (record 2026-09-16 — "the unassigned tables, and the second-carrier readiness record", section (e), "A tension left unresolved")
