@@ -17318,3 +17318,123 @@ Live totals: **717 policies in `public`, 157 RESTRICTIVE, 157 named
 `contractor_pay_setup` (driver pay data on the driver's own screens — its own
 money-shaped pass) and `user_roles`. Cross-carrier refusal is still NOT
 demonstrated anywhere, because only one carrier exists.
+
+## 2026-09-18 1358 UTC — restrictive tenant policy: `contractor_pay_setup` (money-shaped)
+
+### (a) THE TABLE
+
+Live policies before this pass, all PERMISSIVE, all roles `{public}`:
+
+- `Operators can insert their own pay setup` (INSERT) — OWNERSHIP:
+  `EXISTS (SELECT 1 FROM operators WHERE operators.id = contractor_pay_setup.operator_id AND operators.user_id = auth.uid())`
+- `Operators can update their own pay setup` (UPDATE) — OWNERSHIP, same shape
+- `Operators can view their own pay setup` (SELECT) — OWNERSHIP, same shape
+- `Staff can update all pay setups` (UPDATE) — ROLE-ONLY: `is_staff(auth.uid())`
+- `Staff can view all pay setups` (SELECT) — ROLE-ONLY: `is_staff(auth.uid())`
+- `Truck owner can view linked pay setup` (SELECT) — OWNERSHIP:
+  `is_truck_owner_for_operator(auth.uid(), operator_id)`
+
+No COMPANY policy, and no SERVICE policy, existed. `company_id` is NOT NULL with
+zero nulls across 56 rows. Stamp trigger: `aa_stamp_tenant_company_id` →
+`stamp_tenant_company_id()`, **BEFORE INSERT only** (not UPDATE). Other triggers:
+`enforce_contractor_pay_setup_self_update`, `notify_owner_on_pay_setup_submitted`,
+`update_updated_at_column`.
+
+Readers and writers — DRIVER-FACING: `src/components/operator/ContractorPaySetup.tsx`
+(249-253 read, 312-344 submit), lazy-loaded by `src/pages/operator/OperatorPortal.tsx:53`
+and shown at 157, 837-838, 967-976, 1823, 2134. STAFF-FACING:
+`src/pages/staff/OperatorDetailPanel.tsx:912-916`,
+`src/pages/staff/PipelineDashboard.tsx:1051,1154`. EDGE: `reset-demo-driver/index.ts:27`,
+`delete-user-account/index.ts:144`, `notify-pay-setup-submitted/index.ts:26-49`.
+NOTHING subscribes to the table — it is absent from `supabase_realtime` and from
+every `.channel(` binding in source.
+
+Note for the record: the pay PERCENTAGE and the deduction settings are NOT on
+this table and never were — they live in `pay_policies`. This screen carries the
+contractor identity, acknowledgments and submission state.
+
+### (b) BEFORE, and (d) AFTER — identical
+
+Counts via the REST API, one sign-in per identity:
+
+```
+marcus: 56   leo: 56   mae: 56   steve: 1   donald: 1
+```
+
+Grouping (a partial loss would show): `individual 38`, `business 18`.
+
+Steve's own Stage 8 screen (`ContractorPaySetup.tsx:249-253`, as Steve) and the
+staff detail panel for the same driver (`OperatorDetailPanel.tsx:912-916`, as Mae)
+returned byte-identical rows: `contractor_type individual`, `Steve Figueroa`,
+`business_name null`, `(619) 936-1762`, `stevefigueroa2026@gmail.com`,
+`terms_accepted true` at `2026-04-24T02:57:17.081+00:00`, `submitted_at` the same,
+both acknowledgments `true`, `company_id 6b54d0e6-8743-4284-b55b-8cd094b093dd`,
+`updated_at 2026-04-24T02:57:17.081+00:00`.
+
+After migration `0011`: counts identical (`diff` → "counts identical"), both
+screens identical (`diff` → "screens identical"), grouping identical.
+
+### (c) MIGRATION
+
+`drizzle/migrations/0011_restrictive_tenant_policy_contractor_pay_setup.sql` — the
+pilot's exact shape, nothing else: RESTRICTIVE FOR ALL TO authenticated,
+USING and WITH CHECK both `company_id = (SELECT public.current_company_id())`.
+No function created or replaced, so no grant changed.
+
+### (e) PROBES — inside a transaction that raises, on rows the probe created
+
+Operators with no pay setup row were used, so no real row was touched.
+
+```
+BLANK INSERT stamped   -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+SPOOFED INSERT stored  -> 6b54d0e6-8743-4284-b55b-8cd094b093dd
+ERROR:  PROBE TRANSACTION DELIBERATELY ABORTED
+residue: 0
+```
+
+The spoofed insert presented `00000000-0000-4000-8000-000000000099` and the real
+carrier was stored: the BEFORE INSERT stamp rewrites the value before the policy
+is evaluated, so on INSERT a foreign company cannot be presented at all.
+
+REFUSAL — **not demonstrated**. Unlike the other batches, the stamp here is
+BEFORE INSERT only, so an UPDATE *could* present a foreign company and be refused
+by WITH CHECK. It still could not be shown: the psql role is denied UPDATE on the
+table outright (`ERROR: permission denied for table contractor_pay_setup`), and no
+signed-in identity may insert a row of its own to move (the INSERT policy admits
+only the operator himself). Under the widened probe rule no real row may be
+updated, so this stays an honest gap, alongside the same gap for the realtime
+batch and the single-carrier limitation.
+
+### (f) SUITES
+
+Every suite touching this table or driver pay, in one run — `Test Files 13 passed
+(13) | Tests 235 passed (235)`: `operator-settlement-isolation`,
+`settlement-foundation`, `operator-pay-exposure`, `sharedPayPct`,
+`sharedPayPctCallers`, `shared-pay-percentage-source-guard`, `settlementEngine`,
+`settlementRun`, `dispatchSettlement`, `dispatchSettlementRun`,
+`dispatch-settlement-schema`, `dispatch-settlement-screen`, `grant-parity-live`
+(3/3, ungated, still running).
+
+### (g) GUARD
+
+`src/test/tenancy-resolver.test.ts` failed first on the stale list:
+"contractor_pay_setup: declared pending but already carries a restrictive policy",
+`Tests 1 failed | 2 passed | 122 skipped (125)`. After the move into
+`RESTRICTIVE_DONE`: `Tests 125 passed (125)` (one unhandled reporter timeout,
+`[vitest-worker]: Timeout calling "onTaskUpdate"` — not a test failure).
+
+Live totals: **718 policies in `public`, 158 RESTRICTIVE**; linter **170**,
+unchanged.
+
+### (h) OWNER CHECK, 2026-09-18
+
+The owner repeated the live-update test AFTER the realtime batch — Driver Hub open
+in one window, a driver's dispatch status changed in another — and the hub updated
+without a refresh. PASSED.
+
+### (i) What remains
+
+`user_roles`, and only that. It goes last because every other policy in the
+database resolves through `has_role()` / `is_staff()`, which read it: a restrictive
+predicate there changes the meaning of every other table's rules at once, so it
+needs its own pass with its own before/after evidence.
