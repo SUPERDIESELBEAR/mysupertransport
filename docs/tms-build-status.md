@@ -17880,3 +17880,144 @@ role check, of which the callable senders above are the live risk.
    refuse at the next write and lose the draft, or let the open task finish?
 4. Do per-person exceptions live on the same table as the role permissions, or a
    separate one that overrides it?
+
+## 2026-09-18 2030 UTC — permanent account deletion is now genuinely owner-only
+
+**BUILD MODE. One edge function changed (`get-staff-list`), nothing else.** No
+migration, no schema change, no data change. Full suite run (below).
+
+### (a) THE GAP, DEMONSTRATED BEFORE IT WAS FIXED
+
+The inventory of 2026-09-18 1944 UTC marked "delete an account permanently" as
+protected by nothing but the user interface. That is now demonstrated on live
+infrastructure, not inferred.
+
+Throwaway auth account created through the public sign-up endpoint (no roles, no
+profile, disposable address): `perm-probe-1789762069@demo.mysupertransport.com`,
+id `d6d38e72-7b83-4552-bfa7-e61605f45d75`.
+
+Signed in as **Mae Lauron (management + onboarding_staff)**, session minted with
+`lovable auth-session --json --user 2cedd3ac-…`, calling `get-staff-list` with
+`{"action":"delete_user","user_id":"d6d38e72-…"}`:
+
+```
+HTTP 200
+{"success":true}
+```
+
+Live check afterwards, `select id, email from auth.users where email like
+'perm-probe-%' or id = 'd6d38e72-…'` → **0 rows.** A management user deleted an
+account permanently, straight through the function, with the UI's "Owner only"
+label bypassed entirely. **The gap was real.**
+
+Worth recording precisely: the Staff Directory's own button calls
+`delete-user-account` (`StaffMemberPanel.tsx:236`), which already enforces owner.
+The hole was the `get-staff-list` `delete_user` branch — live, deployed,
+management-reachable, and with **no caller in `src/` at all** (grep for
+`action: 'delete_user'` returns nothing). An unused door left unlocked.
+
+### (b) THE FIX
+
+`supabase/functions/get-staff-list/index.ts`, `delete_user` branch only: the
+caller must hold the `owner` role, checked with the same shape as
+`delete-user-account/index.ts:44-53` (`user_roles` … `.eq('role','owner')
+.limit(1)`), returning `{"error":"Only the owner can delete accounts"}` with
+status **403**. The function's top-level management-or-owner check is UNCHANGED
+and still governs every other action. Cites decisions **P1** (owner
+unrestricted) and **P8** (enforcement is not a hidden button).
+
+### (c) THE FIX BITES
+
+Second throwaway: `perm-probe-1789762167@demo.mysupertransport.com`, id
+`81d10947-0845-4167-9205-db0839b7461c`.
+
+- As **Mae**: `HTTP 403 {"error":"Only the owner can delete accounts"}`. Live
+  query: the row is still in `auth.users`.
+- As **Marcus Mueller (owner)**, same id: `HTTP 200 {"success":true}`. Live
+  query: **0 rows** — gone.
+
+Owner's Staff Directory path confirmed intact: signed in as the owner in the
+preview at `/management?view=staff`, opened a member panel — 15 "Manage access"
+buttons, and the panel shows **Delete Account Permanently**, Suspend Account and
+Send Password Reset Link. The button itself was NOT clicked on a real account —
+the probe rule forbids it — and it calls `delete-user-account`, which this pass
+did not touch.
+
+### (d) CLEANUP — nothing left behind
+
+```
+auth_users(perm-probe-%) = 0 | profiles = 0 | user_roles = 0 | company_members = 0
+```
+
+Two `audit_log` rows with `action='staff_deleted'` remain, one per probe. Those
+are the deliberate record of the two deletions and are kept.
+
+### (e) THE SAME HOLE ELSEWHERE — queue, nothing fixed here
+
+Irreversible or outbound edge functions with **no role check** (found by grepping
+every `supabase/functions/*/index.ts` for `'role'`, `has_role` and `is_staff`,
+then filtering for deletion, purge, export, decryption and outbound mail):
+
+| function | what it does | who can call it today |
+| --- | --- | --- |
+| `decrypt-ssn` | returns a decrypted SSN | any signed-in session |
+| `encrypt-ssn` | writes an encrypted SSN | any signed-in session |
+| `export-retention-archive` | exports a retention archive of a person's records | any signed-in session |
+| `purge-deleted-operator-documents` | permanently purges document rows and storage objects | cron secret present; also any signed-in session |
+| `purge-rods-day` | deletes a day of logs | no auth header read at all |
+| `sweep-rods-orphans` | deletes orphaned log rows | no auth header read at all |
+| `delete-osas-sheet` | deletes an onboard assignment sheet | no auth header read at all |
+| `file-executed-ica` | files/replaces an executed contract, removing the prior file | no auth header read at all |
+| `reset-demo-driver` | wipes and re-seeds a demo driver's data | any signed-in session |
+| `set-demo-flag` | flips a driver between demo and real | no auth header read at all |
+| `download-qpassport` | fetches and removes a fuel-passport artefact | any signed-in session |
+| `send-lease-termination` | emails a lease termination outside the company | any signed-in session |
+| `send-insurance-request` | emails an insurance request with attachments | any signed-in session |
+| `send-ica-review-link` | emails a contract review link | no auth header read at all |
+| `send-equipment-return-instructions` | emails return instructions | no auth header read at all |
+| `send-osas-to-operator` | emails an assignment sheet, replacing the stored copy | no auth header read at all |
+| `send-return-receipt-pdf` | emails a return receipt PDF | any signed-in session |
+| `send-release-note` | emails a release note to every user | any signed-in session |
+| `send-transactional-email` | sends arbitrary transactional mail | any signed-in session |
+| `send-dot-consultant-request` | emails a consultant outside the company | any signed-in session |
+| `send-test-email` | sends mail to an arbitrary address | any signed-in session |
+| `notify-owner-transfer` | emails an ownership transfer notice | any signed-in session |
+| `pei-auto-cadence` | sends previous-employer enquiries outside the company | any signed-in session |
+
+"No auth header read at all" means the function never inspects `Authorization` —
+anyone holding the publishable key can call it. **This is the queue for later
+passes; nothing on it was changed today.**
+
+### (f) INVENTORY ROW CLOSED
+
+The inventory row **"delete an account permanently"** is CLOSED: enforcement is
+now in the function for both paths (`delete-user-account` already, `get-staff-list`
+as of this pass), per **P1** and **P8**. The other two UI-only rows —
+**deactivate a driver** and **terminate a lease** — remain OPEN and are database
+policy work (`is_staff()` on `operators` UPDATE and on lease terminations).
+
+### (g) SUITE AND TYPECHECK
+
+`npx vitest run --maxWorkers=4`:
+
+```
+ Test Files  4 failed | 198 passed | 2 skipped (204)
+      Tests  4 failed | 2017 passed | 16 skipped (2037)
+   Errors  2 errors
+   Duration  410.38s
+```
+
+All four failures, and the two unhandled errors, are the known pooler/reporter
+contention — every one is an `execFileSync('psql', …)` call inside a live-schema
+test, plus `[vitest-worker]: Timeout calling "onTaskUpdate"`. Re-run alone
+(`--maxWorkers=1`, the five affected files): `1 failed | 106 passed (107)`, the
+one remaining failure again a `psql` call in
+`dispatch-settlement-schema.test.ts`; that file re-run entirely on its own:
+**32 passed (32)**. No failure involves the changed function.
+
+`npx tsgo -p tsconfig.app.json --noEmit` → clean, exit 0.
+
+`get-staff-list` deployed and the deployment confirmed by the tool's own report
+("Successfully deployed edge functions: get-staff-list") and, more to the point,
+by the live 403/200 pair in (c) — the new message could only come from the
+deployed build.
