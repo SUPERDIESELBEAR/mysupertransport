@@ -2162,6 +2162,23 @@ const RESTRICTIVE_DONE = [
   'document_short_links', 'officer_packet_links', 'ica_review_links',
   'binder_share_bundles', 'preview_sessions', 'inspection_program_settings',
   'message_notification_throttle',
+  // THE LIVE-UPDATING BATCH (19), 2026-09-17, migration
+  // 0010_restrictive_tenant_policy_realtime_batch.sql. Derived two ways and
+  // reconciled: 7 of these are in the `supabase_realtime` publication
+  // (`ica_contracts`, `message_reactions`, `messages`, `notifications`,
+  // `onboarding_status`, `operator_documents`, `rate_con_ingest_queue`); 8 more
+  // are subscribed in source but NOT published, so those subscriptions deliver
+  // nothing today — a pre-existing condition this batch neither caused nor
+  // fixed. `loads` and the three forecast tables have no subscription at all
+  // and are included because they sit in the same dispatch surface. Live
+  // realtime delivery was measured per table BEFORE and AFTER: identical.
+  'dispatch_status_history', 'driver_uploads', 'equipment_assignments',
+  'forecast_deductions', 'forecast_expenses', 'forecast_loads',
+  'ica_contracts', 'inspection_documents', 'loads', 'message_reactions',
+  'messages', 'notifications', 'onboard_assignment_sheets',
+  'onboarding_status', 'operator_documents', 'operators',
+  'passenger_authorizations', 'rate_con_ingest_queue',
+  'truck_dot_inspections',
 ] as const;
 
 /**
@@ -2171,20 +2188,7 @@ const RESTRICTIVE_DONE = [
  * lists fails as undeclared. Batches empty this list.
  */
 const PENDING_RESTRICTIVE = [
-  'contractor_pay_setup', 'dispatch_status_history',
-  'driver_uploads',
-  'equipment_assignments',
-  'forecast_deductions', 'forecast_expenses', 'forecast_loads',
-  'ica_contracts',
-  'inspection_documents',
-  'loads',
-  'message_reactions',
-  'messages', 'notifications',
-  'onboard_assignment_sheets', 'onboarding_status', 'operator_documents',
-  'operators',
-  'passenger_authorizations',
-  'rate_con_ingest_queue',
-  'truck_dot_inspections',
+  'contractor_pay_setup',
   'user_roles',
 ] as const;
 

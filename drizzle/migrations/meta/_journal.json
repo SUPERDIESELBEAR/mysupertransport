@@ -71,6 +71,13 @@
       "when": 1789687252326,
       "tag": "0009_restrictive_tenant_policy_share_links_and_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1789694658480,
+      "tag": "0010_restrictive_tenant_policy_realtime_batch",
+      "breakpoints": true
     }
   ]
 }
