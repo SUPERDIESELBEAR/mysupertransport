@@ -2179,6 +2179,13 @@ const RESTRICTIVE_DONE = [
   'onboarding_status', 'operator_documents', 'operators',
   'passenger_authorizations', 'rate_con_ingest_queue',
   'truck_dot_inspections',
+  // CONTRACTOR PAY SETUP (1), 2026-09-18, migration
+  // 0011_restrictive_tenant_policy_contractor_pay_setup.sql. Money-shaped pass:
+  // driver pay data read on the driver's own Stage 8 screen
+  // (ContractorPaySetup.tsx) and on the staff detail panel
+  // (OperatorDetailPanel.tsx). Nothing subscribes to it. Counts for all five
+  // identities and both screens' figures were identical before and after.
+  'contractor_pay_setup',
 ] as const;
 
 /**
@@ -2186,9 +2193,13 @@ const RESTRICTIVE_DONE = [
  * Built from the live 148 minus `company_members` minus the pilot four.
  * A table here that HAS the policy fails as stale; a table missing from both
  * lists fails as undeclared. Batches empty this list.
+ *
+ * `user_roles` is deliberately last: every other policy in the database
+ * resolves through `has_role()` / `is_staff()`, which read this table, so a
+ * restrictive predicate here changes the meaning of every other table's rules
+ * at once. It gets its own pass.
  */
 const PENDING_RESTRICTIVE = [
-  'contractor_pay_setup',
   'user_roles',
 ] as const;
 

@@ -78,6 +78,13 @@
       "when": 1789694658480,
       "tag": "0010_restrictive_tenant_policy_realtime_batch",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1789738877590,
+      "tag": "0011_restrictive_tenant_policy_contractor_pay_setup",
+      "breakpoints": true
     }
   ]
 }
