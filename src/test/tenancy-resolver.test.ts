@@ -2186,22 +2186,34 @@ const RESTRICTIVE_DONE = [
   // (OperatorDetailPanel.tsx). Nothing subscribes to it. Counts for all five
   // identities and both screens' figures were identical before and after.
   'contractor_pay_setup',
+  // USER_ROLES (1), 2026-09-18, migration
+  // 0012_restrictive_tenant_policy_user_roles.sql. THE LAST TABLE, deliberately
+  // last: every other policy in the database resolves through `has_role()` /
+  // `is_staff()`, which read this table, so a restrictive predicate here
+  // changes the meaning of every other table's rules at once. A lock-out check
+  // ran first over all 185 rows against `current_company_id()`'s three sources:
+  // zero mismatches, zero role-holders resolving to no company, zero users
+  // holding roles in more than one company. All 22 functions reading the table
+  // are SECURITY DEFINER owned by `postgres` (the table's owner) and the table
+  // is not FORCE RLS, so they keep working. All five identities reported the
+  // same roles and landed on the same portal before and after.
+  'user_roles',
 ] as const;
 
 /**
  * Tables that HAVE `company_id` and do NOT yet have the restrictive policy.
- * Built from the live 148 minus `company_members` minus the pilot four.
- * A table here that HAS the policy fails as stale; a table missing from both
- * lists fails as undeclared. Batches empty this list.
+ * EMPTY since 2026-09-18: the rollout is complete.
  *
- * `user_roles` is deliberately last: every other policy in the database
- * resolves through `has_role()` / `is_staff()`, which read this table, so a
- * restrictive predicate here changes the meaning of every other table's rules
- * at once. It gets its own pass.
+ * An empty list does NOT make this guard vacuous. Coverage is asserted against
+ * the LIVE inventory, not against this list: every `company_id` table must
+ * appear in `RESTRICTIVE_DONE` or `RESTRICTIVE_EXEMPT` (`undeclared`), and
+ * every `RESTRICTIVE_DONE` table must carry exactly one `tenant_isolation`
+ * policy of the exact shape (`problems`, whose first branch is
+ * "no restrictive policy"). Dropping a policy, or dropping a table name from
+ * `RESTRICTIVE_DONE`, still fails. A future table with `company_id` and no
+ * policy fails as undeclared until it is migrated or listed here.
  */
-const PENDING_RESTRICTIVE = [
-  'user_roles',
-] as const;
+const PENDING_RESTRICTIVE = [] as const;
 
 
 type RestrictiveRow = {
@@ -2239,7 +2251,11 @@ describe('restrictive tenant policy — exact shape, or declared pending', () =>
             AND col.column_name = 'company_id')
       ORDER BY 1`);
     expect(tables.length, 'the inventory query returned nothing — it broke').toBeGreaterThan(0);
-    expect(PENDING_RESTRICTIVE.length, 'the pending list is empty — either the rollout is finished and this guard must be rewritten, or the list was lost').toBeGreaterThan(0);
+    // The rollout is complete, so the pending list is empty and there is nothing
+    // to assert about its length. What replaces it: the DONE list must not have
+    // been emptied or truncated, which is what a lost list would look like.
+    expect(RESTRICTIVE_DONE.length, 'the DONE list shrank below the live inventory — it was lost or truncated')
+      .toBeGreaterThanOrEqual(tables.length - RESTRICTIVE_EXEMPT.length);
 
     const rows = psql(`SELECT tablename || '\t' || policyname || '\t' || cmd || '\t'
         || roles::text || '\t' || coalesce(qual,'') || '\t' || coalesce(with_check,'')

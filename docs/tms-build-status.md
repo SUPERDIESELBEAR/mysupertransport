@@ -17438,3 +17438,223 @@ without a refresh. PASSED.
 database resolves through `has_role()` / `is_staff()`, which read it: a restrictive
 predicate there changes the meaning of every other table's rules at once, so it
 needs its own pass with its own before/after evidence.
+
+---
+
+## 2026-09-18 1830 UTC — restrictive tenant policy: `user_roles`, THE LAST TABLE
+
+BUILD MODE. Migration `drizzle/migrations/0012_restrictive_tenant_policy_user_roles.sql`,
+the pilot's exact shape and nothing else:
+
+```sql
+CREATE POLICY tenant_isolation ON public.user_roles
+  AS RESTRICTIVE FOR ALL TO authenticated
+  USING (company_id = (SELECT public.current_company_id()))
+  WITH CHECK (company_id = (SELECT public.current_company_id()));
+```
+
+### (a) THE LOCK-OUT CHECK — ran BEFORE anything was written
+
+Every one of the 185 `user_roles` rows was compared with the company its user
+resolves to through `current_company_id()`'s three sources read TOGETHER
+(`company_members`, the caller's own `operators` row, his `truck_owners` row),
+reproducing the resolver's own `CASE WHEN count(*) = 1` rule rather than
+trusting it:
+
+```sql
+WITH resolved AS (
+  SELECT u.user_id,
+         (SELECT CASE WHEN count(*)=1 THEN (array_agg(d.company_id))[1] END FROM (
+            SELECT cm.company_id FROM public.company_members cm WHERE cm.user_id = u.user_id
+            UNION SELECT o.company_id FROM public.operators o WHERE o.user_id = u.user_id
+            UNION SELECT t.company_id FROM public.truck_owners t WHERE t.user_id = u.user_id
+          ) d WHERE d.company_id IS NOT NULL) AS resolved_company
+  FROM (SELECT DISTINCT user_id FROM public.user_roles) u
+)
+SELECT 'a_mismatch', count(*) FROM public.user_roles ur JOIN resolved r USING (user_id)
+  WHERE r.resolved_company IS NOT NULL AND ur.company_id <> r.resolved_company
+UNION ALL
+SELECT 'b_no_company', count(DISTINCT ur.user_id) FROM public.user_roles ur JOIN resolved r USING (user_id)
+  WHERE r.resolved_company IS NULL
+UNION ALL
+SELECT 'c_multi_company_roles', count(*) FROM (
+  SELECT user_id FROM public.user_roles GROUP BY user_id HAVING count(DISTINCT company_id) > 1) x;
+```
+
+```
+        finding        | count
+-----------------------+-------
+ a_mismatch            |     0
+ b_no_company          |     0
+ c_multi_company_roles |     0
+```
+
+All three empty, so the migration was allowed to proceed. 185 rows held by 173
+distinct users; `company_id` NOT NULL with zero nulls; every row carries the one
+live carrier `6b54d0e6-8743-4284-b55b-8cd094b093dd`. Stamp trigger
+`aa_stamp_tenant_company_id` (BEFORE INSERT, `stamp_tenant_company_id`); the
+other trigger is `enforce_owner_role_writes` (BEFORE INSERT OR DELETE OR UPDATE).
+
+### (b) THE READ PATHS
+
+Read as the SIGNED-IN USER (15 sites, all `supabase.from('user_roles')`):
+`src/hooks/useAuth.tsx:148` (the one that decides roles and therefore the
+portal), `src/pages/staff/PipelineDashboard.tsx:1053`,
+`src/pages/dispatch/DispatchPortal.tsx:966`,
+`src/pages/dispatch/DispatchBoardPage.tsx:147`,
+`src/pages/dispatch/LoadsListPage.tsx:168`, `src/lib/loadDetail.ts:384`,
+`src/pages/management/OwnershipTransferPage.tsx:78`,
+`src/components/management/DemoAccountsPanel.tsx:85`,
+`src/components/management/DeactivationWizardContent.tsx:1044`,
+`src/components/messaging/ManageGroupModal.tsx:176`,
+`src/components/messaging/NewDirectMessageModal.tsx:49`,
+`src/components/staff/AssignNotificationModal.tsx:56`,
+`src/components/service-library/HelpRequestModal.tsx:44`,
+`src/components/inspection/InspectionComplianceSummary.tsx:400`,
+`src/hooks/useStaffBirthdayAnniversaryEvents.ts:154`. Every row these read
+already satisfies the new predicate — that is what (a) proved — so the rule
+filters nothing.
+
+Read through a DEFINER function: **22 functions, all `prosecdef = t`, all owned
+by `postgres`**, which is the table's own owner, and `user_roles` does NOT force
+row level security (`relforcerowsecurity = f`), so RLS is not applied to them at
+all: `assign_user_role`, `bootstrap_assign_owner`, `count_unused_resume_tokens`,
+`get_staff_contact_info`, `get_thread_participants`, `has_role`, `is_staff`,
+`list_driver_contacts`, `log_notification_delivery_failure`,
+`notify_on_truck_down`, `notify_operators_on_fleet_share`,
+`notify_owner_on_pay_setup_submitted`, `notify_staff_on_osas_signed`,
+`notify_staff_on_release_note`, `notify_staff_on_return_receipt`,
+`raise_eld_sync_alert`, `record_revoked_list_check`, `record_rods_divergence`,
+`record_rods_unlock`, `remove_user_role`, `submit_accessorial_adjustment`,
+`transfer_owner`. Live facts, quoted:
+
+```
+ definer | invoker
+---------+---------
+      22 |       0
+```
+```
+ relname    | relrowsecurity | relforcerowsecurity | relowner
+ user_roles | t              | f                   | postgres
+```
+
+Worth stating: `has_role()` and `is_staff()` ALREADY compared
+`ur.company_id = public.current_company_id()` (with a named `service_role`
+escape) before this pass. The new policy therefore adds a second line of
+defence on the client read path, not a new rule to the role checks.
+
+Edge functions read the table 63 times, all through the service-role admin
+client, which RLS does not apply to.
+
+### (c) THE UNDO, written before the change
+
+```sql
+DROP POLICY tenant_isolation ON public.user_roles;
+```
+
+Runnable in this same pass through the migration tool (`CREATE`/`DROP POLICY` is
+DDL, not a breaking change). It was NOT needed: nothing regressed.
+
+### (d) BEFORE and AFTER — five real sessions, one sign-in each
+
+Captured in a headless browser against the running app: the session restored to
+`localStorage`, `/dashboard` opened, the roles read exactly as `useAuth` reads
+them, and the rendered portal recorded from the page itself.
+
+| identity | roles (session) | rows | lands on | after |
+|---|---|---|---|---|
+| Marcus Mueller (owner) | dispatcher, management, onboarding_staff, operator, owner | 5 | `/dashboard` → Management portal | IDENTICAL |
+| Leo Wallace (dispatcher) | dispatcher | 1 | `/dashboard` → Dispatch portal | IDENTICAL |
+| **Mae Lauron** | **management, onboarding_staff** | **2** | `/dashboard` → Management portal | **IDENTICAL — both roles survived** |
+| Steve Figueroa (operator) | operator | 1 | `/operator/home` | IDENTICAL |
+| Donald Alleyne (truck owner) | truck_owner | 1 | `/operator/home` | IDENTICAL |
+
+No read error on any identity (`error: null` in all five, before and after). The
+rendered navigation was compared as text, not just the URL: Leo's Dispatch rail
+("Dispatch Board | Driver Status | Loads | Rate Con Inbox | 3 | Facilities …"),
+Mae's and Marcus's Management rail ("Overview | Messages | RECRUITING |
+Applications | Onboarding Pipeline | 34 | PEI Q …"), Steve's and Donald's driver
+rail ("Home | Status | Upload Docs …") — all byte-identical before and after.
+
+### (e) PROBES — inside a transaction that raises, per the widened probe rule
+
+Stated up front, as the last two passes did: **the move-to-another-company
+refusal is NOT demonstrable here.** `aa_stamp_tenant_company_id` is BEFORE
+INSERT and rewrites `company_id` before the policy is evaluated, the psql role is
+denied UPDATE on the table, and only one carrier exists.
+
+```
+NOTICE:  blank insert stamped: 6b54d0e6-8743-4284-b55b-8cd094b093dd  matches real carrier: t
+NOTICE:  spoofed insert stored: 6b54d0e6-8743-4284-b55b-8cd094b093dd  matches real carrier: t
+ERROR:  PROBE ROLLBACK -- nothing committed
+```
+
+Residue afterwards: `185` rows, `0` carrying any company other than the real
+one. Two false starts recorded rather than hidden: the first probe called
+`current_company_id()` directly and got `permission denied for function
+current_company_id` (the sandbox role may not execute it), and the second used a
+random uuid as `user_id` and hit `user_roles_user_id_fkey`.
+
+### (f) GUARD
+
+`src/test/tenancy-resolver.test.ts`. Failed first on the stale entry, quoted:
+
+```
++   "user_roles: declared pending but already carries a restrictive policy",
+ ❯ src/test/tenancy-resolver.test.ts:2268:56
+```
+
+`user_roles` moved into `RESTRICTIVE_DONE` with the reasoning attached;
+`PENDING_RESTRICTIVE` is now `[] as const`. **An empty pending list does not make
+the guard vacuous**, and the old `expect(PENDING_RESTRICTIVE.length).toBeGreaterThan(0)`
+line — which would now fail forever — was replaced by a check that the DONE list
+has not been emptied or truncated relative to the LIVE inventory. Coverage
+itself has always been asserted against the live catalogue, not the list:
+`undeclared` fails for any `company_id` table absent from both lists, and
+`restrictiveShapeProblems` fails with "no restrictive policy" for any DONE table
+whose policy disappears. Demonstrated by removing `'brokers'` from the DONE list
+and running it live:
+
+```
+AssertionError: the DONE list shrank below the live inventory — it was lost or truncated: expected 158 to be greater than or equal to 159
+ ❯ src/test/tenancy-resolver.test.ts:2258:8
+```
+
+Restored byte-identical (`diff` clean) and green: **125 passed** (one
+`onTaskUpdate` reporter timeout, not an assertion).
+
+Live totals after: **719 policies in `public`, 159 RESTRICTIVE**, linter **170**
+(unchanged, no new finding type).
+
+---
+
+## 2026-09-18 1830 UTC — THE RESTRICTIVE ROLLOUT IS COMPLETE
+
+Every company-bearing table in `public` now carries the same restrictive
+`tenant_isolation` policy: **159 tables**, over **8 passes** — the pilot four
+(2026-09-16), the ELD/RODS ten (`0003`), batch 1 and the twelve unstamped
+(`0005`/`0006`), the MONEY batch of 21 (`0007`), SHARE LINKS + settings (`0009`),
+the LIVE-UPDATING batch of 19 (`0010`), `contractor_pay_setup` (`0011`) and
+`user_roles` (`0012`). `company_members` is permanently exempt — the resolver
+reads it, so a restrictive company predicate on it would be circular. Live
+totals: 719 policies, 159 restrictive, linter 170. No real session lost a single
+row in any pass, and no screen figure changed.
+
+**Three gaps remain, and none of them is closed by this rollout:**
+
+1. **CROSS-CARRIER REFUSAL HAS NEVER BEEN DEMONSTRATED.** One
+   `carrier_profile` row exists. What IS proven: the policy is present and
+   exactly shaped on every table, it costs the existing carrier nothing, and the
+   stamp triggers overwrite a spoofed `company_id` before the policy is
+   evaluated. What is NOT proven: that a second carrier's rows would be hidden.
+   Structural until carrier #2 exists — see the PREREQUISITES list.
+2. **Two money immutability triggers have never been observed refusing
+   anything** — `enforce_remittance_immutability` (zero `factoring_remittances`
+   rows) and `enforce_accessorial_adjustment_immutability` (no permissive UPDATE
+   policy admits any of the five identities, so an update is a zero-row no-op
+   and the trigger never reaches its check). Both enabled.
+3. **Eight screens subscribe to tables the database never publishes**
+   (`dispatch_status_history`, `driver_uploads`, `equipment_assignments`,
+   `inspection_documents`, `onboard_assignment_sheets`, `operators`,
+   `passenger_authorizations`, `truck_dot_inspections`) — silently delivering
+   nothing, long before this rollout and unaffected by it.
