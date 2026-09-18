@@ -64,6 +64,13 @@
       "when": 1789683838756,
       "tag": "0008_grant_parity_report_execute_to_harness_role",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1789687252326,
+      "tag": "0009_restrictive_tenant_policy_share_links_and_settings",
+      "breakpoints": true
     }
   ]
 }

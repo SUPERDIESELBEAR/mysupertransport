@@ -2149,6 +2149,19 @@ const RESTRICTIVE_DONE = [
   'settlements', 'settlement_line_items', 'settlement_withheld_loads',
   'dispatch_settlements', 'dispatch_settlement_line_items', 'deductions',
   'deduction_installments', 'load_charges', 'inspection_program_payments',
+  // SHARE LINKS (5) and SMALL SETTINGS (2), 2026-09-17, migration
+  // 0009_restrictive_tenant_policy_share_links_and_settings.sql. Every
+  // signed-out path into the share-link tables runs through a SECURITY DEFINER
+  // function (`resolve_short_link`, `get_ica_review_link`,
+  // `resolve_share_bundle` / `get_share_bundle_meta`) or an edge function
+  // holding service_role, so a RESTRICTIVE ... TO authenticated policy cannot
+  // reach an anonymous visitor. Verified live before and after: every
+  // signed-out link rendered identically. `contractor_pay_setup` was
+  // deliberately NOT included — it is driver pay data read on the driver's own
+  // pay screens and gets the money-batch treatment in its own pass.
+  'document_short_links', 'officer_packet_links', 'ica_review_links',
+  'binder_share_bundles', 'preview_sessions', 'inspection_program_settings',
+  'message_notification_throttle',
 ] as const;
 
 /**
@@ -2158,20 +2171,18 @@ const RESTRICTIVE_DONE = [
  * lists fails as undeclared. Batches empty this list.
  */
 const PENDING_RESTRICTIVE = [
-  'binder_share_bundles',
-  'contractor_pay_setup', 'dispatch_status_history', 'document_short_links',
+  'contractor_pay_setup', 'dispatch_status_history',
   'driver_uploads',
   'equipment_assignments',
   'forecast_deductions', 'forecast_expenses', 'forecast_loads',
   'ica_contracts',
-  'ica_review_links', 'inspection_documents',
-  'inspection_program_settings',
+  'inspection_documents',
   'loads',
-  'message_notification_throttle', 'message_reactions',
-  'messages', 'notifications', 'officer_packet_links',
+  'message_reactions',
+  'messages', 'notifications',
   'onboard_assignment_sheets', 'onboarding_status', 'operator_documents',
   'operators',
-  'passenger_authorizations', 'preview_sessions',
+  'passenger_authorizations',
   'rate_con_ingest_queue',
   'truck_dot_inspections',
   'user_roles',
