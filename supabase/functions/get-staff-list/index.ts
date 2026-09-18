@@ -162,12 +162,29 @@ Deno.serve(async (req) => {
 
       // ── Delete user ──────────────────────────────────────────────────
       if (action === 'delete_user') {
+        // Permanent deletion is owner-only, enforced here and not by hiding the
+        // button (decisions P1 and P8). Same shape as
+        // delete-user-account/index.ts:44-53.
+        const { data: ownerCheck } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', callerUser.id)
+          .eq('role', 'owner')
+          .limit(1);
+
+        if (!ownerCheck || ownerCheck.length === 0) {
+          return new Response(JSON.stringify({ error: 'Only the owner can delete accounts' }), {
+            status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         // Cannot delete yourself
         if (user_id === callerUser.id) {
           return new Response(JSON.stringify({ error: 'Cannot delete your own account' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
 
         // Delete from auth (cascades to profiles via trigger, but we clean up manually too)
         const { error: deleteErr } = await supabaseAdmin.auth.admin.deleteUser(user_id);
