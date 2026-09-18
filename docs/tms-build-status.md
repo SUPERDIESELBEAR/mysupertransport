@@ -18021,3 +18021,46 @@ one remaining failure again a `psql` call in
 ("Successfully deployed edge functions: get-staff-list") and, more to the point,
 by the live 403/200 pair in (c) — the new message could only come from the
 deployed build.
+
+## 2026-09-18 2103 UTC — the eight "no caller required" functions: STOPPED, the queue was wrong
+
+BUILD MODE. The pass was to close the eight edge functions the 2030 queue named
+as requiring no caller at all. **Nothing was changed.** The prompt's own
+instruction — stop and report if anything contradicts the live system or the
+record — applies: all eight already require an authenticated caller, and seven
+require a named staff role.
+
+Seven call `requireStaff` with explicit roles (`purge-rods-day` and
+`sweep-rods-orphans` management/owner; `delete-osas-sheet`,
+`send-equipment-return-instructions` and `send-osas-to-operator`
+management/onboarding_staff/owner; `send-ica-review-link` those three plus
+dispatcher; `set-demo-flag` management/owner). `file-executed-ica` calls
+`requireAuthedUser` and then proves the caller is the driver or the linked truck
+owner for that unit. `requireStaff`
+(`supabase/functions/_shared/email/auth.ts:88-140`) returns 401 with no bearer
+token, 401 on a bad token, 403 when `user_roles` yields none of the named roles.
+
+Proof, live, publishable key and no session, `POST` with body `{}`: all eight
+returned `401 {"error":"Unauthorized: missing bearer token","status":401}`. The
+mail ones refuse before the body is read, so no mail was sent and no target
+needed making safe; the destructive ones never reach a row, so no probe row was
+created and no cleanup is owed.
+
+None of the eight is scheduled — no `pg_cron` job and no `CRON_SECRET` path in
+any of them. `purge-deleted-operator-documents`, the ninth name on that queue
+line, is the one that does carry `x-cron-secret`/`CRON_SECRET`
+(`index.ts:9,16,20`); it is untouched and stays in the queue.
+
+**Why the queue was wrong:** the 2030 Step 5 method grepped each function's own
+text for `'role'`, `has_role`, `is_staff` and `Authorization`, and did not follow
+the `_shared/email` import where the gate lives. This does not affect the 2030
+fix itself — `get-staff-list`'s `delete_user` branch was demonstrated open on
+live infrastructure and demonstrated closed after, not inferred — and stays
+closed.
+
+**Still owed:** the fifteen "any signed-in session" functions came from the same
+method and were NOT re-checked. Each needs the import followed before it is fixed
+or dismissed. That is the next pass.
+
+No function changed, so no deployment and no suite run; documentation only.
+Full report: `docs/passes/2026-09-18-2103-unauthenticated-functions-closed.md`.
