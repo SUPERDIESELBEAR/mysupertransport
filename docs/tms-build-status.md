@@ -17658,3 +17658,103 @@ row in any pass, and no screen figure changed.
    `inspection_documents`, `onboard_assignment_sheets`, `operators`,
    `passenger_authorizations`, `truck_dot_inspections`) — silently delivering
    nothing, long before this rollout and unaffected by it.
+
+---
+
+## 2026-09-18 1927 UTC — why Mae could not see the Birthday field (read-only investigation)
+
+Docs only. **No migration, no code change, no data change, and the full suite was
+deliberately SKIPPED — this pass touched documentation alone.**
+
+### (a) The finding, stated first
+
+**There is NO permissions gate on the Birthday block, front or back.** The
+difference the owner saw was the BUILD Mae's browser was running, not her
+permissions.
+
+### (b) Step 1 — every condition that could hide the block
+
+`src/components/management/staff-directory/StaffMemberPanel.tsx:631-723` — the
+Birthday block is a plain `<div>` inside the panel body. Its only conditional is
+`{birthdayEditActive ? ( … editor … ) : ( … read row … )}` (line 637), local
+component state initialised `useState(false)` at line 39. There is no role, no
+`isOwner`, no permission, and no feature-flag condition anywhere in the block.
+
+`isOwner` is used EXACTLY ONCE in the whole panel — line 936, wrapping the
+delete section. Caller props, `src/components/management/StaffDirectory.tsx:363-371`:
+`member`, `currentUserId`, `isOwner={isOwner}`, `accessToken`, `onClose`,
+`onMemberChange`, `onMemberDeleted`. Nothing about birthdays is passed at all.
+
+Server, `supabase/functions/get-staff-list/index.ts`: the caller check at the top
+(lines 44-54) accepts `['management', 'owner']` —
+
+```ts
+.in('role', ['management', 'owner'])
+…
+if (!roleCheck?.length) return 403 'Forbidden: management only'
+```
+
+The `update_birthday` branch (lines 298-344) validates month and day, writes
+`profiles.birth_month` / `birth_day`, and writes an audit row. **It contains no
+owner check of any kind.** The list response selects `birth_month, birth_day`
+(line 495) and returns them for every member (526-527) with no role filter.
+
+### (c) Step 2 — reproduced in the preview, one sign-in each
+
+Settings → Staff Directory (`/management?view=staff`), searched "erika",
+opened Erika Iroma's Manage-access panel.
+
+| identity | BIRTHDAY block | "Month and day only" | "No birthday on file" | Suspend | Send Password Reset | Delete ("Owner only") |
+|---|---|---|---|---|---|---|
+| Mae Lauron (management + onboarding_staff) | **PRESENT** | yes | yes | yes | yes | **absent — expected** |
+| Marcus Mueller (owner) | **PRESENT** | yes | yes | yes | yes | present |
+
+Mae's captured panel text, verbatim:
+
+```
+Edit
+
+BIRTHDAY
+
+Month and day only
+No birthday on file
+Edit
+
+EMAIL ADDRESS
+```
+
+**No edit was attempted.** Saving would write to Erika Iroma's real profile row,
+and the standing probe rule (2026-09-17, widened) forbids writing to a real row
+of any table outside a transaction that raises. The edge function branch quoted
+in (b) is the whole of the save path and it has no owner gate, so nothing about
+permissions is left in doubt. Recorded as deliberately not done, not as done.
+
+### (d) Step 3 — which build, and what the published app contains
+
+- The birthday editor entered the staff panel on **2026-09-07** (commit
+  `6ce06558a`, found with `git log -S "No birthday on file"` on
+  `StaffMemberPanel.tsx`; last touched 2026-09-12, `6a95fcb55`).
+- Published build: `https://gosuperdrive.com/version.json` → `{"version":
+  "32315a", "buildTime": "2026-09-15T12:15:41.921Z"}`. (`mysupertransport.lovable.app`
+  answers `302` and serves nothing directly; the custom domain is the live one.)
+- **The published bundle DOES contain the editor.** Determined by downloading
+  `assets/index-CTO9S0hM.js` from the live site, walking its lazy chunks, and
+  finding the strings in `assets/ManagementPortal-Dd_uE5D_.js` — including
+  `"No birthday on file"` and `"Month and day only"`, with the surrounding code
+  showing the same unconditional `<div>`, no role test.
+- Preview at the time of this pass: `v.36335a`, built 2026-09-18T18:29Z.
+
+So the field is in the code (since 2026-09-07), in the preview (verified for
+both identities today), and in the live published build (2026-09-15). The only
+remaining explanation for a panel WITHOUT it is a stale copy of the app in the
+browser Mae was using — an older bundle held by the browser or by a previously
+registered service worker. `public/service-worker.js` is a one-release cleanup
+worker that unregisters itself and `useVersionCheck` polls `/version.json`, so a
+reload clears it; a page kept open across a deploy would not update itself.
+
+### (e) What remains open
+
+Nothing to build. One line added to the OWNER FOLLOW-UP LIST: confirm the field
+appears for Mae after a hard reload of the published app. If it does NOT, this
+finding is wrong and the next pass should capture her browser's `version.json`
+and bundle hash before anything else.
