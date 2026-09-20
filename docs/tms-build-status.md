@@ -18064,3 +18064,60 @@ or dismissed. That is the next pass.
 
 No function changed, so no deployment and no suite run; documentation only.
 Full report: `docs/passes/2026-09-18-2103-unauthenticated-functions-closed.md`.
+
+## 2026-09-18 2155 UTC — the fifteen re-checked with imports followed: five need no session at all
+
+READ-ONLY pass. Docs only; full suite deliberately SKIPPED.
+
+**The Step 5 queue (2030) and its 2103 correction were both still wrong about
+these fifteen.** Following the `_shared/email` import AND reading
+`supabase/config.toml` changes the answer for eleven of them:
+
+| Function | Real gate (file:line) | Who can call it today |
+|---|---|---|
+| `decrypt-ssn` | `has_role(..., 'management')` `index.ts:57-60` | management (owner excluded) |
+| `encrypt-ssn` | header presence only, `verify_jwt=false` `config.toml:14` | **anyone, no session** |
+| `export-retention-archive` | `requireStaff(['management','owner'])` `index.ts:81` | management, owner |
+| `purge-deleted-operator-documents` | cron secret / service key `index.ts:16-31` | cron only |
+| `reset-demo-driver` | `requireStaff(['management','owner'])` `index.ts:83` | management, owner |
+| `download-qpassport` | signed expiring HMAC token `index.ts:93-116` | holder of a valid link (by design) |
+| `send-lease-termination` | `requireStaff(['owner','management'])` `index.ts:79` | owner, management |
+| `send-insurance-request` | `requireStaff(['onboarding_staff','dispatcher','management'])` `index.ts:121` | those three; **owner omitted** |
+| `send-return-receipt-pdf` | `requireStaff(4 roles)` `index.ts:65` | staff |
+| `send-release-note` | none | **anyone, no session** |
+| `send-transactional-email` | none (its own comment at `index.ts:29` claims otherwise and is false) | **anyone, no session** |
+| `send-dot-consultant-request` | `requireStaff(4 roles)` `index.ts:111` | staff |
+| `send-test-email` | none | **anyone, no session** |
+| `notify-owner-transfer` | intended `getClaims` + `from_user_id === callerId`, but the 2.45.0 client has no `auth.getClaims` — every call throws | nobody; the owner's own notice never sends |
+| `pei-auto-cadence` | none, `verify_jwt=false` `config.toml:34-35` | **anyone, no session** |
+
+**The key mistake in both earlier passes:** "requires a JWT" was treated as a
+permission. The publishable key IS a valid JWT, so a function with no auth code
+and no `verify_jwt=false` line is open to the internet, not to "any signed-in
+session".
+
+**Live proof.** One anonymous call each with the publishable key and `{}`: seven
+returned `401` from `requireStaff`, `purge-deleted-operator-documents` `401`,
+`download-qpassport` `400 Missing link token`, `notify-owner-transfer`
+`200 {"sent":false,"error":"anon.auth.getClaims is not a function"}`, and five
+were ADMITTED — `encrypt-ssn` `400 Invalid SSN`, `send-release-note`
+`400 title and body required`, `send-transactional-email`
+`400 templateName is required`, `send-test-email` `400 operator_email is
+required`, `pei-auto-cadence` `200 {"checked":19,"sent":0,"skipped":19}`. No
+second call was made to any admitted function. DISCLOSURE: `pei-auto-cadence`
+takes no arguments, so the probe RAN it — 19 requests evaluated, 19 skipped, no
+mail sent, no row changed, no GFE created.
+
+As a driver (Steve Figueroa, `operator`), all nine gated functions refused by
+role before acting. **No driver reaches another driver's data through any of the
+fifteen.** The exposure is unauthenticated, not cross-driver — and four of the
+five open ones put mail on the wire in the company's name.
+
+**P1 breaches found:** `decrypt-ssn` and `send-insurance-request` both exclude
+`owner` from their role lists.
+
+Fix order proposed, worst first, NOTHING BUILT: `send-transactional-email`,
+`send-test-email`, `pei-auto-cadence`, `send-release-note`, `encrypt-ssn`,
+`notify-owner-transfer` (broken client), then adding `owner` to the two P1
+breaches. Full report:
+`docs/passes/2026-09-18-2155-signed-in-function-recheck.md`.
