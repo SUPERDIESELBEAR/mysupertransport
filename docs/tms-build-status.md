@@ -18121,3 +18121,57 @@ Fix order proposed, worst first, NOTHING BUILT: `send-transactional-email`,
 `notify-owner-transfer` (broken client), then adding `owner` to the two P1
 breaches. Full report:
 `docs/passes/2026-09-18-2155-signed-in-function-recheck.md`.
+
+## 2026-09-20 2352 UTC — STOPPED: two of the seven fixes contradict the live system; nothing changed
+
+BUILD MODE pass halted at the contradiction rule. No function, migration, config
+or data changed. Full suite SKIPPED — no code changed.
+
+**1. `encrypt-ssn` cannot take `requireStaff`.** It is called anonymously, by
+design, from the two PUBLIC application routes: `/apply`
+(`src/pages/ApplicationForm.tsx:410`, auth = `session?.access_token ?? anonKey`)
+and `/apply/ssn` (`src/pages/SubmitSSN.tsx:67`, `Bearer ${anonKey}`
+hard-coded). A staff gate would break driver intake at the SSN step. Two staff
+call sites also exist (`StaffApplicationModal.tsx:100`,
+`ApplicationReviewDrawer.tsx:676`). The exposure is real but narrow — an
+encryption oracle; it returns no stored data and cannot decrypt. Owner decision
+owed: rate-limit it, bind it to the application draft/id it is already given
+(recommended), or move encryption server-side. Not a one-line gate either way.
+
+**2. The cron-secret pattern `pei-auto-cadence` was told to copy is broken in
+production.** Live `cron.job` jobid 106 `pei-auto-cadence-hourly`
+`schedule: 0 * * * *` sends only `apikey` + anon `Authorization` — no
+`x-cron-secret`. And the pattern itself fails today, three ways: (a) **no
+`CRON_SECRET` secret exists** in this project (only `ELD_CRON_SECRET`), so in all
+seven functions reading it the `cronSecret && headerSecret === cronSecret` branch
+can never pass; (b) **`app.cron_secret` is set nowhere** —
+`pg_db_role_setting` has no such entry and a live `current_setting` returns NULL,
+so `purge-deleted-operator-documents`' cron (jobid 15) sends a null secret; (c)
+`net._http_response` (≈6h retention) holds exactly two outcomes: **360 ×
+`403 Forbidden`, one per minute** 17:50-23:49 UTC — the every-minute job is
+`dispatch-scheduled-broadcasts` (jobid 13), same gate — and **6 × `200`** from
+`pei-auto-cadence` hourly (`checked 19, sent 0, skipped 19`).
+`cron.job_run_details` says "succeeded" for all of them because that records only
+that the POST was queued, never that the function accepted it — which is why this
+was invisible. Applying the requested gate would convert the only working cron in
+the group into the 361st refusal. **No person triggers `pei-auto-cadence`** (no
+caller in `src` or other functions), so only the cron path matters. The real
+repair — create `CRON_SECRET`, place it where jobs can read it, and update every
+cron command — is its own pass, and it revives jobs that are silently dead now:
+scheduled broadcasts, document purge, cert and inspection expiry, idle-operator
+notices, dispatch rollover.
+
+**The other five are verified sound and ready.** `send-transactional-email`:
+full caller census done (three staff-gated edge functions via
+`_shared/email/send.ts:50-57`, `send-passenger-auth` and `pei-auto-cadence` on
+the service key, three staff screens) — no driver caller, no direct cron caller,
+nothing breaks; internal path will be the **service-role key** rather than a new
+shared secret, since both internal callers already send it and the finding above
+shows what a new secret risks; staff path
+`['owner','management','onboarding_staff','dispatcher']` (dispatcher because
+`send-ica-review-link` admits them and forwards the JWT). `send-test-email`: one
+caller, `EmailCatalog.tsx:1013`. `send-release-note`: no caller anywhere.
+`notify-owner-transfer`: `OwnershipTransferPage.tsx:175`. Plus adding `owner` to
+`decrypt-ssn` and `send-insurance-request` per P1.
+
+Report: `docs/passes/2026-09-20-2352-unauthenticated-functions-fixed.md`.
