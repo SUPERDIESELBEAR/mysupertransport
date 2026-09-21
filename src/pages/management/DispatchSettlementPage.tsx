@@ -290,7 +290,8 @@ export default function DispatchSettlementPage() {
             </dl>
             {isVoid && (
               <p className="text-sm text-destructive">
-                Voided — {s.void_reason}. The breakdown was erased; the month can be computed fresh.
+                Voided — {s.void_reason}. The voided settlement and its full breakdown are
+                kept on file for the record, and the month can be recomputed beside it.
               </p>
             )}
             {isPaid && (
@@ -466,8 +467,9 @@ export default function DispatchSettlementPage() {
           <DialogHeader>
             <DialogTitle>Void this settlement</DialogTitle>
             <DialogDescription>
-              The stored breakdown is erased and the totals go to zero. The row stays on file
-              with the reason, and the month can be computed fresh. A reason is required.
+              The settlement and its full breakdown are kept on file for the record, marked
+              voided with your reason, and the month can then be recomputed beside it. A
+              reason is required. A settlement already marked paid cannot be voided by anyone.
             </DialogDescription>
           </DialogHeader>
           <Textarea
