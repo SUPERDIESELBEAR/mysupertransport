@@ -53,16 +53,19 @@ serve(async (req) => {
     }
     const user = { id: claimsData.claims.sub as string };
 
-    // Gate: only management role may decrypt
-    const { data: hasRole } = await supabaseAdmin.rpc('has_role', {
-      _user_id: user.id,
-      _role: 'management',
-    });
+    // Gate: management or the owner may decrypt (P1 — no gate excludes the owner)
+    const roleChecks = await Promise.all(
+      (['management', 'owner'] as const).map((role) =>
+        supabaseAdmin.rpc('has_role', { _user_id: user.id, _role: role }),
+      ),
+    );
+    const hasRole = roleChecks.some((r) => r.data === true);
     if (!hasRole) {
-      return new Response(JSON.stringify({ error: 'Forbidden: management role required' }), {
+      return new Response(JSON.stringify({ error: 'Forbidden: management or owner role required' }), {
         status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
 
     const { application_id } = await req.json();
     if (!application_id) {

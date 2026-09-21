@@ -1,5 +1,7 @@
 import { buildEmail, sendEmailStrict } from '../_shared/email-layout.ts';
 import { buildQPassportDownloadUrl } from '../_shared/qpassport-link.ts';
+import { requireStaff } from '../_shared/email/auth.ts';
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -10,8 +12,12 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
   try {
+    const auth = await requireStaff(req, { roles: ['owner', 'management'] });
+    if (auth instanceof Response) return auth;
+
     const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY');
     if (!RESEND_API_KEY) throw new Error('RESEND_API_KEY not configured');
+
 
     // Optional body: { operator_email?: string, to?: string }
     let body: { operator_email?: string; to?: string } = {};
