@@ -18750,3 +18750,75 @@ skipped (2076); Errors 2 (both sandbox worker `onTaskUpdate` timeouts). No faili
 two `definer-live-catalog` assertions on `enforce_driver_deactivation_permission` that failed
 at 14:10 now pass too. Typecheck clean.
 Report: `docs/passes/2026-09-21-1550-cleanup-2026-09-21.md`
+
+## 2026-09-21 16:44 UTC — Staff account suspension through the permissions table (slice item 5 — FIRST SLICE COMPLETE)
+
+**Every path that suspends or reinstates a staff login, mapped before any change.** Two, and
+only two:
+
+1. `supabase/functions/get-staff-list/index.ts`, actions `deactivate_user` / `reactivate_user`.
+   Gate before this pass: Bearer + `user_roles` in (`management`,`owner`). It flips
+   `profiles.account_status` with the SERVICE-ROLE client AND applies/lifts the auth ban
+   (`ban_duration: '876000h'` / `'none'`), then writes `audit_log`. Reachable from
+   `StaffMemberPanel.tsx` (`handleToggleStatus`). It refused self-suspension; it did NOT stop
+   management from suspending the OWNER.
+2. A direct PostgREST `UPDATE` of `profiles.account_status`. `"Staff can update profiles"`
+   (`is_staff`) plus `enforce_profiles_self_update` admitted ANY staff role to that column —
+   dispatchers and onboarding staff included. Nothing else writes the column: no definer
+   function does, and `delete_user` (owner-only) removes the account instead.
+
+Nothing ambiguous. `useAuth.activatePendingProfile` writes the same column for a person's own
+`pending → active` on first sign-in; it is not a suspension and is carved out explicitly.
+
+**The rule (P16-P19).** Migration `0020_staff_suspension_permission.sql`:
+`permission_actions` row `staff_account.suspend` (category `access`, kind `change`) covering
+BOTH directions; granted to `management` only and added to `seed_role_permissions` so a new
+carrier receives it (15 grants now); the owner appears in no row — P1 lives in
+`has_permission`. Trigger `aa_enforce_staff_suspension_permission` BEFORE UPDATE on
+`profiles`, firing only when `account_status` actually changes, `aa_` so it sorts first among
+the four profiles triggers. The `profiles` UPDATE policies were NOT narrowed: they serve every
+staff member's name, phone, avatar and birthday edits. Undo comment at the top of the file.
+
+**Check order, identical in the trigger and the edge function, every check before any write:**
+own account (P19) → owner target (P18) → `has_permission(caller,'staff_account.suspend')`
+(P17). All three `RAISE`/return plain messages.
+
+**One defect caught before shipping.** The first deployment asked `has_permission` through the
+SERVICE-ROLE client. `has_permission` resolves the company via `current_company_id()`, which is
+NULL without a JWT, so it answered `false` for everyone but the owner — Mae was refused her own
+grant. The function now asks through a client carrying the CALLER's JWT (`supabaseCaller`),
+which is what design (d) means by the caller's own identity. Guarded by a repo test.
+
+**Proofs, live sessions, throwaway account `d70b4d70` created and removed in this pass:**
+- Mae (management) suspends it: `200 {"success":true}`; `account_status = inactive`; sign-in
+  `400 user_banned`. Reinstates: `200`; `active`; sign-in `200`.
+- Leo (dispatcher) via the function: `403 Forbidden: management only`. Leo via the DIRECT
+  database path: `403 42501 "Not authorized to change a staff account status. Suspending or
+  reinstating a staff login is limited to management and the owner."` Status unchanged both times.
+- Mae → Marcus (owner): `403 "Only the owner can suspend or reinstate the owner account."`,
+  refused before any write; Marcus still `active`.
+- Mae → herself: `400 "You cannot change your own account status."`; still `active`.
+- Marcus (owner) suspends: `200`, `inactive`, sign-in `400 user_banned`; reinstates: `200`,
+  `active`, sign-in `200`.
+- No real staff account was suspended, even briefly. Cleanup: `user_roles` 204, `profiles` 204,
+  `company_members` 204, auth user 200; residue `[]`, `[]`, `[]`, and `404 user_not_found`.
+
+**The screen.** `StaffMemberPanel.tsx` already hides the suspend control when
+`member.user_id !== currentUserId && !member.roles.includes('owner')` is false — so Mae sees no
+suspend button on Marcus's card nor on her own, matching P18/P19 rather than relying on them.
+A refused attempt surfaces the server's own sentence in a destructive toast
+(`if (data?.error) throw new Error(data.error)`), not a blank failure.
+
+**FIRST SLICE COMPLETE.** All five actions are enforced in the database or in a gated function:
+account deletion (owner), lease termination, company-document sending, driver deactivation, and
+staff suspension. No sensitive action is protected by the screen alone. Next, per the design's
+Step 5 and not yet reached: settlement approval and voiding, invoice issue and void, accessorial
+approval, fuel-import commit, rate/policy changes, and per-person exceptions in day-to-day use.
+
+**Suite** `--maxWorkers=4`: Test Files 207 passed | 2 skipped (209); Tests 2069 passed | 16
+skipped (2085); Errors 2 (sandbox worker `onTaskUpdate` timeouts). A first run at the same
+setting reported 283 failures, every one a `psql` spawn under pooler contention; they pass
+serially and on the clean re-run. Typecheck clean. `get-staff-list` deployed twice and
+confirmed by the refusals and acceptances above — the second deployment is the one whose
+behaviour is quoted.
+Report: `docs/passes/2026-09-21-1644-staff-suspension-permission.md`
