@@ -11256,6 +11256,7 @@ export type Database = {
           id: string
           invited_by: string | null
           is_demo: boolean
+          is_test_account: boolean
           last_name: string | null
           phone: string | null
           updated_at: string
@@ -11273,6 +11274,7 @@ export type Database = {
           id?: string
           invited_by?: string | null
           is_demo?: boolean
+          is_test_account?: boolean
           last_name?: string | null
           phone?: string | null
           updated_at?: string
@@ -11290,6 +11292,7 @@ export type Database = {
           id?: string
           invited_by?: string | null
           is_demo?: boolean
+          is_test_account?: boolean
           last_name?: string | null
           phone?: string | null
           updated_at?: string
