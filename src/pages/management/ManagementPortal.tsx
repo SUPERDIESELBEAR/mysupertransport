@@ -834,7 +834,7 @@ export default function ManagementPortal() {
     } else {
       query = query
         .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null')
-        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
+        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied' | 'archived');
     }
 
     const { data } = await query;
@@ -1025,6 +1025,81 @@ export default function ManagementPortal() {
     } catch (err: unknown) {
       toast({
         title: 'Denial Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  /**
+   * Set an application aside. Deliberately a direct table update, NOT the
+   * deny-application function: archiving must never mail the applicant, because
+   * he has not been turned down and may be hired later.
+   * Who may do this: the same staff who can deny today — enforcement is the
+   * `is_staff(auth.uid())` UPDATE policy on public.applications.
+   * Undo: delete handleArchive/handleUnarchive and the Archived tab.
+   */
+  const handleArchive = async (appId: string, notes: string) => {
+    try {
+      const patch: Record<string, unknown> = {
+        review_status: 'archived',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: session?.user?.id ?? null,
+      };
+      if (notes?.trim()) patch.reviewer_notes = notes.trim();
+
+      const { error } = await supabase
+        .from('applications')
+        .update(patch as never)
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        action: 'application_archived',
+        entity_type: 'application',
+        entity_id: appId,
+        actor_id: session?.user?.id ?? null,
+        metadata: { reason: notes?.trim() || null },
+      });
+
+      toast({ title: 'Application archived', description: 'Set aside — no email was sent.' });
+      setSelectedApp(null);
+      await Promise.all([fetchApplications(), fetchMetrics()]);
+    } catch (err: unknown) {
+      toast({
+        title: 'Archive failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  /** Move an archived application back out: to Pending (no email), or hand it to the deny flow. */
+  const handleUnarchive = async (appId: string, target: 'pending' | 'denied') => {
+    if (target === 'denied') {
+      await handleDeny(appId, '');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ review_status: 'pending', reviewed_at: null, reviewed_by: null } as never)
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        action: 'application_unarchived',
+        entity_type: 'application',
+        entity_id: appId,
+        actor_id: session?.user?.id ?? null,
+      });
+
+      toast({ title: 'Back in Pending', description: 'Ready for review again — no email was sent.' });
+      setSelectedApp(null);
+      await Promise.all([fetchApplications(), fetchMetrics()]);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not move it back',
         description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
