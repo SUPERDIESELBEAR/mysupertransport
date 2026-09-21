@@ -20,6 +20,8 @@ export interface StaffMember {
   avatar_url?: string | null;
   birth_month?: number | null;
   birth_day?: number | null;
+  /** Internal test login: never assigned work, never emailed, badged as TEST. */
+  is_test_account?: boolean;
 }
 
 export const ROLE_CONFIG: Record<StaffRole, { label: string; icon: ReactNode; color: string; desc: string }> = {

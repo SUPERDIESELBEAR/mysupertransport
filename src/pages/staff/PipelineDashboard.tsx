@@ -1070,7 +1070,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
 
     const [profileResult, dispatchResult, docResult, unreadResult, icaDraftResult] = await Promise.all([
       allUserIds.length > 0
-        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status').in('user_id', allUserIds)
+        ? supabase.from('profiles').select('user_id, first_name, last_name, phone, home_state, account_status, is_test_account').in('user_id', allUserIds)
         : Promise.resolve({ data: [] }),
       operatorIds.length > 0
         ? supabase.from('active_dispatch').select('operator_id, dispatch_status').in('operator_id', operatorIds)
@@ -1127,7 +1127,8 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
     const staffMap: Record<string, StaffOption> = {};
     allStaffUserIds.forEach((uid: string) => {
       const p = profileMap[uid];
-      if (p) {
+      // Internal test logins are never offered as a coordinator.
+      if (p && p.is_test_account !== true) {
         staffMap[uid] = {
           user_id: uid,
           full_name: `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim() || uid,
