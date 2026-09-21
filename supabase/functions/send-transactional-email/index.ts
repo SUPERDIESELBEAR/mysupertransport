@@ -4,6 +4,8 @@ import { createClient } from 'npm:@supabase/supabase-js@2'
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors'
 import { TEMPLATES } from '../_shared/transactional-email-templates/registry.ts'
 import { resolveDemoRedirect, demoSubject } from '../_shared/demo-email.ts'
+import { requireStaff } from '../_shared/email/auth.ts'
+
 
 // Configuration baked in at scaffold time — do NOT change these manually.
 // To update, re-run the email domain setup flow.
@@ -26,9 +28,14 @@ function generateToken(): string {
     .join('')
 }
 
-// Auth note: this function uses verify_jwt = true in config.toml, so Supabase's
-// gateway validates the caller's JWT (anon or service_role) before the request
-// reaches this code. No in-function auth check is needed.
+// Auth: two paths, nothing else.
+//   internal — Authorization bearer equals the service-role key. Both internal
+//     callers (send-passenger-auth, pei-auto-cadence) already send exactly that,
+//     so no new shared secret exists to drift out of step.
+//   staff    — requireStaff, the roles that legitimately send mail.
+// The gateway's verify_jwt is NOT a permission: the publishable key is a valid
+// JWT, so before this gate anyone on the internet could enqueue mail.
+
 
 Deno.serve(async (req) => {
   // Handle CORS preflight
@@ -49,6 +56,20 @@ Deno.serve(async (req) => {
       }
     )
   }
+
+  // Gate. Internal callers present the service-role key; everyone else must be
+  // staff. A missing or anonymous bearer is refused here.
+  const bearer = (req.headers.get('Authorization') ?? '').startsWith('Bearer ')
+    ? (req.headers.get('Authorization') as string).slice('Bearer '.length).trim()
+    : ''
+  const isInternal = bearer.length > 0 && bearer === supabaseServiceKey
+  if (!isInternal) {
+    const auth = await requireStaff(req, {
+      roles: ['owner', 'management', 'onboarding_staff', 'dispatcher'],
+    })
+    if (auth instanceof Response) return auth
+  }
+
 
   // Parse request body
   let templateName: string

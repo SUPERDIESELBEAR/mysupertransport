@@ -3,6 +3,8 @@ import { buildEmail, sendEmail, SUPPORT_EMAIL } from '../_shared/email-layout.ts
 
 import { buildAppUrl } from '../_shared/app-url.ts';
 import { resolveEmailRecipients } from '../_shared/recipients.ts';
+import { requireStaff } from '../_shared/email/auth.ts';
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -14,6 +16,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const auth = await requireStaff(req, { roles: ['owner', 'management'] });
+    if (auth instanceof Response) return auth;
+
     const { title, body } = await req.json();
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'title and body required' }), {

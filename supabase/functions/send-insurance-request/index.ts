@@ -118,7 +118,8 @@ function buildInsuranceEmail(data: {
 }
 
 Deno.serve(withErrorEnvelope(async (req) => {
-    const auth = await requireStaff(req, { roles: ['onboarding_staff', 'dispatcher', 'management'] });
+    // P1 — the owner is never excluded from a staff gate.
+    const auth = await requireStaff(req, { roles: ['owner', 'onboarding_staff', 'dispatcher', 'management'] });
     if (auth instanceof Response) return auth;
     const { supabase, userId } = auth;
     const caller = { id: userId };
