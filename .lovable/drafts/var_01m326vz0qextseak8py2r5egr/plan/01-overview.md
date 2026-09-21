@@ -1,10 +1,10 @@
 # Multi-day absence entry, including upcoming days
 
-## What already works today
+## What already works today — past and current dates
 
-Dispatch and management can already record a reason across a stretch of days. On each driver's calendar — in both the cards view and the table view — a gold **Range** button opens a small form: From date, To date, a status (Dispatched / Home / Truck Down / Not Dispatched), one reason, and one note. Saving writes every day in that span as a single entry, and the Absence Log below reads it back as one stretch, e.g. "Sep 14 – Sep 18 · 5 days · Home Time".
+Dispatch and management can already record a reason across a stretch of days, for any dates up to today. On each driver's calendar — in both the cards view and the table view — a gold **Range** button opens a small form: From date, To date, a status (Dispatched / Home / Truck Down / Not Dispatched), one reason, and one note. Saving writes every day in that span as a single entry, and the Absence Log below reads it back as one stretch, e.g. "Sep 14 – Sep 18 · 5 days · Home Time".
 
-So the day-by-day work is not required — no change needed for that part.
+So multi-day entry for past and current dates needs no change — it is live now.
 
 ## The one real gap
 
