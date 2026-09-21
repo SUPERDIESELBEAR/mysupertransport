@@ -1814,6 +1814,16 @@ const B8_SHAPE_1 = [
  */
 const TWELVE_TENANT_STAMPED = ['fuel_import_batches'] as const;
 
+/**
+ * 2026-09-21 PERMISSIONS FOUNDATION. Both grant tables take the shared
+ * `aa_stamp_tenant_company_id` stamp, so they belong in the census below. Noted
+ * because it has a runtime consequence: a caller with no `company_members` row
+ * and no server-side company cannot insert a grant at all, which is why
+ * `seed_role_permissions()` is service_role only and must be called from a
+ * function holding the service key when a carrier is created.
+ */
+const PERMISSIONS_STAMPED = ['role_permissions', 'user_permission_exceptions'] as const;
+
 /** table -> the stamp function that must fire BEFORE INSERT OR UPDATE. */
 const TWELVE_STAMPS: readonly [string, string][] = [
   ['fuel_import_batches', 'stamp_tenant_company_id'],
