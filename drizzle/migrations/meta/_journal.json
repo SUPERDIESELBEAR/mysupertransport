@@ -176,6 +176,13 @@
       "when": 1790013179075,
       "tag": "0024_profiles_is_test_account",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1790020818859,
+      "tag": "0025_release_note_notifier_pin_and_isolate",
+      "breakpoints": true
     }
   ]
 }
