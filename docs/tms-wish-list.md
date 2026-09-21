@@ -777,3 +777,21 @@ that no amount of reading the spec had caught.
 
 NO TRIGGER. This is an idea, not an obligation.
 - STANDING RULE WIDENED 2026-09-17 2330: a verification probe never writes to a real row of ANY table outside a transaction that raises — not even as a positive "control". The share-links pass PATCHed `note = 'tenancy probe control'` onto the two `ica_review_links` rows through a real session and it committed; `note` was cleared to NULL and the original text is unrecoverable (both links expired 2026-09-16, so nothing user-facing changed). A probe needing a positive control creates its own row, as that pass's short-link probe did. (record 2026-09-17 2330 UTC — section (c))
+
+### Retention window for equipment and tax documents (2026-09-21)
+The purge window is a flat 30 days, hard-coded in
+`purge-deleted-operator-documents`, and the *Recently Deleted* tray only lists the
+same 30 days — so once a document is overdue, staff can no longer see it in the app
+to judge whether it should be kept. Two things open:
+
+- **One unreplaced file.** Of the twelve overdue tonight (see
+  `docs/passes/2026-09-21-0118-pending-document-purge.md`), eleven have a newer live
+  document of the same type. Robert Sargent's `other` document from 2026-06-03 does
+  not. Deciding whether it is wanted before it is destroyed needs a way to view an
+  overdue file, which the tray does not currently offer.
+- **Is 30 days right for these types?** `truck_title`, `registration` and `form_2290`
+  are longer-lived records than a 30-day recovery window assumes. If the owner wants
+  a different window for them, the cutoff has to become a setting rather than a
+  constant.
+
+NO TRIGGER. Owner's decision.
