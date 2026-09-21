@@ -29,6 +29,7 @@ import { ToastAction } from '@/components/ui/toast';
 import { formatDistanceToNow } from 'date-fns';
 import DriverHubView from '@/components/drivers/DriverHubView';
 import MiniDispatchCalendar from '@/components/dispatch/MiniDispatchCalendar';
+import AbsenceLogPanel from '@/components/dispatch/AbsenceLogPanel';
 import DriverHistoryDownloadPopover from '@/components/dispatch/DriverHistoryDownloadPopover';
 import OperatorInspectionBinder from '@/components/inspection/OperatorInspectionBinder';
 import DecalPhotoViewerModal from '@/components/fleet/DecalPhotoViewerModal';
@@ -221,6 +222,12 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const [unreadPerOperator, setUnreadPerOperator] = useState<Record<string, number>>({});
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [historyMap, setHistoryMap] = useState<Record<string, StatusHistoryEntry[]>>({});
+  // Per-operator refresh counter: the calendar bumps it after writing a day so
+  // the open Absence Log re-reads without a page reload.
+  const [absenceRefresh, setAbsenceRefresh] = useState<Record<string, number>>({});
+  const bumpAbsenceLog = useCallback((operatorId: string) => {
+    setAbsenceRefresh(p => ({ ...p, [operatorId]: (p[operatorId] ?? 0) + 1 }));
+  }, []);
   const [viewMode, setViewModeState] = useState<'table' | 'cards'>(() => {
     const m = searchParams.get('mode');
     if (m === 'table' || m === 'cards') return m;
@@ -1788,8 +1795,11 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                         </div>
                       </div>
 
-                      {/* Mini calendar */}
-                      <MiniDispatchCalendar operatorId={row.operator_id} />
+                      {/* Mini calendar — reasons are entered on the day itself */}
+                      <MiniDispatchCalendar
+                        operatorId={row.operator_id}
+                        onLogChanged={() => bumpAbsenceLog(row.operator_id)}
+                      />
 
                       {/* Status select (editing) */}
                       {isEditing && (
@@ -1830,26 +1840,23 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                                 ))}
                             </SelectContent>
                           </Select>
-                          <Textarea
-                            value={editData.status_notes ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
-                            className="text-xs min-h-[52px] resize-none"
-                            placeholder="Notes…"
-                          />
+                          {/* The old free-text Notes box lived here. Reasons are
+                              now entered against a DATE on the calendar above, so
+                              they are kept instead of overwritten. */}
                         </div>
                       )}
 
-                      {/* Notes (view mode) */}
+                      {/* Today's reason, straight from the calendar entry */}
                       {!isEditing && row.status_notes && (
                         <p className="text-xs text-muted-foreground bg-muted/30 rounded-lg px-3 py-2 line-clamp-2 italic">
                           {row.status_notes}
                         </p>
                       )}
 
-                      {/* ── Status history timeline ── */}
+
+                      {/* ── Absence Log (replaces the old status-history dropdown) ── */}
                       {!isEditing && (() => {
-                        const isHistoryExpanded = expandedHistory.has(row.operator_id);
-                        const history = historyMap[row.operator_id] ?? [];
+                        const isOpen = expandedHistory.has(row.operator_id);
                         return (
                           <>
                             <button
@@ -1857,50 +1864,18 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                               className="flex items-center gap-1.5 text-[11px] text-muted-foreground hover:text-gold transition-colors w-full pt-1"
                             >
                               <Clock className="h-3 w-3 shrink-0" />
-                              <span className="font-medium">History</span>
-                              {isHistoryExpanded
+                              <span className="font-medium">Absence Log</span>
+                              {isOpen
                                 ? <ChevronUp className="h-3 w-3 ml-auto" />
                                 : <ChevronDown className="h-3 w-3 ml-auto" />
                               }
                             </button>
-                            {isHistoryExpanded && (
-                              <div className="border-t border-border pt-2 mt-1">
-                                {history.length === 0 ? (
-                                  <p className="text-[11px] text-muted-foreground pl-1">No history recorded yet.</p>
-                                ) : (
-                                  <div className="flex flex-col gap-1.5">
-                                    {history.map((entry, idx) => {
-                                      const hcfg = STATUS_CONFIG[entry.dispatch_status] ?? STATUS_CONFIG.not_dispatched;
-                                      return (
-                                        <div key={entry.id} className="flex items-start gap-2.5">
-                                          <div className="flex flex-col items-center shrink-0 mt-1">
-                                            <span className={`h-2 w-2 rounded-full ${hcfg.historyDot} ring-2 ring-background`} />
-                                            {idx < history.length - 1 && (
-                                              <span className="w-px h-4 bg-border mt-0.5" />
-                                            )}
-                                          </div>
-                                          <div className="flex flex-col gap-0.5 min-w-0 flex-1">
-                                            <div className="flex items-center gap-2 flex-wrap">
-                                              <Badge className={`${hcfg.badgeClass} text-[10px] gap-1 px-1.5 py-0 h-4`}>
-                                                {hcfg.label}
-                                              </Badge>
-                                              {entry.current_load_lane && (
-                                                <span className="text-[11px] font-mono text-muted-foreground">{entry.current_load_lane}</span>
-                                              )}
-                                              <span className="text-[10px] text-muted-foreground/60 ml-auto shrink-0">
-                                                {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
-                                              </span>
-                                            </div>
-                                            {entry.status_notes && (
-                                              <span className="text-[11px] text-muted-foreground italic truncate">{entry.status_notes}</span>
-                                            )}
-                                          </div>
-                                        </div>
-                                      );
-                                    })}
-                                  </div>
-                                )}
-                              </div>
+                            {isOpen && (
+                              <AbsenceLogPanel
+                                operatorId={row.operator_id}
+                                resolveName={id => (id ? allDispatchers[id] ?? null : null)}
+                                refreshKey={absenceRefresh[row.operator_id] ?? 0}
+                              />
                             )}
                           </>
                         );
@@ -2068,14 +2043,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden md:table-cell">Unit #</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide min-w-[220px]">Status</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden lg:table-cell">Dispatcher</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide hidden xl:table-cell">Notes</th>
                 <th className="w-40 min-w-[10rem] sticky right-0 bg-muted/40 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)]" />
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
               {loading ? (
                 <tr>
-                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
+                  <td colSpan={bulkMode ? 6 : 5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-3">
                       <div className="h-7 w-7 animate-spin rounded-full border-2 border-gold border-t-transparent" />
                       <p className="text-sm text-muted-foreground">Loading operators…</p>
@@ -2084,7 +2058,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 </tr>
               ) : filteredRows.length === 0 ? (
                 <tr>
-                  <td colSpan={bulkMode ? 7 : 6} className="text-center py-16">
+                  <td colSpan={bulkMode ? 6 : 5} className="text-center py-16">
                     <div className="flex flex-col items-center gap-2">
                       <Truck className="h-8 w-8 text-muted-foreground/30" />
                       <p className="text-sm text-muted-foreground">
@@ -2097,7 +2071,6 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                 const cfg = STATUS_CONFIG[row.dispatch_status];
                 const isEditing = editRow === row.operator_id;
                 const isHistoryExpanded = expandedHistory.has(row.operator_id);
-                const history = historyMap[row.operator_id] ?? [];
                 const fullName = `${row.first_name ?? ''} ${row.last_name ?? ''}`.trim() || '—';
                 const stickyCellBg = isEditing
                   ? 'bg-gold/[0.04]'
@@ -2154,13 +2127,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                                 </span>
                               )}
                             </div>
-                            {/* History toggle */}
+                            {/* Absence Log toggle (was the status-history toggle) */}
                             <button
                               onClick={e => { e.stopPropagation(); toggleHistory(row.operator_id); }}
                               className="flex items-center gap-1 mt-1 text-[11px] text-muted-foreground hover:text-gold transition-colors"
                             >
                               <Clock className="h-3 w-3" />
-                              History
+                              Absence Log
                               {isHistoryExpanded
                                 ? <ChevronUp className="h-3 w-3" />
                                 : <ChevronDown className="h-3 w-3" />
@@ -2259,18 +2232,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                           </span>
                         )}
                       </td>
-                      <td className="px-4 py-3 hidden xl:table-cell max-w-[220px] align-middle">
-                        {isEditing ? (
-                          <Textarea
-                            value={editData.status_notes ?? ''}
-                            onChange={e => setEditData(p => ({ ...p, status_notes: e.target.value }))}
-                            className="text-xs min-h-[56px] resize-none w-44"
-                            placeholder="Notes…"
-                          />
-                        ) : (
-                          <span className="text-xs text-muted-foreground line-clamp-2 block">{row.status_notes ?? <span className="opacity-40">—</span>}</span>
-                        )}
-                      </td>
+                      {/* The Notes column was removed: reasons are now dated
+                          entries in the Absence Log, opened under the name. */}
                       <td className={`px-3 py-3 text-right align-middle sticky right-0 z-10 shadow-[-2px_0_4px_-1px_rgba(0,0,0,0.05)] ${stickyCellBg}`}>
                         {isEditing ? (
                           <div className="flex gap-1 justify-end items-center flex-nowrap">
@@ -2377,48 +2340,15 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                       </td>
                     </tr>
 
-                    {/* Status history expansion row */}
+                    {/* Absence Log expansion row */}
                     {isHistoryExpanded && (
-                      <tr key={`${row.operator_id}-history`} className="bg-muted/20">
-                        <td colSpan={bulkMode ? 7 : 6} className="px-6 py-3">
-                          <div className="flex items-start gap-2 mb-2">
-                            <Clock className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                            <p className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide">Last 3 Status Changes</p>
-                          </div>
-                          {history.length === 0 ? (
-                            <p className="text-xs text-muted-foreground pl-5">No history recorded yet.</p>
-                          ) : (
-                            <div className="pl-5 flex flex-col gap-2">
-                              {history.map((entry, idx) => {
-                                const hcfg = STATUS_CONFIG[entry.dispatch_status] ?? STATUS_CONFIG.not_dispatched;
-                                return (
-                                  <div key={entry.id} className="flex items-start gap-3">
-                                    {/* Timeline dot + line */}
-                                    <div className="flex flex-col items-center shrink-0 mt-1">
-                                      <span className={`h-2 w-2 rounded-full ${hcfg.historyDot} ring-2 ring-background`} />
-                                      {idx < history.length - 1 && (
-                                        <span className="w-px h-4 bg-border mt-0.5" />
-                                      )}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 min-w-0">
-                                      <Badge className={`${hcfg.badgeClass} text-[10px] gap-1 px-1.5 py-0`}>
-                                        {hcfg.label}
-                                      </Badge>
-                                      {entry.current_load_lane && (
-                                        <span className="text-[11px] font-mono text-muted-foreground">{entry.current_load_lane}</span>
-                                      )}
-                                      {entry.status_notes && (
-                                        <span className="text-[11px] text-muted-foreground italic truncate max-w-[240px]">{entry.status_notes}</span>
-                                      )}
-                                      <span className="text-[11px] text-muted-foreground/60 shrink-0">
-                                        {formatDistanceToNow(new Date(entry.changed_at), { addSuffix: true })}
-                                      </span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          )}
+                      <tr key={`${row.operator_id}-absence`} className="bg-muted/20">
+                        <td colSpan={bulkMode ? 6 : 5} className="px-6 py-3">
+                          <AbsenceLogPanel
+                            operatorId={row.operator_id}
+                            resolveName={id => (id ? allDispatchers[id] ?? null : null)}
+                            refreshKey={absenceRefresh[row.operator_id] ?? 0}
+                          />
                         </td>
                       </tr>
                     )}

@@ -1,0 +1,48 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .bx { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .zn { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .acc { fill: var(--bg-accent-translucent); stroke: none; }
+    .accink { fill: var(--fg-accent); font-size: 12px; font-family: var(--font-sans); }
+  </style>
+  <defs>
+    <marker id="a" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <rect class="zn" x="8" y="8" width="300" height="130" rx="8"/>
+  <text class="sm" x="20" y="28">today — reason picker locked</text>
+  <rect class="bx" x="28" y="40" width="120" height="44" rx="8"/>
+  <text class="lbl" x="88" y="67" text-anchor="middle">Set status</text>
+  <line class="wire" x1="148" y1="62" x2="196" y2="62" marker-end="url(#a)"/>
+  <rect class="bx" x="196" y="40" width="96" height="44" rx="8"/>
+  <text class="lbl" x="244" y="67" text-anchor="middle">Saved</text>
+  <text class="sm" x="28" y="108">Reason + note greyed out</text>
+  <text class="sm" x="28" y="126">Colours and counters work</text>
+
+  <rect class="acc" x="332" y="8" width="300" height="130" rx="8"/>
+  <text class="accink" x="344" y="28">after you accept — full log</text>
+  <rect class="bx" x="352" y="40" width="112" height="44" rx="8"/>
+  <text class="lbl" x="408" y="67" text-anchor="middle">Status</text>
+  <line class="wire" x1="464" y1="62" x2="500" y2="62" marker-end="url(#a)"/>
+  <rect class="bx" x="500" y="40" width="112" height="44" rx="8"/>
+  <text class="lbl" x="556" y="61" text-anchor="middle">Reason</text>
+  <text class="sm" x="556" y="76" text-anchor="middle">+ note</text>
+  <text class="sm" x="352" y="108">Kept per day, with who and when</text>
+  <text class="sm" x="352" y="126">Never overwritten</text>
+
+  <line class="wire" x1="170" y1="150" x2="170" y2="176" marker-end="url(#a)"/>
+  <line class="wire" x1="470" y1="150" x2="470" y2="176" marker-end="url(#a)"/>
+
+  <rect class="bx" x="28" y="180" width="584" height="100" rx="8"/>
+  <text class="lbl" x="44" y="204">Absence Log — reads back as a time log</text>
+  <line x1="44" y1="218" x2="596" y2="218" stroke="var(--border-translucent)"/>
+  <text class="mono" x="44" y="240">Sep 8 – Sep 12   5 days   Truck Down   "waiting on injector"</text>
+  <text class="mono" x="44" y="262">Sep 2 – Sep 3    2 days   Home Time</text>
+</svg>

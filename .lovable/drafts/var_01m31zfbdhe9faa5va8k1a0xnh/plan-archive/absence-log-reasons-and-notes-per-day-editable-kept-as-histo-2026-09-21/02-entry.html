@@ -1,0 +1,75 @@
+<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+    .bx { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .surf { fill: var(--bg-secondary); stroke: var(--fg-secondary); stroke-width: 1; }
+    .zn { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .wire { stroke: var(--fg-secondary); stroke-width: 1; fill: none; }
+    .greek { fill: var(--border-translucent); }
+    .btn { fill: var(--bg-accent); }
+    .btntx { fill: var(--fg-emphasis); font-size: 12px; font-family: var(--font-sans); }
+  </style>
+  <defs>
+    <marker id="a2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto">
+      <path d="M0 0 L8 4 L0 8 z" fill="var(--fg-secondary)"/>
+    </marker>
+  </defs>
+
+  <!-- day popover -->
+  <text class="sm" x="16" y="18">day popover on the calendar</text>
+  <rect class="surf" x="16" y="28" width="212" height="182" rx="8"/>
+  <text class="lbl" x="32" y="50">Sep 8</text>
+  <rect class="bx" x="32" y="62" width="58" height="22" rx="8"/>
+  <text class="sm" x="61" y="77" text-anchor="middle">Home</text>
+  <rect class="bx" x="96" y="62" width="58" height="22" rx="8"/>
+  <text class="sm" x="125" y="77" text-anchor="middle">Not disp.</text>
+  <rect class="bx" x="160" y="62" width="52" height="22" rx="8"/>
+  <text class="sm" x="186" y="77" text-anchor="middle">Down</text>
+
+  <rect class="bx" x="32" y="96" width="180" height="26" rx="8"/>
+  <text class="sm" x="42" y="113">Truck Down</text>
+  <text class="sm" x="200" y="113" text-anchor="end">v</text>
+
+  <rect class="bx" x="32" y="130" width="180" height="42" rx="8"/>
+  <rect class="greek" x="42" y="140" width="130" height="6" rx="3"/>
+  <rect class="greek" x="42" y="152" width="96" height="6" rx="3"/>
+  <text class="sm" x="32" y="192">comment · required for Other</text>
+
+  <!-- range tool -->
+  <text class="sm" x="252" y="18">range tool — one entry, many days</text>
+  <rect class="surf" x="252" y="28" width="196" height="182" rx="8"/>
+  <rect class="bx" x="268" y="48" width="76" height="24" rx="8"/>
+  <text class="sm" x="306" y="64" text-anchor="middle">Sep 8</text>
+  <text class="sm" x="356" y="64" text-anchor="middle">to</text>
+  <rect class="bx" x="368" y="48" width="64" height="24" rx="8"/>
+  <text class="sm" x="400" y="64" text-anchor="middle">Sep 12</text>
+  <rect class="bx" x="268" y="86" width="164" height="26" rx="8"/>
+  <text class="sm" x="278" y="103">same reason drop-down</text>
+  <rect class="bx" x="268" y="122" width="164" height="38" rx="8"/>
+  <rect class="greek" x="278" y="132" width="120" height="6" rx="3"/>
+  <rect class="btn" x="268" y="172" width="64" height="24" rx="8"/>
+  <text class="btntx" x="300" y="188" text-anchor="middle">Apply</text>
+
+  <!-- edit loop -->
+  <rect class="zn" x="470" y="28" width="156" height="182" rx="8"/>
+  <text class="sm" x="484" y="50">edit later</text>
+  <rect class="bx" x="486" y="66" width="124" height="38" rx="8"/>
+  <text class="sm" x="548" y="82" text-anchor="middle">reopen the day</text>
+  <text class="sm" x="548" y="97" text-anchor="middle">values prefilled</text>
+  <line class="wire" x1="548" y1="104" x2="548" y2="130" marker-end="url(#a2)"/>
+  <rect class="bx" x="486" y="134" width="124" height="38" rx="8"/>
+  <text class="sm" x="548" y="150" text-anchor="middle">change and save</text>
+  <text class="sm" x="548" y="165" text-anchor="middle">who + when stamped</text>
+
+  <line class="wire" x1="122" y1="212" x2="122" y2="238" marker-end="url(#a2)"/>
+  <line class="wire" x1="350" y1="212" x2="350" y2="238" marker-end="url(#a2)"/>
+  <line class="wire" x1="548" y1="212" x2="548" y2="238" marker-end="url(#a2)"/>
+
+  <rect class="bx" x="16" y="242" width="610" height="76" rx="8"/>
+  <text class="lbl" x="32" y="264">Absence Log — the historical record</text>
+  <text class="mono" x="32" y="288">Sep 8 – Sep 12   5 days   Truck Down    "waiting on injector"</text>
+  <text class="mono" x="32" y="308">Sep 2 – Sep 3    2 days   Home Time     "son's graduation"</text>
+</svg>
