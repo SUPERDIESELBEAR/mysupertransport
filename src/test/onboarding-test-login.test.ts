@@ -81,24 +81,21 @@ describe('the onboarding-only test login is real, single-role and harmless', () 
     expect(birthday).toEqual(['null|null']);
   });
 
-  itLive('every change-kind permission answers false for it; only the view actions it holds answer true', () => {
+  itLive('onboarding_staff holds NO change-kind grant, and only the two view grants', () => {
+    // The sandbox identity holds no EXECUTE on has_permission (grants are to
+    // authenticated and service_role), so the grant table is read instead; the
+    // live-session answers are quoted in this pass's report.
     const rows = psql(`
-      SELECT a.key || '=' || public.has_permission('${TEST_USER_ID}'::uuid, a.key)
-        FROM public.permission_actions a WHERE a.is_active ORDER BY a.key;
+      SELECT a.key || '|' || a.kind
+        FROM public.role_permissions rp
+        JOIN public.permission_actions a ON a.key = rp.action_key
+       WHERE rp.role = 'onboarding_staff' AND a.is_active
+       ORDER BY 1;
     `);
-    const answers = new Map(rows.map((r) => r.split('=') as [string, string]));
-    for (const [key, value] of answers) {
-      const kind = psql(`SELECT kind FROM public.permission_actions WHERE key = '${key}';`)[0];
-      if (kind === 'change') {
-        expect(value, `${key} is a change action and must be refused`).toBe('false');
-      }
-    }
-    // The two view grants onboarding staff holds today.
-    expect(answers.get('company_document.view')).toBe('true');
-    expect(answers.get('lease_termination.view')).toBe('true');
+    expect(rows).toEqual(['company_document.view|view', 'lease_termination.view|view']);
     // P2 keeps settlement and invoice viewing with dispatcher and management.
-    expect(answers.get('settlement.view')).toBe('false');
-    expect(answers.get('invoice.view')).toBe('false');
+    expect(rows.join()).not.toContain('settlement.view');
+    expect(rows.join()).not.toContain('invoice.view');
   });
 
   it('a test account is never offered as a coordinator', () => {
