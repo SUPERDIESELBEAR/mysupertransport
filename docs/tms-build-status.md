@@ -18175,3 +18175,49 @@ caller, `EmailCatalog.tsx:1013`. `send-release-note`: no caller anywhere.
 `decrypt-ssn` and `send-insurance-request` per P1.
 
 Report: `docs/passes/2026-09-20-2352-unauthenticated-functions-fixed.md`.
+
+## 2026-09-21 0019 UTC — the five sound function gates built; two deferred on purpose
+
+BUILD MODE. Six edge functions changed and deployed; no migration, no schema or
+config change. Full record and every live proof:
+`docs/passes/2026-09-21-0019-five-function-gates.md`.
+
+- `send-transactional-email` — two paths and nothing else: internal = the bearer
+  equals `SUPABASE_SERVICE_ROLE_KEY` (both internal callers already send it; no new
+  shared secret invented, deliberately, given the cron-secret finding), staff =
+  `requireStaff(['owner','management','onboarding_staff','dispatcher'])`. The false
+  comment at `index.ts:29-31` claiming `verify_jwt = true` sufficed is gone. Live:
+  `401 Unauthorized: missing bearer token` with no session, `401 invalid or expired
+  token` with the publishable key AS the bearer (the case two earlier passes
+  mis-read as authenticated), `403` for a driver, `404 Template not found` for the
+  owner — past the gate, no mail created. Of the nine census call sites, the staff
+  path is proven; **the internal path was NOT exercised** — every route to it
+  either mails a real person or needs the service-role key, which is not readable
+  on this platform.
+- `send-test-email` — `requireStaff(['owner','management'])`. Anonymous 401,
+  driver 403, owner `404 No auth user found` past the gate. OWED: the QPassport
+  link still goes to a caller-supplied address instead of only to the operator on
+  the record.
+- `send-release-note` — `requireStaff(['owner','management'])`. Anonymous 401,
+  driver 403, owner `400 title and body required`. Still has no app caller.
+- `notify-owner-transfer` — import moved to `npm:@supabase/supabase-js@2`, so
+  `auth.getClaims` exists; before this it threw on every call and the outgoing
+  owner's notice never sent. On a throwaway `pending` transfer naming two
+  throwaway accounts: the other party `403`, the real owner (not a party) `403`,
+  the outgoing party `200 {"sent":false}` — the gate fires both ways and is not a
+  staff check. The send reached the mail provider with the owner's own address and
+  was refused THERE (`Resend 422`, reserved `example.com` domain), so **delivery
+  into a real mailbox stays unproven**: the recipient is read from the account, not
+  the request, and the only recipients safe under the probe rule are the ones the
+  provider rejects. Probe row and both log rows deleted; count for that id is 0.
+- P1 breaches fixed — `owner` added to `decrypt-ssn` (now `management` OR `owner`;
+  owner admitted as far as `400 application_id required`, **no SSN decrypted, no
+  audit row written**) and to `send-insurance-request` (owner `400 operator_id
+  required`, driver `403`).
+- After-state sweep, all fifteen called anonymously post-deploy: thirteen refuse.
+  The two that do not are open by decision — `encrypt-ssn` (gating it breaks the
+  public application; owner choice owed among rate-limit / bind to the draft /
+  server-side) and `pei-auto-cadence` (the cron-secret pattern it would copy has
+  never worked; gating it would make it the 361st refusal).
+- Suite: `202 passed | 2 skipped` files, `2021 passed | 16 skipped` tests, 2
+  reporter RPC timeouts (`onTaskUpdate`), no test failure. Typecheck clean.
