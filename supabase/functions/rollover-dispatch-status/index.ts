@@ -52,7 +52,10 @@ Deno.serve(async (req) => {
     //   - excluded_from_dispatch = false (administrative hide)
     //   - is_parked = false (parked drivers are skipped, never carried forward:
     //     three weeks parked must not roll into 'dispatched' every night)
-    // and its result is one row per operator, so it cannot hit a row cap.
+    // plus, by the owner's decision of 2026-09-21:
+    //   - is_active = true and deactivated_at IS NULL — the rollover must never write a
+    //     board status for a driver who is no longer active, however new their last log.
+    // Its result is one row per operator, so it cannot hit a row cap.
     const { data: logs, error: logsErr } = await supabase
       .rpc('latest_dispatch_log_per_operator', { p_today: today });
 
