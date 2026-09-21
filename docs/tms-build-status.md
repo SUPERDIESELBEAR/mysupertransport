@@ -18258,3 +18258,36 @@ Report: `docs/passes/2026-09-21-0105-cron-secret-repair.md`.
   `process-eld-escalations` — dormant by earlier decision, not by this fault.
 - Suite: `202 passed | 2 skipped` files, `2021 passed | 16 skipped` tests, 2 reporter
   RPC timeouts (`onTaskUpdate`), no test failure. Typecheck clean.
+
+## 2026-09-21 01:18 UTC — the twelve documents due for purge tonight (read-only)
+
+Read-only pass; docs only, full suite deliberately skipped. Report:
+`docs/passes/2026-09-21-0118-pending-document-purge.md`.
+
+Live count confirms the 0105 figure: 18 soft-deleted `operator_documents` rows, **12**
+past the 30-day cutoff and eligible for job 15 at 03:15 UTC. No contradiction found.
+
+| # | Type | File | Operator (all active) | Deleted (UTC) | By | Newer same type |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | other | 17804970567309…jpg | Robert Sargent | 2026-06-11 17:33 | Mae Lauron | **no** |
+| 2 | form_2290 | 17804969833482…jpg | Robert Sargent | 2026-06-11 17:33 | Mae Lauron | yes |
+| 3 | truck_title | GD298068.pdf | Trovino Huddleston | 2026-06-11 20:28 | Mae Lauron | yes |
+| 4 | other | image.jpg | Ian Dunfee | 2026-06-11 20:40 | Mae Lauron | yes |
+| 5 | registration | IMG_8789.jpeg | Robert Francis | 2026-07-17 15:11 | Mae Lauron | yes |
+| 6 | registration | 300 Add Transfer Invoice.pdf | Ali Mohamed | 2026-07-23 16:57 | Mae Lauron | yes |
+| 7 | registration | 260 Add Transfer Invoice.pdf | Ali Mohamed | 2026-07-23 17:04 | Mae Lauron | yes |
+| 8 | registration | 260 Add Transfer Invoice.pdf (dup) | Ali Mohamed | 2026-07-23 17:04 | Mae Lauron | yes |
+| 9 | registration | 260 Add Transfer Final invoice.pdf | Ali Mohamed | 2026-07-23 17:04 | Mae Lauron | yes |
+| 10 | form_2290 | 300 Schedule 1 - 2290 receipt.pdf | Ali Mohamed | 2026-07-23 17:09 | Mae Lauron | yes |
+| 11 | form_2290 | 300 Schedule 1 - 2290.pdf | Ali Mohamed | 2026-07-23 17:10 | Mae Lauron | yes |
+| 12 | registration | 301 Add Transfer Invoice.pdf | Danny Goodwin | 2026-07-23 17:14 | Mae Lauron | yes |
+
+Deleter resolved from `operator_documents.deleted_by` → `profiles`, corroborated by
+`audit_log` (`document_deleted`, `actor_name`) — the two agree on all twelve.
+`delete_reason` is NULL on every row; no reason was ever recorded. Seven operators, all
+`is_active = true`, none deactivated, none demo. Eleven of twelve have a newer live
+document of the same type — replacement, not loss. None of the twelve is a
+driver-qualification file document (49 CFR 391.51); titles/registrations are equipment
+records and `form_2290` are HHVUT Schedule 1 tax receipts. Stopping tonight's run, if
+wanted: `update cron.job set active = false where jobid = 15;` and `true` to restart —
+not performed.
