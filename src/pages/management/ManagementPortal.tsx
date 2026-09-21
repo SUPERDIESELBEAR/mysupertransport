@@ -780,7 +780,8 @@ export default function ManagementPortal() {
     }
 
     const onboarders: StaffWorkload[] = (json.staff ?? [])
-      .filter((m: any) => (m.roles ?? []).includes('onboarding_staff'))
+      // Internal test logins carry no workload and are never assigned drivers.
+      .filter((m: any) => (m.roles ?? []).includes('onboarding_staff') && m.is_test_account !== true)
       .map((m: any) => ({
         user_id: m.user_id,
         full_name: [m.first_name, m.last_name].filter(Boolean).join(' ') || m.email,

@@ -249,7 +249,17 @@ export default function StaffDirectory() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{name}</p>
+                            {member.is_test_account && (
+                              <span
+                                className="inline-flex shrink-0 items-center rounded-full border border-border bg-secondary px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground"
+                                title="Internal test login — never assigned work, never emailed"
+                              >
+                                Test
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs text-muted-foreground">
                             {member.user_id === user?.id ? (
                               <span className="text-gold font-medium">You</span>

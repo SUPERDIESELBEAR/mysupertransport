@@ -589,7 +589,7 @@ Deno.serve(async (req) => {
 
     const { data: profiles } = await supabaseAdmin
       .from('profiles')
-      .select('user_id, first_name, last_name, phone, account_status, created_at, updated_at, avatar_url, birth_month, birth_day')
+      .select('user_id, first_name, last_name, phone, account_status, created_at, updated_at, avatar_url, birth_month, birth_day, is_test_account')
       .in('user_id', staffUserIds);
 
     const { data: { users: authUsers } } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
@@ -622,6 +622,9 @@ Deno.serve(async (req) => {
       avatar_url: p.avatar_url ?? null,
       birth_month: p.birth_month ?? null,
       birth_day: p.birth_day ?? null,
+      // Internal test logins are surfaced so screens can badge them and leave
+      // them out of assignment lists and workload.
+      is_test_account: p.is_test_account === true,
       roles: roleRows.filter((r) => r.user_id === p.user_id).map((r) => r.role),
       assigned_operator_count: operatorCountMap[p.user_id] ?? 0,
     }));

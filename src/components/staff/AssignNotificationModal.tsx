@@ -68,7 +68,7 @@ export default function AssignNotificationModal({
       if (userIds.length) {
         const { data: profs } = await supabase
           .from('profiles')
-          .select('user_id, first_name, last_name, avatar_url, account_status')
+          .select('user_id, first_name, last_name, avatar_url, account_status, is_test_account')
           .in('user_id', userIds);
         profilesById = new Map(
           (profs ?? []).map((p: any) => [p.user_id as string, p]),
@@ -78,6 +78,8 @@ export default function AssignNotificationModal({
       for (const [uid, roles] of rolesByUser.entries()) {
         const p = profilesById.get(uid);
         if (p?.account_status && p.account_status !== 'active') continue;
+        // Internal test logins are never offered as an assignee.
+        if ((p as { is_test_account?: boolean } | undefined)?.is_test_account === true) continue;
         const name = `${p?.first_name ?? ''} ${p?.last_name ?? ''}`.trim() || 'Unknown';
         list.push({ user_id: uid, name, role: roles.join(', '), avatar_url: p?.avatar_url ?? null });
       }
