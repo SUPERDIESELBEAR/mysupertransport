@@ -63,6 +63,25 @@ describe('operator settlement isolation', () => {
     expect(offenders).toEqual([]);
   });
 
+  itLive('the one excluded policy is SELECT-only and gated on the permission', () => {
+    const rows = psql(
+      "select p.polcmd::text || ' | ' || pg_get_expr(p.polqual, p.polrelid) " +
+        "|| ' | ' || coalesce(pg_get_expr(p.polwithcheck, p.polrelid), 'NO-CHECK') " +
+        'from pg_policy p join pg_class c on c.oid = p.polrelid ' +
+        "where c.relnamespace = 'public'::regnamespace " +
+        "and p.polname = 'settlements_view_permission'",
+    );
+    expect(rows).toHaveLength(1);
+    const [cmd, using, check] = rows[0].split(' | ');
+    expect(cmd).toBe('r');
+    expect(check).toBe('NO-CHECK');
+    expect(using).toContain("has_permission('settlement.view'");
+    // Wrapped in a scalar subquery: evaluated once per query, not once per row.
+    expect(using).toMatch(/\(\s*SELECT/);
+  });
+
+
+
 
   itLive('anon holds no privilege on any settlement table', () => {
     const granted = psql(
