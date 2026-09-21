@@ -181,9 +181,14 @@ Deno.serve(async (req) => {
         });
       }
 
-      // ── Reactivate user ───────────────────────────────────────────────
+      // ── Reactivate (reinstate) user ───────────────────────────────────
       if (action === 'reactivate_user') {
+        if (!user_id) return json(400, { error: 'user_id is required' });
+        const refusal = await refuseSuspension(user_id);
+        if (refusal) return refusal;
+
         const { error: profileErr } = await supabaseAdmin
+
           .from('profiles')
           .update({ account_status: 'active' })
           .eq('user_id', user_id);
