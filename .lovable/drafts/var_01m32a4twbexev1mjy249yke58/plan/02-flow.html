@@ -1,0 +1,52 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" font-family="var(--font-sans)">
+  <defs>
+    <marker id="arr" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L8 4 L0 8" fill="none" stroke="var(--fg-secondary)" stroke-width="1.2"/>
+    </marker>
+  </defs>
+
+  <!-- Build box -->
+  <rect x="20" y="90" width="140" height="64" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="90" y="116" text-anchor="middle" font-size="14" font-weight="480" fill="var(--fg-primary)">Build completed</text>
+  <text x="90" y="136" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">dated report written</text>
+
+  <!-- Decision -->
+  <path d="M160 122 H 200" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="200" y="90" width="150" height="64" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="275" y="112" text-anchor="middle" font-size="14" font-weight="480" fill="var(--fg-primary)">Staff-facing?</text>
+  <text x="275" y="130" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">does a staff member's</text>
+  <text x="275" y="144" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">day change?</text>
+
+  <!-- No path -->
+  <path d="M275 154 V 210 H 90 V 168" stroke="var(--fg-secondary)" stroke-width="1" stroke-dasharray="4 3" marker-end="url(#arr)"/>
+  <text x="180" y="204" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">no — skip quietly</text>
+  <rect x="20" y="230" width="140" height="44" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="90" y="250" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">nothing drafted</text>
+  <text x="90" y="264" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">nothing sent</text>
+
+  <!-- Yes path to draft -->
+  <path d="M350 122 H 390" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="390" y="90" width="150" height="64" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)"/>
+  <text x="465" y="112" text-anchor="middle" font-size="14" font-weight="480" fill="var(--fg-accent)">Draft written</text>
+  <text x="465" y="130" text-anchor="middle" font-size="12" fill="var(--fg-accent)">plain words, type, link,</text>
+  <text x="465" y="144" text-anchor="middle" font-size="12" fill="var(--fg-accent)">audience, pin, Got it</text>
+
+  <!-- To Marcus queue -->
+  <path d="M540 122 H 575" stroke="var(--fg-secondary)" stroke-width="1" marker-end="url(#arr)"/>
+  <rect x="575" y="30" width="55" height="184" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+  <text x="602" y="52" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">Marcus</text>
+  <text x="602" y="66" text-anchor="middle" font-size="12" fill="var(--fg-secondary)">queue</text>
+  <text x="602" y="100" text-anchor="middle" font-size="12" fill="var(--fg-primary)">Approve</text>
+  <text x="602" y="128" text-anchor="middle" font-size="12" fill="var(--fg-primary)">Edit first</text>
+  <text x="602" y="156" text-anchor="middle" font-size="12" fill="var(--fg-primary)">Deny</text>
+  <text x="602" y="184" text-anchor="middle" font-size="12" fill="var(--fg-primary)">Archive</text>
+
+  <!-- Ledger notes -->
+  <circle cx="24" cy="34" r="9" fill="var(--bg-accent)"/>
+  <text x="24" y="38" text-anchor="middle" font-size="11" fill="var(--fg-emphasis)">1</text>
+  <text x="42" y="38" font-size="12" fill="var(--fg-secondary)">Auto-drafts arrive as pending — never sent on their own.</text>
+
+  <circle cx="24" cy="60" r="9" fill="var(--bg-accent)"/>
+  <text x="24" y="64" text-anchor="middle" font-size="11" fill="var(--fg-emphasis)">2</text>
+  <text x="42" y="64" font-size="12" fill="var(--fg-secondary)">Internal plumbing builds write no draft at all.</text>
+</svg>
