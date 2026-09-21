@@ -18474,3 +18474,42 @@ still exact); the definer inventory gained both `has_permission` signatures
 Suite: the six amended files plus the new guard — **125 + 119 tests, all green**.
 Typecheck clean. Driver deactivation, staff-account suspension, and a settings
 screen for grants are all still open.
+
+---
+
+## 2026-09-21 11:35 UTC — the six pending scheduled jobs, verified where possible
+
+Read-only pass, docs only; **full suite deliberately skipped**. Report:
+`docs/passes/2026-09-21-1135-scheduled-jobs-verified.md`.
+
+Three of the six could not be examined at all: jobs 6, 7 and 8 run at 15:00 UTC and
+the repair landed at 00:32 UTC today, so at 11:29 UTC they had not yet had a single
+post-repair run (`cron.job_run_details`, zero rows). Nothing was triggered by hand —
+each mails real drivers and real staff.
+
+| Job | Schedule | Last response | Effect observed | Proven |
+|---|---|---|---|---|
+| 6 `check-cert-expiry` | 0 15 * * * | has not run since repair | none possible yet | cannot tell |
+| 7 `check-inspection-expiry` | 0 15 * * * | has not run since repair | none possible yet | cannot tell |
+| 8 `notify-idle-operators` | 0 15 * * * | has not run since repair | zero `operator_idle` notifications; 72 idle records waiting | cannot tell |
+| 9 `rollover-dispatch-status-cdt` | 5 5 * * * | fired 05:05, body aged out | no board or history write; 8 of 45 still drifted | no |
+| 10 `rollover-dispatch-status-cst` | 5 6 * * * | **200** `{"checked":34,"promoted":0,"skipped":34}` | only 34 of 45 operators reachable | accepted yes, effect no |
+| 15 `purge-deleted-operator-documents` | 15 3 * * * | fired 03:15, body aged out | 12 rows + 12 storage objects gone, 12 `document_purged` audit rows, 6 ineligible rows intact | **yes** |
+
+**The purge is fully proven.** 12 `audit_log` rows at 03:15:03–03:15:07, file names
+matching the 0118 list one for one; `operator_documents` soft-deleted 18 → 6 with
+**0** past the 30-day cutoff; **0** of the 12 storage paths remain in
+`operator-documents`. The six not-yet-eligible rows are untouched.
+
+**The rollover is a new finding and corrects the 0105 pass.** Its call is accepted, but
+`rollover-dispatch-status` reads `dispatch_daily_log` with no explicit limit, so
+PostgREST caps it at 1,000 rows out of 6,021 — exactly the `"checked":34` in the body.
+The eight drifted drivers' latest logs are from June and August, outside that window, so
+no future run will ever reach them. Three of them have shown the wrong board status since
+June. `active_dispatch` has had no write since 2026-09-20 01:16 and
+`dispatch_status_history` has no row today.
+
+Also recorded: `net._http_response` retention is ~6 h (oldest alive 05:30 for an 11:29
+reading), so a 03:15 job can never be proven from it during business hours; no mail was
+sent by anything today (`email_send_log` silent since 2026-09-19 14:09); no job ran
+twice; nothing outside the twelve named files was touched.
