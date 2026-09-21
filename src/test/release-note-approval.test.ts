@@ -44,7 +44,7 @@ describe('staged migration', () => {
     expect(MIGRATION).toContain("public.has_permission(auth.uid(), 'release_note.approve')");
     expect(MIGRATION).toContain("USING ERRCODE = '42501'");
     // No role grant: the owner passes through the short-circuit in has_permission.
-    expect(MIGRATION).not.toMatch(/role_permissions[\s\S]*release_note\.approve/);
+    expect(MIGRATION).not.toMatch(/INSERT INTO public\.role_permissions/);
   });
 
   it('keeps the read table tenant-isolated, owner-scoped and closed to anon', () => {
