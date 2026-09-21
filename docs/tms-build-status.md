@@ -18221,3 +18221,40 @@ config change. Full record and every live proof:
   never worked; gating it would make it the 361st refusal).
 - Suite: `202 passed | 2 skipped` files, `2021 passed | 16 skipped` tests, 2
   reporter RPC timeouts (`onTaskUpdate`), no test failure. Typecheck clean.
+
+## 2026-09-21 01:05 UTC — Scheduled jobs repaired: the cron secret now exists
+
+Report: `docs/passes/2026-09-21-0105-cron-secret-repair.md`.
+
+- Correction to the 2026-09-20 2352 entry: the cron-secret pattern is no longer
+  broken. `CRON_SECRET` now exists as a project secret and the same value lives in
+  Vault (`cron_secret`); `ALTER DATABASE … SET app.cron_secret` is refused on this
+  project (42501), so Vault was used — `pg_cron` runs as `postgres`, which can read
+  `vault.decrypted_secrets`. The secret is read at request time, never stored in
+  `cron.job`.
+- All twelve `cron.job` commands now send `apikey`, `Authorization: Bearer <anon>`
+  and `x-cron-secret`; targets and bodies unchanged. No function source changed, so
+  nothing was deployed.
+- Proof: `dispatch-scheduled-broadcasts` went `403 {"error":"Forbidden"}` (last
+  00:31:00) → `200 {"processed":0,"results":[]}` (22 consecutive runs from 00:32:00).
+  `pei-auto-cadence` still runs on its hourly schedule (01:00:00, `200`,
+  `{"checked":19,…,"skipped":19}`). Unauthenticated and wrong-secret calls are still
+  refused by all six gated functions (403; purge returns 401).
+- Not triggered by hand, acceptance pending their own next scheduled run: jobs 6, 7,
+  8 (would mail real people), 15 (would permanently delete files), 9 and 10 (would
+  be the unauthorised catch-up).
+- Missed work: `dispatch-scheduled-broadcasts` missed **nothing** (one broadcast row
+  ever, already sent; none stuck). 12 documents are overdue for permanent purge
+  (oldest soft-deleted 2026-06-11) — the next 03:15 UTC run removes them. The
+  dispatch board has drifted for 9 of 45 eligible drivers — the next 05:05 UTC run
+  fixes it. ~104 days of staff expiry sweeps and idle-driver nudges never sent and
+  cannot be enumerated (unlogged send path); the driver-facing `cron-cert-reminders`
+  cadence was never gated and kept running (54 rows, last 2026-09-19).
+- Lesson recorded: `cron.job_run_details` says `succeeded` for a merely queued
+  request. Proposed, not built: a repo test asserting every cron command targeting a
+  `CRON_SECRET` function sends the header, plus one daily 15:30 UTC reconciler over
+  `net._http_response` (retention ~6 h) writing a staff notification on any non-2xx.
+- `ELD_CRON_SECRET` untouched and correct, but no `cron.job` row calls
+  `process-eld-escalations` — dormant by earlier decision, not by this fault.
+- Suite: `202 passed | 2 skipped` files, `2021 passed | 16 skipped` tests, 2 reporter
+  RPC timeouts (`onTaskUpdate`), no test failure. Typecheck clean.
