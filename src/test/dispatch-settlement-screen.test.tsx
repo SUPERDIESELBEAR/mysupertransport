@@ -62,6 +62,7 @@ function storedClient() {
 
 async function readAugust() {
   touchedTables.length = 0;
+  touchedFilters.length = 0;
   const stored = await readStoredDispatchMonth(storedClient(), '2026-08');
   if (!stored) throw new Error('the stored August month did not read back');
   return stored;
@@ -147,6 +148,22 @@ describe('the dispatch settlement screen reads the stored August 2026 month', ()
     expect(pageSource).toMatch(/isPaid\s*=\s*s\?\.status === 'paid'/);
     expect(pageSource).toMatch(/\{!isPaid && \(/);
     expect(pageSource).toMatch(/disabled=\{!voidReason\.trim\(\)/);
+  });
+
+  /**
+   * P34 (owner, 2026-09-21) — a month may now hold one LIVE settlement and any
+   * number of voided ones. The screen's reader must name the live one. If it
+   * did not, a voided row would either be displayed as the month's figure or
+   * counted beside the live one, which is the double-count this change risks.
+   */
+  it('asks for the LIVE settlement, excluding voided rows', async () => {
+    await readAugust();
+    expect(touchedFilters).toContain('dispatch_settlements.status<>void');
+  });
+
+  it('no longer claims the breakdown was erased, and says the void is kept', () => {
+    expect(pageSource).not.toMatch(/breakdown was erased/);
+    expect(pageSource).toMatch(/kept (on file )?for the record|kept as history/i);
   });
 });
 
