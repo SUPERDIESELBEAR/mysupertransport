@@ -18822,3 +18822,87 @@ serially and on the clean re-run. Typecheck clean. `get-staff-list` deployed twi
 confirmed by the refusals and acceptances above — the second deployment is the one whose
 behaviour is quoted.
 Report: `docs/passes/2026-09-21-1644-staff-suspension-permission.md`
+
+## 2026-09-21 18:05 UTC — Onboarding-only test login created (`bc0bf6aa`)
+
+**Why.** Every permission pass so far recorded the same gap: no identity held
+`onboarding_staff` and nothing else, so the "onboarding staff refused" arm had never run
+with a real session. Mae holds management as well, and Marcus holds everything.
+
+**Step 1 — how staff are created.** One path: the `invite-staff` edge function. It resolves
+the caller's company FIRST (`companyIdForUser`; no membership is fatal and no email is sent),
+creates the auth user (manual-create with a password, or the invite-link path), upserts
+`profiles` (`account_status` `active` for manual, `pending` for invites), inserts the
+`company_members` row and the `user_roles` row, and only AFTER the role row is written sends
+the branded Resend email. A failed role write is fatal and stops the email. No definer
+function, trigger or scheduled job creates staff. Downstream side effects of merely existing
+as staff: the coordinator picker (`get-staff-list` → PipelineDashboard), the assignment popup,
+the notification-assignee modal, the management portal's onboarder workload, the Staff
+Directory, and the birthday/anniversary jobs (which key off `profiles.birth_month`).
+`notification_preferences` rows are created on demand, not at invite time.
+
+**Step 2 — the account.** Created through that same path, manual-create, with Marcus's session:
+- user id `bc0bf6aa-8e61-4ef6-ad03-62e655231898`
+- "Test — Onboarding Only", `onboarding-test@demo.mysupertransport.com`
+- exactly one role, `onboarding_staff`; member of SUPERTRANSPORT (`6b54d0e6`, 16 members)
+- no welcome email (manual-create sends none)
+
+Sign-in: email above, password held ONLY in the project secret
+`TEST_ONBOARDING_STAFF_PASSWORD`. No password is recorded in this repository.
+
+Made safe, and how each was ensured:
+- Never offered as a coordinator and never auto-assigned — new column
+  `profiles.is_test_account` (migration `0024`, additive, UNDO comment), set true for this
+  account; `get-staff-list` returns it, and the coordinator picker
+  (`PipelineDashboard.tsx:1131`), the notification-assignee modal
+  (`AssignNotificationModal.tsx:82`) and the onboarder workload list
+  (`ManagementPortal.tsx:784`) all skip flagged rows. `operators.assigned_onboarding_staff`
+  count for it: 0.
+- Never emailed — its address is in `public.suppressed_emails` (reason `unsubscribe`, metadata
+  naming this pass), the same mechanism Mailgun bounces use. It also carries no
+  `birth_month`/`birth_day`, so the birthday and anniversary jobs never select it.
+- Visibly a test account — `StaffDirectory.tsx:254` renders a "Test" badge on its card.
+- `profiles.is_demo` was NOT reused: it already means "demo DRIVER" and carries email
+  rerouting plus the show-demo screen toggle.
+
+**Step 3 — what the session reports.** Signed in live:
+- `GET /user_roles?select=role` → `[{"role":"onboarding_staff"}]` — exactly one.
+- Lands on the staff onboarding portal at `/dashboard` (Onboarding Pipeline; sidebar shows
+  Onboarding / Driver Hub / Vehicle Hub / Fleet Compliance / Document Hub; no dispatch, no
+  management sections).
+- `has_permission` for every row of `permission_actions`, asked as itself:
+  `company_document.send=false`, `company_document.view=true`, `driver.deactivate=false`,
+  `invoice.view=false`, `lease_termination.change=false`, `lease_termination.view=true`,
+  `release_note.approve=false`, `settlement.view=false`, `staff_account.suspend=false`.
+  Every change-kind action refused; the only admissions are the two view grants
+  `role_permissions` records for `onboarding_staff`.
+
+**Step 4 — the arms that had never run, under the probe rule.**
+- Lease termination insert: `42501 "new row violates row-level security policy for table
+  \"lease_terminations\""`.
+- Driver deactivation (`PATCH operators.is_active = false`): `42501 "Not authorized to change a
+  driver's active status. Deactivating or reactivating a driver is limited to management and the
+  owner."`
+- Ordinary onboarding edit on the SAME driver (`assigned_onboarding_staff`, bogus id): admitted
+  by the policy and stopped one step later — `23503 ... violates foreign key constraint
+  "operators_assigned_onboarding_staff_fkey"`. Nothing written: the driver is still
+  `is_active = true` with coordinator `2cedd3ac` (Mae).
+- Staff suspension on a throwaway (`33dd1aee`, created and removed in this pass): direct path
+  `42501 "Not authorized to change a staff account status. Suspending or reinstating a staff
+  login is limited to management and the owner."`; through `get-staff-list`
+  `{"error":"Forbidden: management only"}`. Throwaway still `active`, then deleted — residue
+  `profiles 0, user_roles 0, company_members 0, auth.users 0`.
+- Company document send (`INSERT document_send_log`): `42501 "new row violates row-level
+  security policy for table \"document_send_log\""`.
+- P2/P3 counts: `settlements` `*/0`, `invoices` `*/0`, `loads` `0-0/18` — reads loads only,
+  exactly as P3 says.
+
+**Step 5 — the gap is closed.** The standard sign-in list for permission passes is now:
+Marcus `5cca4f77` (owner+management+dispatcher+onboarding_staff), Mae `2cedd3ac`
+(management+onboarding_staff), Leo `7d80cc10` (dispatcher), **Test — Onboarding Only
+`bc0bf6aa` (onboarding_staff ONLY)**, Steve `878be880` (operator), Donald `24ee1b9e`
+(truck_owner). Wherever an earlier entry says the onboarding-only arm could not run for want
+of an identity, it now can: the identity above is the one to use.
+
+`get-staff-list` deployed; confirmed WITHOUT its write path by reading the list as Marcus —
+16 rows, and the one flagged row is `('Test —','Onboarding Only',['onboarding_staff'],True)`.
