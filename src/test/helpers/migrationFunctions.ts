@@ -151,6 +151,31 @@ export function migrationFiles(): string[] {
   return migrationSources().map((s) => s.file);
 }
 
+/**
+ * The raw SQL of the applied migration whose label CONTAINS `needle`.
+ *
+ * Feature tests used to read a migration by hard-coded absolute path. Two of
+ * them (archived applicants, release-note approval) read a file staged inside
+ * `.lovable/drafts`, and when the draft was accepted the SQL was applied and the
+ * staged file deleted — so the test threw ENOENT while the change it asserts was
+ * live. Read through here instead: the label is resolved against both migration
+ * folders in applied order, and a rename or a move between folders cannot
+ * silently blank the assertion.
+ *
+ * Throws when nothing matches, so a missing migration fails loudly rather than
+ * asserting against an empty string.
+ */
+export function appliedMigrationSql(needle: string): string {
+  const hits = migrationSources().filter((s) => s.file.includes(needle));
+  if (hits.length === 0) {
+    throw new Error(
+      `No applied migration matches "${needle}". Searched ${MIGRATIONS_DIR} ` +
+        `and ${DRIZZLE_MIGRATIONS_DIR}.`,
+    );
+  }
+  return hits.map((s) => readFileSync(s.path, "utf8")).join("\n");
+}
+
 /** Splits a top-level comma list, respecting nesting and quotes. */
 function splitTopLevel(args: string): string[] {
   const out: string[] = [];

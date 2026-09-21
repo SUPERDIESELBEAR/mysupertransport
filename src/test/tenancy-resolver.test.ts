@@ -586,7 +586,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
-      ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED,
+      ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1828,6 +1828,18 @@ const TWELVE_TENANT_STAMPED = ['fuel_import_batches'] as const;
  */
 const PERMISSIONS_STAMPED = ['role_permissions', 'user_permission_exceptions'] as const;
 
+/**
+ * ANNOUNCEMENT READS (1), 2026-09-21, migration
+ * `drizzle/migrations/0021_release_note_approval.sql` (another session's
+ * What's New approval pass). `release_note_reads` records who has seen or
+ * acknowledged a staff announcement, carries `company_id` with the generic
+ * `aa_stamp_tenant_company_id` stamp, and was confirmed from the live catalog
+ * to carry the restrictive policy:
+ *   tenant_isolation|RESTRICTIVE|ALL|(company_id = ( SELECT current_company_id()))
+ * Added here because the census assertion above goes stale on correct work.
+ */
+const ANNOUNCEMENT_STAMPED = ['release_note_reads'] as const;
+
 /** table -> the stamp function that must fire BEFORE INSERT OR UPDATE. */
 const TWELVE_STAMPS: readonly [string, string][] = [
   ['fuel_import_batches', 'stamp_tenant_company_id'],
@@ -2226,6 +2238,13 @@ const RESTRICTIVE_DONE = [
   // is NOT here and never will be — it has no `company_id` (see GLOBAL_TABLES),
   // because the set of actions the code can enforce is not a carrier's to edit.
   'role_permissions', 'user_permission_exceptions',
+  // ANNOUNCEMENT READS (1), 2026-09-21, migration
+  // 0021_release_note_approval.sql, authored by another session. Confirmed from
+  // the live catalog before being listed here:
+  //   release_note_reads_own|PERMISSIVE|ALL|(user_id = auth.uid())
+  //   release_note_reads_read_reviewers|PERMISSIVE|SELECT|(management OR owner)
+  //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
+  'release_note_reads',
 ] as const;
 
 /**
