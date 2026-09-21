@@ -483,6 +483,19 @@ describe('billing — access', () => {
         expect(expr, `${table} must not reach operator`).not.toContain("'operator'");
       }
     }
+
+    const gated = psql(`SELECT p.polcmd::text || '|' ||
+        pg_get_expr(p.polqual, p.polrelid) || '|' ||
+        coalesce(pg_get_expr(p.polwithcheck, p.polrelid), 'NO-CHECK')
+      FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+      WHERE c.relnamespace='public'::regnamespace AND c.relname = 'invoices'
+        AND p.polname = '${PERMISSION_GATED}'`);
+    expect(gated).toHaveLength(1);
+    const [gcmd, gusing, gcheck] = gated[0].split('|');
+    expect(gcmd, 'the dispatcher read must grant no write').toBe('r');
+    expect(gcheck).toBe('NO-CHECK');
+    expect(gusing).toContain("has_permission('invoice.view'");
+    expect(gusing).toMatch(/\(\s*SELECT/);
   });
 
 
