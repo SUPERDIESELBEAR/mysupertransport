@@ -15,6 +15,7 @@ import ResourceLibraryManager from '@/components/management/ResourceLibraryManag
 import MessagesView from '@/components/staff/MessagesView';
 import BulkMessageModal from '@/components/staff/BulkMessageModal';
 import NotificationHistory from '@/components/management/NotificationHistory';
+import WhatsNewDialog from '@/components/WhatsNewDialog';
 import StaffNotificationPreferencesModal from '@/components/staff/StaffNotificationPreferencesModal';
 import ApplicationReviewDrawer, { type FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { Button } from '@/components/ui/button';

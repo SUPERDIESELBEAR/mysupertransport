@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import WhatsNewDialog from '@/components/WhatsNewDialog';
 import NotificationPreferencesModal from '@/components/management/NotificationPreferencesModal';
 import InviteApplicantModal from '@/components/management/InviteApplicantModal';
 import StaffApplicationModal from '@/components/management/StaffApplicationModal';
