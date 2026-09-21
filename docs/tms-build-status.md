@@ -18291,3 +18291,117 @@ driver-qualification file document (49 CFR 391.51); titles/registrations are equ
 records and `form_2290` are HHVUT Schedule 1 tax receipts. Stopping tonight's run, if
 wanted: `update cron.job set active = false where jobid = 15;` and `true` to restart —
 not performed.
+
+## 2026-09-21 0132 UTC — the permissions module, DESIGNED, not built (P12-P15)
+
+Docs only. **DESIGN ONLY — nothing was built. No migration, no code, no data
+change; changes confined to `docs/tms-build-status.md`, `docs/tms-wish-list.md`
+and the pass report. The full suite was deliberately SKIPPED — documentation
+only.** Read first: `docs/passes/2026-09-18-1944-permissions-decisions-and-inventory.md`
+(P1-P11, the sixteen-row inventory, the four open questions). Full design:
+`docs/passes/2026-09-21-0132-permissions-design.md`.
+
+**One figure in the prompt corrected, not repeated:** it says "the eight actions
+protected only by the UI". The record says THREE, and permanent account deletion
+was closed 2026-09-18 2030 UTC, so **TWO remain UI-only — deactivate a driver and
+terminate a lease** — and both are in the first slice. Nothing else contradicted
+the live system or the record.
+
+### (a) DECISIONS — owner, 2026-09-21, answering the four open questions
+
+**P12. ONE DATABASE FUNCTION ANSWERS "may this user perform this action?".**
+Policies call it; edge functions call it before acting. The UI may hide controls,
+but hiding is never the enforcement. (answers open question 1: both places, one
+answer.)
+
+**P13. VIEWING AND CHANGING ARE SEPARATE PERMISSIONS.** Read-only means holding
+the view permission and not the change permission. (answers question 2.)
+
+**P14. PERMISSION IS CHECKED WHEN AN ACTION STARTS.** Removing a permission does
+not interrupt work already underway; the next action is refused. (answers 3.)
+
+**P15. PER-PERSON EXCEPTIONS LIVE IN THEIR OWN TABLE**, layered over role grants,
+each with an optional expiry. Role grants remain the normal path. (answers 4.)
+
+### (b) THE DESIGN, in brief — full text and SQL in the pass report
+
+**Tables.** `permission_actions` (catalogue: `key` PK, label, description,
+category, `kind` enum `view`/`change`, `is_active`) — **no `company_id`, the one
+deliberate departure**: the set of actions is product-level, decided by the code
+that enforces them; RLS on, SELECT to `authenticated`, no write policy, rows
+arrive by migration. `role_permissions` (`company_id`, `role app_role`,
+`action_key`, UNIQUE on the three) — presence IS the grant, no `granted boolean`.
+`user_permission_exceptions` (`company_id`, `user_id`, `action_key`, `effect`
+enum `allow`/`deny`, `expires_at` nullable, `reason` NOT NULL, UNIQUE on company
++user+action). Both carrier tables take `aa_stamp_tenant_company_id` and the
+rollout's exact `tenant_isolation` restrictive policy; staff read, **owner alone
+writes** — checked with `has_role(...,'owner')`, never with a permission, so no
+grant can remove the owner's ability to fix permissions (P1 made load-bearing).
+
+**The function.** `public.has_permission(_user_id uuid, _action text) returns
+boolean`, plus a one-argument convenience form over `auth.uid()`. `plpgsql`,
+`STABLE`, `SECURITY DEFINER`, `SET search_path = public, extensions`; EXECUTE to
+`authenticated` and `service_role`, revoked from `PUBLIC` and `anon`, registered
+in the definer guard inventories in the same pass. Resolution order: NULL user →
+false; **unknown action key → RAISE** (a typo is a programming error, not a
+denial); **`owner` → true before any table is read (P1)**; `current_company_id()`
+NULL → false; the person's own unexpired exception wins in both directions (P15);
+otherwise EXISTS over `user_roles` joined to `role_permissions`.
+
+**Policies** call it wrapped as `(SELECT public.has_permission('x'))` — the same
+InitPlan trick the 159-table restrictive rollout uses for `current_company_id()`,
+which is what makes it **once per statement instead of once per row. A policy
+written without the wrapper is a review failure.** Worked example in the report:
+`lease_terminations` loses `Staff manage lease terminations` (`is_staff()` FOR
+ALL) and gains a SELECT policy on `lease_termination.view` and a FOR ALL policy on
+`lease_termination.change`, with its seed rows and its undo comment.
+
+**Edge functions** call the TWO-argument form on the service client, passing the
+CALLER's id — `auth.uid()` is NULL on that client (`_shared/email/auth.ts:63-70`),
+so the convenience form is useless there. When staff act on a driver's record the
+question is about the staff member; passing the driver's id would be the bug.
+Worked example: `get-staff-list` `deactivate_user`, after `requireStaff`.
+
+**No row → closed.** Unknown key raises; known key with no grant returns false.
+Cost named: the day an action is enforced, an unseeded grant looks like a bug.
+Mitigated by seeding grants in the same migration, deriving the seed from the
+inventory's "who can do it today", and a repo test asserting every action key used
+in a policy or function exists and holds at least one grant per carrier. Open by
+default was rejected: it lets a permission be believed enforced while being a
+no-op.
+
+### (c) THE FIRST SLICE — five actions, proposed
+
+1. `driver.deactivate` — UI-only today (route guard `isManagement`; DB is
+   `is_staff()`); owner + management; `operators` UPDATE narrowed by column or by
+   trigger refusal. 2. `lease_termination.view` / `.change` — the other UI-only
+   one; view all staff, change owner + management. 3. `company_document.send` /
+   `.view` — P7 names three roles, the DB admits four, and the mistake leaves the
+   building; send = owner, management, dispatcher. 4. `settlement.view` /
+   `invoice.view` — the only ADDITION, owed since P2: dispatcher gains the read;
+   if wrong, a screen is empty and nothing is destroyed. 5.
+   `staff_account.suspend` — the service-role seam, inside `get-staff-list`.
+   Each proved live in a RAISING transaction: the wrong role refused, the right
+   role admitted and rolled back, no mail sent and no real row committed.
+
+### (d) RISKS AND LIMITS
+
+If the function is wrong, everything in the slice fails at once — P1's
+short-circuit keeps the owner in, every migration carries its undo, and the slice
+stays small (P10). No cache is proposed; roles must not be read from JWT claims
+(`app_metadata.roles` is unpopulated here). **The demo carrier is the one thing
+to record now:** a second `carrier_profile` row starts with no grants, so under
+the closed default its staff are refused everything — creating a carrier must
+seed its grants in the same transaction, and nothing provisions a carrier today.
+`is_staff()` stays in hundreds of other policies, so two idioms coexist
+deliberately; `operators` UPDATE is the awkward split and may take two attempts.
+
+**NOT covered:** the 64 ungated edge functions (only `get-staff-list` gains a
+check); ELEVEN of the sixteen inventory rows — load create/edit and read-only
+viewing (already correct), invoice create/edit, the settlement CHANGE side, driver
+pay visibility (still wider than P2, onboarding staff keeps it), pay-policy
+editing, the `user_roles` grant path, permanent deletion (closed),
+`delete-user-account` (already correct), broker factoring status, and the truck
+owner's scope (P5 — coverage still unaudited; a permission cannot fix a missing
+scope check). Also untouched: storage-bucket policies, any settings SCREEN for
+grants, and permission-change auditing beyond `created_by`/`updated_by`.
