@@ -55,7 +55,7 @@ const result = (over = {}) => computeDispatchSettlement({
 function fakeClient(tables: Record<string, unknown>) {
   const chain = (rows: unknown) => {
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'not', 'gte', 'lt', 'lte', 'order']) {
+    for (const m of ['select', 'eq', 'neq', 'not', 'gte', 'lt', 'lte', 'order', 'in']) {
       self[m] = () => self;
     }
     self.maybeSingle = () => Promise.resolve({ data: Array.isArray(rows) ? rows[0] ?? null : rows, error: null });

@@ -44,6 +44,10 @@ function storedClient() {
       const b: any = {
         select: () => b,
         eq: () => b,
+        // P34 (2026-09-21): the reader now asks for the LIVE row by excluding
+        // voided ones. The filter is recorded so the test below can assert it.
+        neq: (col: string, val: string) => { touchedFilters.push(`${name}.${col}<>${val}`); return b; },
+        in: () => b,
         order: () => b,
         limit: () => b,
         maybeSingle: async () => ({ data: rows(), error: null }),
