@@ -983,3 +983,17 @@ archived from the pipeline shows on no tab at all. Five assertions RED on purpos
 
 TRIGGER. That session's next pass: restore the Applications-page changes. The tests already
 describe exactly what is expected.
+
+### CLOSED 2026-09-21 20:30 — both defects above are fixed
+This session took them over (the other session is paused).
+
+- `notify_staff_on_release_note()` is pinned `public, extensions` and each notice now goes
+  through `public.try_notify(...)` — migration `drizzle/migrations/0025_release_note_notifier_pin_and_isolate.sql`.
+  Proved in a rolled-back transaction: one notice refused with 42501, the announcement still
+  approved, sixteen other notices landed, the failure recorded in `audit_log`.
+- The Applications page half of archived applicants is built: Archived tab with its count,
+  `?status=archived`, `handleArchive` / `handleUnarchive` (neither sends email, both audited),
+  neutral `bg-muted` colour, drawer wired. Proved on screen as Mae — 50 archived rows, a
+  throwaway applicant archived and brought back, `email_send_log` empty for it, row deleted.
+
+Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
