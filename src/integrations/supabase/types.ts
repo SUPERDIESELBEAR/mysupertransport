@@ -11424,29 +11424,113 @@ export type Database = {
           },
         ]
       }
+      release_note_reads: {
+        Row: {
+          acknowledged_at: string | null
+          company_id: string | null
+          id: string
+          release_note_id: string
+          seen_at: string
+          user_id: string
+        }
+        Insert: {
+          acknowledged_at?: string | null
+          company_id?: string | null
+          id?: string
+          release_note_id: string
+          seen_at?: string
+          user_id: string
+        }
+        Update: {
+          acknowledged_at?: string | null
+          company_id?: string | null
+          id?: string
+          release_note_id?: string
+          seen_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "release_note_reads_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "release_note_reads_release_note_id_fkey"
+            columns: ["release_note_id"]
+            isOneToOne: false
+            referencedRelation: "release_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       release_notes: {
         Row: {
+          auto_drafted: boolean
           body: string
+          category: Database["public"]["Enums"]["release_note_category"]
           created_at: string
           created_by: string
+          denial_reason: string | null
           flagged_faq_ids: string[]
           id: string
+          is_pinned: boolean
+          link_label: string | null
+          link_route: string | null
+          published_at: string | null
+          requires_ack: boolean
+          reviewed_at: string | null
+          reviewed_by: string | null
+          status: Database["public"]["Enums"]["release_note_status"]
+          submitted_at: string | null
+          submitted_by: string | null
+          target_roles: string[]
           title: string
         }
         Insert: {
+          auto_drafted?: boolean
           body: string
+          category?: Database["public"]["Enums"]["release_note_category"]
           created_at?: string
           created_by: string
+          denial_reason?: string | null
           flagged_faq_ids?: string[]
           id?: string
+          is_pinned?: boolean
+          link_label?: string | null
+          link_route?: string | null
+          published_at?: string | null
+          requires_ack?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["release_note_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          target_roles?: string[]
           title: string
         }
         Update: {
+          auto_drafted?: boolean
           body?: string
+          category?: Database["public"]["Enums"]["release_note_category"]
           created_at?: string
           created_by?: string
+          denial_reason?: string | null
           flagged_faq_ids?: string[]
           id?: string
+          is_pinned?: boolean
+          link_label?: string | null
+          link_route?: string | null
+          published_at?: string | null
+          requires_ack?: boolean
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          status?: Database["public"]["Enums"]["release_note_status"]
+          submitted_at?: string | null
+          submitted_by?: string | null
+          target_roles?: string[]
           title?: string
         }
         Relationships: []
@@ -16047,6 +16131,13 @@ export type Database = {
         | "dismissed"
       rate_type: "flat" | "per_mile" | "per_ton" | "percentage_of_load"
       registration_type: "own_registration" | "needs_mo_reg"
+      release_note_category: "feature" | "change" | "fix" | "reminder"
+      release_note_status:
+        | "draft"
+        | "pending"
+        | "approved"
+        | "denied"
+        | "archived"
       resource_category:
         | "user_manuals"
         | "decal_files"
@@ -16491,6 +16582,14 @@ export const Constants = {
       ],
       rate_type: ["flat", "per_mile", "per_ton", "percentage_of_load"],
       registration_type: ["own_registration", "needs_mo_reg"],
+      release_note_category: ["feature", "change", "fix", "reminder"],
+      release_note_status: [
+        "draft",
+        "pending",
+        "approved",
+        "denied",
+        "archived",
+      ],
       resource_category: [
         "user_manuals",
         "decal_files",
