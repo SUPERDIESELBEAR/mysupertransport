@@ -238,8 +238,8 @@ describe('the month selector offers real months only', () => {
 
   it('falls back to the most recent COMPLETED month, never the current one', () => {
     const list = [
-      { month: '2026-09', label: 'September 2026', hasSettlement: false, status: null, deliveredLoads: 2 },
-      { month: '2026-08', label: 'August 2026', hasSettlement: false, status: null, deliveredLoads: 4 },
+      { month: '2026-09', label: 'September 2026', hasSettlement: false, status: null, voidedCount: 0, deliveredLoads: 2 },
+      { month: '2026-08', label: 'August 2026', hasSettlement: false, status: null, voidedCount: 0, deliveredLoads: 4 },
     ];
     expect(defaultDispatchMonth(list, new Date('2026-09-03T12:00:00Z'))).toBe('2026-08');
   });
