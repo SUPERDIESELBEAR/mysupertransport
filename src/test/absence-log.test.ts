@@ -4,10 +4,14 @@ import {
   formatReasonBreakdown,
   formatStretchDates,
   groupAbsenceStretches,
+  maxPlannedDate,
   resolveRange,
   summarizeAbsence,
+  todayIso,
   type AbsenceDay,
 } from '@/lib/absenceLog';
+
+const TODAY = '2026-09-21';
 
 const day = (
   log_date: string,
@@ -146,5 +150,62 @@ describe('formatStretchDates', () => {
     expect(formatStretchDates('2026-09-04', '2026-09-04')).toBe('Sep 4, 2026');
     expect(formatStretchDates('2026-09-04', '2026-09-08')).toBe('Sep 4 – Sep 8, 2026');
     expect(formatStretchDates('2025-12-30', '2026-01-02')).toBe('Dec 30, 2025 – Jan 2, 2026');
+  });
+});
+
+describe('planned (upcoming) absence days', () => {
+  it('planned days are counted apart from days that have happened', () => {
+    const totals = summarizeAbsence([
+      day('2026-09-14', 'home', 'home_time'),       // past off-road
+      day('2026-09-15', 'dispatched'),              // past dispatched
+      day('2026-09-28', 'home', 'vacation'),        // planned
+      day('2026-09-29', 'home', 'vacation'),        // planned
+    ], TODAY);
+    expect(totals.offRoadDays).toBe(1);
+    expect(totals.dispatchedDays).toBe(1);
+    expect(totals.plannedDays).toBe(2);
+    expect(totals.byReason).toEqual({ home_time: 1 }); // planned reasons never inflate the breakdown
+  });
+
+  it('a stretch spanning today keeps past days in the totals and future days in planned', () => {
+    const totals = summarizeAbsence([
+      day('2026-09-20', 'truck_down', 'truck_down'),
+      day(TODAY, 'truck_down', 'truck_down'),
+      day('2026-09-22', 'truck_down', 'truck_down'),
+    ], TODAY);
+    expect(totals.offRoadDays).toBe(2);
+    expect(totals.plannedDays).toBe(1);
+  });
+
+  it('today itself counts as happened, not planned', () => {
+    const totals = summarizeAbsence([day(TODAY, 'home', 'home_time')], TODAY);
+    expect(totals.offRoadDays).toBe(1);
+    expect(totals.plannedDays).toBe(0);
+  });
+
+  it('a fully upcoming stretch is flagged planned; a past one is not', () => {
+    const out = groupAbsenceStretches([
+      day('2026-09-14', 'home', 'home_time'),
+      day('2026-09-15', 'home', 'home_time'),
+      day('2026-09-28', 'home', 'vacation'),
+      day('2026-09-29', 'home', 'vacation'),
+    ], TODAY);
+    expect(out).toHaveLength(2);
+    expect(out.find(s => s.start === '2026-09-28')?.planned).toBe(true);
+    expect(out.find(s => s.start === '2026-09-14')?.planned).toBe(false);
+  });
+
+  it('a stretch that begins today is not planned', () => {
+    const out = groupAbsenceStretches([
+      day(TODAY, 'home', 'vacation'),
+      day('2026-09-22', 'home', 'vacation'),
+    ], TODAY);
+    expect(out).toHaveLength(1);
+    expect(out[0].planned).toBe(false);
+  });
+
+  it('booking is capped one year ahead', () => {
+    expect(maxPlannedDate(new Date(2026, 8, 21))).toBe('2027-09-21');
+    expect(todayIso(new Date(2026, 8, 21))).toBe(TODAY);
   });
 });
