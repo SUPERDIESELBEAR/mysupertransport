@@ -11115,6 +11115,39 @@ export type Database = {
           },
         ]
       }
+      permission_actions: {
+        Row: {
+          category: string
+          created_at: string
+          description: string | null
+          is_active: boolean
+          key: string
+          kind: Database["public"]["Enums"]["permission_kind"]
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          category: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          key: string
+          kind: Database["public"]["Enums"]["permission_kind"]
+          label: string
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          description?: string | null
+          is_active?: boolean
+          key?: string
+          kind?: Database["public"]["Enums"]["permission_kind"]
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       pipeline_config: {
         Row: {
           description: string | null
@@ -12420,6 +12453,54 @@ export type Database = {
             columns: ["operator_id"]
             isOneToOne: false
             referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      role_permissions: {
+        Row: {
+          action_key: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          action_key: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          action_key?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "role_permissions_action_key_fkey"
+            columns: ["action_key"]
+            isOneToOne: false
+            referencedRelation: "permission_actions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "role_permissions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -13965,6 +14046,63 @@ export type Database = {
           },
         ]
       }
+      user_permission_exceptions: {
+        Row: {
+          action_key: string
+          company_id: string
+          created_at: string
+          created_by: string | null
+          effect: Database["public"]["Enums"]["permission_effect"]
+          expires_at: string | null
+          id: string
+          reason: string
+          updated_at: string
+          updated_by: string | null
+          user_id: string
+        }
+        Insert: {
+          action_key: string
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          effect: Database["public"]["Enums"]["permission_effect"]
+          expires_at?: string | null
+          id?: string
+          reason: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id: string
+        }
+        Update: {
+          action_key?: string
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          effect?: Database["public"]["Enums"]["permission_effect"]
+          expires_at?: string | null
+          id?: string
+          reason?: string
+          updated_at?: string
+          updated_by?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_permission_exceptions_action_key_fkey"
+            columns: ["action_key"]
+            isOneToOne: false
+            referencedRelation: "permission_actions"
+            referencedColumns: ["key"]
+          },
+          {
+            foreignKeyName: "user_permission_exceptions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           company_id: string
@@ -14793,6 +14931,9 @@ export type Database = {
           table_name: string
         }[]
       }
+      has_permission:
+        | { Args: { _action: string }; Returns: boolean }
+        | { Args: { _action: string; _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -15419,6 +15560,7 @@ export type Database = {
           tags: string[]
         }[]
       }
+      seed_role_permissions: { Args: { _company_id: string }; Returns: number }
       set_go_live_with_override: {
         Args: { _go_live_date: string; _operator_id: string; _reason?: string }
         Returns: undefined
@@ -15866,6 +16008,8 @@ export type Database = {
         | "final_notice_sent"
         | "completed"
         | "gfe_documented"
+      permission_effect: "allow" | "deny"
+      permission_kind: "view" | "change"
       rate_con_ingest_status:
         | "received"
         | "pending_parse"
@@ -16297,6 +16441,8 @@ export const Constants = {
         "completed",
         "gfe_documented",
       ],
+      permission_effect: ["allow", "deny"],
+      permission_kind: ["view", "change"],
       rate_con_ingest_status: [
         "received",
         "pending_parse",
