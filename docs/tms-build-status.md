@@ -18951,3 +18951,65 @@ Report: `docs/passes/2026-09-21-1930-suite-reconciliation.md`.
 applicants built to its tests and proved on screen as management. Suite: 3 failed | 2111 passed,
 all three infrastructure (one known harness permission, two pooler auth timeouts). Typecheck
 clean. Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
+
+## 2026-09-21 21:00 UTC — money-action permissions: decisions P20-P26 and the inventory
+
+Documentation only. No migration, no code, no data, nothing deployed. Full suite skipped
+deliberately (docs only); typecheck not run (no TypeScript touched). Second permissions
+slice, part one. Full detail, including the hard cases and the proposed build order:
+`docs/passes/2026-09-21-2100-money-permissions-inventory.md`.
+
+**Owner decisions, 2026-09-21:**
+
+- **P20** — Approve or finalize a settlement: owner, management.
+- **P21** — Void or reopen a settlement after it is paid: OWNER ONLY.
+- **P22** — Issue an invoice: owner, management, dispatcher.
+- **P23** — Void an invoice: owner, management.
+- **P24** — Approve an accessorial (detention, lumper, TONU and the rest): owner, management,
+  dispatcher.
+- **P25** — Commit a fuel import: owner, management.
+- **P26** — Change pay rates or pay policies: OWNER ONLY.
+
+**Inventory, from the live catalogue and the code (POLICY = RLS policy, DEFINER = role check
+inside the SECURITY DEFINER writer, TRIGGER = immutability trigger):**
+
+| Action | Where | Enforced by | Who today | Gap |
+| --- | --- | --- | --- | --- |
+| P20 approve/finalize settlement | `settlementRun.ts` → `store_settlement_run`; `DispatchSettlementPage.tsx` direct status UPDATE; `compute_dispatch_settlement` | POLICY `management OR owner` on `settlements` / `dispatch_settlements`; TRIGGER `enforce_settlement_immutability`, `enforce_dispatch_settlement_immutability`; DEFINER in `compute_dispatch_settlement`; `store_settlement_run` has only the `settlement_writer_active()` flag | management, owner | roles match; no NAMED action — finalizing is an ordinary column write |
+| P21 void/reopen a PAID settlement | dispatch void panel → direct UPDATE `status='void'`, TRIGGER `apply_dispatch_settlement_void` DELETEs lines and contributions; **no driver-settlement void exists** | POLICY `management OR owner`; `apply_dispatch_settlement_void` itself has NO ROLE CHECK; `enforce_settlement_immutability` refuses any change to a paid driver settlement | **management and owner** | **WORST GAP — management can perform an owner-only action, and it cascades DELETEs** |
+| P22 issue an invoice | `BillingQueuePage.tsx` → `billingRun.storeInvoice` → `create_invoice`; number via `allocate_invoice_number` (service_role only) | DEFINER `management OR owner` in `create_invoice`; POLICY `invoices management and owner only` (ALL) on `invoices`, `invoice_line_items`, `invoice_batches` | management, owner | **dispatcher MISSING**; definer check and three ALL policies must widen together |
+| P23 void an invoice | **no void action exists**; nearest are `close_short_paid_invoice` and a direct `invoices.status` UPDATE | POLICY `management OR owner`; TRIGGER `enforce_invoice_immutability` freezes load/broker/number/path/amount/batch after submission but leaves `status` and payments movable | management, owner | roles match; the action does not exist to be permitted or audited |
+| P24 approve an accessorial | `LateAccessorialsPage.tsx` / `AdjustmentActionDialog.tsx` → `approve_accessorial_adjustment`; `detention_claims`; `add/update/delete_load_charge` | DEFINER `dispatcher OR management OR owner` + reason + proof + senior amount limit; client writes to `accessorial_adjustments` closed behind `accessorial_adjustment_writer_active()`; TRIGGERs immutability + transition | dispatcher, management, owner | **matches P24**; rule spelled as three `has_role` calls in four places |
+| P25 commit a fuel import | `fuel/fuelImport.ts` → `commit_fuel_import`; `assign_fuel_transaction_operator`; `accept_fuel_disagreement` | DEFINER `management OR owner` in all three; POLICY `fuel_batches_write_management`, `fuel_transactions_write_management`; TRIGGER `enforce_fuel_acceptance_append_only` | management, owner | matches P25; naming only |
+| P26 change pay rates/policies | **no pay-policy screen**; `payTreatment.ts` reads only; rates edited via `contractor_pay_setup` (Stage 8) and the `loads` rate columns | POLICY `management OR owner` on `pay_policies` / `pay_policy_assignments`; `contractor_pay_setup` UPDATE is **`is_staff(auth.uid())`**; `pay_policies` has NO immutability trigger and no effective-date history | management + owner for policies; **any staff role** for a driver's pay setup | **SECOND WORST — two levels off owner-only, and no rate history** |
+
+**Other writers of the same effects** (settlements and invoices have several):
+`store_settlement_run`, `compute_dispatch_settlement`, `apply_dispatch_settlement_void`,
+`authorize_below_threshold_payment`, the line-item / withheld-load tables, and
+`deductions` / `deduction_installments` / `rm_deposits` / `cash_advances` — all
+`management OR owner`, so net pay can move without touching the settlement row;
+`create_invoice`, `allocate_invoice_number`, `close_short_paid_invoice`, `invoice_batches`,
+`payments` (TRIGGER `enforce_payment_immutability`);
+`create/submit/approve/reject_accessorial_adjustment`,
+`attach_accessorial_adjustment_proof`, `detention_claims`, the three `load_charges` RPCs
+(a charge added before invoicing needs no approval at all);
+`commit_fuel_import`, `assign_fuel_transaction_operator`, `accept_fuel_disagreement`;
+`pay_policies`, `pay_policy_assignments`, `contractor_pay_setup`, the `loads` rate columns,
+`settlement_settings`, `dispatch_settlement_rates`. **No scheduled job writes any of it** —
+checked against the repaired cron list.
+
+**Protected by the UI alone: NONE.** Every money action has at least one database gate. The
+one destructive effect with no gate of its own is P21's cascading void
+(`apply_dispatch_settlement_void`, NO ROLE CHECK), reached only after the
+`management OR owner` policy — mis-scoped, not unguarded.
+
+Also noted live: the VIEW half of P13 is already built on the money tables —
+`settlements_view_permission`, `dispatch_settlements_view_permission`
+(`has_permission('settlement.view')`) and `invoices_view_permission`
+(`has_permission('invoice.view')`). The CHANGE half still goes through `has_role`.
+
+**Build order proposed, nothing built:** P21, then P26, then P20, P22, P23, P24, P25 — each
+with the proof its pass must produce, and each under the money-probe and throwaway rules.
+Seven hard cases are recorded for the owner and deliberately NOT answered, the first being
+what "reopen" can mean when `enforce_settlement_immutability` currently refuses it to
+everybody.

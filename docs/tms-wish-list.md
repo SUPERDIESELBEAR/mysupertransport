@@ -997,3 +997,27 @@ This session took them over (the other session is paused).
   throwaway applicant archived and brought back, `email_send_log` empty for it, row deleted.
 
 Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
+
+## Permissions slice 2 — money actions (2026-09-21 2100)
+
+- **OPEN — decisions recorded, inventory done, BUILD NOT STARTED.** Owner decisions P20-P26
+  (settlement approve/finalize, paid-settlement void/reopen owner-only, invoice issue and
+  void, accessorial approval, fuel-import commit, pay rates owner-only) and the seven-row
+  enforcement inventory are recorded in `docs/tms-build-status.md` under
+  **2026-09-21 21:00 UTC**; report
+  `docs/passes/2026-09-21-2100-money-permissions-inventory.md`.
+- Two real gaps to close, worst first: **P21** — management can void a PAID dispatch
+  settlement and `apply_dispatch_settlement_void` then DELETEs its line items and load
+  contributions, with no role check of its own; and **P26** — management can change pay
+  policy rates while `contractor_pay_setup` accepts ANY staff role, and `pay_policies` has no
+  effective-date history. **P22** needs dispatcher added to `create_invoice` and to three ALL
+  policies together. P20, P23, P24, P25 already match on who and need naming only; **P23's
+  action does not exist in the code at all**.
+- **Blocked on the owner: seven hard cases**, chief among them what "reopen" means for a
+  settlement already paid through Everee (the immutability trigger refuses it to everybody
+  today), whether a void should keep its line items, whether an -A1 adjustment is a P24
+  approval or a P21 reopen, whether a pay-policy change may reach settlements already
+  calculated, and whether P26 covers the Stage 8 pay setup onboarding staff currently edit.
+  No build pass should start on P21 or P26 before those answers.
+- Nothing in the money layer is protected by the UI alone — unlike slice 1, the gaps are
+  wrong-role and unnamed-action, not absent enforcement.
