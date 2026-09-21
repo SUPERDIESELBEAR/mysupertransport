@@ -156,18 +156,26 @@ Standing rule for BOTH sessions, recorded here and in `docs/tms-build-status.md`
 ## Full suite — `--maxWorkers=4`, verbatim
 
 ```
- Test Files  1 failed | 209 passed | 2 skipped (212)
-      Tests  8 failed | 2103 passed | 16 skipped (2127)
-   Errors  1 error
-   Duration  400.51s
+ Test Files  5 failed | 205 passed | 2 skipped (212)
+      Tests  9 failed | 2105 passed | 16 skipped (2130)
+     Errors  2 errors
+   Duration  411.38s
 ```
 
-The one failing file is `src/test/archived-applicants.test.ts` (5 assertions) plus the
-three guard assertions in `definer-search-path`, `definer-live-catalog` and
-`notification-isolation` — all four named as real defects above, all belonging to the
-other session's two features. Nothing this pass authored fails.
+Nine failures, and every one is accounted for:
 
-Typecheck: clean.
+- 5 in `archived-applicants.test.ts` — the missing Applications page (real defect 3).
+- 1 each in `definer-search-path`, `definer-live-catalog`, `notification-isolation` —
+  `notify_staff_on_release_note` (real defects 1 and 2).
+- 1 in `dispatch-settlement-schema` — NOT an assertion:
+  `psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" ... FATAL: (EAUTHQUERY) auth_query secret check timed out`.
+  The other 20 tests in that file, all of which query the same catalog, passed. Sandbox
+  pooler contention, the same intermittent recorded against `grant-parity-live`.
+
+The 2 unhandled errors are both `[vitest-worker]: Timeout calling "onTaskUpdate"` — worker
+reporting, no test attached.
+
+Nothing this pass authored fails. Typecheck: clean.
 
 ## Files this pass authored
 
