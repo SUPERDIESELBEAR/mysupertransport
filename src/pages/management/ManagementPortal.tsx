@@ -259,8 +259,10 @@ export default function ManagementPortal() {
   const [expandedNotesAppId, setExpandedNotesAppId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
-    return (s && ['pending','revisions_requested','approved','denied','all','invited'].includes(s)) ? s : 'pending';
+    return (s && ['pending','revisions_requested','approved','denied','archived','all','invited'].includes(s)) ? s : 'pending';
   });
+  // Count beside the Archived tab, refreshed with the other application metrics.
+  const [archivedCount, setArchivedCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
@@ -508,10 +510,12 @@ export default function ManagementPortal() {
   }, []);
 
   const fetchMetrics = useCallback(async () => {
-    const [appsRes, overview] = await Promise.all([
+    const [appsRes, archivedRes, overview] = await Promise.all([
       supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
+      supabase.from('applications').select('id', { count: 'exact', head: true }).eq('review_status', 'archived'),
       fetchOverviewMetrics(),
     ]);
+    setArchivedCount(archivedRes.count ?? 0);
     setMetrics({
       pending: appsRes.count ?? 0,
       onboarding: overview.onboarding,
