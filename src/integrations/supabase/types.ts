@@ -2547,32 +2547,41 @@ export type Database = {
       }
       dispatch_daily_log: {
         Row: {
+          absence_reason: Database["public"]["Enums"]["absence_reason"] | null
           company_id: string
           created_at: string
           created_by: string | null
           id: string
           log_date: string
           notes: string | null
+          notes_at: string | null
+          notes_by: string | null
           operator_id: string
           status: Database["public"]["Enums"]["daily_dispatch_status"]
         }
         Insert: {
+          absence_reason?: Database["public"]["Enums"]["absence_reason"] | null
           company_id: string
           created_at?: string
           created_by?: string | null
           id?: string
           log_date: string
           notes?: string | null
+          notes_at?: string | null
+          notes_by?: string | null
           operator_id: string
           status: Database["public"]["Enums"]["daily_dispatch_status"]
         }
         Update: {
+          absence_reason?: Database["public"]["Enums"]["absence_reason"] | null
           company_id?: string
           created_at?: string
           created_by?: string | null
           id?: string
           log_date?: string
           notes?: string | null
+          notes_at?: string | null
+          notes_by?: string | null
           operator_id?: string
           status?: Database["public"]["Enums"]["daily_dispatch_status"]
         }
@@ -15787,6 +15796,15 @@ export type Database = {
       }
     }
     Enums: {
+      absence_reason:
+        | "truck_down"
+        | "home_time"
+        | "vacation"
+        | "medical"
+        | "personal"
+        | "waiting_on_load"
+        | "no_driver"
+        | "other"
       account_status: "pending" | "active" | "denied" | "inactive"
       app_role:
         | "applicant"
@@ -16197,6 +16215,16 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      absence_reason: [
+        "truck_down",
+        "home_time",
+        "vacation",
+        "medical",
+        "personal",
+        "waiting_on_load",
+        "no_driver",
+        "other",
+      ],
       account_status: ["pending", "active", "denied", "inactive"],
       app_role: [
         "applicant",
