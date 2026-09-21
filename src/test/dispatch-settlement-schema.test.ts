@@ -165,11 +165,14 @@ describe('dispatch settlement — constraints', () => {
     ]) expect(names).toContain(n);
   });
 
-  itLive('one payee, one month, per company — the re-scoped unique key', () => {
+  // P34 (2026-09-21): scoped to LIVE rows, so kept voided settlements can sit
+  // beside the month's one live settlement.
+  itLive('one LIVE payee settlement per month, per company — the re-scoped unique key', () => {
     const def = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname='public'
-      AND indexname='dispatch_settlements_company_payee_period_uniq'`).join(' ');
+      AND indexname='dispatch_settlements_company_payee_period_live_uniq'`).join(' ');
     expect(def).toContain('UNIQUE');
     expect(def).toContain('company_id, payee_key, period_month');
+    expect(def).toMatch(/WHERE \(?status <> 'void'/);
   });
 
   itLive('one load_base line per load per settlement — a partial unique index', () => {
@@ -360,7 +363,7 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
         VALUES (${CO}, '2099-01-01', 2, 5);
       ROLLBACK;`);
     // Re-scoped per company by B5 part two: the unique INDEX now raises.
-    expect(err).toContain('dispatch_settlements_company_payee_period_uniq');
+    expect(err).toContain('dispatch_settlements_company_payee_period_live_uniq');
   });
 
   itLive('a payee other than the dispatch company is refused — this table has one vendor', () => {
