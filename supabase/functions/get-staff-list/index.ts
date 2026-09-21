@@ -64,6 +64,65 @@ Deno.serve(async (req) => {
       return data ? `${data.first_name ?? ''} ${data.last_name ?? ''}`.trim() || (callerUser.email ?? 'Unknown') : (callerUser.email ?? 'Unknown');
     };
 
+    const json = (status: number, body: Record<string, unknown>) =>
+      new Response(JSON.stringify(body), {
+        status, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+
+    /**
+     * The suspension gate (P16-P19, owner decisions 2026-09-21; design (d) of
+     * docs/passes/2026-09-21-0132-permissions-design.md).
+     *
+     * Returns a Response when the attempt must be refused, null when it may
+     * proceed. Check order — identical to the database trigger
+     * enforce_staff_suspension_permission, and every check runs BEFORE any write:
+     *   1. P19 — your own account is never yours to suspend or reinstate.
+     *   2. P18 — only the owner may touch the owner account.
+     *   3. P17 — has_permission('staff_account.suspend'), asked about the
+     *            CALLER's own id, because this function writes with the
+     *            service-role client where auth.uid() is NULL.
+     */
+    const refuseSuspension = async (targetUserId: string): Promise<Response | null> => {
+      if (targetUserId === callerUser.id) {
+        return json(400, { error: 'You cannot change your own account status.' });
+      }
+
+      const { data: targetOwner, error: targetErr } = await supabaseAdmin
+        .from('user_roles')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('role', 'owner')
+        .limit(1);
+      if (targetErr) {
+        return json(500, { error: 'Could not check the target account', details: targetErr.message });
+      }
+      if (targetOwner?.length) {
+        const { data: callerOwner } = await supabaseAdmin
+          .from('user_roles')
+          .select('id')
+          .eq('user_id', callerUser.id)
+          .eq('role', 'owner')
+          .limit(1);
+        if (!callerOwner?.length) {
+          return json(403, { error: 'Only the owner can suspend or reinstate the owner account.' });
+        }
+      }
+
+      const { data: allowed, error: permErr } = await supabaseAdmin
+        .rpc('has_permission', { _user_id: callerUser.id, _action: 'staff_account.suspend' });
+      if (permErr) {
+        return json(500, { error: 'Could not check permission', details: permErr.message });
+      }
+      if (allowed !== true) {
+        return json(403, {
+          error: 'Not authorized to change a staff account status. Suspending or reinstating a staff login is limited to management and the owner.',
+        });
+      }
+
+      return null;
+    };
+
+
     // Handle role update requests (POST with action body)
     // Only parse JSON if there's a non-empty body to avoid SyntaxError on bodyless POSTs
     const contentLength = req.headers.get('content-length');
