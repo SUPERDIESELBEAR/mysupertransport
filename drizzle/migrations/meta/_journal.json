@@ -148,6 +148,13 @@
       "when": 1790007582263,
       "tag": "0020_staff_suspension_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1790009763240,
+      "tag": "0021_release_note_approval",
+      "breakpoints": true
     }
   ]
 }
