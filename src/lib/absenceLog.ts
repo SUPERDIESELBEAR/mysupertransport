@@ -75,6 +75,21 @@ export interface AbsenceStretch {
   note: string | null;
   enteredByName: string | null;
   enteredAt: string | null;
+  /** True when the whole stretch sits after today — a scheduled absence. */
+  planned: boolean;
+}
+
+/** Today as YYYY-MM-DD in local calendar terms (not UTC-shifted). */
+export function todayIso(now = new Date()): string {
+  const pad2 = (n: number) => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+}
+
+/** Furthest date a planned absence may be booked: one year from today. */
+export function maxPlannedDate(now = new Date()): string {
+  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  d.setFullYear(d.getFullYear() + 1);
+  return todayIso(d);
 }
 
 /** "YYYY-MM-DD" -> day number, with no timezone in play. */
@@ -93,7 +108,7 @@ const norm = (v: string | null | undefined) => {
  * stretch. A calendar gap, a change of status, a change of reason, or a
  * different note all start a new stretch. Returned newest-first.
  */
-export function groupAbsenceStretches(days: AbsenceDay[]): AbsenceStretch[] {
+export function groupAbsenceStretches(days: AbsenceDay[], today = todayIso()): AbsenceStretch[] {
   const sorted = [...days].sort((a, b) => a.log_date.localeCompare(b.log_date));
   const out: AbsenceStretch[] = [];
 
@@ -115,6 +130,7 @@ export function groupAbsenceStretches(days: AbsenceDay[]): AbsenceStretch[] {
     }
 
     out.push({
+      planned: day.log_date > today,
       start: day.log_date,
       end: day.log_date,
       days: 1,
