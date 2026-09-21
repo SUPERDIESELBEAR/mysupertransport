@@ -2018,7 +2018,7 @@ export default function ManagementPortal() {
               )}
               {/* Status tabs */}
               <div className="flex rounded-lg border border-border bg-white overflow-hidden shrink-0">
-                {(['pending', 'revisions_requested', 'approved', 'denied', 'all', 'invited'] as StatusFilter[]).map(s => (
+                {(['pending', 'revisions_requested', 'approved', 'denied', 'archived', 'all', 'invited'] as StatusFilter[]).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
@@ -2035,6 +2035,9 @@ export default function ManagementPortal() {
                       : s.charAt(0).toUpperCase() + s.slice(1)}
                     {s === 'pending' && metrics.pending > 0 && (
                       <span className="ml-1 bg-status-progress text-white text-[10px] px-1.5 py-0.5 rounded-full">{metrics.pending}</span>
+                    )}
+                    {s === 'archived' && archivedCount > 0 && (
+                      <span className="ml-1 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full">{archivedCount}</span>
                     )}
                     {s === 'invited' && invites.length > 0 && (
                       <span className="ml-1 bg-gold text-surface-dark text-[10px] px-1.5 py-0.5 rounded-full">{invites.length}</span>
@@ -2730,6 +2733,8 @@ export default function ManagementPortal() {
           onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); setSelectedAppInitialTab('overview'); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
           onExpiryUpdated={async () => {
             setComplianceRefreshKey(k => k + 1);
             // Re-fetch fresh app data and push updated expiry dates into the panel
