@@ -18669,3 +18669,29 @@ audit trail suggests it held text.
 failed | 2036 passed | 16 skipped (2053); Errors 2. The one failure is the pre-existing
 grant-parity harness grant (see the wish list); the two errors are sandbox worker timeouts.
 Typecheck clean.
+
+## 2026-09-21 13:35 UTC — Absence Log on Driver Status
+Dispatch records why a driver is off the road against a DATE (status + reason +
+note, one day or a range) on the Driver Status calendar, and reads it back as a
+chronological time log with a month/quarter/year/all-time/custom range and a
+total. The single free-text Notes box is gone from cards and table — reasons are
+kept now instead of overwritten. Schema is STAGED (`absence_reason` enum,
+`dispatch_daily_log.absence_reason` / `notes_by` / `notes_at`, index) and applies
+when this draft is accepted. Full suite 2,039 passed; one pooler timeout that
+passes on re-run, and the pre-existing `grant_parity_report` EXECUTE gap.
+Report: docs/passes/2026-09-21-1335-absence-log.md
+
+## 2026-09-21 14:10 UTC — Driver Status calendars restored
+
+The Absence Log pass selected the staged `absence_reason` / `notes_by` /
+`notes_at` columns, which do not exist until this draft is accepted; PostgREST
+answered 42703 and returned no rows, so every driver card's mini calendar
+painted "?" for every day, current and past. No rows were lost.
+
+Fixed with one column-tolerant reader, `src/lib/dispatchDayLogs.ts`: full select
+first, retry on missing-column with the long-standing fields, remembered
+module-wide, other errors surfaced; `stripAbsenceFields` keeps writes working
+meanwhile and the reason pickers are disabled with a note until the columns
+land. Calendars verified live (owner session) showing Dispatched / Home / Truck
+Down colours and non-zero counters again. Report:
+`docs/passes/2026-09-21-1410-calendar-restore.md`.

@@ -868,3 +868,33 @@ Switching a staff member's own sign-in off (`profiles.account_status`) is the on
 action from the permissions design still without a database check. Next slice.
 
 TRIGGER. Next permissions pass.
+
+### Absence reasons are staff-only, and carry no settlement meaning (2026-09-21)
+The Absence Log is visible to dispatch, management and the owner. Drivers do not
+see their own reasons, and nothing in settlement reads them — a week of
+`truck_down` has no automatic effect on pay, R&M or the dispatch board's
+eligibility counts. The separate Parked control on the driver record is still its
+own state and is NOT written by the calendar.
+
+NO TRIGGER. Owner's decision if either should change.
+
+### The harness role cannot run grant_parity_report (2026-09-21)
+`src/test/grant-parity-live.test.ts` fails with `permission denied for function
+grant_parity_report` for the sandbox psql role, so live grant/policy parity is
+unproven in the suite. Pre-existing and unrelated to the Absence Log. Settled by
+granting EXECUTE to the harness role only, on a disposable instance first.
+
+NO TRIGGER until someone relies on that guard being green.
+
+## 2026-09-21 14:10 UTC
+
+- OPEN — `public.enforce_driver_deactivation_permission()` is EXECUTE-able by
+  `anon` and `authenticated` in the live database and is absent from the
+  2026-08-01 definer inventory (two `definer-live-catalog` assertions fail on
+  it). Not created by the calendar pass and not fixable from a draft (no DDL).
+  Needs its own pass: revoke EXECUTE from both client roles, then re-run.
+- OPEN (carried) — harness psql role lacks EXECUTE on `grant_parity_report()`,
+  so `grant-parity-live` cannot run.
+- NOTE — the absence-reason fallback in `src/lib/dispatchDayLogs.ts` is
+  self-clearing: once the staged migration is accepted the full select succeeds
+  and the retry path is never taken. It can be deleted at any later tidy-up.

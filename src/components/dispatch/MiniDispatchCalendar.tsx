@@ -6,9 +6,14 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
-import { insertPayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
+import {
+  ABSENCE_REASONS, absenceReasonLabel, canSaveAbsence, type AbsenceReason,
+} from '@/lib/absenceLog';
+import { fetchDispatchDayLogs, stripAbsenceFields } from '@/lib/dispatchDayLogs';
 
 type DailyStatus = 'dispatched' | 'home' | 'truck_down' | 'not_dispatched';
 
@@ -22,6 +27,7 @@ interface DailyLog {
   log_date: string;
   status: DailyStatus;
   notes: string | null;
+  absence_reason: string | null;
 }
 
 const STATUS_COLORS: Record<DailyStatus, { dot: string; bg: string; label: string; text: string }> = {
@@ -35,9 +41,11 @@ const DAY_HEADERS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
 interface Props {
   operatorId: string;
+  /** Fires after any day is written, cleared, or given a reason — the Absence Log listens. */
+  onLogChanged?: () => void;
 }
 
-export default function MiniDispatchCalendar({ operatorId }: Props) {
+export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props) {
   const { session } = useAuth();
   const { toast } = useToast();
   const [month, setMonth] = useState(() => {
@@ -55,6 +63,14 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const [rangeStatus, setRangeStatus] = useState<DailyStatus>('dispatched');
   const [rangeOverwrite, setRangeOverwrite] = useState(false);
   const [rangeApplying, setRangeApplying] = useState(false);
+  const [rangeReason, setRangeReason] = useState<AbsenceReason | ''>('');
+  const [rangeNote, setRangeNote] = useState('');
+  // Which day cell is open, so the reason editor resets between days.
+  const [openDay, setOpenDay] = useState<number | null>(null);
+  const [dayReason, setDayReason] = useState<AbsenceReason | ''>('');
+  const [dayNote, setDayNote] = useState('');
+  // False until the staged absence-reason columns exist (draft accepted).
+  const [hasReasonColumn, setHasReasonColumn] = useState(true);
 
   // Check whether this operator is excluded from the Dispatch Hub
   useEffect(() => {
@@ -87,14 +103,14 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     const endDate = new Date(month.year, month.month + 1, 0);
     const end = `${endDate.getFullYear()}-${String(endDate.getMonth() + 1).padStart(2, '0')}-${String(endDate.getDate()).padStart(2, '0')}`;
 
-    const { data } = await supabase
-      .from('dispatch_daily_log')
-      .select('id, log_date, status, notes')
-      .eq('operator_id', operatorId)
-      .gte('log_date', start)
-      .lte('log_date', end);
-
-    setLogs((data as DailyLog[] | null) ?? []);
+    // Column-tolerant read: the absence-reason fields are staged, so asking for
+    // them outright would fail the whole query and blank the calendar.
+    const { logs: rows, hasReasonColumn: has } = await fetchDispatchDayLogs(operatorId, start, end);
+    setHasReasonColumn(has);
+    setLogs(rows as unknown as DailyLog[]);
+    // Deliberately NOT notifying the parent here: fetchLogs runs on every month
+    // change, and a refresh signal on a plain read would loop the Absence Log.
+    // Writers call notifyChanged() themselves.
   }, [operatorId, month.year, month.month]);
 
   useEffect(() => { fetchLogs(); }, [fetchLogs]);
@@ -127,17 +143,51 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
   const prevMonth = () => setMonth(p => p.month === 0 ? { year: p.year - 1, month: 11 } : { ...p, month: p.month - 1 });
   const nextMonth = () => setMonth(p => p.month === 11 ? { year: p.year + 1, month: 0 } : { ...p, month: p.month + 1 });
 
-  const setStatus = async (day: number, status: DailyStatus) => {
+  /**
+   * One line for `active_dispatch.status_notes` — the truck-down toast, the
+   * status-history timeline and the driver history download all read that
+   * field, so a reason entered on the calendar has to reach it.
+   */
+  const reasonLine = (status: DailyStatus, reason: string | null, note: string): string | null => {
+    if (status === 'dispatched') return null;
+    const parts: string[] = [];
+    if (reason) parts.push(absenceReasonLabel(reason));
+    if (note.trim()) parts.push(note.trim());
+    return parts.length ? parts.join(' — ') : null;
+  };
+
+  const setStatus = async (
+    day: number,
+    status: DailyStatus,
+    reason: AbsenceReason | null = null,
+    note = '',
+  ) => {
     const dateStr = `${month.year}-${String(month.month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const todayStr = new Date().toISOString().slice(0, 10);
     setSaving(true);
     const existing = logMap[dateStr];
 
+    // Dispatched days carry no absence reason, by definition.
+    const effectiveReason = status === 'dispatched' ? null : reason;
+    const effectiveNote = status === 'dispatched' ? null : (note.trim() || null);
+    const touchedNote = effectiveReason !== null || effectiveNote !== null;
+
+    // The staged columns are dropped from the write until they exist, so
+    // marking a day keeps working in the meantime.
+    const fields = stripAbsenceFields({
+      status,
+      created_by: session?.user?.id ?? null,
+      absence_reason: effectiveReason,
+      notes: effectiveNote,
+      notes_by: touchedNote ? (session?.user?.id ?? null) : null,
+      notes_at: touchedNote ? new Date().toISOString() : null,
+    }, hasReasonColumn);
+
     let error;
     if (existing) {
       ({ error } = await supabase
         .from('dispatch_daily_log')
-        .update({ status, created_by: session?.user?.id ?? null })
+        .update(updatePayload('dispatch_daily_log', fields))
         .eq('id', existing.id));
     } else {
       ({ error } = await supabase
@@ -145,8 +195,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         .insert(insertPayload('dispatch_daily_log', {
           operator_id: operatorId,
           log_date: dateStr,
-          status,
-          created_by: session?.user?.id ?? null,
+          ...fields,
         })));
     }
 
@@ -157,9 +206,10 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
       // If editing TODAY, also sync to active_dispatch + history so the live
       // Dispatch Hub tiles reflect the change immediately.
       if (dateStr === todayStr) {
-        await syncTodayToLive(status);
+        await syncTodayToLive(status, reasonLine(status, effectiveReason, note));
       }
       fetchLogs();
+      onLogChanged?.();
     }
   };
 
@@ -192,6 +242,8 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         const payload = {
           operator_id: operatorId,
           dispatch_status: 'not_dispatched' as DailyStatus,
+          // The reason went with the day, so the live note goes too.
+          status_notes: null,
           updated_by: session?.user?.id ?? null,
           updated_at: new Date().toISOString(),
         };
@@ -210,11 +262,12 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     }
     toast({ title: 'Status cleared' });
     fetchLogs();
+    onLogChanged?.();
   };
 
   // Mirror today's calendar status to active_dispatch (+ history) so the
   // live Dispatch Hub stays in lockstep. No-ops if status is unchanged.
-  const syncTodayToLive = useCallback(async (status: DailyStatus) => {
+  const syncTodayToLive = useCallback(async (status: DailyStatus, note?: string | null) => {
     // Read current live status to avoid spurious history rows / duplicate notifications.
     const { data: current } = await supabase
       .from('active_dispatch')
@@ -227,6 +280,9 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     const payload = {
       operator_id: operatorId,
       dispatch_status: status,
+      // The reason entered on the calendar becomes the live note, so the
+      // truck-down toast and the driver history keep reading a real sentence.
+      status_notes: note ?? null,
       updated_by: session?.user?.id ?? null,
       updated_at: new Date().toISOString(),
     };
@@ -241,7 +297,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
       operator_id: operatorId,
       dispatch_status: status,
       changed_by: session?.user?.id ?? null,
-      status_notes: 'Synced from calendar today-cell',
+      status_notes: note ?? 'Synced from calendar today-cell',
     }));
   }, [operatorId, session?.user?.id]);
 
@@ -253,6 +309,8 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
     setRangeTo(todayStr);
     setRangeStatus('dispatched');
     setRangeOverwrite(false);
+    setRangeReason('');
+    setRangeNote('');
     setRangeOpen(true);
   };
 
@@ -296,12 +354,22 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
         return;
       }
 
-      const rows = toWrite.map(log_date => insertPayload('dispatch_daily_log', {
+      // A whole week off the road is one entry: the same reason and note land
+      // on every day in the range, so the Absence Log reads it as one stretch.
+      const effectiveReason = rangeStatus === 'dispatched' ? null : (rangeReason || null);
+      const effectiveNote = rangeStatus === 'dispatched' ? null : (rangeNote.trim() || null);
+      const touchedNote = effectiveReason !== null || effectiveNote !== null;
+
+      const rows = toWrite.map(log_date => insertPayload('dispatch_daily_log', stripAbsenceFields({
         operator_id: operatorId,
         log_date,
         status: rangeStatus,
         created_by: session?.user?.id ?? null,
-      }));
+        absence_reason: effectiveReason,
+        notes: effectiveNote,
+        notes_by: touchedNote ? (session?.user?.id ?? null) : null,
+        notes_at: touchedNote ? new Date().toISOString() : null,
+      }, hasReasonColumn)));
 
       const { error } = await supabase
         .from('dispatch_daily_log')
@@ -315,7 +383,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
 
       // If the range covers today AND today was actually written, dual-write to live.
       if (toWrite.includes(todayStr)) {
-        await syncTodayToLive(rangeStatus);
+        await syncTodayToLive(rangeStatus, reasonLine(rangeStatus, effectiveReason, rangeNote));
       }
 
       toast({
@@ -324,6 +392,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
       });
       setRangeOpen(false);
       fetchLogs();
+      onLogChanged?.();
     } finally {
       setRangeApplying(false);
     }
@@ -441,6 +510,36 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                     ))}
                   </div>
                 </div>
+                {rangeStatus !== 'dispatched' && (
+                  <>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">Reason</Label>
+                      <select
+                        value={rangeReason}
+                        disabled={!hasReasonColumn}
+                        onChange={e => setRangeReason(e.target.value as AbsenceReason | '')}
+                        className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] disabled:opacity-50"
+                      >
+                        <option value="">No reason</option>
+                        {ABSENCE_REASONS.map(r => (
+                          <option key={r} value={r}>{absenceReasonLabel(r)}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <Label className="text-[10px] text-muted-foreground">
+                        Note {rangeReason === 'other' ? <span className="text-destructive">*</span> : '(optional)'}
+                      </Label>
+                      <Textarea
+                        rows={2}
+                        value={rangeNote}
+                        onChange={e => setRangeNote(e.target.value)}
+                        placeholder="e.g. engine rebuild at Peterbilt Kansas City"
+                        className="mt-0.5 text-[11px] min-h-0"
+                      />
+                    </div>
+                  </>
+                )}
                 <label className="flex items-center gap-2 pt-1 cursor-pointer">
                   <Checkbox
                     checked={rangeOverwrite}
@@ -462,7 +561,10 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                   <Button
                     size="sm"
                     onClick={applyRange}
-                    disabled={rangeApplying || !rangeFrom || !rangeTo}
+                    disabled={
+                      rangeApplying || !rangeFrom || !rangeTo ||
+                      (rangeStatus !== 'dispatched' && !canSaveAbsence(rangeReason || null, rangeNote))
+                    }
                     className="h-7 text-[11px] px-2.5 bg-gold text-surface-dark hover:bg-gold-light"
                   >
                     {rangeApplying ? 'Applying…' : 'Apply'}
@@ -511,7 +613,18 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
           const isUnloggedPast = !log && unloggedPastDates.includes(dateStr);
 
           return (
-            <Popover key={day}>
+            <Popover
+              key={day}
+              open={openDay === day}
+              onOpenChange={o => {
+                setOpenDay(o ? day : null);
+                if (o) {
+                  // Seed the editor from what is already recorded for that day.
+                  setDayReason((log?.absence_reason as AbsenceReason | null) ?? '');
+                  setDayNote(log?.notes ?? '');
+                }
+              }}
+            >
               <PopoverTrigger asChild>
                 <button
                   ref={el => { cellRefs.current[dateStr] = el; }}
@@ -537,7 +650,7 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                   )}
                 </button>
               </PopoverTrigger>
-              <PopoverContent className="w-36 p-1.5" side="top" align="center" sideOffset={4}>
+              <PopoverContent className="w-52 p-2" side="top" align="center" sideOffset={4}>
                 <p className="text-[10px] font-semibold text-muted-foreground mb-1 px-1">
                   {new Date(month.year, month.month, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
                 </p>
@@ -545,8 +658,11 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                   {(Object.keys(STATUS_COLORS) as DailyStatus[]).map(s => (
                     <button
                       key={s}
-                      disabled={saving}
-                      onClick={() => setStatus(day, s)}
+                      disabled={saving || (s !== 'dispatched' && !canSaveAbsence(dayReason || null, dayNote))}
+                      onClick={async () => {
+                        await setStatus(day, s, s === 'dispatched' ? null : (dayReason || null), dayNote);
+                        setOpenDay(null);
+                      }}
                       className={`flex items-center gap-1.5 px-1.5 py-1 rounded text-[11px] font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
                         log?.status === s ? STATUS_COLORS[s].bg + ' ' + STATUS_COLORS[s].text : 'hover:bg-muted text-foreground/80'
                       }`}
@@ -556,17 +672,56 @@ export default function MiniDispatchCalendar({ operatorId }: Props) {
                     </button>
                   ))}
                 </div>
+
+                {/* Why he was off the road. Entered against the day, kept for good. */}
+                <div className="mt-1.5 pt-1.5 border-t border-border space-y-1.5">
+                  {!hasReasonColumn && (
+                    <p className="text-[10px] text-muted-foreground">
+                      Reasons become available once this update is accepted. Statuses save normally.
+                    </p>
+                  )}
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">Reason</Label>
+                    <select
+                      value={dayReason}
+                      disabled={!hasReasonColumn}
+                      onChange={e => setDayReason(e.target.value as AbsenceReason | '')}
+                      className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px] disabled:opacity-50"
+                    >
+                      <option value="">No reason</option>
+                      {ABSENCE_REASONS.map(r => (
+                        <option key={r} value={r}>{absenceReasonLabel(r)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <Label className="text-[10px] text-muted-foreground">
+                      Note {dayReason === 'other' ? <span className="text-destructive">*</span> : '(optional)'}
+                    </Label>
+                    <Textarea
+                      rows={2}
+                      value={dayNote}
+                      onChange={e => setDayNote(e.target.value)}
+                      placeholder="What happened that day"
+                      className="mt-0.5 text-[11px] min-h-0"
+                    />
+                  </div>
+                  <p className="text-[9px] text-muted-foreground leading-snug">
+                    Pick a status above to save the reason with the day.
+                  </p>
+                </div>
+
                 {log && (
                   <>
                     <div className="my-1 h-px bg-border" />
                     <button
                       type="button"
                       disabled={saving}
-                      onClick={() => clearStatus(day)}
-                      title="Remove this day's status (returns the cell to blank)."
+                      onClick={async () => { await clearStatus(day); setOpenDay(null); }}
+                      title="Remove this day's status and reason (returns the cell to blank)."
                       className="w-full text-left px-1.5 py-1 rounded text-[11px] font-medium text-destructive/80 hover:bg-destructive/10 hover:text-destructive transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      Clear status
+                      Clear day
                     </button>
                   </>
                 )}

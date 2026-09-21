@@ -1,0 +1,96 @@
+<svg viewBox="0 0 640 430" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .sm { font-size: 12px; fill: var(--fg-secondary); }
+    .tag { font-size: 12px; fill: var(--border-translucent); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; }
+    .surf { fill: var(--bg-secondary); stroke: var(--fg-secondary); stroke-width: 1; }
+    .quiet { fill: var(--bg-muted); }
+    .greek { fill: var(--border-translucent); }
+    .zone { fill: none; stroke: var(--border-translucent); stroke-width: 1; stroke-dasharray: 4 3; }
+    .acc { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; }
+    .accink { font-size: 12px; font-weight: 480; fill: var(--fg-accent); }
+  </style>
+
+  <!-- CARDS VIEW -->
+  <text class="tag" x="8" y="14">cards view</text>
+  <rect class="surf" x="8" y="22" width="180" height="264" rx="8"/>
+  <circle cx="30" cy="46" r="10" class="quiet"/>
+  <rect class="greek" x="48" y="40" width="80" height="6" rx="3"/>
+  <rect class="greek" x="48" y="52" width="54" height="5" rx="2.5"/>
+
+  <!-- calendar grid -->
+  <rect class="box" x="20" y="72" width="156" height="92" rx="8"/>
+  <text class="sm" x="28" y="88">Sep 2026</text>
+  <g stroke="var(--border-translucent)" stroke-width="1">
+    <line x1="20" y1="96" x2="176" y2="96"/>
+    <line x1="20" y1="118" x2="176" y2="118"/>
+    <line x1="20" y1="140" x2="176" y2="140"/>
+    <line x1="42" y1="96" x2="42" y2="164"/><line x1="64" y1="96" x2="64" y2="164"/>
+    <line x1="86" y1="96" x2="86" y2="164"/><line x1="108" y1="96" x2="108" y2="164"/>
+    <line x1="130" y1="96" x2="130" y2="164"/><line x1="152" y1="96" x2="152" y2="164"/>
+  </g>
+  <rect class="acc" x="88" y="120" width="18" height="18" rx="4"/>
+  <rect class="acc" x="110" y="120" width="18" height="18" rx="4"/>
+  <rect class="acc" x="132" y="120" width="18" height="18" rx="4"/>
+
+  <!-- replaced control -->
+  <rect class="acc" x="20" y="176" width="156" height="26" rx="8"/>
+  <text class="accink" x="30" y="193">Absence Log        v</text>
+  <text class="sm" x="20" y="222" text-decoration="line-through">History</text>
+  <text class="sm" x="70" y="222">removed</text>
+
+  <!-- notes removed -->
+  <rect class="zone" x="20" y="234" width="156" height="34" rx="8"/>
+  <text class="sm" x="30" y="248">Notes box</text>
+  <text class="sm" x="30" y="262">removed</text>
+
+  <!-- TABLE VIEW -->
+  <text class="tag" x="222" y="14">table view</text>
+  <rect class="surf" x="222" y="22" width="410" height="120" rx="8"/>
+  <g stroke="var(--border-translucent)" stroke-width="1">
+    <line x1="222" y1="50" x2="632" y2="50"/>
+    <line x1="222" y1="96" x2="632" y2="96"/>
+    <line x1="370" y1="22" x2="370" y2="142"/>
+    <line x1="450" y1="22" x2="450" y2="142"/>
+    <line x1="530" y1="22" x2="530" y2="142"/>
+  </g>
+  <text class="sm" x="232" y="42">Driver</text>
+  <text class="sm" x="380" y="42">Unit</text>
+  <text class="sm" x="460" y="42">Status</text>
+  <text class="sm" x="540" y="42" text-decoration="line-through">Notes</text>
+  <rect class="greek" x="232" y="60" width="70" height="6" rx="3"/>
+  <rect class="greek" x="232" y="72" width="48" height="5" rx="2.5"/>
+  <rect class="acc" x="230" y="80" width="96" height="20" rx="8"/>
+  <text class="accink" x="238" y="94">Absence Log</text>
+  <rect class="greek" x="380" y="62" width="40" height="6" rx="3"/>
+  <rect class="greek" x="460" y="62" width="52" height="6" rx="3"/>
+
+  <!-- THE PANEL -->
+  <text class="tag" x="222" y="170">absence log panel — same in both views</text>
+  <rect class="box" x="222" y="178" width="410" height="240" rx="8"/>
+  <rect class="quiet" x="234" y="192" width="120" height="22" rx="8"/>
+  <text class="sm" x="244" y="207">This year   v</text>
+  <text class="sm" x="366" y="207">from — to</text>
+  <text class="lbl" x="234" y="238">23 days off the road</text>
+  <text class="sm" x="234" y="254">11 truck down · 8 home · 4 other</text>
+  <line x1="234" y1="266" x2="620" y2="266" stroke="var(--border-translucent)"/>
+
+  <!-- ledger rows -->
+  <circle cx="242" cy="288" r="3" fill="var(--fg-accent)"/>
+  <text class="lbl" x="256" y="292">Sep 14 – Sep 18</text>
+  <text class="sm" x="410" y="292">5 days</text>
+  <text class="sm" x="480" y="292">Truck Down</text>
+  <text class="sm" x="256" y="308">Engine rebuild at Peterbilt Kansas City</text>
+  <text class="sm" x="256" y="322">Entered by Leo Wallace, Sep 14</text>
+
+  <circle cx="242" cy="350" r="3" fill="var(--fg-secondary)"/>
+  <text class="lbl" x="256" y="354">Sep 2 – Sep 3</text>
+  <text class="sm" x="410" y="354">2 days</text>
+  <text class="sm" x="480" y="354">Home Time</text>
+  <text class="sm" x="256" y="370">Daughter's graduation</text>
+  <text class="sm" x="256" y="384">Entered by Mae Lauron, Sep 2</text>
+
+  <text class="sm" x="256" y="406">…</text>
+</svg>

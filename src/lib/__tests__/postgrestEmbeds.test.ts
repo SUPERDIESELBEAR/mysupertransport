@@ -94,7 +94,40 @@ function loadSchema() {
     }
   }
 
+  // Columns added by a migration STAGED in a draft exist the moment the draft
+  // is accepted, but the generated types are only regenerated then. Without
+  // this, code written against a staged column is reported as a broken select —
+  // a false alarm that would push work to be written blind. Read straight from
+  // the staged SQL so the allowance disappears on its own once types catch up.
+  for (const [table, cols] of stagedAddedColumns()) {
+    if (!columnsByTable.has(table)) columnsByTable.set(table, new Set());
+    for (const c of cols) columnsByTable.get(table)!.add(c);
+  }
+
   return { tables, fks, byColumn, columnsByTable };
+}
+
+/** `ALTER TABLE public.x ADD COLUMN [IF NOT EXISTS] y` in any staged draft migration. */
+function stagedAddedColumns(): Map<string, Set<string>> {
+  const out = new Map<string, Set<string>>();
+  const draftsRoot = path.join(REPO, '.lovable/drafts');
+  if (!fs.existsSync(draftsRoot)) return out;
+  for (const draft of fs.readdirSync(draftsRoot)) {
+    const dir = path.join(draftsRoot, draft, 'migrations');
+    if (!fs.existsSync(dir)) continue;
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith('.sql'))) {
+      const sql = fs.readFileSync(path.join(dir, f), 'utf8');
+      const re = /alter\s+table\s+(?:only\s+)?(?:public\.)?([a-z0-9_]+)([\s\S]*?);/gi;
+      for (const m of sql.matchAll(re)) {
+        const table = m[1];
+        for (const a of m[2].matchAll(/add\s+column\s+(?:if\s+not\s+exists\s+)?([a-z0-9_]+)/gi)) {
+          if (!out.has(table)) out.set(table, new Set());
+          out.get(table)!.add(a[1]);
+        }
+      }
+    }
+  }
+  return out;
 }
 
 type Hop = { parent: string; child: string };
