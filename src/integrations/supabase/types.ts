@@ -14963,6 +14963,15 @@ export type Database = {
         Args: { _token: string }
         Returns: boolean
       }
+      latest_dispatch_log_per_operator: {
+        Args: { p_today: string }
+        Returns: {
+          created_at: string
+          log_date: string
+          operator_id: string
+          status: Database["public"]["Enums"]["daily_dispatch_status"]
+        }[]
+      }
       list_driver_contacts: {
         Args: { _driver: string }
         Returns: {
