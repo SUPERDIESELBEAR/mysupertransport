@@ -43,12 +43,20 @@ describe('operator settlement isolation', () => {
     // driver. It is excluded here because a restrictive policy cannot ADMIT a
     // row — it can only remove one — so it can never widen driver visibility.
     // Its presence and shape are asserted in tenancy-resolver.test.ts.
+    // 2026-09-21 PERMISSIONS FOUNDATION: `settlements_view_permission` is a
+    // SELECT-only policy reading `has_permission('settlement.view')`, which
+    // resolves the caller with auth.uid() INSIDE the function, so the predicate
+    // itself carries no auth.uid() to match. It is excluded by name, not by
+    // loosening the pattern, and its own shape is asserted below. P2 grants the
+    // dispatcher this read deliberately; no operator holds the grant, and an
+    // operator's own rows still come from the self-scoped policy.
     const offenders = psql(
       "select c.relname || ' | ' || p.polname from pg_policy p " +
         'join pg_class c on c.oid = p.polrelid ' +
         "join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public' " +
         `where c.relname in (${TABLES.map(t => `'${t}'`).join(',')}) ` +
         "and p.polpermissive and p.polcmd in ('r','*') " +
+        "and p.polname <> 'settlements_view_permission' " +
         "and coalesce(pg_get_expr(p.polqual, p.polrelid),'') !~* 'auth\\.uid\\(\\)' " +
         'order by 1',
     );
