@@ -996,7 +996,9 @@ describe('tenancy B5 part two — settings and the settlement family', () => {
     expect(rows).toEqual([
       'carrier_notification_settings_company_email_uniq',
       'company_settings_company_setting_key_uniq',
-      'dispatch_settlements_company_payee_period_uniq',
+      // P34 (2026-09-21): re-scoped to LIVE rows so kept voided settlements
+      // can sit beside the month's one live settlement.
+      'dispatch_settlements_company_payee_period_live_uniq',
       'inspection_binder_order_company_scope_uniq',
       'notification_role_defaults_company_role_category_uniq',
     ]);
