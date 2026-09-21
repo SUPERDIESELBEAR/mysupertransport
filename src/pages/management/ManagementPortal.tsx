@@ -1186,6 +1186,8 @@ export default function ManagementPortal() {
 
   return (
     <>
+      {/* Unread What's New announcements, shown once per announcement per person. */}
+      <WhatsNewDialog />
       <NotificationPreferencesModal open={notifPrefsOpen} onClose={() => setNotifPrefsOpen(false)} />
       <StaffApplicationModal
         open={staffAppModalOpen}

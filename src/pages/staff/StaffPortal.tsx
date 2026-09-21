@@ -523,6 +523,8 @@ export default function StaffPortal() {
 
   return (
     <>
+    {/* Unread What's New announcements, shown once per announcement per person. */}
+    <WhatsNewDialog />
     <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
     <BulkMessageModal
       open={bulkMessageOpen}
