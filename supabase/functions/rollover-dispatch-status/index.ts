@@ -41,29 +41,24 @@ Deno.serve(async (req) => {
 
     const today = todayInChicago();
 
-    // Pull every log row on or before today, joined to operators so we can filter
-    // excluded ones, then reduce to the latest entry per operator. This is the
-    // "carry-forward" safety net so the board never drifts when a day is skipped.
+    // Latest log row per eligible operator, however old, reduced in the database.
+    // This replaces a direct read of dispatch_daily_log: that read was capped at
+    // PostgREST's default 1,000 rows, so once the table outgrew that the sweep only
+    // ever saw the most recently logged operators and drivers whose last log was
+    // months old could never be corrected. Raising the cap or paging only postpones
+    // the same failure — the table grows every day.
+    //
+    // The SQL function applies exactly the rules this code applied before:
+    //   - excluded_from_dispatch = false (administrative hide)
+    //   - is_parked = false (parked drivers are skipped, never carried forward:
+    //     three weeks parked must not roll into 'dispatched' every night)
+    // and its result is one row per operator, so it cannot hit a row cap.
     const { data: logs, error: logsErr } = await supabase
-      .from('dispatch_daily_log')
-      .select('operator_id, status, log_date, created_at, operators!inner(excluded_from_dispatch, is_parked)')
-      .lte('log_date', today)
-      .order('log_date', { ascending: false })
-      .order('created_at', { ascending: false });
+      .rpc('latest_dispatch_log_per_operator', { p_today: today });
 
     if (logsErr) throw logsErr;
 
-    const latestByOperator = new Map<string, any>();
-    for (const r of logs ?? []) {
-      const opId = (r as any).operator_id as string;
-      if (latestByOperator.has(opId)) continue;
-      if ((r as any)?.operators?.excluded_from_dispatch === true) continue;
-      // Parked drivers are skipped, never carried forward. A driver parked for
-      // three weeks must not roll into 'dispatched' every night.
-      if ((r as any)?.operators?.is_parked === true) continue;
-      latestByOperator.set(opId, r);
-    }
-    const eligible = Array.from(latestByOperator.values());
+    const eligible = (logs ?? []) as Array<{ operator_id: string; status: string }>;
 
     let promoted = 0;
     let skipped = 0;
