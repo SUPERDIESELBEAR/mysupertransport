@@ -586,7 +586,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
-      ...TWELVE_TENANT_STAMPED,
+      ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
