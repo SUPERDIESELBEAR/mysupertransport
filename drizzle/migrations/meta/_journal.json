@@ -141,6 +141,13 @@
       "when": 1790005276855,
       "tag": "0019_grant_parity_report_execute_regrant",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1790007582263,
+      "tag": "0020_staff_suspension_permission",
+      "breakpoints": true
     }
   ]
 }
