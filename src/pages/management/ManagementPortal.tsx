@@ -126,7 +126,9 @@ type StaffWorkload = {
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'inspection-program' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'fuel-exceptions' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'ownership-transfer' | 'settings' | 'help';
-type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
+// 'archived' is a set-aside, NOT a rejection: an archived applicant may be hired
+// later, so he gets his own tab instead of sitting among the denials.
+type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'archived' | 'all' | 'invited';
 
 type ApplicationInvite = {
   id: string;
@@ -148,6 +150,8 @@ const STATUS_COLORS: Record<string, string> = {
   approved: 'bg-status-complete/15 text-status-complete border-status-complete/30',
   denied: 'bg-destructive/15 text-destructive border-destructive/30',
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+  // Neutral on purpose — archiving is not a rejection.
+  archived: 'bg-muted text-muted-foreground border-border',
 };
 
 // `load-edit` is deliberately addressable: a dispatcher part-way through
