@@ -143,3 +143,12 @@ the live row, and both child tables carry `voided_at`. The screen test asserts t
 - `docs/passes/2026-09-21-2317-settlement-void-keeps-record.md` (this file)
 - `docs/passes/2026-09-21-2100-money-permissions-inventory.md` (correction appended)
 - `docs/tms-build-status.md`, `docs/tms-wish-list.md`
+
+## Suite and typecheck
+
+`vitest run --maxWorkers=4`: **2135 tests — 2117 passed, 16 skipped, 2 failed**, then one of the
+two fixed here (`tenancy-resolver.test.ts` named the old index; re-run green). The remaining
+failure is the standing harness limitation, not a defect: `grant-parity-live` cannot execute
+`grant_parity_report()` as the test role ("permission denied for function"). `tsgo --noEmit`
+clean. No edge function changed; migration 0026 is applied and read back from the live catalog
+by the schema tests above.
