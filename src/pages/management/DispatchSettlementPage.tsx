@@ -255,7 +255,35 @@ export default function DispatchSettlementPage() {
 
       {!loading && !s && (
         <Card className="p-6 text-sm text-muted-foreground">
-          No settlement has been stored for {monthLabel(month)}.
+          No live settlement has been stored for {monthLabel(month)}.
+        </Card>
+      )}
+
+      {/* ------------------------------------- voided settlements, kept (P34) */}
+      {!loading && voided.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <h2 className="font-semibold text-sm">Voided settlements kept for the record</h2>
+          <p className="text-xs text-muted-foreground">
+            History only. These figures are what each settlement carried when it was voided;
+            nothing on this screen adds them, and they are not part of {monthLabel(month)}'s
+            live figure.
+          </p>
+          <ul className="space-y-2 text-sm">
+            {voided.map(v => (
+              <li key={v.id} className="border-b pb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={STATUS_STYLE.void}>VOID</Badge>
+                  <span className="text-muted-foreground">{stamp(v.voided_at) ?? '—'}</span>
+                  {v.voided_by_name && <span>· {v.voided_by_name}</span>}
+                </div>
+                <p className="pt-1">{v.void_reason}</p>
+                <p className="text-xs text-muted-foreground">
+                  As voided: base {money(v.eligible_base)}, net {money(v.net_amount)} ·
+                  {' '}{v.lineCount} line items and {v.contributionCount} loads kept on file.
+                </p>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 
