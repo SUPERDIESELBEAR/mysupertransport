@@ -111,9 +111,15 @@ export async function gatherDispatchMonth(
     sb.from('pay_policies').select('*').eq('is_company_default', true).maybeSingle(),
     sb.from('pay_policy_assignments')
       .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
+    // READER 1 — the "does this month already have one?" lookup. P34: voided
+    // settlements are history and are NEVER the existing one, so `replace` can
+    // never reach a voided row and a voided month computes as if fresh. The
+    // partial unique index guarantees at most one live row, so maybeSingle is
+    // exact rather than hopeful.
     sb.from('dispatch_settlements')
       .select('id, status, net_amount')
       .eq('period_month', monthStart)
+      .neq('status', 'void')
       .maybeSingle(),
   ]);
 
@@ -534,10 +540,15 @@ export async function readStoredDispatchMonth(
 ): Promise<StoredDispatchMonth | null> {
   const monthStart = periodMonthDate(month);
 
+  // READER 2 — every figure on the settlement screen. P34: the LIVE row only.
+  // A voided settlement keeps its figures now (the trigger no longer zeroes
+  // them), so reading it here would put a superseded net on the screen and a
+  // month with both a voided and a live settlement would be counted twice.
   const { data: row, error } = await sb
     .from('dispatch_settlements')
     .select('*')
     .eq('period_month', monthStart)
+    .neq('status', 'void')
     .maybeSingle();
   if (error) throw error;
   if (!row) return null;
