@@ -345,7 +345,7 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
         .select('log_date')
         .eq('operator_id', operatorId)
         .gte('log_date', rangeFrom)
-        .lte('log_date', effectiveEnd);
+        .lte('log_date', rangeTo);
 
       const existingSet = new Set((existing ?? []).map((r: any) => r.log_date));
       const toWrite = rangeOverwrite ? dates : dates.filter(d => !existingSet.has(d));
