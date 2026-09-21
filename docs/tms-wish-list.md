@@ -833,3 +833,22 @@ policies to drop are `settlements_view_permission`,
 four `settlement.view` / `invoice.view` grant rows. Nothing else depends on them.
 
 NO TRIGGER. Recorded so the decision stays reversible.
+
+### The grant-parity harness lost its EXECUTE grant (2026-09-21)
+`src/test/grant-parity-live.test.ts` fails with `permission denied for function
+grant_parity_report`. Nothing about the report changed: migration 0008 granted EXECUTE to
+`sandbox_exec_qgxpkcudwjmacrdcyvhj` and the sandbox role is now plain `sandbox_exec`
+(`proacl` still names the old one). One migration granting EXECUTE to the current harness
+role restores the check. Left undone deliberately — a grant is a security decision and
+this one is the owner's.
+
+TRIGGER. Every full suite from now on carries one red file until it is done.
+
+### Tomorrow's rollover proof is owed (2026-09-21)
+The active-only rollover is deployed but unproven in flight. The 2026-09-22 05:05 UTC
+response must show `checked` = the active eligible count and `promoted = 0`, and
+`net._http_response` keeps it about six hours — so it must be read before ~11:00 UTC.
+Durable fallback if missed: no `dispatch_status_history` row noted "Daily rollover from
+calendar".
+
+TRIGGER. 2026-09-22, before 11:00 UTC.

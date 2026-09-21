@@ -18567,3 +18567,39 @@ Full suite `--maxWorkers=4`: 4 failed | 200 passed | 2 skipped (206) files, 4 fa
 2029 passed | 16 skipped (2049) tests — all four failures and both unhandled errors are
 sandbox pooler timeouts (`EAUTHQUERY ... secret check timed out`) and pass on a serial
 re-run. Typecheck clean.
+
+## 2026-09-21 13:30 UTC — rollover rolls forward ACTIVE drivers only (DEPLOYED)
+
+Which version was live before this pass: the OLD capped code. Edge function logs hold
+nothing for `rollover-dispatch-status`, and the 05:05/06:05 bodies had aged out of
+`net._http_response` (oldest surviving row 07:26 UTC), so it was settled behaviourally —
+`dispatch_status_history` has no "Daily rollover from calendar" row today (the only two
+changes, 12:19 and 12:23 UTC, have empty notes, i.e. staff edits) and the eight drifted
+drivers were still drifted.
+
+THE RULE (migration `0015_rollover_active_operators_only.sql`):
+`latest_dispatch_log_per_operator` now also requires `o.is_active = true` and
+`o.deactivated_at IS NULL` — the owner's decision that the rollover must never write a
+board status for a driver who is not active. Every other rule byte-identical; undo comment
+restores the 0014 definition.
+
+DRY RUN: 34 eligible active drivers, 34 already matching, **0 would change**, none with a
+log older than 30 days. Without the rule the same query still returns 45 eligible and 8
+changes — the eight inactive drivers of the 1310 pass, now outside the set.
+
+DEPLOYED. `supabase--deploy_edge_functions(['rollover-dispatch-status'])` succeeded;
+confirmed without running the write path by an unauthenticated POST refused 403 at the
+auth gate, before the read and before any upsert.
+
+OWED PROOF: the 2026-09-22 05:05 UTC response must read `checked` = the active count and
+`promoted = 0`, read from `net._http_response` before ~11:00 UTC (≈6 h retention).
+Durable fallback: no `dispatch_status_history` row noted "Daily rollover from calendar".
+
+TESTS: `src/test/rollover-reads-everyone.test.ts` 8 → 12. New arm: an inactive operator
+and a `deactivated_at` operator both logged NEWER than an active one — promoted without
+the rule (quoted failing), not promoted with it, active driver still promoted.
+Full suite `--maxWorkers=4`: 4 failed | 200 passed | 2 skipped (206) files, 4 failed |
+2033 passed | 16 skipped (2053) tests. Three failures are sandbox pooler timeouts and pass
+serially; the fourth is pre-existing environment drift — `grant_parity_report` EXECUTE was
+granted to `sandbox_exec_qgxpkcudwjmacrdcyvhj` and `current_user` is now `sandbox_exec`.
+Typecheck clean.
