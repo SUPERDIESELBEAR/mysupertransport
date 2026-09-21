@@ -11,7 +11,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import {
-  ABSENCE_REASONS, absenceReasonLabel, canSaveAbsence, type AbsenceReason,
+  ABSENCE_REASONS, absenceReasonLabel, canSaveAbsence, maxPlannedDate, type AbsenceReason,
 } from '@/lib/absenceLog';
 import { fetchDispatchDayLogs, stripAbsenceFields } from '@/lib/dispatchDayLogs';
 
@@ -320,16 +320,18 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
       toast({ title: 'Invalid range', description: 'Start date must be on or before end date.', variant: 'destructive' });
       return;
     }
-    const todayStr = new Date().toISOString().slice(0, 10);
-    // Build inclusive list of YYYY-MM-DD strings from rangeFrom to min(rangeTo, today)
-    const effectiveEnd = rangeTo > todayStr ? todayStr : rangeTo;
-    if (rangeFrom > effectiveEnd) {
-      toast({ title: 'Nothing to mark', description: 'The selected range has no past or current dates.', variant: 'destructive' });
+    // Upcoming days are welcome here: a known absence (vacation, booked home
+    // time) is recorded ahead of the fact and reads as PLANNED in the log.
+    // Only TODAY ever touches the live board — see the sync gate below.
+    const ceiling = maxPlannedDate();
+    if (rangeTo > ceiling) {
+      toast({ title: 'Too far ahead', description: 'Ranges can be booked up to one year in advance.', variant: 'destructive' });
       return;
     }
+    const todayStr = new Date().toISOString().slice(0, 10);
     const dates: string[] = [];
     const cursor = new Date(rangeFrom + 'T00:00:00');
-    const endD = new Date(effectiveEnd + 'T00:00:00');
+    const endD = new Date(rangeTo + 'T00:00:00');
     while (cursor <= endD) {
       dates.push(cursor.toISOString().slice(0, 10));
       cursor.setDate(cursor.getDate() + 1);
