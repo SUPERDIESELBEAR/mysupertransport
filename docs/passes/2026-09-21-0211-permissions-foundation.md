@@ -249,5 +249,44 @@ remains in hundreds of other policies, so two idioms coexist deliberately.
 
 ## STEP 8 — SUITE AND TYPECHECK
 
-See the dated entry in `docs/tms-build-status.md` for the verbatim summary.
+`npx tsgo --noEmit`: clean, no output.
+
+The FIRST full run after the migration was RED — nine failures across six files,
+every one of them a guard that had written down an earlier truth this pass
+deliberately changed. Each was amended with the date and the reason, never
+weakened:
+
+- `operator-settlement-isolation.test.ts` — `settlements_view_permission` excluded
+  **by name** from the "every permissive SELECT names auth.uid()" census (the
+  caller is resolved inside `has_permission`), plus a NEW test asserting that one
+  policy is SELECT-only, has no WITH CHECK, reads `settlement.view`, and is wrapped.
+- `settlement-foundation.test.ts` — same exclusion by name in the `unscoped` query.
+- `dispatch-settlement-schema.test.ts` — `dispatch_settlements_view_permission`
+  excluded by name; its shape asserted immediately after. The CHANGE side is still
+  management|owner.
+- `billing-schema.test.ts` — `invoices` now carries TWO permissive policies; the
+  count stays asserted **per table** (`{ invoices: 2 }`) rather than relaxed, so a
+  third policy anywhere still fails. `invoices_view_permission` excluded by name
+  from the role loop, shape asserted after it.
+- `tenancy-resolver.test.ts` — three registries: the stamped-table census gained
+  `PERMISSIONS_STAMPED` (both grant tables), `RESTRICTIVE_DONE` gained the same two
+  (159 → 161), `GLOBAL_TABLES` gained `permission_actions` and its exact count went
+  18 → 19.
+- `definer-live-catalog.test.ts` — both `has_permission` signatures added to
+  `KNOWN_AUTHENTICATED_EXECUTABLE` (the MAX bump alone was not enough; the names
+  are checked too).
+
+Final full run, `npx vitest run --maxWorkers=4`:
+
+```
+ Test Files  203 passed | 2 skipped (205)
+      Tests  2025 passed | 16 skipped (2041)
+     Errors  2 errors
+   Duration  406.16s
+```
+
+**Zero failures.** The two "errors" are `[vitest-worker]: Timeout calling
+"onTaskUpdate"` — reporter-channel timeouts from the long live-SQL files, present in
+the run BEFORE this pass's changes as well, and attached to no test.
+
 No edge function was changed, so nothing was deployed.

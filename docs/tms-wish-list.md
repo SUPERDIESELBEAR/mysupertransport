@@ -797,3 +797,33 @@ to judge whether it should be kept. Two things open:
   constant.
 
 NO TRIGGER. Owner's decision.
+
+### Who provisions a second carrier (2026-09-21)
+The permissions foundation is closed by default: a `carrier_profile` row with no
+`role_permissions` rows means every staff member at that carrier is refused every
+protected action. `seed_role_permissions(company_id)` exists and is proven, but it
+is service-role only — the tenancy stamp trigger refuses any other caller — and
+**nothing calls it**, because nothing creates a carrier today. Whenever a second
+carrier becomes real, creating it and seeding its grants has to be one operation in
+one edge function holding the service key.
+
+NO TRIGGER. Only matters when multi-tenancy is switched on.
+
+### A settings screen for permissions (2026-09-21)
+Grants and per-person exceptions are rows only. Changing who may terminate a lease
+or send a company document means a migration or a direct write; there is no screen,
+and no audit of permission changes beyond `created_by` / `updated_by`. Worth
+building once the action list is closer to the ten actions P10 aims at than the
+six that exist now.
+
+NO TRIGGER. Owner's decision.
+
+### The dispatcher's invoice and settlement read is now WIDER than four guards said
+Four test files recorded "management and owner only" for settlements, dispatch
+settlements and invoices. P2 overrides that for the READ, and the 2026-09-21 pass
+amended those guards by name. If the owner ever decides P2 went too far, the three
+policies to drop are `settlements_view_permission`,
+`dispatch_settlements_view_permission` and `invoices_view_permission` — plus the
+four `settlement.view` / `invoice.view` grant rows. Nothing else depends on them.
+
+NO TRIGGER. Recorded so the decision stays reversible.
