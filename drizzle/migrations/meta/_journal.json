@@ -155,6 +155,20 @@
       "when": 1790009763240,
       "tag": "0021_release_note_approval",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1790009845803,
+      "tag": "0022_review_status_archived",
+      "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1790009967530,
+      "tag": "0023_column_guards_loads_ica_and_company_docs",
+      "breakpoints": true
     }
   ]
 }

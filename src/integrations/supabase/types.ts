@@ -16144,7 +16144,12 @@ export type Database = {
         | "forms_compliance"
         | "dot_general"
         | "payroll"
-      review_status: "pending" | "approved" | "denied" | "revisions_requested"
+      review_status:
+        | "pending"
+        | "approved"
+        | "denied"
+        | "revisions_requested"
+        | "archived"
       roadside_inspection_level:
         | "level_1"
         | "level_2"
@@ -16597,7 +16602,13 @@ export const Constants = {
         "dot_general",
         "payroll",
       ],
-      review_status: ["pending", "approved", "denied", "revisions_requested"],
+      review_status: [
+        "pending",
+        "approved",
+        "denied",
+        "revisions_requested",
+        "archived",
+      ],
       roadside_inspection_level: [
         "level_1",
         "level_2",
