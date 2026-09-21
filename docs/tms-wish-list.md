@@ -875,11 +875,27 @@ the same driver still go through.
 CLOSED. Nothing remains that changes a driver's active status on the strength of the screen
 alone.
 
-### Staff account suspension is the last slice item (2026-09-21)
-Switching a staff member's own sign-in off (`profiles.account_status`) is the one sensitive
-action from the permissions design still without a database check. Next slice.
+### Staff account suspension — CLOSED 2026-09-21 1644 UTC, and with it the FIRST SLICE
+Switching a staff member's own sign-in off (`profiles.account_status`) now requires
+`staff_account.suspend`, granted to management, held by the owner through the short-circuit and
+seeded for every new carrier. Both paths are gated: the `get-staff-list`
+`deactivate_user` / `reactivate_user` actions (asking `has_permission` as the CALLER, not as the
+service role) and the direct PostgREST update, which trigger
+`aa_enforce_staff_suspension_permission` on `profiles` refuses. Order in both:
+own account (P19) → owner target (P18) → permission (P17). Proven on a throwaway account that
+was created, blocked from signing in, reinstated and deleted with zero residue; no real account
+was suspended.
 
-TRIGGER. Next permissions pass.
+**FIRST SLICE COMPLETE — all five actions enforced:** account deletion, lease termination,
+company-document sending, driver deactivation, staff suspension. No sensitive action is
+protected by the screen alone.
+
+NOT YET REACHED by the permissions module (design Step 5): settlement approval and voiding,
+invoice issue and void, accessorial approval, fuel-import commit, pay-rate and policy changes,
+and per-person exceptions in day-to-day use (the table exists and is enforced; nothing grants
+one yet). A settings screen for permissions also remains unbuilt.
+(record 2026-09-21 1644 UTC; `docs/passes/2026-09-21-1644-staff-suspension-permission.md`)
+
 
 ### Absence reasons are staff-only, and carry no settlement meaning (2026-09-21)
 The Absence Log is visible to dispatch, management and the owner. Drivers do not
