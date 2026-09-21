@@ -411,12 +411,21 @@ describe('billing — access', () => {
    * it is asserted separately, by name and shape, and excluded from the
    * permissive checks below — which are about who is ADMITTED.
    */
+  // 2026-09-21 PERMISSIONS FOUNDATION: `invoices` carries a SECOND permissive
+  // policy, `invoices_view_permission` — a SELECT-only read gated on
+  // has_permission('invoice.view'), which P2 grants to the dispatcher. Every
+  // other billing table still has exactly one. The count is asserted per table
+  // rather than relaxed, so a third policy anywhere still fails.
+  const PERMISSIVE_POLICY_COUNT: Record<string, number> = { invoices: 2 };
+
   itLive('RLS is enabled on every billing table and each has one permissive policy', () => {
     const rows = psql(`SELECT c.relname || '|' || c.relrowsecurity::text || '|' ||
         (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid AND p.polpermissive)::text
       FROM pg_class c WHERE c.relnamespace='public'::regnamespace
         AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
-    expect(rows).toEqual(TABLES.map(t => `${t}|true|1`));
+    expect(rows).toEqual(
+      TABLES.map(t => `${t}|true|${PERMISSIVE_POLICY_COUNT[t] ?? 1}`),
+    );
   });
 
   itLive('every billing table carries the restrictive tenant_isolation policy', () => {
