@@ -19,6 +19,22 @@ Deno.serve(async (req) => {
       { auth: { autoRefreshToken: false, persistSession: false } }
     );
 
+    /**
+     * A client that carries the CALLER's own JWT. has_permission resolves the
+     * company from auth.uid() via current_company_id(), so asking it through the
+     * service-role client would always answer false (no uid, no company). The
+     * permission question must be asked as the caller — design (d).
+     */
+    const supabaseCaller = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      {
+        auth: { autoRefreshToken: false, persistSession: false },
+        global: { headers: { Authorization: req.headers.get('Authorization') ?? '' } },
+      }
+    );
+
+
     // Verify caller is management
     const authHeader = req.headers.get('Authorization');
     if (!authHeader?.startsWith('Bearer ')) {
@@ -108,8 +124,9 @@ Deno.serve(async (req) => {
         }
       }
 
-      const { data: allowed, error: permErr } = await supabaseAdmin
+      const { data: allowed, error: permErr } = await supabaseCaller
         .rpc('has_permission', { _user_id: callerUser.id, _action: 'staff_account.suspend' });
+
       if (permErr) {
         return json(500, { error: 'Could not check permission', details: permErr.message });
       }
