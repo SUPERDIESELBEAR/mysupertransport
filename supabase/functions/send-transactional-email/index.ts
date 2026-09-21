@@ -57,6 +57,20 @@ Deno.serve(async (req) => {
     )
   }
 
+  // Gate. Internal callers present the service-role key; everyone else must be
+  // staff. A missing or anonymous bearer is refused here.
+  const bearer = (req.headers.get('Authorization') ?? '').startsWith('Bearer ')
+    ? (req.headers.get('Authorization') as string).slice('Bearer '.length).trim()
+    : ''
+  const isInternal = bearer.length > 0 && bearer === supabaseServiceKey
+  if (!isInternal) {
+    const auth = await requireStaff(req, {
+      roles: ['owner', 'management', 'onboarding_staff', 'dispatcher'],
+    })
+    if (auth instanceof Response) return auth
+  }
+
+
   // Parse request body
   let templateName: string
   let recipientEmail: string
