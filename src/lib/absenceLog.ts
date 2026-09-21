@@ -148,14 +148,23 @@ export function groupAbsenceStretches(days: AbsenceDay[], today = todayIso()): A
 export interface AbsenceTotals {
   offRoadDays: number;
   dispatchedDays: number;
+  /** Off-road days that sit after today — scheduled, not yet taken. */
+  plannedDays: number;
   /** Day counts keyed by reason, plus `unspecified` for off-road days with no reason. */
   byReason: Record<string, number>;
 }
 
-/** Totals for the summary line above the log. */
-export function summarizeAbsence(days: AbsenceDay[]): AbsenceTotals {
-  const totals: AbsenceTotals = { offRoadDays: 0, dispatchedDays: 0, byReason: {} };
+/**
+ * Totals for the summary line above the log. Days after today are PLANNED:
+ * counted separately so a booked vacation never inflates the off-road total.
+ */
+export function summarizeAbsence(days: AbsenceDay[], today = todayIso()): AbsenceTotals {
+  const totals: AbsenceTotals = { offRoadDays: 0, dispatchedDays: 0, plannedDays: 0, byReason: {} };
   for (const day of days) {
+    if (day.log_date > today) {
+      if (day.status !== 'dispatched') totals.plannedDays += 1;
+      continue;
+    }
     if (day.status === 'dispatched') {
       totals.dispatchedDays += 1;
       continue;
