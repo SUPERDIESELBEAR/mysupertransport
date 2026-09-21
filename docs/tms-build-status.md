@@ -18906,3 +18906,41 @@ of an identity, it now can: the identity above is the one to use.
 
 `get-staff-list` deployed; confirmed WITHOUT its write path by reading the list as Marcus —
 16 rows, and the one flagged row is `('Test —','Onboarding Only',['onboarding_staff'],True)`.
+
+## 2026-09-21 19:30 UTC — suite reconciliation (tests and guard inventories only)
+
+Reconciled the suite after the other session's 2026-09-21 changes. No feature behaviour
+changed; nothing outside `src/test/` and `docs/` was touched.
+
+**STANDING RULE — migration hygiene, for BOTH sessions.**
+1. New migrations are written to `drizzle/migrations` (since 2026-09-17 the platform's
+   migration tool writes there and NOTHING to `supabase/migrations`). `supabase/migrations`
+   is history; do not add to it.
+2. A draft's staged migration is not a permanent file: on accept the SQL is applied and the
+   staged copy is DELETED. A test that reads a staged path breaks the moment the draft is
+   accepted — that produced 9 of the 14 failures reconciled here.
+3. Tests read migrations through the SHARED READER, never a hard-coded path:
+   `appliedMigrationSql(needle)` for one migration's text, `migrationSources()` /
+   `resolveMigrationFunctions()` for the whole set. Both folders, applied order, loud throw
+   when nothing matches.
+4. Data changes are not migrations. A backfill applied as a one-off statement leaves no file,
+   so assert it against the LIVE table.
+
+**Stale tests repaired:** `release-note-approval` (read a deleted staged path; now
+`drizzle/0021`), `archived-applicants`' migration block (now `drizzle/0022` plus a live-table
+assertion for the 50-row backfill), `tenancy-resolver` (new `ANNOUNCEMENT_STAMPED` =
+`release_note_reads`, added to the stamped census and `RESTRICTIVE_DONE`; live policy
+`tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))` quoted in place).
+
+**Real defects left RED, not silenced** — both belong to the other session's features:
+- `public.notify_staff_on_release_note()` is SECURITY DEFINER pinned to `public` alone (needs
+  `public, extensions`) AND holds a raw `INSERT INTO public.notifications` with no EXCEPTION
+  handler, so a notification failure would roll back the owner's approval. Client EXECUTE is
+  correctly absent. Three guard assertions red.
+- The Applications-page half of archived applicants (`StatusFilter`, Archived tab, `?status=`
+  whitelist, `handleArchive`, `handleUnarchive`, neutral colour) is not in the repository and
+  git history shows it never was, while the database and the pipeline/drawer halves ARE live —
+  so an applicant archived from the pipeline is currently invisible on the Applications page.
+  Five assertions red.
+
+Report: `docs/passes/2026-09-21-1930-suite-reconciliation.md`.

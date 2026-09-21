@@ -954,3 +954,32 @@ the schema lands it should be narrowed to `status = 'approved'` so a pending or 
 draft is never quoted back to staff by the assistant.
 
 TRIGGER. Same pass as above.
+
+## 2026-09-21 19:30 UTC
+
+### CLOSED — suite reconciliation after the 2026-09-21 draft acceptances
+The 14 failures carried from the 1820 report are reconciled. Nine were stale tests reading
+migration paths that no longer exist, and they are fixed to read through the shared migration
+reader. `release_note_reads` is registered in both tenancy inventories. Every inventory touched
+was proven still to bite. See `docs/passes/2026-09-21-1930-suite-reconciliation.md`.
+
+### OPEN — `notify_staff_on_release_note` is unpinned and its notification insert is bare
+Belongs to the What's New announcement approval feature (other session). The function is
+SECURITY DEFINER with `search_path=public` (must be `public, extensions`) and holds a raw
+`INSERT INTO public.notifications` with no EXCEPTION handler — the exact shape that once rolled
+back weeks of coordinator saves. Client EXECUTE is correctly absent. Three guard assertions are
+RED on purpose and must not be allowlisted.
+
+TRIGGER. That session's next pass. One migration: `ALTER FUNCTION ... SET search_path = public,
+extensions;` and route the insert through `public.try_notify(...)`.
+
+### OPEN — the Applications page half of archived applicants is missing
+Belongs to the archived-applicants feature (other session). The 1530 report describes
+`StatusFilter`, the Archived tab, the `?status=archived` whitelist, `handleArchive`,
+`handleUnarchive` and the neutral `bg-muted` colour in `ManagementPortal.tsx`. None of it is in
+the repository and `git log -S"handleUnarchive"` finds no trace that it ever was. The enum, the
+50-row backfill, the pipeline write and the review drawer ARE live, so today an applicant
+archived from the pipeline shows on no tab at all. Five assertions RED on purpose.
+
+TRIGGER. That session's next pass: restore the Applications-page changes. The tests already
+describe exactly what is expected.
