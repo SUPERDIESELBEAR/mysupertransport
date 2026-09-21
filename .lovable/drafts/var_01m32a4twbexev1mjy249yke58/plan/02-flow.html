@@ -1,4 +1,4 @@
-<svg viewBox="0 0 640 330" xmlns="http://www.w3.org/2000/svg">
+<svg viewBox="0 0 640 340" xmlns="http://www.w3.org/2000/svg">
   <style>
     text { font-family: var(--font-sans); fill: var(--fg-primary); }
     .lbl { font-size: 14px; font-weight: 480; }
@@ -14,41 +14,52 @@
     </marker>
   </defs>
 
-  <rect class="zn" x="8" y="8" width="180" height="150" rx="8"/>
-  <text class="note" x="18" y="26">you post</text>
-  <rect class="bx" x="24" y="38" width="148" height="100" rx="8"/>
-  <text class="lbl" x="38" y="62">Announcement</text>
-  <text class="note" x="38" y="82">title + what changed</text>
-  <text class="note" x="38" y="100">category · audience</text>
-  <text class="note" x="38" y="118">screen it points to</text>
+  <text class="note" x="8" y="20">staff writes</text>
+  <rect class="bx" x="8" y="30" width="130" height="58" rx="8"/>
+  <text class="lbl" x="22" y="54">Draft</text>
+  <text class="note" x="22" y="74">nothing sent</text>
 
-  <line class="wire" x1="188" y1="88" x2="240" y2="88" marker-end="url(#ch)"/>
+  <line class="wire" x1="138" y1="59" x2="182" y2="59" marker-end="url(#ch)"/>
 
-  <rect class="zn" x="248" y="8" width="384" height="314" rx="8"/>
-  <text class="note" x="258" y="26">each staff member</text>
+  <text class="note" x="190" y="20">Marcus reviews</text>
+  <rect x="190" y="30" width="160" height="58" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
+  <text class="lbl" x="204" y="54" fill="var(--fg-accent)">Pending approval</text>
+  <text class="note" x="204" y="74" fill="var(--fg-accent)">sets audience · ack</text>
 
-  <rect x="264" y="38" width="160" height="70" rx="8" fill="var(--bg-accent-translucent)" stroke="var(--fg-accent)" stroke-width="1"/>
-  <text class="lbl" x="278" y="64" fill="var(--fg-accent)">Sign-in pop-up</text>
-  <text class="note" x="278" y="84" fill="var(--fg-accent)">unread only, once each</text>
+  <line class="wire" x1="350" y1="59" x2="396" y2="59" marker-end="url(#ch)"/>
+  <rect class="bx" x="404" y="30" width="112" height="58" rx="8"/>
+  <text class="lbl" x="418" y="54">Approve</text>
+  <text class="note" x="418" y="74">→ published</text>
 
-  <rect class="bx" x="448" y="38" width="168" height="70" rx="8"/>
-  <text class="lbl" x="462" y="64">Bell + email</text>
-  <text class="note" x="462" y="84">as it works today</text>
+  <rect class="bx" x="404" y="104" width="112" height="44" rx="8"/>
+  <text class="lbl" x="418" y="132">Deny</text>
+  <rect class="bx" x="528" y="104" width="104" height="44" rx="8"/>
+  <text class="lbl" x="542" y="132">Archive</text>
+  <line class="wire" x1="270" y1="88" x2="270" y2="126" marker-end="url(#ch)"/>
+  <line class="wire" x1="270" y1="126" x2="402" y2="126" marker-end="url(#ch)"/>
+  <text class="note" x="188" y="146">with a reason,</text>
+  <text class="note" x="188" y="162">back to writer</text>
 
-  <rect class="bx" x="264" y="130" width="160" height="62" rx="8"/>
-  <text class="lbl" x="278" y="156">Sidebar dot</text>
-  <text class="note" x="278" y="176">unread count</text>
+  <rect class="zn" x="8" y="182" width="624" height="148" rx="8"/>
+  <text class="note" x="20" y="202">each staff member in the chosen audience</text>
 
-  <rect class="bx" x="448" y="130" width="168" height="62" rx="8"/>
-  <text class="lbl" x="462" y="156">What's New page</text>
-  <text class="note" x="462" y="176">full history</text>
+  <rect class="bx" x="24" y="214" width="140" height="58" rx="8"/>
+  <text class="lbl" x="38" y="238">Sign-in pop-up</text>
+  <text class="note" x="38" y="258">unread only</text>
 
-  <line class="wire" x1="344" y1="108" x2="344" y2="128" marker-end="url(#ch)"/>
-  <line class="wire" x1="424" y1="161" x2="446" y2="161" marker-end="url(#ch)"/>
+  <rect class="bx" x="180" y="214" width="130" height="58" rx="8"/>
+  <text class="lbl" x="194" y="238">Sidebar count</text>
 
-  <rect class="bx" x="264" y="216" width="352" height="88" rx="8"/>
-  <text class="lbl" x="278" y="242">"Got it" · "Take me there"</text>
-  <text class="note" x="278" y="264">clears the pop-up for that person, opens the screen</text>
-  <text class="mono" x="278" y="286">read list visible to you in the composer</text>
-  <line class="wire" x1="344" y1="192" x2="344" y2="214" marker-end="url(#ch)"/>
+  <rect class="bx" x="326" y="214" width="140" height="58" rx="8"/>
+  <text class="lbl" x="340" y="238">Bell + email</text>
+  <text class="note" x="340" y="258">as it works today</text>
+
+  <rect class="bx" x="482" y="214" width="134" height="58" rx="8"/>
+  <text class="lbl" x="496" y="238">What's New</text>
+  <text class="note" x="496" y="258">full history</text>
+
+  <text class="mono" x="24" y="300">"Got it" clears it · "Take me there" opens the screen · read list visible to Marcus</text>
+  <line class="wire" x1="460" y1="88" x2="460" y2="100"/>
+  <line class="wire" x1="460" y1="88" x2="520" y2="88"/>
+  <line class="wire" x1="520" y1="88" x2="520" y2="180" marker-end="url(#ch)"/>
 </svg>
