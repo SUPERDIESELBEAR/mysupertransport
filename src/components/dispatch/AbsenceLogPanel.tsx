@@ -10,8 +10,10 @@ import {
   formatReasonBreakdown,
   formatStretchDates,
   groupAbsenceStretches,
+  maxPlannedDate,
   resolveRange,
   summarizeAbsence,
+  todayIso,
   type AbsenceDay,
   type AbsenceDayStatus,
   type AbsenceRangePreset,
@@ -52,12 +54,20 @@ export default function AbsenceLogPanel({ operatorId, resolveName, refreshKey = 
   const [error, setError] = useState<string | null>(null);
   const [showDispatched, setShowDispatched] = useState(false);
 
+  const today = useMemo(() => todayIso(), []);
+
+  // The chosen period (always ending at/before today) plus a lookahead so
+  // PLANNED days — booked ahead of the fact — always show, whichever period
+  // is selected. A custom To beyond today is honoured as-is.
   const range = useMemo(() => {
-    if (preset === 'custom') {
-      const fallback = resolveRange('this_year');
-      return { from: customFrom || fallback.from, to: customTo || fallback.to };
-    }
-    return resolveRange(preset);
+    const resolved = preset === 'custom'
+      ? (() => {
+          const fallback = resolveRange('this_year');
+          return { from: customFrom || fallback.from, to: customTo || fallback.to };
+        })()
+      : resolveRange(preset);
+    const lookahead = maxPlannedDate();
+    return { from: resolved.from, to: resolved.to > lookahead ? resolved.to : lookahead };
   }, [preset, customFrom, customTo]);
 
   const fetchDays = useCallback(async () => {
@@ -89,8 +99,13 @@ export default function AbsenceLogPanel({ operatorId, resolveName, refreshKey = 
     () => showDispatched ? days : days.filter(d => d.status !== 'dispatched'),
     [days, showDispatched],
   );
-  const stretches = useMemo(() => groupAbsenceStretches(visible), [visible]);
-  const totals = useMemo(() => summarizeAbsence(days), [days]);
+  const stretches = useMemo(() => groupAbsenceStretches(visible, today), [visible, today]);
+  // Planned stretches sit above the history — the question "when is he next
+  // away?" is answered before "why was he away?".
+  const plannedStretches = useMemo(() => stretches.filter(s => s.planned), [stretches]);
+  const pastStretches = useMemo(() => stretches.filter(s => !s.planned), [stretches]);
+  // Totals count what has happened; summarizeAbsence splits the planned days.
+  const totals = useMemo(() => summarizeAbsence(days, today), [days, today]);
   const breakdown = formatReasonBreakdown(totals);
 
   return (
