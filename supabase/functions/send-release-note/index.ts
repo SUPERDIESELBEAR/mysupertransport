@@ -16,6 +16,9 @@ Deno.serve(async (req) => {
   }
 
   try {
+    const auth = await requireStaff(req, { roles: ['owner', 'management'] });
+    if (auth instanceof Response) return auth;
+
     const { title, body } = await req.json();
     if (!title || !body) {
       return new Response(JSON.stringify({ error: 'title and body required' }), {
