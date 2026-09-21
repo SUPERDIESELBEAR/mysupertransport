@@ -2198,6 +2198,13 @@ const RESTRICTIVE_DONE = [
   // is not FORCE RLS, so they keep working. All five identities reported the
   // same roles and landed on the same portal before and after.
   'user_roles',
+  // PERMISSIONS FOUNDATION (2), 2026-09-21, migration
+  // 0013_permissions_foundation_and_three_actions.sql. Both tables carry the
+  // restrictive policy from birth, not retrofitted: a grant is the most
+  // dangerous row in the database to leak across carriers. `permission_actions`
+  // is NOT here and never will be — it has no `company_id` (see GLOBAL_TABLES),
+  // because the set of actions the code can enforce is not a carrier's to edit.
+  'role_permissions', 'user_permission_exceptions',
 ] as const;
 
 /**
