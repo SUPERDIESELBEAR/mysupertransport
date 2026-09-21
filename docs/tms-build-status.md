@@ -18745,5 +18745,8 @@ what it wrote. This corrects the reading method used in the 1135 pass.
 "today or ever". Live count is 585, with clusters from 2026-05-28 to 2026-06-05. It was
 right only about today.
 
-**Suite** `--maxWorkers=4`: see the report. Typecheck clean.
+**Suite** `--maxWorkers=4`: Test Files 206 passed | 2 skipped (208); Tests 2060 passed | 16
+skipped (2076); Errors 2 (both sandbox worker `onTaskUpdate` timeouts). No failing file — the
+two `definer-live-catalog` assertions on `enforce_driver_deactivation_permission` that failed
+at 14:10 now pass too. Typecheck clean.
 Report: `docs/passes/2026-09-21-1550-cleanup-2026-09-21.md`
