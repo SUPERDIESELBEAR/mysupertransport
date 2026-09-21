@@ -58,6 +58,8 @@ export interface ReleaseNote {
   denial_reason: string | null;
   published_at: string | null;
   flagged_faq_ids: string[];
+  /** True when the build itself wrote the draft (vs. a hand-typed submission). */
+  auto_drafted: boolean;
 }
 
 export interface ReleaseNoteRead {
@@ -71,7 +73,7 @@ export interface ReleaseNoteRead {
 export const RELEASE_NOTE_COLUMNS =
   'id, title, body, created_by, created_at, status, category, target_roles, link_route, link_label, ' +
   'requires_ack, is_pinned, submitted_by, submitted_at, reviewed_by, reviewed_at, denial_reason, ' +
-  'published_at, flagged_faq_ids';
+  'published_at, flagged_faq_ids, auto_drafted';
 
 /** Untyped-by-design access to the staged columns and table. See the file header. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

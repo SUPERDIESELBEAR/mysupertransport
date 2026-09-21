@@ -24,7 +24,7 @@ import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select';
 import {
-  Megaphone, Send, Loader2, Trash2, AlertTriangle, X, Check, Ban, Archive, Eye, ChevronDown,
+  Megaphone, Send, Loader2, Trash2, AlertTriangle, X, Check, Ban, Archive, Eye, ChevronDown, Pencil,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import {
@@ -78,6 +78,7 @@ export default function ReleaseNotesManager() {
   const [requiresAck, setRequiresAck] = useState(false);
   const [isPinned, setIsPinned] = useState(false);
 
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [denyId, setDenyId] = useState<string | null>(null);
   const [denyReason, setDenyReason] = useState('');
@@ -166,6 +167,27 @@ export default function ReleaseNotesManager() {
     setAudience([...STAFF_AUDIENCE_ROLES]);
     setLinkRoute('none'); setRequiresAck(false); setIsPinned(false);
     setFlaggedIds([]); setFlagSearch('');
+    setEditingId(null);
+  };
+
+  // Load a pending draft into the composer so it can be corrected before the
+  // owner approves it. Saving an edit updates the same row — it stays pending
+  // until the owner approves it (or uses Save & Approve).
+  const startEdit = (n: ReleaseNote) => {
+    setEditingId(n.id);
+    setTitle(n.title);
+    setBody(n.body);
+    setCategory(n.category);
+    setAudience(
+      (n.target_roles?.length ? n.target_roles : [...STAFF_AUDIENCE_ROLES])
+        .filter((r): r is StaffAudienceRole => (STAFF_AUDIENCE_ROLES as readonly string[]).includes(r)),
+    );
+    setLinkRoute(n.link_route ?? 'none');
+    setRequiresAck(n.requires_ack);
+    setIsPinned(n.is_pinned);
+    setFlaggedIds(n.flagged_faq_ids ?? []);
+    setFlagSearch('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleSubmit = async () => {
@@ -180,6 +202,35 @@ export default function ReleaseNotesManager() {
     setSaving(true);
     const chosen = SCREEN_OPTIONS.find(s => s.route === linkRoute);
     const nowIso = new Date().toISOString();
+
+    // Editing an existing pending draft: update the same row. It stays pending
+    // unless the caller also approves it (owner only — see saveEdit below).
+    if (editingId) {
+      const { error } = await notesDb
+        .from('release_notes')
+        .update({
+          title: title.trim(),
+          body: body.trim(),
+          flagged_faq_ids: flaggedIds,
+          category,
+          target_roles: audience,
+          link_route: chosen?.route ?? null,
+          link_label: chosen ? `Open ${chosen.title}` : null,
+          requires_ack: requiresAck,
+          is_pinned: isPinned,
+        })
+        .eq('id', editingId);
+      setSaving(false);
+      if (error) {
+        toast({ title: 'Could not save the changes', description: error.message, variant: 'destructive' });
+        return;
+      }
+      toast({ title: 'Draft updated', description: 'It is still waiting for approval — nothing has been sent.' });
+      resetComposer();
+      void fetchNotes();
+      return;
+    }
+
     const { error } = await notesDb.from('release_notes').insert({
       title: title.trim(),
       body: body.trim(),
@@ -210,6 +261,36 @@ export default function ReleaseNotesManager() {
     });
     resetComposer();
     void fetchNotes();
+  };
+
+  // Owner-only: apply the composer's edits to the pending draft, then release
+  // it in the same click. The review gate still stamps reviewed_by/at.
+  const saveEditThenApprove = async () => {
+    if (!editingId || !title.trim() || !body.trim()) return;
+    setSaving(true);
+    const chosen = SCREEN_OPTIONS.find(s => s.route === linkRoute);
+    const { error } = await notesDb
+      .from('release_notes')
+      .update({
+        title: title.trim(),
+        body: body.trim(),
+        flagged_faq_ids: flaggedIds,
+        category,
+        target_roles: audience,
+        link_route: chosen?.route ?? null,
+        link_label: chosen ? `Open ${chosen.title}` : null,
+        requires_ack: requiresAck,
+        is_pinned: isPinned,
+      })
+      .eq('id', editingId);
+    setSaving(false);
+    if (error) {
+      toast({ title: 'Could not save the changes', description: error.message, variant: 'destructive' });
+      return;
+    }
+    const id = editingId;
+    resetComposer();
+    void review(id, 'approved');
   };
 
   const review = async (id: string, status: 'approved' | 'archived' | 'denied', reason?: string) => {
@@ -296,7 +377,7 @@ export default function ReleaseNotesManager() {
           <div className="flex items-center gap-2 mb-1">
             <Megaphone className="h-5 w-5 text-gold" />
             <h3 className="font-semibold text-base">
-              {isOwner ? 'Post a New Announcement' : 'Write an Announcement'}
+              {editingId ? 'Edit Pending Announcement' : isOwner ? 'Post a New Announcement' : 'Write an Announcement'}
             </h3>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -439,11 +520,25 @@ export default function ReleaseNotesManager() {
             </div>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            {editingId && (
+              <Button variant="outline" onClick={resetComposer} disabled={saving}>
+                Cancel edit
+              </Button>
+            )}
             <Button onClick={handleSubmit} disabled={saving || !title.trim() || !body.trim()} className="gap-2">
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              {saving ? 'Saving…' : isOwner ? 'Post Announcement' : 'Submit for Approval'}
+              {saving ? 'Saving…' : editingId ? 'Save Changes' : isOwner ? 'Post Announcement' : 'Submit for Approval'}
             </Button>
+            {editingId && isOwner && (
+              <Button
+                onClick={() => void saveEditThenApprove()}
+                disabled={saving || !title.trim() || !body.trim()}
+                className="gap-2"
+              >
+                <Check className="h-4 w-4" /> Save &amp; Approve
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -466,6 +561,11 @@ export default function ReleaseNotesManager() {
                           {STATUS_LABELS[n.status]}
                         </Badge>
                         <Badge variant="outline" className="text-[10px]">{CATEGORY_LABELS[n.category]}</Badge>
+                        {n.auto_drafted && (
+                          <Badge variant="outline" className="text-[10px] border-gold/40 text-gold">
+                            Auto-drafted {formatDistanceToNow(new Date(n.created_at), { addSuffix: true })}
+                          </Badge>
+                        )}
                         {n.requires_ack && <Badge variant="outline" className="text-[10px]">Needs "Got it"</Badge>}
                       </div>
                       <p className="text-xs text-muted-foreground whitespace-pre-line">{n.body}</p>
@@ -480,29 +580,42 @@ export default function ReleaseNotesManager() {
                     </div>
                   </div>
 
-                  {isOwner && (
+                  {(isOwner || n.created_by === myId) && (
                     <div className="flex flex-wrap gap-2">
                       <Button
-                        size="sm" className="gap-1.5"
-                        disabled={acting === n.id}
-                        onClick={() => void review(n.id, 'approved')}
-                      >
-                        <Check className="h-3.5 w-3.5" /> Approve &amp; Send
-                      </Button>
-                      <Button
                         size="sm" variant="outline" className="gap-1.5"
                         disabled={acting === n.id}
-                        onClick={() => { setDenyId(n.id); setDenyReason(''); }}
+                        onClick={() => startEdit(n)}
                       >
-                        <Ban className="h-3.5 w-3.5" /> Deny
+                        <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
-                      <Button
-                        size="sm" variant="outline" className="gap-1.5"
-                        disabled={acting === n.id}
-                        onClick={() => void review(n.id, 'archived')}
-                      >
-                        <Archive className="h-3.5 w-3.5" /> Archive
-                      </Button>
+                      {isOwner && (
+                        <Button
+                          size="sm" className="gap-1.5"
+                          disabled={acting === n.id}
+                          onClick={() => void review(n.id, 'approved')}
+                        >
+                          <Check className="h-3.5 w-3.5" /> Approve &amp; Send
+                        </Button>
+                      )}
+                      {isOwner && (
+                        <>
+                          <Button
+                            size="sm" variant="outline" className="gap-1.5"
+                            disabled={acting === n.id}
+                            onClick={() => { setDenyId(n.id); setDenyReason(''); }}
+                          >
+                            <Ban className="h-3.5 w-3.5" /> Deny
+                          </Button>
+                          <Button
+                            size="sm" variant="outline" className="gap-1.5"
+                            disabled={acting === n.id}
+                            onClick={() => void review(n.id, 'archived')}
+                          >
+                            <Archive className="h-3.5 w-3.5" /> Archive
+                          </Button>
+                        </>
+                      )}
                     </div>
                   )}
                 </CardContent>

@@ -75,7 +75,24 @@ describe('composer', () => {
     expect(MANAGER).toContain("void review(n.id, 'approved')");
     expect(MANAGER).toContain("void review(id, 'denied', denyReason.trim())");
     expect(MANAGER).toContain("void review(n.id, 'archived')");
-    expect(MANAGER).toMatch(/isOwner && \(\s*<div className="flex flex-wrap gap-2">/);
+    // Approve sits behind its own owner gate…
+    expect(MANAGER).toMatch(/\{isOwner && \(\s*<Button[\s\S]{0,300}?Approve &amp; Send/);
+    // …and deny/archive share one owner-only fragment.
+    expect(MANAGER).toMatch(/\{isOwner && \(\s*<>[\s\S]{0,900}?Deny[\s\S]{0,900}?Archive[\s\S]{0,200}?<\/>/);
+  });
+
+  it('lets the owner or the author edit a pending draft before approval', () => {
+    expect(MANAGER).toContain('(isOwner || n.created_by === myId) && (');
+    expect(MANAGER).toContain('startEdit(n)');
+    // Saving an edit updates the same row and it stays pending.
+    expect(MANAGER).toContain(".eq('id', editingId)");
+    expect(MANAGER).toContain('saveEditThenApprove');
+  });
+
+  it('marks machine-written drafts so the owner can tell them apart', () => {
+    expect(MIGRATION).toContain('ADD COLUMN IF NOT EXISTS auto_drafted boolean NOT NULL DEFAULT false');
+    expect(MANAGER).toContain('n.auto_drafted');
+    expect(MANAGER).toContain('Auto-drafted');
   });
 
   it('never offers drivers as an audience', () => {

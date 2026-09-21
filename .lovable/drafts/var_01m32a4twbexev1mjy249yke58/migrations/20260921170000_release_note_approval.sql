@@ -46,7 +46,10 @@ ALTER TABLE public.release_notes
   ADD COLUMN IF NOT EXISTS reviewed_by uuid,
   ADD COLUMN IF NOT EXISTS reviewed_at timestamptz,
   ADD COLUMN IF NOT EXISTS denial_reason text,
-  ADD COLUMN IF NOT EXISTS published_at timestamptz;
+  ADD COLUMN IF NOT EXISTS published_at timestamptz,
+  -- Marks a draft written by the build itself so the owner can tell a
+  -- machine-written draft from a hand-submitted one.
+  ADD COLUMN IF NOT EXISTS auto_drafted boolean NOT NULL DEFAULT false;
 
 -- Everything already posted was delivered: it is approved history, not a queue.
 UPDATE public.release_notes
