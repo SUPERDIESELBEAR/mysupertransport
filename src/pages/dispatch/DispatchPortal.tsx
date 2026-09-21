@@ -2344,6 +2344,13 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
                     {isHistoryExpanded && (
                       <tr key={`${row.operator_id}-absence`} className="bg-muted/20">
                         <td colSpan={bulkMode ? 6 : 5} className="px-6 py-3">
+                          {/* Same day-by-day entry as cards view — click day(s) to log a reason */}
+                          <div className="mb-3 max-w-md">
+                            <MiniDispatchCalendar
+                              operatorId={row.operator_id}
+                              onLogChanged={() => bumpAbsenceLog(row.operator_id)}
+                            />
+                          </div>
                           <AbsenceLogPanel
                             operatorId={row.operator_id}
                             resolveName={id => (id ? allDispatchers[id] ?? null : null)}
