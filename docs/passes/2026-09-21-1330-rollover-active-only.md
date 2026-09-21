@@ -144,7 +144,32 @@ With the rule:
 
 ## Full suite — `--maxWorkers=4`, verbatim
 
-<!--SUITE-->
+```
+ Test Files  4 failed | 200 passed | 2 skipped (206)
+      Tests  4 failed | 2033 passed | 16 skipped (2053)
+     Errors  2 errors
+```
+
+Three of the four failures and all the unhandled errors are the sandbox pooler, not the
+code: each is `psql: FATAL: (EAUTHQUERY) auth_query secret check timed out` against
+`aws-0-us-west-2.pooler.supabase.com:6543`, and the errors are Vitest
+`Timeout calling "onTaskUpdate"` worker-RPC timeouts. Re-run at `--maxWorkers=1`, three of
+the four pass: `Test Files 1 failed | 3 passed (4)`, `Tests 1 failed | 86 passed (87)`.
+
+The fourth is a real, **pre-existing** environment failure with nothing to do with this
+pass, reported and not worked around: `src/test/grant-parity-live.test.ts` now gets
+`ERROR: permission denied for function grant_parity_report`. The sandbox role renamed
+itself — `select current_user` is now `sandbox_exec`, while
+`pg_proc.proacl` for `grant_parity_report` reads
+`{postgres=X/postgres,service_role=X/postgres,sandbox_exec_qgxpkcudwjmacrdcyvhj=X/postgres}`,
+the grant migration 0008 handed to the old harness role name. The parity report itself is
+unchanged; only the harness identity moved. No grant was added to paper over it — that is
+the owner's call and it is on the wish list.
+
+An earlier `--maxWorkers=4` run of the same tree read
+`Test Files 2 failed | 202 passed | 2 skipped (206)`,
+`Tests 2 failed | 2035 passed | 16 skipped (2053)`, `Errors 3 errors` — the same pooler
+flakiness, differently distributed. Typecheck (`tsgo --noEmit`): clean, no output.
 
 ## Files this pass authored
 
