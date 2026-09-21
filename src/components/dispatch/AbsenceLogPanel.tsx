@@ -166,6 +166,11 @@ export default function AbsenceLogPanel({ operatorId, resolveName, refreshKey = 
       <div className="rounded-lg bg-muted/40 px-2.5 py-1.5">
         <p className="text-xs font-semibold text-foreground">
           {totals.offRoadDays} day{totals.offRoadDays !== 1 ? 's' : ''} off the road
+          {totals.plannedDays > 0 && (
+            <span className="ml-2 text-[10px] font-semibold text-gold">
+              + {totals.plannedDays} planned
+            </span>
+          )}
         </p>
         <p className="text-[10px] text-muted-foreground">
           {breakdown || 'Nothing recorded in this period.'}
@@ -186,7 +191,7 @@ export default function AbsenceLogPanel({ operatorId, resolveName, refreshKey = 
         </p>
       ) : (
         <ul className="flex flex-col gap-1.5 max-h-72 overflow-y-auto pr-1">
-          {stretches.map(s => {
+          {[...plannedStretches, ...pastStretches].map(s => {
             const style = STATUS_STYLE[s.status] ?? STATUS_STYLE.not_dispatched;
             return (
               <li key={`${s.start}-${s.end}-${s.reason ?? 'none'}`} className="flex items-start gap-2.5">
@@ -199,6 +204,11 @@ export default function AbsenceLogPanel({ operatorId, resolveName, refreshKey = 
                     <span className="text-[10px] text-muted-foreground">
                       {s.days} day{s.days !== 1 ? 's' : ''}
                     </span>
+                    {s.planned && (
+                      <span className="text-[9px] font-semibold uppercase tracking-wide text-gold px-1.5 py-px rounded-full border border-gold/40 bg-gold/10">
+                        Planned
+                      </span>
+                    )}
                     <span className={`text-[10px] font-semibold ml-auto ${style.text}`}>
                       {s.reason ? absenceReasonLabel(s.reason) : style.label}
                     </span>
