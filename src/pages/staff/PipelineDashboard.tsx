@@ -1238,7 +1238,9 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .eq('id', archiveTarget.id);
       if (opErr) throw opErr;
 
-      // 2. Deny linked application
+      // 2. Archive the linked application — set aside, NOT denied. Archived
+      //    applicants can be hired later, so they live in their own tab.
+      //    Undo: write 'denied' here again.
       const { data: opRow } = await supabase
         .from('operators')
         .select('application_id')
@@ -1246,7 +1248,7 @@ export default function PipelineDashboard({ onOpenOperator, onOpenOperatorWithFo
         .single();
       if (opRow?.application_id) {
         const appPatch: Record<string, unknown> = {
-          review_status: 'denied',
+          review_status: 'archived',
           reviewed_at: new Date().toISOString(),
         };
         if (archiveReason.trim()) {

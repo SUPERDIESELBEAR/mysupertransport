@@ -8,7 +8,8 @@ import { format, parseISO, differenceInDays, startOfDay } from 'date-fns';
 import {
   X, CheckCircle2, XCircle, User, MapPin, CalendarIcon,
   Briefcase, Car, FileText, ShieldAlert, AlertTriangle, Loader2, Printer,
-  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil, MessageSquare
+  Eye, EyeOff, Lock, Save, Download, ShieldCheck, Mail, RotateCcw, Pencil, MessageSquare,
+  Archive as ArchiveIcon, Undo2
 } from 'lucide-react';
 import { InterviewNotesPanel } from '@/components/management/InterviewNotesPanel';
 import { Textarea } from '@/components/ui/textarea';
@@ -48,6 +49,13 @@ interface ApplicationReviewDrawerProps {
   onClose: () => void;
   onApprove: (appId: string, notes: string, options?: { skipInvite?: boolean }) => Promise<void>;
   onDeny: (appId: string, notes: string) => Promise<void>;
+  /**
+   * Set aside an applicant without rejecting them (no applicant email). Archived
+   * applicants may be hired later, so they live apart from denials.
+   */
+  onArchive?: (appId: string, notes: string) => Promise<void>;
+  /** Move an archived applicant back to Pending, or on to Denied. */
+  onUnarchive?: (appId: string, target: 'pending' | 'denied') => Promise<void>;
   onExpiryUpdated?: () => void;
   /** Auto-open and scroll to this expiry field when the drawer mounts */
   focusField?: 'cdl' | 'medcert' | 'dot';
@@ -260,12 +268,14 @@ const STATUS_COLORS: Record<string, string> = {
   pending: 'bg-status-progress/15 text-status-progress',
   approved: 'bg-status-complete/15 text-status-complete',
   denied: 'bg-destructive/15 text-destructive',
+  // Archived is "set aside", not a rejection — neutral, never destructive.
+  archived: 'bg-muted text-muted-foreground',
   revisions_requested: 'bg-status-progress/15 text-status-progress',
 };
 
 type DrawerTab = 'overview' | 'documents' | 'pei';
 
-export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onExpiryUpdated, focusField, initialTab, onApplicationUpdated }: ApplicationReviewDrawerProps) {
+export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDeny, onArchive, onUnarchive, onExpiryUpdated, focusField, initialTab, onApplicationUpdated }: ApplicationReviewDrawerProps) {
   const { roles, user } = useAuth();
   const isManagement = roles.includes('management');
   const canEditDenialReason = roles.includes('management') || roles.includes('owner');
@@ -273,7 +283,10 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   const canLogInterview = roles.includes('onboarding_staff') || roles.includes('management') || roles.includes('owner');
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab ?? 'overview');
   const [notes, setNotes] = useState('');
-  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | null>(null);
+  const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | 'archive' | null>(null);
+  /** Pending move-out of the Archived tab, awaiting confirmation. */
+  const [unarchiveTarget, setUnarchiveTarget] = useState<'pending' | 'denied' | null>(null);
+  const [unarchiving, setUnarchiving] = useState(false);
   const [revisionMessage, setRevisionMessage] = useState('');
   const [revertOpen, setRevertOpen] = useState(false);
   const [revertBannerKey, setRevertBannerKey] = useState(0);
@@ -778,7 +791,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
     }
   };
 
-  const handleAction = async (action: 'approve' | 'deny' | 'revise') => {
+  const handleAction = async (action: 'approve' | 'deny' | 'revise' | 'archive') => {
     if (action === 'revise') {
       await handleRequestRevisions();
       return;
@@ -788,6 +801,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
       if (action === 'approve') {
         const skipInvite = (app.pre_revision_status === 'approved');
         await onApprove(app.id, notes, { skipInvite });
+      } else if (action === 'archive') {
+        await onArchive?.(app.id, notes);
       } else {
         await onDeny(app.id, notes);
       }
@@ -1022,8 +1037,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                 );
               })()}
 
-              {/* Denial reason (only for denied applications) */}
-              {app.review_status === 'denied' && (() => {
+              {/* Outcome reason — denied (rejection) or archived (set aside) */}
+              {(app.review_status === 'denied' || app.review_status === 'archived') && (() => {
+                const isArchived = app.review_status === 'archived';
                 const currentReason = reasonOverride !== undefined ? reasonOverride : app.reviewer_notes;
                 const ARCHIVE_PREFIX = '[Archived from pipeline]';
                 const hasPrefix = !!currentReason && currentReason.trim().startsWith(ARCHIVE_PREFIX);
@@ -1072,12 +1088,16 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   }
                 };
                 return (
-                  <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4">
+                  <div className={`rounded-lg border p-4 ${isArchived ? 'border-border bg-secondary/40' : 'border-destructive/30 bg-destructive/5'}`}>
                     <div className="flex items-start gap-3">
-                      <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                      {isArchived
+                        ? <ArchiveIcon className="h-5 w-5 text-muted-foreground shrink-0 mt-0.5" />
+                        : <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />}
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <p className="text-sm font-semibold text-destructive">Application denied</p>
+                          <p className={`text-sm font-semibold ${isArchived ? 'text-foreground' : 'text-destructive'}`}>
+                            {isArchived ? 'Applicant set aside (archived)' : 'Application denied'}
+                          </p>
                           {app.reviewed_at && (
                             <span className="text-xs text-muted-foreground">
                               · {new Date(app.reviewed_at).toLocaleString('en-US', { timeZone: 'America/Chicago', dateStyle: 'medium', timeStyle: 'short' })}
@@ -1087,7 +1107,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="ml-auto h-7 px-2 text-xs text-destructive hover:text-destructive hover:bg-destructive/10"
+                              className={`ml-auto h-7 px-2 text-xs ${isArchived ? 'text-muted-foreground hover:bg-muted' : 'text-destructive hover:text-destructive hover:bg-destructive/10'}`}
                               onClick={beginEdit}
                             >
                               <Pencil className="h-3.5 w-3.5 mr-1" />
@@ -1106,7 +1126,7 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                               value={reasonDraft}
                               onChange={(e) => setReasonDraft(e.target.value)}
                               rows={4}
-                              placeholder="Enter the reason this application was denied…"
+                              placeholder={isArchived ? 'Enter the reason this applicant was set aside…' : 'Enter the reason this application was denied…'}
                               disabled={reasonSaving}
                             />
                             <div className="flex items-center justify-end gap-2">
@@ -1125,7 +1145,9 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                           </p>
                         ) : (
                           <p className="text-xs text-muted-foreground italic mt-1.5">
-                            No reason was recorded when this application was denied.
+                            {isArchived
+                              ? 'No reason was recorded when this applicant was set aside.'
+                              : 'No reason was recorded when this application was denied.'}
                           </p>
                         )}
                       </div>
@@ -1586,6 +1608,18 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                     className="flex-1 min-w-[140px]"
                     data-testid="review-action-deny"
                   />
+                  {onArchive && (
+                    <Button
+                      variant="secondary"
+                      className="flex-1 min-w-[140px]"
+                      onClick={() => setConfirmAction('archive')}
+                      data-testid="review-action-archive"
+                    >
+                      <ArchiveIcon className="h-4 w-4 mr-2" />
+                      Archive
+                    </Button>
+                  )}
+
                       <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
@@ -1667,23 +1701,31 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
               </div>
             ) : (
               <div className="space-y-3">
-                <div className={`rounded-lg p-4 border ${confirmAction === 'approve' ? 'bg-status-complete/10 border-status-complete/30' : 'bg-destructive/10 border-destructive/30'}`}>
+                <div className={`rounded-lg p-4 border ${confirmAction === 'approve' ? 'bg-status-complete/10 border-status-complete/30' : confirmAction === 'archive' ? 'bg-secondary/60 border-border' : 'bg-destructive/10 border-destructive/30'}`}>
                   <div className="flex items-start gap-3">
-                    <AlertTriangle className={`h-5 w-5 mt-0.5 shrink-0 ${confirmAction === 'approve' ? 'text-status-complete' : 'text-destructive'}`} />
+                    {confirmAction === 'archive' ? (
+                      <ArchiveIcon className="h-5 w-5 mt-0.5 shrink-0 text-muted-foreground" />
+                    ) : (
+                      <AlertTriangle className={`h-5 w-5 mt-0.5 shrink-0 ${confirmAction === 'approve' ? 'text-status-complete' : 'text-destructive'}`} />
+                    )}
                     <div>
                        <p className="text-sm font-semibold text-foreground">
                         {confirmAction === 'approve'
                           ? (app.pre_revision_status === 'approved'
                               ? `Re-approve corrected application for ${fullName}?`
                               : `Approve application and send invite to ${app.email}?`)
-                          : `Deny application for ${fullName}?`}
+                          : confirmAction === 'archive'
+                            ? `Set ${fullName} aside for now?`
+                            : `Deny application for ${fullName}?`}
                       </p>
                       <p className="text-xs text-muted-foreground mt-1">
                         {confirmAction === 'approve'
                           ? (app.pre_revision_status === 'approved'
                               ? 'The application will return to Approved status. No new invite will be sent — the operator already exists and onboarding continues.'
                               : 'This will send a SUPERTRANSPORT account invite email. An Operator record will be created automatically.')
-                          : 'This action will mark the application as denied. It cannot be reversed without contacting support.'}
+                          : confirmAction === 'archive'
+                            ? 'They move to the Archived tab. No email is sent, and you can bring them back to Pending any time.'
+                            : 'This action will mark the application as denied. It cannot be reversed without contacting support.'}
                       </p>
                     </div>
                   </div>
@@ -1695,15 +1737,89 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
                   <Button
                     onClick={() => handleAction(confirmAction)}
                     disabled={loading}
-                    className={`flex-1 text-white ${confirmAction === 'approve' ? 'bg-status-complete hover:bg-status-complete/90' : 'bg-destructive hover:bg-destructive/90'}`}
+                    className={`flex-1 ${confirmAction === 'approve' ? 'text-white bg-status-complete hover:bg-status-complete/90' : confirmAction === 'archive' ? '' : 'text-white bg-destructive hover:bg-destructive/90'}`}
+                    variant={confirmAction === 'archive' ? 'secondary' : 'default'}
+                    data-testid="review-confirm-archive"
                   >
                     {loading ? (
                       <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
                     ) : (
                       confirmAction === 'approve'
                         ? (app.pre_revision_status === 'approved' ? 'Confirm Re-approve' : 'Confirm Approve & Invite')
-                        : 'Confirm Deny'
+                        : confirmAction === 'archive'
+                          ? 'Confirm Archive'
+                          : 'Confirm Deny'
                     )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Action Footer — archived applicant: bring back, or take the decision */}
+        {app.review_status === 'archived' && (onUnarchive || onDeny) && (
+          <div className="border-t border-border p-5 bg-secondary/30 shrink-0 space-y-3">
+            {!unarchiveTarget ? (
+              <div className="flex flex-wrap gap-2">
+                {onUnarchive && (
+                  <Button
+                    variant="secondary"
+                    className="flex-1 min-w-[180px]"
+                    onClick={() => setUnarchiveTarget('pending')}
+                    data-testid="review-action-unarchive"
+                  >
+                    <Undo2 className="h-4 w-4 mr-2" />
+                    Move back to Pending
+                  </Button>
+                )}
+                {onUnarchive && (
+                  <Button
+                    variant="outline"
+                    className="flex-1 min-w-[180px] text-destructive hover:text-destructive"
+                    onClick={() => setUnarchiveTarget('denied')}
+                    data-testid="review-action-archived-deny"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Deny instead
+                  </Button>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className={`rounded-lg p-4 border ${unarchiveTarget === 'denied' ? 'bg-destructive/10 border-destructive/30' : 'bg-secondary/60 border-border'}`}>
+                  <p className="text-sm font-semibold text-foreground">
+                    {unarchiveTarget === 'denied'
+                      ? `Deny ${fullName}?`
+                      : `Move ${fullName} back to Pending?`}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {unarchiveTarget === 'denied'
+                      ? 'They leave the Archived tab and are recorded as denied.'
+                      : 'They return to the Pending tab for review. No email is sent.'}
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <Button variant="outline" className="flex-1" disabled={unarchiving} onClick={() => setUnarchiveTarget(null)}>
+                    Cancel
+                  </Button>
+                  <Button
+                    className={`flex-1 ${unarchiveTarget === 'denied' ? 'text-white bg-destructive hover:bg-destructive/90' : ''}`}
+                    variant={unarchiveTarget === 'denied' ? 'default' : 'secondary'}
+                    disabled={unarchiving}
+                    onClick={async () => {
+                      setUnarchiving(true);
+                      try {
+                        await onUnarchive?.(app.id, unarchiveTarget);
+                        setUnarchiveTarget(null);
+                      } finally {
+                        setUnarchiving(false);
+                      }
+                    }}
+                  >
+                    {unarchiving
+                      ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing...</>
+                      : unarchiveTarget === 'denied' ? 'Confirm Deny' : 'Confirm Move'}
                   </Button>
                 </div>
               </div>
