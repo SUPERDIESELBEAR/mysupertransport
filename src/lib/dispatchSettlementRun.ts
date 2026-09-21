@@ -708,10 +708,12 @@ export interface DispatchMonthOption {
   month: string;
   /** 'August 2026' */
   label: string;
-  /** A settlement row exists for this month. */
+  /** A LIVE settlement row exists for this month — a voided one does not count. */
   hasSettlement: boolean;
-  /** The stored status, when there is a row. */
+  /** The stored status of the LIVE row, when there is one. Never 'void'. */
   status: string | null;
+  /** How many voided settlements this month is keeping as history (P34). */
+  voidedCount: number;
   /** Delivered loads sit in this month (carrier zone), settled or not. */
   deliveredLoads: number;
 }
@@ -728,6 +730,11 @@ export interface DispatchMonthOption {
  *
  * This reads `loads` only to decide WHICH MONTHS TO LIST. No figure on the
  * screen comes from it.
+ *
+ * READER 3. P34: a month can now hold several rows, so `hasSettlement` and
+ * `status` are taken from the LIVE row alone. A voided row only raises
+ * `voidedCount` — if it set `hasSettlement`, a voided month would read as
+ * already computed and nobody could compute it again.
  */
 export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOption[]> {
   const windowStart = carrierMonthStartIso(carrierMonthsAgo(12));
@@ -748,7 +755,10 @@ export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOptio
   const put = (month: string): DispatchMonthOption => {
     let o = byMonth.get(month);
     if (!o) {
-      o = { month, label: monthLabel(month), hasSettlement: false, status: null, deliveredLoads: 0 };
+      o = {
+        month, label: monthLabel(month), hasSettlement: false, status: null,
+        voidedCount: 0, deliveredLoads: 0,
+      };
       byMonth.set(month, o);
     }
     return o;
@@ -757,6 +767,10 @@ export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOptio
   for (const row of (settRes.data ?? []) as any[]) {
     const month = monthFromDateString(row.period_month);
     const o = put(month);
+    if (row.status === 'void') {
+      o.voidedCount += 1;
+      continue;
+    }
     o.hasSettlement = true;
     o.status = row.status ?? null;
   }
@@ -767,6 +781,65 @@ export async function listDispatchMonths(sb: Client): Promise<DispatchMonthOptio
   }
 
   return [...byMonth.values()].sort((a, b) => (a.month < b.month ? 1 : a.month > b.month ? -1 : 0));
+}
+
+/* ------------------------------------------------------------------ */
+/* READ — the voided settlements a month is keeping (P34)              */
+/* ------------------------------------------------------------------ */
+
+export interface VoidedDispatchSettlement {
+  id: string;
+  period_month: string;
+  void_reason: string | null;
+  voided_by_name: string | null;
+  voided_at: string | null;
+  /** The figures the settlement carried when it was voided. HISTORY, never a live total. */
+  eligible_base: number;
+  net_amount: number;
+  lineCount: number;
+  contributionCount: number;
+}
+
+/**
+ * READER 4 — the void history strip on the settlement screen.
+ *
+ * This is the ONLY reader that asks for voided rows, and it asks for nothing
+ * else (`.eq('status','void')`). Its figures are labelled as history on the
+ * screen and are never added to anything.
+ */
+export async function listVoidedDispatchSettlements(
+  sb: Client,
+  month: string,
+): Promise<VoidedDispatchSettlement[]> {
+  const monthStart = periodMonthDate(month);
+  const { data, error } = await sb
+    .from('dispatch_settlements')
+    .select('id, period_month, void_reason, voided_by, updated_at, eligible_base, net_amount, '
+      + 'dispatch_settlement_line_items(id), dispatch_settlement_load_contributions(id)')
+    .eq('period_month', monthStart)
+    .eq('status', 'void')
+    .order('updated_at', { ascending: false });
+  if (error) throw error;
+
+  const voidedByIds = [...new Set((data ?? []).map((r: any) => r.voided_by).filter(Boolean))];
+  const names = new Map<string, any>();
+  if (voidedByIds.length) {
+    const { data: profs } = await sb.from('profiles')
+      .select('id, first_name, last_name').in('id', voidedByIds);
+    for (const p of profs ?? []) names.set((p as any).id, p);
+  }
+
+  return (data ?? []).map((r: any) => ({
+    id: r.id,
+    period_month: r.period_month,
+    void_reason: r.void_reason,
+    voided_by_name: r.voided_by ? dispatcherLabel(names.get(r.voided_by)) : null,
+    voided_at: r.updated_at,
+    eligible_base: num(r.eligible_base),
+    net_amount: num(r.net_amount),
+    lineCount: (r.dispatch_settlement_line_items ?? []).length,
+    contributionCount: (r.dispatch_settlement_load_contributions ?? []).length,
+  }));
 }
 
 /** 'YYYY-MM' → 'August 2026'. */
