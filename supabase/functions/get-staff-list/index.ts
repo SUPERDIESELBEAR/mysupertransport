@@ -144,15 +144,14 @@ Deno.serve(async (req) => {
         birth_day?: number | null;
       };
 
-      // ── Deactivate user ───────────────────────────────────────────────
+      // ── Deactivate (suspend) user ─────────────────────────────────────
       if (action === 'deactivate_user') {
-        if (user_id === callerUser.id) {
-          return new Response(JSON.stringify({ error: 'Cannot deactivate your own account' }), {
-            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
+        if (!user_id) return json(400, { error: 'user_id is required' });
+        const refusal = await refuseSuspension(user_id);
+        if (refusal) return refusal;
 
         // Update profile status
+
         const { error: profileErr } = await supabaseAdmin
           .from('profiles')
           .update({ account_status: 'inactive' })
