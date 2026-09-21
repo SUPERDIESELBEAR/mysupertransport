@@ -75,6 +75,13 @@ const GLOBAL_TABLES = [
   'release_notes', 'eld_device_models', 'eld_revoked_list_checks',
   'revert_courtesy_email_defaults',
   'email_unsubscribe_tokens', 'suppressed_emails',
+  // 2026-09-21 permissions foundation. `permission_actions` is the CATALOGUE of
+  // actions SUPERDRIVE is able to enforce — one row per enforcement point in the
+  // code. A carrier decides WHO holds an action (`role_permissions`, which is
+  // per-carrier); it does not get to invent or retire the actions themselves,
+  // because each one only means anything where the code checks it. Rows arrive by
+  // migration and the table has no write policy at all.
+  'permission_actions',
 ] as const;
 
 /**
