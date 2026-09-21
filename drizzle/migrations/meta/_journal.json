@@ -92,6 +92,13 @@
       "when": 1789756784835,
       "tag": "0012_restrictive_tenant_policy_user_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1789955262321,
+      "tag": "0013_permissions_foundation_and_three_actions",
+      "breakpoints": true
     }
   ]
 }
