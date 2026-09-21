@@ -452,6 +452,11 @@ describe('billing — access', () => {
    * predicate to get wrong because there is no operator access at all.
    */
   itLive('every permissive policy names management and owner, scopes to the company, and names no other role', () => {
+    // 2026-09-21 PERMISSIONS FOUNDATION: the paragraph above still holds for the
+    // CHANGE side and for every other billing table. The one exception is the
+    // dispatcher's invoice READ, owed since P2 and granted through
+    // `invoices_view_permission`; excluded by name, shape asserted after the loop.
+    const PERMISSION_GATED = 'invoices_view_permission';
     const policies = psql(`SELECT c.relname || '|' || p.polname || '|' ||
         pg_get_expr(p.polqual, p.polrelid) || '|' ||
         coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') || '|' || p.polcmd::text || '|' ||
@@ -459,7 +464,7 @@ describe('billing — access', () => {
            FROM unnest(p.polroles) x JOIN pg_roles r ON r.oid = x)
       FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
       WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
-        AND p.polpermissive ORDER BY 1`);
+        AND p.polpermissive AND p.polname <> '${PERMISSION_GATED}' ORDER BY 1`);
     expect(policies).toHaveLength(TABLES.length);
     for (const row of policies) {
       const [table, , using, check, cmd, roles] = row.split('|');
