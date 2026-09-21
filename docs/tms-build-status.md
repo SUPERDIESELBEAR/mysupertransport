@@ -18944,3 +18944,10 @@ assertion for the 50-row backfill), `tenancy-resolver` (new `ANNOUNCEMENT_STAMPE
   Five assertions red.
 
 Report: `docs/passes/2026-09-21-1930-suite-reconciliation.md`.
+
+## 2026-09-21 20:30 — the two real defects are closed
+`notify_staff_on_release_note()` pinned `public, extensions` and isolated through
+`public.try_notify(...)` (migration 0025, applied); the Applications-page half of archived
+applicants built to its tests and proved on screen as management. Suite: 3 failed | 2111 passed,
+all three infrastructure (one known harness permission, two pooler auth timeouts). Typecheck
+clean. Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
