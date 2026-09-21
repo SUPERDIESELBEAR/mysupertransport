@@ -207,6 +207,7 @@ export default function ManagementPortal() {
   const { session, isOwner } = useAuth();
   const pendingOwnerTransferForMe = usePendingOwnerTransfer();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
+  const { unread: unreadReleaseNotes } = useUnreadReleaseNotes();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     // `view` is canonical for this portal. `tab` is a COMPATIBILITY SHIM for
