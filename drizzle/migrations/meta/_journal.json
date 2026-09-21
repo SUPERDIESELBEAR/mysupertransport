@@ -120,6 +120,13 @@
       "when": 1789999113728,
       "tag": "0016_driver_deactivation_permission",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1790000087094,
+      "tag": "0017_revoke_execute_deactivation_gate",
+      "breakpoints": true
     }
   ]
 }

@@ -163,7 +163,14 @@ export default function ArchivedDriversView({ onOpenDriver, onMessageDriver, onR
       .eq('id', confirmReactivate.operator_id);
 
     if (error) {
-      toast({ title: 'Error', description: 'Could not reactivate driver.', variant: 'destructive' });
+      // The database refuses a reactivation by anyone without the
+      // driver.deactivate permission (owner and management today). Its message
+      // says exactly that, so show it rather than a blank "could not".
+      toast({
+        title: 'Could not reactivate driver',
+        description: error.message || 'Please try again.',
+        variant: 'destructive',
+      });
     } else {
       await supabase.from('audit_log').insert({
         entity_type: 'operator',
