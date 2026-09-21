@@ -18695,3 +18695,55 @@ meanwhile and the reason pickers are disabled with a note until the columns
 land. Calendars verified live (owner session) showing Dispatched / Home / Truck
 Down colours and non-zero counters again. Report:
 `docs/passes/2026-09-21-1410-calendar-restore.md`.
+
+## 2026-09-21 15:50 UTC — Cleanup: Absence Log status, grant parity, the probe rule, the 15:00 jobs
+
+**STANDING RULE — PROBES THROUGH A LIVE SESSION.** A probe made through a live PostgREST
+session, which cannot be rolled back, must be built so that an ADMITTED caller lands on a
+guaranteed failure — a bogus foreign key, an invalid enum value, or a check constraint —
+and never on a successful write. A plain write is only permitted inside a transaction that
+raises. Three probe writes have now reached real rows: invoice `ST26-0001`; the two
+`ica_review_links` notes set to `'tenancy probe control'` and cleared to NULL on
+2026-09-17 2330; and on 2026-09-21 1424 the reactivation of archived driver `8c0ccadb-…`
+(original `deactivated_at`, reason and actor unrecoverable) plus `notes` set to NULL on
+`f2051752-…`. This widens the 2026-09-17 2230 and 2330 rules from "never write outside a
+raising transaction" to "when no transaction is available, design the admitted path to
+fail".
+
+**Absence Log schema is LIVE, applied by the other session.** The `absence_reason` enum
+(eight labels) and `dispatch_daily_log.absence_reason` / `notes_by` / `notes_at` plus the
+`(operator_id, log_date DESC)` index all exist. Applied as
+`drizzle/migrations/0018_absence_log_reasons.sql`, journal idx 18; the
+`supabase/migrations/20260921130000_…` path named in the 1335 report does not exist in the
+repo. Nothing was applied or changed here — that work belongs to another session.
+
+**Grant parity restored, and it will break again.** `grant-parity-live` failed from ~13:35
+UTC with `permission denied for function grant_parity_report`. Cause, from the catalog: the
+harness connects as the bare role `sandbox_exec` (oid 35560) while the function's `proacl`
+named only `sandbox_exec_qgxpkcudwjmacrdcyvhj` (oid 27530); no migration after 0008 touches
+the function and its owner is unchanged, and 221 public tables carry fresh
+`sandbox_exec=ar/postgres` grants no migration issued — sandbox provisioning recreates the
+bare role, which strips it from every ACL and re-grants tables but not function EXECUTE.
+Migration `0019` re-grants EXECUTE to both roles and keeps the PUBLIC/`anon`/`authenticated`
+revokes; `has_function_privilege` is true, the report returns 0 offenders, the file passes
+3/3. The gate stays OFF deliberately: if the privilege is lost again the file must go red.
+This fix does NOT survive a re-provisioned sandbox.
+
+**The three 15:00 UTC jobs all ran and all did their work.** Job 6 `check-cert-expiry`:
+200 `{"inserted":2,"emailsSent":2}`, 2 `cert_expiry_30d` notifications. Job 7
+`check-inspection-expiry`: `net._http_response` shows only `Timeout of 5000 ms reached`,
+yet 14 `inspection_doc_expiry` notifications were written at 15:00:24. Job 8
+`notify-idle-operators`: same 5-second timeout row, 72 `operator_idle` notifications across
+72 distinct operators at 15:00:09 — exactly the 72-record backlog, no duplicates; 64 went
+to Mae, the rest to five other coordinators. Nothing was triggered by hand.
+
+**pg_net's client timeout is 5000 ms**, so a NULL-status timeout row is NOT evidence that a
+job failed; for any function slower than five seconds, acceptance can only be judged by
+what it wrote. This corrects the reading method used in the 1135 pass.
+
+**Correction to the 1135 report:** it stated `notifications` held no `operator_idle` row
+"today or ever". Live count is 585, with clusters from 2026-05-28 to 2026-06-05. It was
+right only about today.
+
+**Suite** `--maxWorkers=4`: see the report. Typecheck clean.
+Report: `docs/passes/2026-09-21-1550-cleanup-2026-09-21.md`

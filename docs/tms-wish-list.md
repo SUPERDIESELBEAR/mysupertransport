@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-17
+Last updated: 2026-09-21
 
 ---
 
@@ -63,9 +63,13 @@ closed, and the removing pass says so.
 
 - ~~**THE CRON SECRET HAS NEVER EXISTED — several scheduled jobs are being refused every run.**~~ **DONE 2026-09-21 0105 UTC** (record `docs/passes/2026-09-21-0105-cron-secret-repair.md`). Original entry for history: `CRON_SECRET` was not a project secret and `app.cron_secret` was set nowhere, so every function reading it accepted only a service-role bearer that no `pg_cron` command sent; `dispatch-scheduled-broadcasts` logged 360 × `403` in six hours; the nightly purge, cert and inspection expiry checks, idle-operator notices and dispatch rollover were in the same state for ~104 days; the scheduling log said "succeeded" because `pg_net` records only that the request was sent. REPAIRED: secret created, stored in Vault (`ALTER DATABASE` is refused on this project), all twelve job commands now send `x-cron-secret` read at request time. Proof: `403` at 00:31 → `200` at 00:32 and 22 runs since; `pei-auto-cadence` still runs hourly. `ELD_CRON_SECRET` is correct but no job calls `process-eld-escalations` (dormant by earlier decision). Jobs 6, 7, 8, 9, 10, 15 were not triggered by hand (real mail, real deletions, or an unauthorised catch-up) — acceptance confirms on their own next scheduled run.
 
-- **CRON-REPAIR VERIFICATION — STILL OPEN for three of the six** (record 2026-09-21 1135 UTC, `docs/passes/2026-09-21-1135-scheduled-jobs-verified.md`). CLOSED: job 15 `purge-deleted-operator-documents` — proven end to end (12 `document_purged` audit rows at 03:15, `operator_documents` soft-deleted 18 → 6 with 0 past the cutoff, 0 of the 12 storage objects left, 6 ineligible rows intact). ACCEPTANCE PROVEN, EFFECT NOT: jobs 9 / 10 `rollover-dispatch-status` — 200 at 06:05, but see the next item. STILL OPEN: jobs 6 `check-cert-expiry`, 7 `check-inspection-expiry`, 8 `notify-idle-operators` — they run at 15:00 UTC and the repair landed at 00:32 UTC the same day, so at 11:29 UTC they had had no post-repair run at all; not triggered by hand (real mail). To settle: read `net._http_response` between 15:00 and ~20:00 UTC for 6 and 7 (retention is ~6 h and they write no row, so the status code is the only evidence), and count `notifications where type = 'operator_idle'` after 15:00 UTC for 8 — a first run should surface up to 72 coordinator nudges, with the 24-hour dedup quiet on day two.
+- ~~**CRON-REPAIR VERIFICATION — open for three of the six**~~ **CLOSED 2026-09-21 1550** (record 2026-09-21 1550 UTC, `docs/passes/2026-09-21-1550-cleanup-2026-09-21.md`). The last three ran on their own schedule at 15:00 UTC and all three did their work: job 6 `check-cert-expiry` 200 `{"inserted":2,"emailsSent":2}` with 2 `cert_expiry_30d` notifications; job 7 `check-inspection-expiry` wrote 14 `inspection_doc_expiry` notifications; job 8 `notify-idle-operators` wrote 72 `operator_idle` notifications across 72 distinct operators — exactly the 72-record backlog, no duplicates, 64 of them to Mae. Jobs 7 and 8 show only a `Timeout of 5000 ms reached` row in `net._http_response` (see the new pg_net item), so their acceptance rests on what they wrote. Jobs 9/10 and 15 were already settled. ORIGINAL ENTRY FOR HISTORY: (record 2026-09-21 1135 UTC, `docs/passes/2026-09-21-1135-scheduled-jobs-verified.md`). CLOSED: job 15 `purge-deleted-operator-documents` — proven end to end (12 `document_purged` audit rows at 03:15, `operator_documents` soft-deleted 18 → 6 with 0 past the cutoff, 0 of the 12 storage objects left, 6 ineligible rows intact). ACCEPTANCE PROVEN, EFFECT NOT: jobs 9 / 10 `rollover-dispatch-status` — 200 at 06:05, but see the next item. STILL OPEN: jobs 6 `check-cert-expiry`, 7 `check-inspection-expiry`, 8 `notify-idle-operators` — they run at 15:00 UTC and the repair landed at 00:32 UTC the same day, so at 11:29 UTC they had had no post-repair run at all; not triggered by hand (real mail). To settle: read `net._http_response` between 15:00 and ~20:00 UTC for 6 and 7 (retention is ~6 h and they write no row, so the status code is the only evidence), and count `notifications where type = 'operator_idle'` after 15:00 UTC for 8 — a first run should surface up to 72 coordinator nudges, with the 24-hour dedup quiet on day two.
 
 - ~~**THE DISPATCH ROLLOVER CANNOT SEE STALE DRIVERS — 8 of 45 are wrong on the board, three since June**~~ **FIXED IN CODE, NOT DEPLOYED 2026-09-21 1310 UTC** (record `docs/passes/2026-09-21-1310-rollover-reads-everyone.md`). The capped read is replaced by `public.latest_dispatch_log_per_operator(date)` — `DISTINCT ON (operator_id)`, one row per eligible operator however old, so no row cap can truncate it; NOT a bigger limit and not paging. Proven 45 operators against the old read's 41 today (34 at 1135 — coverage was an accident of recency). Dry run: 8 would change, exactly the eight named at 1135. STILL OPEN: **deployment awaits the owner's review of the dry-run table**, because all eight drivers are `is_active = false` (one deactivated) and their logs are June/August — the function has never filtered on `is_active` and this pass did not add one. One instruction deploys it: "deploy rollover-dispatch-status." Decision owed: filter on `is_active`, add a staleness cutoff, or accept June statuses on the board. Original entry for history: `rollover-dispatch-status` reads `dispatch_daily_log` with no explicit limit, so PostgREST caps it at 1,000 rows of 6,021 — the newest 1,000 cover only 34 distinct operators, which is exactly the `"checked":34` in its 200 response. Every drifted driver's latest log is from June or August, outside that window, so no future scheduled run will ever correct them: Hafeezullah Awal Khan, David Wambolt, Jocquan Scott, Gehazi Irwin, Edward Williams, Tyler Walls, Johnathan McMillan, Christopher Hickman. This corrects the 0105 pass's expectation that the 05:05 run would fix all nine by itself. Fix is a paged or per-operator read in the function; own pass, and it writes live dispatch statuses so it needs the owner's word first.
+
+- **pg_net GIVES UP AFTER 5000 ms, AND A TIMEOUT ROW IS NOT A FAILURE** (record 2026-09-21 1550 UTC). Jobs 7 `check-inspection-expiry` and 8 `notify-idle-operators` both completed correctly on 2026-09-21 at 15:00 UTC — 14 and 72 notifications written — while `net._http_response` recorded no status code and `Timeout of 5000 ms reached`. Any job slower than five seconds can therefore only be judged by the rows it wrote, never by its response. The proposed reconciler must not read a NULL status as a refusal.
+
+  TRIGGER. Before the reconciler in the item above is built.
 
 - **`net._http_response` RETENTION IS ~6 HOURS, so nightly jobs cannot be proven by day** (record 2026-09-21 1135 UTC). Oldest surviving row 05:30 UTC for an 11:29 UTC reading; the 03:15 purge and the 05:05 rollover had both aged out. The proposed reconciler above must record each run's `request_id` in a durable table, or 03:00–05:00 jobs stay unprovable after breakfast.
 
@@ -834,15 +838,23 @@ four `settlement.view` / `invoice.view` grant rows. Nothing else depends on them
 
 NO TRIGGER. Recorded so the decision stays reversible.
 
-### The grant-parity harness lost its EXECUTE grant (2026-09-21)
-`src/test/grant-parity-live.test.ts` fails with `permission denied for function
-grant_parity_report`. Nothing about the report changed: migration 0008 granted EXECUTE to
-`sandbox_exec_qgxpkcudwjmacrdcyvhj` and the sandbox role is now plain `sandbox_exec`
-(`proacl` still names the old one). One migration granting EXECUTE to the current harness
-role restores the check. Left undone deliberately — a grant is a security decision and
-this one is the owner's.
+### ~~The grant-parity harness lost its EXECUTE grant (2026-09-21)~~ CLOSED 2026-09-21 1550
+Migration `0019_grant_parity_report_execute_regrant.sql`: EXECUTE granted to `"sandbox_exec"` and
+`"sandbox_exec_qgxpkcudwjmacrdcyvhj"`, PUBLIC / `anon` / `authenticated` revoked as before. The file
+passes 3/3 and the report returns 0 offenders. Cause established from the catalog, not migration text:
+the harness role name never changed and the function was never recreated — sandbox provisioning
+RECREATES the bare role `sandbox_exec` (oid 35560, newer than the suffixed 27530), which strips it from
+every ACL in the cluster; provisioning then re-issues table grants (221 public tables carry a fresh
+`sandbox_exec=ar/postgres` no migration wrote) but not function EXECUTE.
 
-TRIGGER. Every full suite from now on carries one red file until it is done.
+**IT WILL BREAK AGAIN.** Second occurrence in four days. What would make it stick, none of it inside
+this repo: provisioning granting function EXECUTE the way it grants table `ar`; the harness connecting
+as the durable project-suffixed role, which already holds EXECUTE; or the guard calling the report
+through an RPC as `service_role` instead of psql. The test is deliberately NOT gated — a lost privilege
+must go red.
+
+TRIGGER. The next time a full suite shows this file red, apply the same re-grant and consider the
+third option above.
 
 ### Tomorrow's rollover proof is owed (2026-09-21)
 The active-only rollover is deployed but unproven in flight. The 2026-09-22 05:05 UTC
@@ -878,13 +890,9 @@ own state and is NOT written by the calendar.
 
 NO TRIGGER. Owner's decision if either should change.
 
-### The harness role cannot run grant_parity_report (2026-09-21)
-`src/test/grant-parity-live.test.ts` fails with `permission denied for function
-grant_parity_report` for the sandbox psql role, so live grant/policy parity is
-unproven in the suite. Pre-existing and unrelated to the Absence Log. Settled by
-granting EXECUTE to the harness role only, on a disposable instance first.
-
-NO TRIGGER until someone relies on that guard being green.
+### ~~The harness role cannot run grant_parity_report (2026-09-21)~~ CLOSED 2026-09-21 1550
+Duplicate of the item above, raised again by the Absence Log pass. Settled by migration `0019`; see
+that entry for the cause and for why it is expected to recur.
 
 ## 2026-09-21 14:10 UTC
 
@@ -893,8 +901,18 @@ NO TRIGGER until someone relies on that guard being green.
   2026-08-01 definer inventory (two `definer-live-catalog` assertions fail on
   it). Not created by the calendar pass and not fixable from a draft (no DDL).
   Needs its own pass: revoke EXECUTE from both client roles, then re-run.
-- OPEN (carried) — harness psql role lacks EXECUTE on `grant_parity_report()`,
-  so `grant-parity-live` cannot run.
+- ~~OPEN (carried) — harness psql role lacks EXECUTE on `grant_parity_report()`,
+  so `grant-parity-live` cannot run.~~ **CLOSED 2026-09-21 1550**, migration `0019`;
+  3/3 passing. Expected to recur when the sandbox is re-provisioned.
+- NOTE 2026-09-21 1550 — **the Absence Log schema is now LIVE**, applied by the other
+  session as `drizzle/migrations/0018_absence_log_reasons.sql` (journal idx 18): the
+  `absence_reason` enum (8 labels), `dispatch_daily_log.absence_reason` / `notes_by` /
+  `notes_at`, and the `(operator_id, log_date DESC)` index all exist. The
+  `supabase/migrations/20260921130000_…` path named in the 1335 report does not exist in
+  the repo. Its staged copy must NOT be applied a second time. Two optional tidy-ups now
+  belong to that session: the `dispatchDayLogs.ts` fallback is dead on the happy path, and
+  the staged-column allowance in `postgrestEmbeds.test.ts` can go once the generated types
+  carry the three columns.
 - NOTE — the absence-reason fallback in `src/lib/dispatchDayLogs.ts` is
   self-clearing: once the staged migration is accepted the full select succeeds
   and the retry path is never taken. It can be deleted at any later tidy-up.
