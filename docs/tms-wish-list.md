@@ -932,3 +932,25 @@ that entry for the cause and for why it is expected to recur.
 - NOTE — the absence-reason fallback in `src/lib/dispatchDayLogs.ts` is
   self-clearing: once the staged migration is accepted the full select succeeds
   and the retry path is never taken. It can be deleted at any later tidy-up.
+
+## 2026-09-21 16:20 UTC
+
+### Announcement approval is staged, not proven (2026-09-21)
+`release_notes` gains a review workflow (draft/pending/approved/denied/archived), an
+audience (`target_roles`), a "Got it" flag, a screen link, and a `release_note_reads`
+table. Delivery moves off INSERT onto the transition into `approved`, and
+`release_note.approve` is owner-only through the `has_permission` short-circuit.
+All of it is STAGED in the draft: nothing exists in the live database yet, so the
+refusal of an approval by a non-owner has no live proof.
+
+TRIGGER. First pass after the draft is accepted: raising transactions, real
+sessions — Mae submits, Leo is refused, Marcus approves a throwaway row addressed to
+no real audience. Also confirm the old all-staff AFTER INSERT trigger is gone.
+
+### Announcements still have exactly one channel (2026-09-21)
+The email path (`send-release-note`), the `release_note` bell type and the Staff Help
+ingest were deliberately NOT touched. The ingest indexes every announcement row; once
+the schema lands it should be narrowed to `status = 'approved'` so a pending or denied
+draft is never quoted back to staff by the assistant.
+
+TRIGGER. Same pass as above.
