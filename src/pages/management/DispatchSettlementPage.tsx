@@ -94,7 +94,15 @@ export default function DispatchSettlementPage() {
     if (!month) return;
     setLoading(true);
     try {
-      setStored(await readStoredDispatchMonth(supabase, month));
+      // Two separate reads on purpose: the LIVE settlement supplies every
+      // figure on this screen, and the voided ones are read apart from it so
+      // no total can ever pick one up (P34).
+      const [live, history] = await Promise.all([
+        readStoredDispatchMonth(supabase, month),
+        listVoidedDispatchSettlements(supabase, month),
+      ]);
+      setStored(live);
+      setVoided(history);
     } catch (e) {
       toast({ title: 'Could not read the month', description: (e as Error).message, variant: 'destructive' });
     } finally {
@@ -180,6 +188,9 @@ export default function DispatchSettlementPage() {
                 {o.hasSettlement
                   ? ` — ${(o.status ?? '').toUpperCase()}`
                   : ' — not yet computed'}
+                {o.voidedCount > 0
+                  ? ` (${o.voidedCount} voided on file)`
+                  : ''}
               </SelectItem>
             ))}
             {/* The chosen month is always listed, even if nothing matched. */}
