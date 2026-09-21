@@ -18513,3 +18513,57 @@ Also recorded: `net._http_response` retention is ~6 h (oldest alive 05:30 for an
 reading), so a 03:15 job can never be proven from it during business hours; no mail was
 sent by anything today (`email_send_log` silent since 2026-09-19 14:09); no job ran
 twice; nothing outside the twelve named files was touched.
+
+## 2026-09-21 13:10 UTC — the dispatch rollover now reads every driver (BUILT, TESTED, NOT DEPLOYED)
+
+Record: `docs/passes/2026-09-21-1310-rollover-reads-everyone.md`.
+
+THE FIX. New `public.latest_dispatch_log_per_operator(p_today date)` (migration
+`drizzle/migrations/0014_latest_dispatch_log_per_operator.sql`): `DISTINCT ON
+(operator_id) ORDER BY operator_id, log_date DESC, created_at DESC`, filtered on
+`log_date <= p_today`, `excluded_from_dispatch = false`, `is_parked = false`. SQL,
+STABLE, SECURITY INVOKER, `search_path` pinned, revoked from PUBLIC/anon/authenticated,
+EXECUTE to `service_role` only. `rollover-dispatch-status` now calls it by RPC instead of
+reading `dispatch_daily_log` directly. NOT fixed by a bigger limit or paging — the table
+grows daily and a larger cap only moves the cliff (a test arm pins that). All seven rules
+the function applied are kept exactly: today in America/Chicago, excluded, parked, latest
+row wins, equal status = skipped, upsert + history note, and the cron-secret gate.
+
+THE COUNTS. `dispatch_daily_log` 6,039 rows. Old read (newest-first, PostgREST's default
+1,000): **41 distinct operators**. New read: **45** — every eligible operator. The 1135
+pass measured 34; fresh logs moved it to 41 today, which is the point: the old read's
+coverage is an accident of recency and shrinks as the table grows.
+
+THE DRY RUN (nothing written). 45 eligible, 37 already matching, **8 would change** —
+exactly the eight named at 1135, no difference.
+
+| Driver | Latest log | Log says | Board says | Would get | Flags |
+|---|---|---|---|---|---|
+| Christopher Hickman | 2026-06-05 | truck_down | not_dispatched | truck_down | inactive; >30d |
+| Johnathan McMillan | 2026-06-10 | home | not_dispatched | home | inactive; >30d |
+| Tyler Walls | 2026-06-11 | home | not_dispatched | home | inactive; >30d |
+| Gehazi Irwin | 2026-06-11 | home | not_dispatched | home | inactive; >30d |
+| Edward Williams | 2026-06-11 | home | not_dispatched | home | inactive; >30d |
+| Jocquan Scott | 2026-06-13 | home | not_dispatched | home | inactive; >30d |
+| David Wambolt | 2026-06-17 | dispatched | not_dispatched | dispatched | inactive; >30d |
+| Hafeezullah Awal Khan | 2026-08-18 | truck_down | not_dispatched | truck_down | inactive; DEACTIVATED; >30d |
+
+All eight are `operators.is_active = false` and one is deactivated. The function has never
+filtered on `is_active` and the instruction was to keep every existing rule as it is, so it
+still does not. Deployed as written it would put a 17 June `dispatched` on David Wambolt's
+board row. Adding an `is_active` rule or an age cutoff is the owner's call.
+
+NOT DEPLOYED — awaiting the owner's review of the dry run. The live edge function is still
+the old capped one; tonight's 05:05 and 06:05 runs will behave exactly as today. The SQL
+function is applied but inert (nothing calls it). One instruction deploys it: "deploy
+rollover-dispatch-status."
+
+TESTS. `src/test/rollover-reads-everyone.test.ts`, 8 tests: a source guard (must RPC, must
+not read the table, no `.range(`, no three-digit `.limit(`, both rules still named;
+redirectable with `ROLLOVER_SOURCE`) and a semantics arm (1,209 rows over 40 operators,
+one last logged in June — capped reduction misses him at 1,000 and at 1,100; DISTINCT ON
+returns all 40 latest rows). Quoted failing against the old source in the pass report.
+Full suite `--maxWorkers=4`: 4 failed | 200 passed | 2 skipped (206) files, 4 failed |
+2029 passed | 16 skipped (2049) tests — all four failures and both unhandled errors are
+sandbox pooler timeouts (`EAUTHQUERY ... secret check timed out`) and pass on a serial
+re-run. Typecheck clean.
