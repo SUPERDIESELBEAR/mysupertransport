@@ -452,12 +452,20 @@ describe('settlement foundation — live schema', () => {
       order by 1`);
     expect(open).toEqual([]);
 
+    // 2026-09-21 PERMISSIONS FOUNDATION: `settlements_view_permission` names
+    // neither 'management' nor auth.uid() because both live inside
+    // has_permission('settlement.view') — the caller is auth.uid() there and the
+    // roles holding the grant are rows in role_permissions. P2 gives the
+    // dispatcher this read on purpose; no operator holds it, and the driver's own
+    // rows still arrive through the self-scoped policy asserted above. Excluded
+    // by name; its shape is asserted in operator-settlement-isolation.test.ts.
     const unscoped = psql(`
       select tablename || '.' || policyname
       from pg_policies
       where schemaname='public'
         and permissive = 'PERMISSIVE'
         and tablename in ('settlements','settlement_line_items','settlement_withheld_loads')
+        and policyname <> 'settlements_view_permission'
         and coalesce(qual,'') !~ 'management'
         and coalesce(qual,'') !~ 'auth\\.uid\\(\\)'
       order by 1`);
