@@ -31,9 +31,9 @@ import {
 } from '@/components/ui/dialog';
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import {
-  defaultDispatchMonth, listDispatchMonths, monthLabel, previewDispatchMonth,
-  readStoredDispatchMonth, storeDispatchSettlement,
-  type DispatchMonthOption, type StoredDispatchMonth,
+  defaultDispatchMonth, listDispatchMonths, listVoidedDispatchSettlements, monthLabel,
+  previewDispatchMonth, readStoredDispatchMonth, storeDispatchSettlement,
+  type DispatchMonthOption, type StoredDispatchMonth, type VoidedDispatchSettlement,
 } from '@/lib/dispatchSettlementRun';
 
 
@@ -66,6 +66,8 @@ export default function DispatchSettlementPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [stored, setStored] = useState<StoredDispatchMonth | null>(null);
+  /** P34: the voided settlements this month keeps. History only — never a figure. */
+  const [voided, setVoided] = useState<VoidedDispatchSettlement[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
