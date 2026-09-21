@@ -7,13 +7,13 @@
  * review_status = 'denied' and the Applications page had no Archived tab.
  */
 import { describe, expect, it } from "vitest";
-import { readdirSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { readSource } from "./helpers/repoLiterals";
+import { appliedMigrationSql } from "./helpers/migrationFunctions";
 
 const PIPELINE = "src/pages/staff/PipelineDashboard.tsx";
 const PORTAL = "src/pages/management/ManagementPortal.tsx";
 const DRAWER = "src/components/management/ApplicationReviewDrawer.tsx";
-const MIGRATIONS = ".lovable/drafts/var_01m327q9n4eqd9mzz6h503r8en/migrations";
 
 describe("archiving from the onboarding pipeline", () => {
   const src = readSource(PIPELINE);
@@ -78,24 +78,43 @@ describe("review drawer", () => {
   });
 });
 
-describe("staged database change", () => {
-  const files = (() => {
-    try { return readdirSync(MIGRATIONS); } catch { return []; }
-  })();
+/**
+ * The database change, as APPLIED.
+ *
+ * This block used to read two files staged under
+ * `.lovable/drafts/<id>/migrations`. The draft was accepted on 2026-09-21: the
+ * enum change was applied as `drizzle/migrations/0022_review_status_archived.sql`
+ * and the staged file was deleted, so the test threw ENOENT while the change it
+ * asserts was live — a red for correct work, which is how a guard earns the right
+ * to be ignored. The enum is now read through the shared migration reader, and
+ * the backfill — which was applied as a one-off data statement, not a migration,
+ * because seeding rows is not DDL — is asserted against the live table instead of
+ * against a file that never existed in the repository.
+ */
+describe("applied database change", () => {
+  const psql = (sql: string) =>
+    execFileSync("psql", ["-At", "-c", sql], { encoding: "utf8" })
+      .split("\n").map((l) => l.trim()).filter(Boolean);
 
   it("adds the archived value to review_status", () => {
-    const enumFile = files.find((f) => f.includes("review_status_archived"));
-    expect(enumFile).toBeTruthy();
-    expect(readSource(`${MIGRATIONS}/${enumFile}`)).toMatch(/ADD VALUE IF NOT EXISTS 'archived'/);
+    expect(appliedMigrationSql("review_status_archived")).toMatch(
+      /ADD VALUE IF NOT EXISTS 'archived'/,
+    );
   });
 
-  it("backfills the pipeline-archived rows in a later migration", () => {
-    const backfill = files.find((f) => f.includes("backfill_archived_applicants"));
-    expect(backfill).toBeTruthy();
-    const sql = readSource(`${MIGRATIONS}/${backfill}`);
-    expect(sql).toContain("[Archived from pipeline]%");
-    expect(sql).toMatch(/SET review_status = 'archived'/);
-    // The backfill must sort after the enum migration.
-    expect(backfill! > files.find((f) => f.includes("review_status_archived"))!).toBe(true);
+  it("carries the archived value on the live enum", () => {
+    expect(psql(`SELECT e.enumlabel FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
+      WHERE t.typname = 'review_status'`)).toContain("archived");
+  });
+
+  it("moved the pipeline-archived rows off denied and stripped the note prefix", () => {
+    // 50 rows were carried over; none may be left filed as a denial.
+    expect(psql(`SELECT count(*)::text FROM public.applications
+      WHERE review_status = 'denied' AND reviewer_notes LIKE '[Archived from pipeline]%'`))
+      .toEqual(["0"]);
+    const [archived] = psql(
+      `SELECT count(*)::text FROM public.applications WHERE review_status = 'archived'`,
+    );
+    expect(Number(archived)).toBeGreaterThan(0);
   });
 });

@@ -1,20 +1,25 @@
 /**
  * What's New approval workflow.
  *
- * The schema for this feature is staged in the draft and lands when the draft is
- * accepted, so these checks read the staged migration and the client code rather
- * than the live database. They fail on the old behaviour, where every INSERT
- * notified every staff role immediately with no review step.
+ * These checks read the migration that created the review vocabulary plus the
+ * client code. They fail on the old behaviour, where every INSERT notified every
+ * staff role immediately with no review step.
+ *
+ * The migration was STAGED in a draft when this file was written, and the path
+ * was hard-coded at `.lovable/drafts/<id>/migrations/...`. The draft was accepted
+ * on 2026-09-21: the SQL applied as
+ * `drizzle/migrations/0021_release_note_approval.sql` and the staged file was
+ * deleted, so this file threw ENOENT at import time and every check in it
+ * vanished from the run. It now resolves the migration by name through the shared
+ * reader, which searches both migration folders in applied order.
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { appliedMigrationSql } from './helpers/migrationFunctions';
 
 const ROOT = process.cwd();
-const MIGRATION = readFileSync(
-  join(ROOT, '.lovable/drafts/var_01m32a4twbexev1mjy249yke58/migrations/20260921170000_release_note_approval.sql'),
-  'utf8',
-);
+const MIGRATION = appliedMigrationSql('release_note_approval');
 const MANAGER = readFileSync(join(ROOT, 'src/components/management/ReleaseNotesManager.tsx'), 'utf8');
 const HOOK = readFileSync(join(ROOT, 'src/hooks/useUnreadReleaseNotes.ts'), 'utf8');
 
