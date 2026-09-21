@@ -126,7 +126,9 @@ type StaffWorkload = {
 };
 
 type ManagementView = 'overview' | 'pipeline' | 'operator-detail' | 'applications' | 'dispatch' | 'dispatch-board' | 'loads' | 'load-detail' | 'load-create' | 'load-edit' | 'rate-con-inbox' | 'facilities' | 'brokers' | 'staff' | 'faq' | 'staff-help' | 'resource-center' | 'activity' | 'notifications' | 'docs-hub' | 'inspection-binder' | 'drivers' | 'operator-preview' | 'pipeline-config' | 'messages' | 'compliance' | 'equipment' | 'eld-malfunctions' | 'eld-device-models' | 'eld-logs' | 'eld-retention' | 'email-catalog' | 'email-log' | 'content-manager' | 'forms-catalog' | 'mo-plates' | 'whats-new' | 'vehicle-hub' | 'inspection-program' | 'duplicate-plates' | 'vehicle-detail' | 'carrier-signature' | 'terminations' | 'broadcast' | 'pei-queue' | 'demo-accounts' | 'parser-diagnostics' | 'fuel-import' | 'fuel-driver-detail' | 'fuel-location-report' | 'fuel-exceptions' | 'settlement-run' | 'dispatch-settlement' | 'billing-queue' | 'late-accessorials' | 'settlement-settings' | 'ownership-transfer' | 'settings' | 'help';
-type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'all' | 'invited';
+// 'archived' is a set-aside, NOT a rejection: an archived applicant may be hired
+// later, so he gets his own tab instead of sitting among the denials.
+type StatusFilter = 'pending' | 'revisions_requested' | 'approved' | 'denied' | 'archived' | 'all' | 'invited';
 
 type ApplicationInvite = {
   id: string;
@@ -148,6 +150,8 @@ const STATUS_COLORS: Record<string, string> = {
   approved: 'bg-status-complete/15 text-status-complete border-status-complete/30',
   denied: 'bg-destructive/15 text-destructive border-destructive/30',
   revisions_requested: 'bg-status-progress/15 text-status-progress border-status-progress/30',
+  // Neutral on purpose — archiving is not a rejection.
+  archived: 'bg-muted text-muted-foreground border-border',
 };
 
 // `load-edit` is deliberately addressable: a dispatcher part-way through
@@ -255,8 +259,10 @@ export default function ManagementPortal() {
   const [expandedNotesAppId, setExpandedNotesAppId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
     const s = searchParams.get('status') as StatusFilter | null;
-    return (s && ['pending','revisions_requested','approved','denied','all','invited'].includes(s)) ? s : 'pending';
+    return (s && ['pending','revisions_requested','approved','denied','archived','all','invited'].includes(s)) ? s : 'pending';
   });
+  // Count beside the Archived tab, refreshed with the other application metrics.
+  const [archivedCount, setArchivedCount] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
   const [loadingApps, setLoadingApps] = useState(false);
   const [selectedApp, setSelectedApp] = useState<FullApplication | null>(null);
@@ -504,10 +510,12 @@ export default function ManagementPortal() {
   }, []);
 
   const fetchMetrics = useCallback(async () => {
-    const [appsRes, overview] = await Promise.all([
+    const [appsRes, archivedRes, overview] = await Promise.all([
       supabase.from('applications').select('id', { count: 'exact' }).eq('review_status', 'pending').or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null'),
+      supabase.from('applications').select('id', { count: 'exact', head: true }).eq('review_status', 'archived'),
       fetchOverviewMetrics(),
     ]);
+    setArchivedCount(archivedRes.count ?? 0);
     setMetrics({
       pending: appsRes.count ?? 0,
       onboarding: overview.onboarding,
@@ -826,7 +834,7 @@ export default function ManagementPortal() {
     } else {
       query = query
         .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null')
-        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
+        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied' | 'archived');
     }
 
     const { data } = await query;
@@ -1017,6 +1025,81 @@ export default function ManagementPortal() {
     } catch (err: unknown) {
       toast({
         title: 'Denial Failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  /**
+   * Set an application aside. Deliberately a direct table update, NOT the
+   * deny-application function: archiving must never mail the applicant, because
+   * he has not been turned down and may be hired later.
+   * Who may do this: the same staff who can deny today — enforcement is the
+   * `is_staff(auth.uid())` UPDATE policy on public.applications.
+   * Undo: delete handleArchive/handleUnarchive and the Archived tab.
+   */
+  const handleArchive = async (appId: string, notes: string) => {
+    try {
+      const patch: Record<string, unknown> = {
+        review_status: 'archived',
+        reviewed_at: new Date().toISOString(),
+        reviewed_by: session?.user?.id ?? null,
+      };
+      if (notes?.trim()) patch.reviewer_notes = notes.trim();
+
+      const { error } = await supabase
+        .from('applications')
+        .update(patch as never)
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        action: 'application_archived',
+        entity_type: 'application',
+        entity_id: appId,
+        actor_id: session?.user?.id ?? null,
+        metadata: { reason: notes?.trim() || null },
+      });
+
+      toast({ title: 'Application archived', description: 'Set aside — no email was sent.' });
+      setSelectedApp(null);
+      await Promise.all([fetchApplications(), fetchMetrics()]);
+    } catch (err: unknown) {
+      toast({
+        title: 'Archive failed',
+        description: err instanceof Error ? err.message : 'Unknown error',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  /** Move an archived application back out: to Pending (no email), or hand it to the deny flow. */
+  const handleUnarchive = async (appId: string, target: 'pending' | 'denied') => {
+    if (target === 'denied') {
+      await handleDeny(appId, '');
+      return;
+    }
+    try {
+      const { error } = await supabase
+        .from('applications')
+        .update({ review_status: 'pending', reviewed_at: null, reviewed_by: null } as never)
+        .eq('id', appId);
+      if (error) throw error;
+
+      await supabase.from('audit_log').insert({
+        action: 'application_unarchived',
+        entity_type: 'application',
+        entity_id: appId,
+        actor_id: session?.user?.id ?? null,
+      });
+
+      toast({ title: 'Back in Pending', description: 'Ready for review again — no email was sent.' });
+      setSelectedApp(null);
+      await Promise.all([fetchApplications(), fetchMetrics()]);
+    } catch (err: unknown) {
+      toast({
+        title: 'Could not move it back',
         description: err instanceof Error ? err.message : 'Unknown error',
         variant: 'destructive',
       });
@@ -1935,7 +2018,7 @@ export default function ManagementPortal() {
               )}
               {/* Status tabs */}
               <div className="flex rounded-lg border border-border bg-white overflow-hidden shrink-0">
-                {(['pending', 'revisions_requested', 'approved', 'denied', 'all', 'invited'] as StatusFilter[]).map(s => (
+                {(['pending', 'revisions_requested', 'approved', 'denied', 'archived', 'all', 'invited'] as StatusFilter[]).map(s => (
                   <button
                     key={s}
                     onClick={() => setStatusFilter(s)}
@@ -1952,6 +2035,9 @@ export default function ManagementPortal() {
                       : s.charAt(0).toUpperCase() + s.slice(1)}
                     {s === 'pending' && metrics.pending > 0 && (
                       <span className="ml-1 bg-status-progress text-white text-[10px] px-1.5 py-0.5 rounded-full">{metrics.pending}</span>
+                    )}
+                    {s === 'archived' && archivedCount > 0 && (
+                      <span className="ml-1 bg-muted text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-full">{archivedCount}</span>
                     )}
                     {s === 'invited' && invites.length > 0 && (
                       <span className="ml-1 bg-gold text-surface-dark text-[10px] px-1.5 py-0.5 rounded-full">{invites.length}</span>
@@ -2647,6 +2733,8 @@ export default function ManagementPortal() {
           onClose={() => { setSelectedApp(null); setDrawerFocusField(undefined); setSelectedAppInitialTab('overview'); }}
           onApprove={handleApprove}
           onDeny={handleDeny}
+          onArchive={handleArchive}
+          onUnarchive={handleUnarchive}
           onExpiryUpdated={async () => {
             setComplianceRefreshKey(k => k + 1);
             // Re-fetch fresh app data and push updated expiry dates into the panel
