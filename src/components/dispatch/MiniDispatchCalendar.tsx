@@ -388,9 +388,12 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
         await syncTodayToLive(rangeStatus, reasonLine(rangeStatus, effectiveReason, rangeNote));
       }
 
+      const plannedCount = toWrite.filter(d => d > todayStr).length;
       toast({
         title: 'Range marked',
-        description: `Marked ${toWrite.length} day${toWrite.length !== 1 ? 's' : ''} as ${STATUS_COLORS[rangeStatus].label}.`,
+        description:
+          `Marked ${toWrite.length} day${toWrite.length !== 1 ? 's' : ''} as ${STATUS_COLORS[rangeStatus].label}` +
+          (plannedCount > 0 ? ` (${plannedCount} planned — upcoming).` : '.'),
       });
       setRangeOpen(false);
       fetchLogs();
@@ -475,7 +478,7 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
                     <input
                       type="date"
                       value={rangeFrom}
-                      max={rangeTo || undefined}
+                      max={rangeTo || maxPlannedDate()}
                       onChange={e => setRangeFrom(e.target.value)}
                       className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
                     />
@@ -486,7 +489,7 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
                       type="date"
                       value={rangeTo}
                       min={rangeFrom || undefined}
-                      max={new Date().toISOString().slice(0, 10)}
+                      max={maxPlannedDate()}
                       onChange={e => setRangeTo(e.target.value)}
                       className="mt-0.5 h-7 w-full rounded border border-input bg-background px-1.5 text-[11px]"
                     />
@@ -573,7 +576,7 @@ export default function MiniDispatchCalendar({ operatorId, onLogChanged }: Props
                   </Button>
                 </div>
                 <p className="text-[9px] text-muted-foreground leading-snug pt-0.5">
-                  Future days are skipped. If the range includes today, the live Dispatch Hub also updates.
+                  Upcoming days are saved as planned (up to a year ahead). Only a range that includes today touches the live Dispatch Hub.
                 </p>
               </div>
             </PopoverContent>
