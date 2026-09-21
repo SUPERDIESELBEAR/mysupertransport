@@ -42,6 +42,76 @@ describe('rollover-dispatch-status source guard', () => {
     expect(src).toContain('excluded_from_dispatch');
     expect(src).toContain('is_parked');
   });
+
+  it('names the active-driver rule (owner decision 2026-09-21)', () => {
+    expect(src).toContain('is_active');
+    expect(src).toContain('deactivated_at');
+  });
+});
+
+// --- active drivers only --------------------------------------------------
+//
+// Owner decision 2026-09-21: a driver who is not active must never have a status
+// written onto the board, however recent their last log. The eligibility set lives
+// in latest_dispatch_log_per_operator; these arms model it with and without the rule.
+
+interface Op {
+  id: string;
+  is_active: boolean;
+  deactivated_at: string | null;
+  excluded_from_dispatch: boolean;
+  is_parked: boolean;
+}
+
+const OPS: Op[] = [
+  { id: 'active-1', is_active: true, deactivated_at: null, excluded_from_dispatch: false, is_parked: false },
+  { id: 'inactive-1', is_active: false, deactivated_at: null, excluded_from_dispatch: false, is_parked: false },
+  { id: 'deactivated-1', is_active: true, deactivated_at: '2026-08-18T00:00:00Z', excluded_from_dispatch: false, is_parked: false },
+];
+
+/** Latest log per operator: the inactive and the deactivated one have the NEWEST logs. */
+const LOGS: LogRow[] = [
+  { operator_id: 'active-1', status: 'home', log_date: '2026-09-20', created_at: '2026-09-20T12:00:00Z' },
+  { operator_id: 'inactive-1', status: 'dispatched', log_date: '2026-09-21', created_at: '2026-09-21T12:00:00Z' },
+  { operator_id: 'deactivated-1', status: 'truck_down', log_date: '2026-09-21', created_at: '2026-09-21T12:00:00Z' },
+];
+
+/** The board before the sweep: everyone sits at not_dispatched. */
+const BOARD: Record<string, string> = {
+  'active-1': 'not_dispatched',
+  'inactive-1': 'not_dispatched',
+  'deactivated-1': 'not_dispatched',
+};
+
+function eligible(withActiveRule: boolean): LogRow[] {
+  return newRead(LOGS).filter((r) => {
+    const op = OPS.find((o) => o.id === r.operator_id)!;
+    if (op.excluded_from_dispatch || op.is_parked) return false;
+    if (withActiveRule && (!op.is_active || op.deactivated_at !== null)) return false;
+    return true;
+  });
+}
+
+/** The edge function's decision: write only when the board disagrees with the log. */
+const promotions = (rows: LogRow[]) =>
+  rows.filter((r) => BOARD[r.operator_id] !== r.status).map((r) => r.operator_id);
+
+describe('rollover promotes active drivers only', () => {
+  it('WITHOUT the rule, an inactive driver with a newer log IS promoted — the defect', () => {
+    const promoted = promotions(eligible(false));
+    expect(promoted).toContain('inactive-1');
+    expect(promoted).toContain('deactivated-1');
+  });
+
+  it('WITH the rule, neither the inactive nor the deactivated driver is promoted', () => {
+    const promoted = promotions(eligible(true));
+    expect(promoted).not.toContain('inactive-1');
+    expect(promoted).not.toContain('deactivated-1');
+  });
+
+  it('and the active driver is still promoted', () => {
+    expect(promotions(eligible(true))).toEqual(['active-1']);
+  });
 });
 
 // --- semantics ------------------------------------------------------------
