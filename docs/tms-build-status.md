@@ -19013,3 +19013,44 @@ with the proof its pass must produce, and each under the money-probe and throwaw
 Seven hard cases are recorded for the owner and deliberately NOT answered, the first being
 what "reopen" can mean when `enforce_settlement_immutability` currently refuses it to
 everybody.
+
+## 2026-09-21 23:17 UTC — a voided dispatch settlement is kept for the record (P27-P34)
+
+Owner decisions **P27-P34**, and part one of the money permissions slice built.
+
+- **P27** a paid settlement is never reopened; corrections go on a later settlement as
+  adjustment lines. **P28 (REVISED)** a paid settlement cannot be voided by anyone, the owner
+  included — the live refusal in `enforce_dispatch_settlement_immutability` is the rule; the
+  original P28 was written on the 21:00 inventory's wrong premise. **P29** a void keeps every
+  line item and load contribution, marked void; records are never deleted. **P30** a late
+  accessorial (-A1) is a P24 approval, and dispatch keeps it. **P31** a pay-policy change never
+  reaches settlements already calculated; effective dates carry it forward. **P32**
+  `contractor_pay_setup` stays an onboarding entry, later changes owner only. **P33** dispatch
+  may ISSUE invoices only — a below-minimum release needs P20, closing a short-paid invoice
+  needs P23. **P34** a voided settlement is kept permanently as history, and a month holds one
+  LIVE settlement.
+- **The 21:00 inventory is corrected, not rewritten.** Its P21 row and "worst gap" claim are
+  wrong: the paid-void refusal names no role and binds the owner too, and the screen never
+  offers the control on a paid settlement. The deletion it flagged only ever ran on a draft or
+  approved settlement.
+- **The blocker cleared first.** A month was held by a unique key with no exception for voided
+  rows, so keeping a voided settlement and recomputing the month were mutually exclusive. The
+  owner scoped the key to live rows: `dispatch_settlements_company_payee_period_live_uniq`
+  (`WHERE status <> 'void'`).
+- **Migration 0026.** The void trigger stamps `voided_at` on both child tables instead of
+  deleting them; the header keeps its figures (no longer zeroed) and still requires a reason;
+  `compute_dispatch_settlement` looks up the existing settlement with `status <> 'void'`, so a
+  non-voided draft or approved settlement is still replaced on recompute exactly as before and
+  voided rows are never touched. `settlement.void` registered in `permission_actions` with **no
+  role grant**, deliberately out of `seed_role_permissions`. Who may void a draft or approved
+  settlement is unchanged.
+- **Seven readers name the live settlement** — recompute preview, screen read, month picker,
+  the kept-history strip, the definer writer, the unique index, the page itself. No driver void
+  or reopen path exists.
+- Proved on a throwaway 2099-06 settlement in a transaction that raised: no reason refused;
+  with a reason accepted with 2 lines and 1 load kept and marked; a fresh draft inserted beside
+  it; the live reader showing the draft's 2,000 / 198 and not the voided 1,000 / 149; a second
+  live settlement refused by the partial index; a paid void refused with the write gate held
+  open. Nothing committed; the one real dispatch settlement untouched.
+
+Report: `docs/passes/2026-09-21-2317-settlement-void-keeps-record.md`.

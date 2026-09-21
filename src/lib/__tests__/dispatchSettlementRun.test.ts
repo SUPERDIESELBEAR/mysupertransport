@@ -55,7 +55,7 @@ const result = (over = {}) => computeDispatchSettlement({
 function fakeClient(tables: Record<string, unknown>) {
   const chain = (rows: unknown) => {
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'not', 'gte', 'lt', 'lte', 'order']) {
+    for (const m of ['select', 'eq', 'neq', 'not', 'gte', 'lt', 'lte', 'order', 'in']) {
       self[m] = () => self;
     }
     self.maybeSingle = () => Promise.resolve({ data: Array.isArray(rows) ? rows[0] ?? null : rows, error: null });
@@ -238,8 +238,8 @@ describe('the month selector offers real months only', () => {
 
   it('falls back to the most recent COMPLETED month, never the current one', () => {
     const list = [
-      { month: '2026-09', label: 'September 2026', hasSettlement: false, status: null, deliveredLoads: 2 },
-      { month: '2026-08', label: 'August 2026', hasSettlement: false, status: null, deliveredLoads: 4 },
+      { month: '2026-09', label: 'September 2026', hasSettlement: false, status: null, voidedCount: 0, deliveredLoads: 2 },
+      { month: '2026-08', label: 'August 2026', hasSettlement: false, status: null, voidedCount: 0, deliveredLoads: 4 },
     ];
     expect(defaultDispatchMonth(list, new Date('2026-09-03T12:00:00Z'))).toBe('2026-08');
   });

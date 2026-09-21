@@ -2746,6 +2746,7 @@ export type Database = {
           id: string
           line_type: string
           load_id: string | null
+          voided_at: string | null
         }
         Insert: {
           amount: number
@@ -2759,6 +2760,7 @@ export type Database = {
           id?: string
           line_type: string
           load_id?: string | null
+          voided_at?: string | null
         }
         Update: {
           amount?: number
@@ -2772,6 +2774,7 @@ export type Database = {
           id?: string
           line_type?: string
           load_id?: string | null
+          voided_at?: string | null
         }
         Relationships: [
           {
@@ -2838,6 +2841,7 @@ export type Database = {
           load_type: string
           pay_policy_id: string | null
           rate_type: string
+          voided_at: string | null
         }
         Insert: {
           base_total?: number
@@ -2858,6 +2862,7 @@ export type Database = {
           load_type: string
           pay_policy_id?: string | null
           rate_type: string
+          voided_at?: string | null
         }
         Update: {
           base_total?: number
@@ -2878,6 +2883,7 @@ export type Database = {
           load_type?: string
           pay_policy_id?: string | null
           rate_type?: string
+          voided_at?: string | null
         }
         Relationships: [
           {

@@ -31,9 +31,9 @@ import {
 } from '@/components/ui/dialog';
 import { AlertTriangle, ChevronDown, ChevronRight, Loader2, Wallet } from 'lucide-react';
 import {
-  defaultDispatchMonth, listDispatchMonths, monthLabel, previewDispatchMonth,
-  readStoredDispatchMonth, storeDispatchSettlement,
-  type DispatchMonthOption, type StoredDispatchMonth,
+  defaultDispatchMonth, listDispatchMonths, listVoidedDispatchSettlements, monthLabel,
+  previewDispatchMonth, readStoredDispatchMonth, storeDispatchSettlement,
+  type DispatchMonthOption, type StoredDispatchMonth, type VoidedDispatchSettlement,
 } from '@/lib/dispatchSettlementRun';
 
 
@@ -66,6 +66,8 @@ export default function DispatchSettlementPage() {
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [stored, setStored] = useState<StoredDispatchMonth | null>(null);
+  /** P34: the voided settlements this month keeps. History only — never a figure. */
+  const [voided, setVoided] = useState<VoidedDispatchSettlement[]>([]);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [voidOpen, setVoidOpen] = useState(false);
   const [voidReason, setVoidReason] = useState('');
@@ -92,7 +94,15 @@ export default function DispatchSettlementPage() {
     if (!month) return;
     setLoading(true);
     try {
-      setStored(await readStoredDispatchMonth(supabase, month));
+      // Two separate reads on purpose: the LIVE settlement supplies every
+      // figure on this screen, and the voided ones are read apart from it so
+      // no total can ever pick one up (P34).
+      const [live, history] = await Promise.all([
+        readStoredDispatchMonth(supabase, month),
+        listVoidedDispatchSettlements(supabase, month),
+      ]);
+      setStored(live);
+      setVoided(history);
     } catch (e) {
       toast({ title: 'Could not read the month', description: (e as Error).message, variant: 'destructive' });
     } finally {
@@ -178,6 +188,9 @@ export default function DispatchSettlementPage() {
                 {o.hasSettlement
                   ? ` — ${(o.status ?? '').toUpperCase()}`
                   : ' — not yet computed'}
+                {o.voidedCount > 0
+                  ? ` (${o.voidedCount} voided on file)`
+                  : ''}
               </SelectItem>
             ))}
             {/* The chosen month is always listed, even if nothing matched. */}
@@ -242,7 +255,35 @@ export default function DispatchSettlementPage() {
 
       {!loading && !s && (
         <Card className="p-6 text-sm text-muted-foreground">
-          No settlement has been stored for {monthLabel(month)}.
+          No live settlement has been stored for {monthLabel(month)}.
+        </Card>
+      )}
+
+      {/* ------------------------------------- voided settlements, kept (P34) */}
+      {!loading && voided.length > 0 && (
+        <Card className="p-4 space-y-2">
+          <h2 className="font-semibold text-sm">Voided settlements kept for the record</h2>
+          <p className="text-xs text-muted-foreground">
+            History only. These figures are what each settlement carried when it was voided;
+            nothing on this screen adds them, and they are not part of {monthLabel(month)}'s
+            live figure.
+          </p>
+          <ul className="space-y-2 text-sm">
+            {voided.map(v => (
+              <li key={v.id} className="border-b pb-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge className={STATUS_STYLE.void}>VOID</Badge>
+                  <span className="text-muted-foreground">{stamp(v.voided_at) ?? '—'}</span>
+                  {v.voided_by_name && <span>· {v.voided_by_name}</span>}
+                </div>
+                <p className="pt-1">{v.void_reason}</p>
+                <p className="text-xs text-muted-foreground">
+                  As voided: base {money(v.eligible_base)}, net {money(v.net_amount)} ·
+                  {' '}{v.lineCount} line items and {v.contributionCount} loads kept on file.
+                </p>
+              </li>
+            ))}
+          </ul>
         </Card>
       )}
 
@@ -290,7 +331,8 @@ export default function DispatchSettlementPage() {
             </dl>
             {isVoid && (
               <p className="text-sm text-destructive">
-                Voided — {s.void_reason}. The breakdown was erased; the month can be computed fresh.
+                Voided — {s.void_reason}. The voided settlement and its full breakdown are
+                kept on file for the record, and the month can be recomputed beside it.
               </p>
             )}
             {isPaid && (
@@ -466,8 +508,9 @@ export default function DispatchSettlementPage() {
           <DialogHeader>
             <DialogTitle>Void this settlement</DialogTitle>
             <DialogDescription>
-              The stored breakdown is erased and the totals go to zero. The row stays on file
-              with the reason, and the month can be computed fresh. A reason is required.
+              The settlement and its full breakdown are kept on file for the record, marked
+              voided with your reason, and the month can then be recomputed beside it. A
+              reason is required. A settlement already marked paid cannot be voided by anyone.
             </DialogDescription>
           </DialogHeader>
           <Textarea

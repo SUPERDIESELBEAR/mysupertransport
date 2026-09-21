@@ -119,8 +119,9 @@ describe('dispatch settlement — tables and columns', () => {
       WHERE table_schema='public' AND table_name='dispatch_settlement_line_items' ORDER BY 1`);
     expect(cols).toEqual([
       // company_id: B5 part two (2026-09-15), tenancy only.
+      // voided_at: P34 (2026-09-21) — a voided settlement keeps its lines, marked.
       'amount', 'company_id', 'created_at', 'created_by', 'deduction_id', 'description',
-      'dispatch_settlement_id', 'dispatcher_id', 'id', 'line_type', 'load_id',
+      'dispatch_settlement_id', 'dispatcher_id', 'id', 'line_type', 'load_id', 'voided_at',
     ]);
   });
 
@@ -165,11 +166,14 @@ describe('dispatch settlement — constraints', () => {
     ]) expect(names).toContain(n);
   });
 
-  itLive('one payee, one month, per company — the re-scoped unique key', () => {
+  // P34 (2026-09-21): scoped to LIVE rows, so kept voided settlements can sit
+  // beside the month's one live settlement.
+  itLive('one LIVE payee settlement per month, per company — the re-scoped unique key', () => {
     const def = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname='public'
-      AND indexname='dispatch_settlements_company_payee_period_uniq'`).join(' ');
+      AND indexname='dispatch_settlements_company_payee_period_live_uniq'`).join(' ');
     expect(def).toContain('UNIQUE');
     expect(def).toContain('company_id, payee_key, period_month');
+    expect(def).toMatch(/WHERE \(?status <> 'void'/);
   });
 
   itLive('one load_base line per load per settlement — a partial unique index', () => {
@@ -360,7 +364,7 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
         VALUES (${CO}, '2099-01-01', 2, 5);
       ROLLBACK;`);
     // Re-scoped per company by B5 part two: the unique INDEX now raises.
-    expect(err).toContain('dispatch_settlements_company_payee_period_uniq');
+    expect(err).toContain('dispatch_settlements_company_payee_period_live_uniq');
   });
 
   itLive('a payee other than the dispatch company is refused — this table has one vendor', () => {
@@ -400,12 +404,13 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
    * The paid-immutability and void rules cannot be exercised from this harness:
    * the test role holds SELECT and INSERT only on every public table, so no
    * UPDATE or DELETE can be issued from here. They were verified privileged on
-   * 2026-09-03 against scratch months 2099-02 through 2099-05, since purged —
-   * void without a reason, update/delete/child-change/void of a `paid` row all
-   * refused; void with a reason cleared the lines and zeroed the totals; a
-   * settled load refused deletion and was released by the void. What this file
-   * can prove is that the triggers carrying those rules are attached, which is
-   * the part a later migration is most likely to drop.
+   * 2026-09-03 against scratch months 2099-02 through 2099-05, since purged,
+   * and RE-VERIFIED on 2026-09-21 under P34 in a transaction that rolled back —
+   * void without a reason refused; void with a reason kept every line item and
+   * contribution, stamped `voided_at`; the month recomputed beside the voided
+   * row; void of a `paid` row refused for the owner and for management alike.
+   * What this file can prove is that the triggers carrying those rules are
+   * attached, which is the part a later migration is most likely to drop.
    */
   itLive('the immutability triggers are attached to every table that carries the rules', () => {
     const triggers = psql(`SELECT c.relname || '|' || t.tgname
@@ -419,18 +424,68 @@ describe('dispatch settlement — behaviour the schema must refuse', () => {
       'dispatch_settlement_load_contributions|enforce_dispatch_settlement_contribution_immutability');
   });
 
-  itLive('the void rule erases the breakdown and zeroes the totals — in the trigger, not in a caller', () => {
+  /**
+   * P34 (owner, 2026-09-21) — voiding KEEPS the record. This test was the
+   * mirror image before that decision: it asserted the trigger DELETED the
+   * breakdown and zeroed the totals. Both halves are inverted deliberately,
+   * because a migration that quietly restored the deletes would destroy the
+   * history this decision exists to keep.
+   */
+  itLive('the void rule keeps and stamps the breakdown — in the trigger, not in a caller', () => {
     const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
       AND proname='apply_dispatch_settlement_void'`).join(' ');
-    expect(src).toContain('DELETE FROM public.dispatch_settlement_line_items');
-    expect(src).toContain('DELETE FROM public.dispatch_settlement_load_contributions');
+    expect(src).not.toContain('DELETE FROM public.dispatch_settlement_line_items');
+    expect(src).not.toContain('DELETE FROM public.dispatch_settlement_load_contributions');
+    expect(src).toContain('UPDATE public.dispatch_settlement_line_items');
+    expect(src).toContain('UPDATE public.dispatch_settlement_load_contributions');
+    expect(src).toContain('voided_at = now()');
+
     const immut = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
       AND proname='enforce_dispatch_settlement_immutability'`).join(' ');
-    for (const zeroed of ['eligible_base', 'factoring_reduction', 'reduced_base',
+    // The totals are no longer zeroed: a voided settlement keeps its figures.
+    for (const kept of ['eligible_base', 'factoring_reduction', 'reduced_base',
       'dispatch_fee', 'deductions_amount', 'net_amount']) {
-      expect(immut, zeroed).toContain(`NEW.${zeroed} := 0`);
+      expect(immut, kept).not.toContain(`NEW.${kept} := 0`);
     }
+    // P28 revised: the refusal is absolute and names no role.
     expect(immut).toContain('cannot be voided');
+    expect(immut).not.toMatch(/has_role|has_permission/);
+    expect(immut).toContain('requires a reason');
+  });
+
+  /**
+   * P34 — one LIVE settlement per month, any number of voided ones beside it.
+   * The uniqueness rule is the whole mechanism: without the partial predicate a
+   * kept voided row would block the recompute it exists to allow.
+   */
+  itLive('uniqueness is scoped to LIVE settlements only', () => {
+    const idx = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname='public'
+      AND tablename='dispatch_settlements' AND indexname LIKE '%payee_period%'`).join(' ');
+    expect(idx).toContain('UNIQUE');
+    expect(idx).toContain('company_id');
+    expect(idx).toContain('payee_key');
+    expect(idx).toContain('period_month');
+    expect(idx).toMatch(/WHERE \(?status <> 'void'/);
+  });
+
+  /** The writer must never take a voided row for the month's existing one. */
+  itLive('the writer looks up the live settlement only', () => {
+    const src = psql(`SELECT prosrc FROM pg_proc WHERE pronamespace='public'::regnamespace
+      AND proname='compute_dispatch_settlement'`).join(' ');
+    expect(src).toMatch(/status <> 'void'/);
+  });
+
+  /** The kept rows carry their own mark, so a reader never has to infer it. */
+  itLive('both child tables carry a voided_at stamp', () => {
+    const cols = psql(`SELECT table_name || '.' || column_name
+      FROM information_schema.columns WHERE table_schema='public'
+        AND column_name='voided_at'
+        AND table_name IN ('dispatch_settlement_line_items',
+                           'dispatch_settlement_load_contributions') ORDER BY 1`);
+    expect(cols).toEqual([
+      'dispatch_settlement_line_items.voided_at',
+      'dispatch_settlement_load_contributions.voided_at',
+    ]);
   });
 
   /**

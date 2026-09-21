@@ -220,3 +220,37 @@ import or pay rate is touched to prove a permission.
 - `docs/passes/2026-09-21-2100-money-permissions-inventory.md` (this file)
 - `docs/tms-build-status.md` (appended: P20-P26 and the inventory, one dated heading)
 - `docs/tms-wish-list.md` (permissions slice 2 recorded)
+
+---
+
+## CORRECTION appended 2026-09-21 23:17 UTC — the P21 row and the "worst gap" claim are wrong
+
+Nothing above is rewritten. This correction stands on top of it.
+
+This report's **P21 row** says management can void a PAID dispatch settlement, and its
+**"worst gap"** claim rests on that. Read live, nobody can — the owner included. In
+`enforce_dispatch_settlement_immutability`:
+
+```sql
+IF NEW.status = 'void' AND OLD.status <> 'void' THEN
+  IF OLD.status = 'paid' THEN
+    RAISE EXCEPTION 'Dispatch settlement % is PAID and cannot be voided.', OLD.id
+      USING ERRCODE = '42501';
+```
+
+The refusal names no role, so it binds every caller. The screen agrees and does not even offer
+the control on a paid settlement: *"A paid settlement is immutable. It cannot be recomputed,
+edited or voided."*
+
+The deleting behaviour this report called the worst gap therefore only ever ran on a **draft or
+approved** settlement. That deletion is real and was the thing worth fixing; the paid-void
+exposure was not.
+
+Consequences recorded in the 23:17 pass (`docs/passes/2026-09-21-2317-settlement-void-keeps-record.md`):
+
+- **P28 is REVISED** — a paid settlement cannot be voided by anyone, including the owner. The
+  live refusal is the rule. The original P28 ("owner only, with a written reason") was written
+  on this report's wrong premise.
+- Voiding a draft or approved settlement now KEEPS every line item and load contribution,
+  marked void (P29, P34), and a month holds one LIVE settlement.
+- `settlement.void` is registered with no role grant.
