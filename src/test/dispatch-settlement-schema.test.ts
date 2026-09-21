@@ -119,8 +119,9 @@ describe('dispatch settlement — tables and columns', () => {
       WHERE table_schema='public' AND table_name='dispatch_settlement_line_items' ORDER BY 1`);
     expect(cols).toEqual([
       // company_id: B5 part two (2026-09-15), tenancy only.
+      // voided_at: P34 (2026-09-21) — a voided settlement keeps its lines, marked.
       'amount', 'company_id', 'created_at', 'created_by', 'deduction_id', 'description',
-      'dispatch_settlement_id', 'dispatcher_id', 'id', 'line_type', 'load_id',
+      'dispatch_settlement_id', 'dispatcher_id', 'id', 'line_type', 'load_id', 'voided_at',
     ]);
   });
 
