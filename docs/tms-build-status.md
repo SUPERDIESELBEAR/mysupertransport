@@ -18405,3 +18405,72 @@ editing, the `user_roles` grant path, permanent deletion (closed),
 owner's scope (P5 — coverage still unaudited; a permission cannot fix a missing
 scope check). Also untouched: storage-bucket policies, any settings SCREEN for
 grants, and permission-change auditing beyond `created_by`/`updated_by`.
+
+## 2026-09-21 1111 UTC — the permissions foundation BUILT, three of the five actions enforced
+
+Migration `drizzle/migrations/0013_permissions_foundation_and_three_actions.sql`.
+Full pass record, with every proof quoted:
+`docs/passes/2026-09-21-0211-permissions-foundation.md`.
+
+Built exactly as designed on 2026-09-21 0132: `permission_actions` (product-level,
+**no `company_id`** — rows arrive by migration and there is no write policy at
+all), `role_permissions` and `user_permission_exceptions` (both with the shared
+stamp trigger, the restrictive `tenant_isolation` policy from birth, staff READ,
+and **owner-only writes via `has_role` — never via a permission**, so no grant can
+lock the owner out of fixing grants), and both `has_permission` forms: STABLE,
+SECURITY DEFINER, pinned to `public, extensions`, EXECUTE to `authenticated` and
+`service_role` only. Owner short-circuit runs **before any table is read** (P1); an
+unknown action key raises 22023 rather than quietly answering false; a known key
+with no grant is **closed**.
+
+Three actions enforced, six catalogue rows, thirteen grants seeded in the same
+migration: `lease_termination.view/.change`, `company_document.view/.send`,
+`settlement.view` and `invoice.view`. Six policies, every one calling
+`(SELECT public.has_permission('...'))`.
+
+**What changed for people, measured live with five real sessions:** the dispatcher
+went from **0 to 1** on `settlements`, `dispatch_settlements` and `invoices` — the
+read P2 has owed him since 2026-09-14, which no policy admitted until now. Any
+staff role could previously terminate a lease through one `FOR ALL is_staff()`
+policy; now only management and the owner can, and the dispatcher and onboarding
+staff keep the 37-row read they already had. Steve Figueroa's own view is
+**unchanged**: 0 settlements (the single row is another driver's) and exactly his
+one lease termination, admitted by the pre-existing self-scoped policy, not by a
+permission. Donald Alleyne sees nothing new. No driver gained or lost a row.
+
+**A contradiction found and NOT worked around.** The prompt's step 3(b) asked for
+the check to be added to "the sending edge function". There is no sender: no edge
+function and no screen sends a company document today, and `document_send_log` and
+`company_documents` are both empty. The database half of P7 is enforced and will
+be in force the day a sender is written. **No edge function was changed, so
+nothing was deployed.**
+
+**Recorded because it will bite:** `seed_role_permissions(company_id)` — proven on
+a scratch carrier inside a raising transaction (13 grants, idempotent on a second
+call, no owner row, identical to the live carrier, unknown carrier refused) — can
+only be called by a **service-role** caller. The tenancy stamp trigger refuses
+anyone else with 42501. Whatever provisions a second carrier must call it from an
+edge function holding the service key, in the same breath as creating the carrier
+row; otherwise every staff member there is refused everything under the closed
+default. Nothing provisions a carrier today. The migration's own seed ran before
+the stamp trigger was attached, which is why it was ordered that way.
+
+The wrapper rule now has a guard of its own,
+`src/test/permission-wrapper-guard.test.ts`, which reads `pg_policies` rather than
+the migration files and fails on a bare call. The cost it protects, measured on
+5,000 rows: bare 6.9 ms against wrapped 1.1 ms.
+
+**Six guard files were RED and were amended, never weakened.** Four earlier passes
+had written down "management and owner only" for settlements, dispatch settlements
+and invoices, which the dispatcher read now deliberately contradicts; each
+exception is excluded **by name**, with the date and the reason, and each excluded
+policy is separately asserted to be SELECT-only, wrapped, and gated on the right
+action — so a second, unannounced policy on those tables still fails the suite. The
+tenancy registries gained `role_permissions` and `user_permission_exceptions`
+(stamped, restrictive) and `permission_actions` (GLOBAL, 18 → 19 with the count
+still exact); the definer inventory gained both `has_permission` signatures
+(133 → 135, `seed_role_permissions` deliberately NOT registered).
+
+Suite: the six amended files plus the new guard — **125 + 119 tests, all green**.
+Typecheck clean. Driver deactivation, staff-account suspension, and a settings
+screen for grants are all still open.

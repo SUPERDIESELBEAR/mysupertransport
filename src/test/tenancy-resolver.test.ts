@@ -926,13 +926,17 @@ describe('tenancy B5 part one — settlement settings and the signature block', 
     expect(chk).toBe('email_send_state_id_check');
   });
 
-  itLive('the 18 GLOBAL tables carry no company_id', () => {
+  // 2026-09-21: 18 + 1 = 19. `permission_actions` joined the GLOBAL list with the
+  // permissions foundation — the action catalogue is product-level, not a
+  // carrier's to edit. The count stays an exact assertion, not a floor, so a
+  // table cannot drift onto this list unannounced.
+  itLive('the 19 GLOBAL tables carry no company_id', () => {
     for (const t of GLOBAL_TABLES) {
       const cols = psql(`SELECT a.attname FROM pg_attribute a
         WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
       expect(cols, t).toEqual([]);
     }
-    expect(GLOBAL_TABLES.length).toBe(18);
+    expect(GLOBAL_TABLES.length).toBe(19);
   });
 
   itLive('the 8 DEFERRED content tables are untouched, and that is deliberate', () => {
