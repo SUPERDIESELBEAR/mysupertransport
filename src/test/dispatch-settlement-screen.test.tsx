@@ -25,6 +25,7 @@ const PAGE = 'src/pages/management/DispatchSettlementPage.tsx';
 const pageSource = readFileSync(PAGE, 'utf8');
 
 const touchedTables: string[] = [];
+const touchedFilters: string[] = [];
 
 /** A query builder that serves the exported rows and records the table read. */
 function storedClient() {
