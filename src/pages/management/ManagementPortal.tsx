@@ -1263,6 +1263,12 @@ export default function ManagementPortal() {
                     }`}
                   >
                     {isDemoToggle ? (isDemo ? 'Exit Demo Mode' : 'Demo Mode') : section.label}
+                    {/* Unread announcement count, shown until the list is clear. */}
+                    {section.path === 'whats-new' && unreadReleaseNotes.length > 0 && (
+                      <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-gold text-[10px] font-semibold text-white h-4 min-w-4 px-1">
+                        {unreadReleaseNotes.length}
+                      </span>
+                    )}
                   </button>
                 );
               })}
