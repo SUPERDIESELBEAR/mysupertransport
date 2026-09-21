@@ -852,3 +852,19 @@ Durable fallback if missed: no `dispatch_status_history` row noted "Daily rollov
 calendar".
 
 TRIGGER. 2026-09-22, before 11:00 UTC.
+
+### Driver deactivation is now enforced in the database (2026-09-21)
+`driver.deactivate` covers both directions — deactivating and reactivating. A BEFORE UPDATE
+trigger on `operators` refuses the change unless `has_permission(auth.uid(),
+'driver.deactivate')` is true; management holds the grant, the owner passes by
+short-circuit. Proven live: the dispatcher is refused (42501) while his ordinary edits on
+the same driver still go through.
+
+CLOSED. Nothing remains that changes a driver's active status on the strength of the screen
+alone.
+
+### Staff account suspension is the last slice item (2026-09-21)
+Switching a staff member's own sign-in off (`profiles.account_status`) is the one sensitive
+action from the permissions design still without a database check. Next slice.
+
+TRIGGER. Next permissions pass.

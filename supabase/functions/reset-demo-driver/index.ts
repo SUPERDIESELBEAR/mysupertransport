@@ -85,6 +85,28 @@ Deno.serve(withErrorEnvelope(async (req) => {
   const { userId } = auth
   const authHeader = req.headers.get('Authorization') ?? ''
 
+  // This reset writes operators.is_active with the service role, which the
+  // BEFORE UPDATE gate on operators cannot judge (auth.uid() is NULL there).
+  // The gate admits service-role writers only because each one checks the
+  // permission itself — design (d), P12. Asked with the CALLER's own token, so
+  // has_permission can resolve his company; the two-argument form names the user
+  // explicitly. Refused here means refused, not silently downgraded.
+  {
+    const asCaller = createClient(
+      Deno.env.get('SUPABASE_URL')!,
+      Deno.env.get('SUPABASE_ANON_KEY')!,
+      { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false } },
+    )
+    const { data: mayDeactivate, error: permErr } = await asCaller.rpc('has_permission', {
+      _user_id: userId,
+      _action: 'driver.deactivate',
+    })
+    if (permErr) return fail(500, `Could not check permission: ${permErr.message}`)
+    if (mayDeactivate !== true) {
+      return fail(403, 'Not authorized to change a driver\'s active status')
+    }
+  }
+
   let body: any
   try { body = await req.json() } catch { return fail(400, 'Invalid JSON body') }
 
