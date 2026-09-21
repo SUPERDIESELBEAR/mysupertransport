@@ -204,9 +204,18 @@ describe('dispatch settlement — security', () => {
     // restrictive policy GRANTS nothing — it can only subtract rows — so it is
     // not a role-admission clause and must not be read as one here. The
     // restrictive shape is asserted in tenancy-resolver.test.ts.
+    // 2026-09-21 PERMISSIONS FOUNDATION — one deliberate exception, named here so
+    // it cannot be smuggled in: `dispatch_settlements_view_permission` is a
+    // SELECT-only policy reading `has_permission('settlement.view')`. P2 gives the
+    // dispatcher the READ of the dispatch company settlement; the CHANGE side is
+    // untouched and still management|owner through the FOR ALL policy below. The
+    // role literals are not in the predicate at all — the roles holding the grant
+    // are rows in `role_permissions` — so the assertions below cannot be applied
+    // to it. Its shape is asserted separately, immediately after.
+    const PERMISSION_GATED = 'dispatch_settlements_view_permission';
     const policies = psql(`SELECT tablename || '|' || policyname || '|' || coalesce(qual,'') || coalesce(with_check,'')
       FROM pg_policies WHERE schemaname='public' AND tablename IN (${TABLE_LIST})
-        AND permissive = 'PERMISSIVE'`);
+        AND permissive = 'PERMISSIVE' AND policyname <> '${PERMISSION_GATED}'`);
     expect(policies.length).toBeGreaterThanOrEqual(TABLES.length);
     for (const p of policies) {
       expect(p).toContain('management');
@@ -214,6 +223,16 @@ describe('dispatch settlement — security', () => {
       expect(p).not.toContain("'operator'");
       expect(p).not.toContain("'dispatcher'");
     }
+
+    const gated = psql(`SELECT cmd || '|' || coalesce(qual,'') || '|' || coalesce(with_check,'NO-CHECK')
+      FROM pg_policies WHERE schemaname='public' AND tablename='dispatch_settlements'
+        AND policyname = '${PERMISSION_GATED}'`);
+    expect(gated).toHaveLength(1);
+    const [cmd, using, check] = gated[0].split('|');
+    expect(cmd).toBe('SELECT');
+    expect(check).toBe('NO-CHECK');
+    expect(using).toContain("has_permission('settlement.view'");
+    expect(using).toMatch(/\(\s*SELECT/);
   });
 
   itLive('grants reach authenticated and service_role, never anon', () => {

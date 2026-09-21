@@ -75,6 +75,13 @@ const GLOBAL_TABLES = [
   'release_notes', 'eld_device_models', 'eld_revoked_list_checks',
   'revert_courtesy_email_defaults',
   'email_unsubscribe_tokens', 'suppressed_emails',
+  // 2026-09-21 permissions foundation. `permission_actions` is the CATALOGUE of
+  // actions SUPERDRIVE is able to enforce — one row per enforcement point in the
+  // code. A carrier decides WHO holds an action (`role_permissions`, which is
+  // per-carrier); it does not get to invent or retire the actions themselves,
+  // because each one only means anything where the code checks it. Rows arrive by
+  // migration and the table has no write policy at all.
+  'permission_actions',
 ] as const;
 
 /**
@@ -579,7 +586,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B2_B3_STAMPED, ...B4_TABLES, ...B5_SINGLETONS,
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
-      ...TWELVE_TENANT_STAMPED,
+      ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -1807,6 +1814,16 @@ const B8_SHAPE_1 = [
  */
 const TWELVE_TENANT_STAMPED = ['fuel_import_batches'] as const;
 
+/**
+ * 2026-09-21 PERMISSIONS FOUNDATION. Both grant tables take the shared
+ * `aa_stamp_tenant_company_id` stamp, so they belong in the census below. Noted
+ * because it has a runtime consequence: a caller with no `company_members` row
+ * and no server-side company cannot insert a grant at all, which is why
+ * `seed_role_permissions()` is service_role only and must be called from a
+ * function holding the service key when a carrier is created.
+ */
+const PERMISSIONS_STAMPED = ['role_permissions', 'user_permission_exceptions'] as const;
+
 /** table -> the stamp function that must fire BEFORE INSERT OR UPDATE. */
 const TWELVE_STAMPS: readonly [string, string][] = [
   ['fuel_import_batches', 'stamp_tenant_company_id'],
@@ -2198,6 +2215,13 @@ const RESTRICTIVE_DONE = [
   // is not FORCE RLS, so they keep working. All five identities reported the
   // same roles and landed on the same portal before and after.
   'user_roles',
+  // PERMISSIONS FOUNDATION (2), 2026-09-21, migration
+  // 0013_permissions_foundation_and_three_actions.sql. Both tables carry the
+  // restrictive policy from birth, not retrofitted: a grant is the most
+  // dangerous row in the database to leak across carriers. `permission_actions`
+  // is NOT here and never will be — it has no `company_id` (see GLOBAL_TABLES),
+  // because the set of actions the code can enforce is not a carrier's to edit.
+  'role_permissions', 'user_permission_exceptions',
 ] as const;
 
 /**

@@ -320,6 +320,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   
   "public.get_staff_contact_info(uuid[])",
   "public.get_thread_participants(uuid)",
+  // 2026-09-21 permissions foundation. Called from inside RLS policy
+  // expressions, so authenticated EXECUTE is required, not incidental. See the
+  // KNOWN_AUTHENTICATED_EXECUTABLE_MAX note dated 2026-09-21.
+  "public.has_permission(text)",
+  "public.has_permission(uuid,text)",
   "public.has_role(uuid,app_role)",
   "public.is_own_rods_operator(uuid)",
   "public.is_staff(uuid)",
@@ -802,7 +807,17 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   gate in-body on onboarding_staff|management|owner before any read; the pool
 //   reads its bounds from `unit_number_config` for `current_company_id()` only,
 //   so neither is a cross-company reader.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 133;
+// 2026-09-21 permissions foundation: 133 + 2 = 135. `has_permission(uuid,text)`
+//   and `has_permission(text)` are the single answer to "may this user perform
+//   this action?" (P12). Both are STABLE, pinned to `public, extensions`, and
+//   authenticated EXECUTE is REQUIRED, not incidental: they are called from
+//   inside RLS policy expressions, which evaluate as the caller, exactly like
+//   has_role and is_own_operator above. Neither takes a company id — the
+//   carrier comes from current_company_id() — and the owner short-circuit runs
+//   before any table is read, so no grant row can shut the owner out (P1).
+//   `seed_role_permissions(uuid)` is NOT here: it is service_role only, which
+//   is what stops a signed-in user handing a carrier a fresh set of grants.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 135;
 
 
 

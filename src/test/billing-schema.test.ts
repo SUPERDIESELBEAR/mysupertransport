@@ -411,12 +411,21 @@ describe('billing — access', () => {
    * it is asserted separately, by name and shape, and excluded from the
    * permissive checks below — which are about who is ADMITTED.
    */
+  // 2026-09-21 PERMISSIONS FOUNDATION: `invoices` carries a SECOND permissive
+  // policy, `invoices_view_permission` — a SELECT-only read gated on
+  // has_permission('invoice.view'), which P2 grants to the dispatcher. Every
+  // other billing table still has exactly one. The count is asserted per table
+  // rather than relaxed, so a third policy anywhere still fails.
+  const PERMISSIVE_POLICY_COUNT: Record<string, number> = { invoices: 2 };
+
   itLive('RLS is enabled on every billing table and each has one permissive policy', () => {
     const rows = psql(`SELECT c.relname || '|' || c.relrowsecurity::text || '|' ||
         (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid AND p.polpermissive)::text
       FROM pg_class c WHERE c.relnamespace='public'::regnamespace
         AND c.relname IN (${TABLE_LIST}) ORDER BY 1`);
-    expect(rows).toEqual(TABLES.map(t => `${t}|true|1`));
+    expect(rows).toEqual(
+      TABLES.map(t => `${t}|true|${PERMISSIVE_POLICY_COUNT[t] ?? 1}`),
+    );
   });
 
   itLive('every billing table carries the restrictive tenant_isolation policy', () => {
@@ -443,6 +452,11 @@ describe('billing — access', () => {
    * predicate to get wrong because there is no operator access at all.
    */
   itLive('every permissive policy names management and owner, scopes to the company, and names no other role', () => {
+    // 2026-09-21 PERMISSIONS FOUNDATION: the paragraph above still holds for the
+    // CHANGE side and for every other billing table. The one exception is the
+    // dispatcher's invoice READ, owed since P2 and granted through
+    // `invoices_view_permission`; excluded by name, shape asserted after the loop.
+    const PERMISSION_GATED = 'invoices_view_permission';
     const policies = psql(`SELECT c.relname || '|' || p.polname || '|' ||
         pg_get_expr(p.polqual, p.polrelid) || '|' ||
         coalesce(pg_get_expr(p.polwithcheck, p.polrelid), '') || '|' || p.polcmd::text || '|' ||
@@ -450,7 +464,7 @@ describe('billing — access', () => {
            FROM unnest(p.polroles) x JOIN pg_roles r ON r.oid = x)
       FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
       WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
-        AND p.polpermissive ORDER BY 1`);
+        AND p.polpermissive AND p.polname <> '${PERMISSION_GATED}' ORDER BY 1`);
     expect(policies).toHaveLength(TABLES.length);
     for (const row of policies) {
       const [table, , using, check, cmd, roles] = row.split('|');
@@ -469,6 +483,19 @@ describe('billing — access', () => {
         expect(expr, `${table} must not reach operator`).not.toContain("'operator'");
       }
     }
+
+    const gated = psql(`SELECT p.polcmd::text || '|' ||
+        pg_get_expr(p.polqual, p.polrelid) || '|' ||
+        coalesce(pg_get_expr(p.polwithcheck, p.polrelid), 'NO-CHECK')
+      FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
+      WHERE c.relnamespace='public'::regnamespace AND c.relname = 'invoices'
+        AND p.polname = '${PERMISSION_GATED}'`);
+    expect(gated).toHaveLength(1);
+    const [gcmd, gusing, gcheck] = gated[0].split('|');
+    expect(gcmd, 'the dispatcher read must grant no write').toBe('r');
+    expect(gcheck).toBe('NO-CHECK');
+    expect(gusing).toContain("has_permission('invoice.view'");
+    expect(gusing).toMatch(/\(\s*SELECT/);
   });
 
 
