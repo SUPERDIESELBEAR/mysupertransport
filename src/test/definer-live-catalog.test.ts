@@ -320,6 +320,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   
   "public.get_staff_contact_info(uuid[])",
   "public.get_thread_participants(uuid)",
+  // 2026-09-21 permissions foundation. Called from inside RLS policy
+  // expressions, so authenticated EXECUTE is required, not incidental. See the
+  // KNOWN_AUTHENTICATED_EXECUTABLE_MAX note dated 2026-09-21.
+  "public.has_permission(text)",
+  "public.has_permission(uuid,text)",
   "public.has_role(uuid,app_role)",
   "public.is_own_rods_operator(uuid)",
   "public.is_staff(uuid)",
