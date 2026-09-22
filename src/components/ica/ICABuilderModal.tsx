@@ -122,6 +122,13 @@ export default function ICABuilderModal({
   const [contractId, setContractId] = useState<string | null>(null);
   const [draftResumed, setDraftResumed] = useState(false);
   const [draftLastSaved, setDraftLastSaved] = useState<string | null>(null);
+  // Contracted-pay lock (migration 0027): once the agreement has been sent for
+  // signature, only the owner may change the linehaul split. The database
+  // refuses it outright; the field is shown read-only so nobody types into a
+  // change that cannot be saved.
+  const [contractStatus, setContractStatus] = useState<string | null>(null);
+  const [canChangeDriverPay, setCanChangeDriverPay] = useState(false);
+  const payLocked = !!contractStatus && contractStatus !== 'draft' && !canChangeDriverPay;
   // Linked truck owner (when the truck is owned by someone other than the driver).
   // The ICA is signed by the owner, so every "who is this going to" string keys off this.
   const [truckOwner, setTruckOwner] = useState<{ name: string; email: string | null; user_id: string | null } | null>(null);
@@ -223,6 +230,7 @@ export default function ICABuilderModal({
       const row = existing as any;
 
       setContractId(row.id);
+      setContractStatus(row.status ?? 'draft');
       setDraftResumed(true);
       setDraftLastSaved(row.updated_at ?? null);
 
