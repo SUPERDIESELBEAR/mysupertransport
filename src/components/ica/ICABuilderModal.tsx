@@ -348,15 +348,18 @@ export default function ICABuilderModal({
         carrier_typed_name: carrierTypedName || null,
         carrier_title: carrierTitle || null,
         ...(carrierSigUrl ? { carrier_signature_url: carrierSigUrl } : {}),
-        status: 'draft',
       };
 
       let result;
       if (contractId) {
+        // P36: never write status on update — an agreement's status only moves
+        // forward, and saving edits must not un-send an agreement already with
+        // the driver (which also re-opened the owner-only percentage lock).
         result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', payload)).select().single();
+        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', { ...payload, status: 'draft' })).select().single();
       }
+
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);
 
@@ -565,12 +568,13 @@ export default function ICABuilderModal({
     setSaving(true);
     try {
       const { owner_ein: _ein, owner_ssn: _ssn, owner_name: _oname, ...restData3 } = data;
-      const payload = { operator_id: operatorId, ...restData3, owner_name: _oname, owner_ein_ssn: _ein || _ssn || null, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null, status: 'draft' };
+      const payload = { operator_id: operatorId, ...restData3, owner_name: _oname, owner_ein_ssn: _ein || _ssn || null, equipment_location: null, lease_effective_date: data.lease_effective_date || null, lease_termination_date: data.lease_termination_date || null };
       let result;
       if (contractId) {
+        // P36: status is not written on update — see handleSaveAndClose.
         result = await supabase.from('ica_contracts').update(payload).eq('id', contractId).select().single();
       } else {
-        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', payload)).select().single();
+        result = await supabase.from('ica_contracts').insert(insertPayload('ica_contracts', { ...payload, status: 'draft' })).select().single();
       }
       if (result.error) throw result.error;
       if (!contractId) setContractId((result.data as any).id);

@@ -856,14 +856,23 @@ must go red.
 TRIGGER. The next time a full suite shows this file red, apply the same re-grant and consider the
 third option above.
 
-### Tomorrow's rollover proof is owed (2026-09-21)
-The active-only rollover is deployed but unproven in flight. The 2026-09-22 05:05 UTC
-response must show `checked` = the active eligible count and `promoted = 0`, and
-`net._http_response` keeps it about six hours — so it must be read before ~11:00 UTC.
-Durable fallback if missed: no `dispatch_status_history` row noted "Daily rollover from
-calendar".
+### ~~Tomorrow's rollover proof is owed (2026-09-21)~~ CLOSED 2026-09-22 1100
+Read in flight at 10:52 UTC. Both runs 200: 05:05 UTC and the 06:05 CST twin returned
+`{"today":"2026-09-22","checked":33,"promoted":0,"skipped":33,"errors":[]}` — the board
+agreed with the calendar for every driver the sweep saw, and nothing was written. `checked`
+is 33, not the 34 expected: 43 operators are active, not excluded and not parked, and 33 of
+them have any `dispatch_daily_log` row at all, which is exactly the eligible set. The
+active-only rule holds. Original entry for history: the active-only rollover was deployed but
+unproven in flight; `net._http_response` keeps a row about six hours so it had to be read
+before ~11:00 UTC.
 
-TRIGGER. 2026-09-22, before 11:00 UTC.
+CLOSED.
+
+### ~~Idle-operator dedup, day two (2026-09-21)~~ CLOSED 2026-09-22 1100 — read again after 15:05
+At 10:52 UTC, `operator_idle` notifications dated 2026-09-22: **0**, against 72 written
+yesterday. The 15:00 UTC run had not happened yet at reading time, so day two's own dedup is
+proven only for what exists so far; the same count read after 15:05 UTC settles it, and 0 new
+rows is the expected answer.
 
 ### Driver deactivation is now enforced in the database (2026-09-21)
 `driver.deactivate` covers both directions — deactivating and reactivating. A BEFORE UPDATE
@@ -1021,6 +1030,13 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   `contractor_pay_setup` holds no pay at all and is left entirely alone — the 21:00 report's
   claim otherwise carries an appended correction. Migration 0027. Report
   `docs/passes/2026-09-21-2359-pay-rates-owner-only.md`.
+- **P36 — DONE (2026-09-22 1100).** The agreement-status bypass of P35 is closed. The builder
+  wrote `status: 'draft'` on every update, so staff could save a sent agreement back to draft
+  and then change the owner-only percentage freely (proved live: both steps accepted as Leo).
+  Fixed on both sides: the builder writes `status` only when creating an agreement, and
+  migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
+  the caller holds `driver_pay.change`. Report
+  `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
 - **P31 versioning — NEXT PASS:** `pay_policies` still has no effective-date history, and a
   driver's percentage lives in TWO places (the agreement and the driver record) with nothing
   keeping them in step.

@@ -204,6 +204,20 @@
       "when": 1790037476283,
       "tag": "0028_pay_policy_permission_subselect",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1790074012641,
+      "tag": "0029_agreement_status_forward_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1790075470964,
+      "tag": "0030_revoke_status_guard_execute",
+      "breakpoints": true
     }
   ]
 }
