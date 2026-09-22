@@ -78,6 +78,19 @@ describe("review drawer", () => {
   });
 });
 
+describe("Applications page wiring", () => {
+  const src = readSource(PORTAL);
+
+  it("hands the archive actions to the review drawer", () => {
+    expect(src).toContain("onArchive={handleArchive}");
+    expect(src).toContain("onUnarchive={handleUnarchive}");
+  });
+
+  it("does not hide archived rows behind the submitted-application filter", () => {
+    expect(src).toContain("statusFilter === 'revisions_requested' || statusFilter === 'archived'");
+  });
+});
+
 /**
  * The database change, as APPLIED.
  *
