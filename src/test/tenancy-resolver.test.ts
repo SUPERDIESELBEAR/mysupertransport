@@ -699,12 +699,17 @@ describe('tenancy batch B3 — pay_policies, owner_transfers', () => {
     }
   });
 
-  itLive('one default pay policy PER COMPANY', () => {
+  itLive('one CURRENT default pay policy PER COMPANY', () => {
     const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
       AND indexname = 'pay_policies_single_company_default'`);
     expect(idx).toMatch(/\(company_id, is_company_default\)/);
-    expect(idx).toMatch(/WHERE is_company_default/);
+    // Per-driver pay Pass 2 (2026-09-22) re-scoped this index to CURRENT versions
+    // only, so a carrier keeps its closed rate history while still having exactly
+    // one live default. The tenancy rule is unchanged — it is still per company —
+    // but the predicate MUST carry effective_to IS NULL, or history cannot exist.
+    expect(idx).toMatch(/WHERE \(is_company_default AND \(effective_to IS NULL\)\)/);
   });
+
 
   itLive('one pending owner transfer PER COMPANY', () => {
     const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
