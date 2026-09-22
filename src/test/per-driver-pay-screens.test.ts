@@ -8,6 +8,7 @@ const settingsPage = readSource('src/pages/management/SettlementSettingsPage.tsx
 const builder = readSource('src/components/ica/ICABuilderModal.tsx');
 const review = readSource('src/pages/management/SettlementRunPage.tsx');
 const driverView = readSource('src/components/operator/MySettlements/MySettlements.tsx');
+const presentation = readSource('src/lib/payRatePresentation.ts');
 
 describe('per-driver pay screens', () => {
   it('puts the driver card on the staff record but limits it to management', () => {
@@ -15,7 +16,8 @@ describe('per-driver pay screens', () => {
     expect(operatorDetail).toMatch(/\{isManagement && \([\s\S]*?<LinehaulPayCard/);
     expect(card).toContain("has_permission', { _action: 'driver_pay.change' }");
     expect(card).toContain("rpc('set_operator_linehaul_pct'");
-    expect(card).toContain('Weeks already settled are unaffected');
+    expect(card).toContain('driverRateConfirmation');
+    expect(presentation).toContain('Weeks already settled are unaffected');
   });
 
   it('puts dated company versions beside Settlement Settings and uses the sole writer', () => {
@@ -28,7 +30,7 @@ describe('per-driver pay screens', () => {
   it('prefills only an unsaved agreement from the dated effective rate', () => {
     expect(builder).toContain('fetchEffectiveOperatorLinehaul');
     expect(builder).toMatch(/if \(!existing\)[\s\S]*linehaul_split_pct: effectiveLinehaul\?\.pct/);
-    expect(builder).toMatch(/\['sent_for_signature', 'complete'\]\.includes\(data\.status\)/);
+    expect(builder).toContain("contractStatus !== 'draft' && !canChangeDriverPay");
   });
 
   it('warns staff before payment and reads stored rate records without exposing them to drivers', () => {
