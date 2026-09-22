@@ -8,7 +8,7 @@ up. An item without a trigger becomes a graveyard entry. Items leave this list b
 being promoted into a build pass or by being explicitly killed — and a killed item
 stays here, marked killed, so it is not re-litigated.
 
-Last updated: 2026-09-21
+Last updated: 2026-09-22
 
 ---
 
@@ -17,6 +17,12 @@ Last updated: 2026-09-21
 Kept at the owner's request (2026-09-16). One line per item, each pointing to the
 record entry that explains it. Items are removed only when the record shows them
 closed, and the removing pass says so.
+
+- **DEMO CARRIER STAGE 1 of 6: DONE 2026-09-22 2105 UTC — the survey.** Live: one carrier, 164 tables carry `company_id` and **163 of them carry the restrictive `tenant_isolation` policy**, so cross-carrier read enforcement on company-bearing tables is structurally CLOSED (the "159 tables" figure was a policy count, not an unenforced-table count). **37 tables carry no `company_id`** and are the remaining exposure, alongside ~50 role-only `storage.objects` policies. The original four prerequisites all still stand, and a FIFTH of the same class was found: `company_pay_policy_on(date)` has no company filter and is called from four SECURITY DEFINER functions, so two rate sheets would silently price accessorial adjustments, the driver earnings estimate and the 05:10 mirror from an arbitrary carrier. Would break carrier A's LIVE operation if the row were created today: rate-con email ingestion (`soleCompanyId`), that pay resolver, `bootstrap_assign_owner`, the nine bare `carrier_profile` subqueries in `tenancy-resolver.test.ts`, and `generate-application-pdf`. (record 2026-09-22 2105 UTC; `docs/passes/2026-09-22-2105-demo-carrier-stage-1.md`)
+
+- **DECISIONS OWED BEFORE DEMO-CARRIER STAGE 2.** TRIGGER: stage 2 cannot start without them. (1) `applications` + the PEI family — GLOBAL or per-carrier; hand-onboarding demo drivers puts carrier B's applicants, **SSNs included**, in a table carrier A's staff read and can delete. (2) `profiles` — GLOBAL with staff reads scoped through `company_members`/`operators`, or per-carrier. (3) The nine content tables (`faq`, `faq_history`, `services`, `service_resources`, `resource_documents`, `resource_history`, `message_templates`, `email_templates`, `driver_documents`) — product-level or per carrier. (4) `release_notes` — product-wide or per carrier. (5) Does the demo carrier get its own `/apply` link (today `/apply` prints the hard-coded SUPERTRANSPORT name and DOT to any carrier's applicant). (6) Does it share the sending domain and email templates. (7) Is a shared content library acceptable for a demo at all — that answer collapses or expands items 1-6. (record 2026-09-22 2105 UTC)
+
+
 
 - Permissions module: decisions recorded 2026-09-18; inventory done; build STARTED. **Permanent account deletion is CLOSED 2026-09-18 2030 UTC** — the `get-staff-list` `delete_user` branch now requires the `owner` role (403 "Only the owner can delete accounts"), demonstrated on two throwaway accounts: management deleted the first before the fix, was refused on the second, the owner deleted it. Still protected by the user interface alone: deactivate a driver, terminate a lease. Plus the 23 irreversible/outbound edge functions listed under DECIDED, NOT BUILT. (records 2026-09-18 1944 UTC and 2026-09-18 2030 UTC; `docs/passes/2026-09-18-2030-owner-only-delete.md`)
 
