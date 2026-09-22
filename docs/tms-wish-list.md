@@ -1037,6 +1037,22 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
+- **Per-driver pay — option (c) CHOSEN; PASS 1 of 5 DONE, Pass 2 next (2026-09-22 1400).** Every
+  pay-rate reader now resolves the pay-policy **version in force on the date it is asking about** —
+  the driver run against its work week, the dispatch run against its month, screens and hints
+  against today — through one resolver stated twice and only twice: `public.company_pay_policy_on()`
+  in the database and `src/lib/payPolicyVersion.ts` in the app. `pay_policies` gained nullable
+  `effective_from` / `effective_to`; the one live row was backfilled to `effective_from 2000-01-01`
+  with `effective_date` untouched and `effective_to` NULL. The single-default index is deliberately
+  **not** re-scoped yet — that is Pass 2. Proved against a throwaway second version inside a rolled
+  back block: the resolver hands 72 to every date up to 2026-09-29 and 82 from 2026-09-30, while the
+  reads this pass replaced would have **thrown** (an undated `.maybeSingle()` matched 2 rows) or
+  shown a **future** rate (`ORDER BY effective_date DESC LIMIT 1` picked the not-yet-started
+  version). Nothing moved: settlement `f77911b0` still paid 327.94 on 1 line, the dispatch verdicts
+  still 100 / 72 / 100, Steve Figueroa still 72 and active, all 157 driver records still 72. Guard
+  added: `pay-policy-dated-readers.test.ts` forbids any module but the resolver from reading the
+  company default. **A second policy version may now be created** — Pass 1 was the gate, and it is
+  green. Report `docs/passes/2026-09-22-1400-per-driver-pay-pass-1.md`.
 - **Per-driver pay — DESIGNED, awaiting the owner's choice of option (2026-09-22 1345).** The two
   P31 questions are answered: **P41** versions the percentages only (the fuel pass-through stays an
   in-place setting) and re-scopes `pay_policies_single_company_default` to current versions, as P34
