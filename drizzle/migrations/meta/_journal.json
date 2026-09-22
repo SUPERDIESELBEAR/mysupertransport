@@ -232,6 +232,13 @@
       "when": 1790079956648,
       "tag": "0032_sandbox_parity_execute_self_heals",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1790080935487,
+      "tag": "0033_harness_regrant_hourly_and_owner_notice_isolated",
+      "breakpoints": true
     }
   ]
 }
