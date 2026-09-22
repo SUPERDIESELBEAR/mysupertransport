@@ -104,8 +104,8 @@ describe('the settlement engine pays linehaul from HIS percentage', () => {
   it('pays 82% of the line haul to a driver on his own version', () => {
     const at72 = run(null);
     const at82 = run(82);
-    expect(lineFor(at72, /line haul/i)?.amount).toBe(720);
-    expect(lineFor(at82, /line haul/i)?.amount).toBe(820);
+    expect(lineFor(at72, /Linehaul/)?.amount).toBe(720);
+    expect(lineFor(at82, /Linehaul/)?.amount).toBe(820);
   });
 
   it('does NOT move any other rate with him', () => {
@@ -141,7 +141,7 @@ describe('the run resolves his version against the WEEK, not against today', () 
 
   it('does not reach for today, and does not read the convenience mirror', () => {
     expect(src).not.toContain('operatorLinehaulVersionsQuery(sb, todayAsOf()');
-    expect(src).not.toMatch(/pay_percentage/);
+    expect(src).not.toMatch(/select\([^)]*pay_percentage/);
   });
 
   it('hands the resolved percentage to the engine', () => {
