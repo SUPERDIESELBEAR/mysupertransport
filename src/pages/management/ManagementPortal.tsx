@@ -1094,6 +1094,7 @@ export default function ManagementPortal() {
         entity_type: 'application',
         entity_id: appId,
         actor_id: session?.user?.id ?? null,
+        metadata: { moved_to: 'pending' },
       });
 
       toast({ title: 'Back in Pending', description: 'Ready for review again — no email was sent.' });
