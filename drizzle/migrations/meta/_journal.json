@@ -281,6 +281,13 @@
       "when": 1790087770595,
       "tag": "0039_open_pay_policy_version_profile_attribution",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1790091583589,
+      "tag": "0040_operator_linehaul_pct_versions",
+      "breakpoints": true
     }
   ]
 }
