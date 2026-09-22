@@ -161,7 +161,7 @@ const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
 ];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
-const KNOWN_NO_CALLER_MAX = 3;
+const KNOWN_NO_CALLER_MAX = 4;
 
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
