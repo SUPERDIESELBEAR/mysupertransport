@@ -1355,6 +1355,15 @@ export default function ManagementPortal() {
                         {unreadReleaseNotes.length}
                       </span>
                     )}
+                    {/* Announcements waiting for approval — reviewers only. */}
+                    {section.path === 'whats-new' && pendingReleaseNotes > 0 && (
+                      <span
+                        title={`${pendingReleaseNotes} waiting for your approval`}
+                        className="ml-1.5 inline-flex items-center justify-center rounded-full border border-gold/40 bg-gold/15 text-[10px] font-semibold text-gold h-4 min-w-4 px-1"
+                      >
+                        {pendingReleaseNotes}
+                      </span>
+                    )}
                   </button>
                 );
               })}
