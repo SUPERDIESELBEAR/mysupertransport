@@ -1012,7 +1012,19 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   name the live row. `settlement.void` registered with no role grant, out of
   `seed_role_permissions`. Report
   `docs/passes/2026-09-21-2317-settlement-void-keeps-record.md`.
-- **P26 — NEXT PASS, the remaining real gap:** management can change pay policy rates while
+- **P26 and P32 — DONE (2026-09-21 2359).** `pay_policy.change` and `driver_pay.change`
+  registered with no role grant, out of `seed_role_permissions`; pay policies and assignments
+  require `pay_policy.change` on INSERT/UPDATE/DELETE (reads unchanged);
+  `ica_contracts.linehaul_split_pct` is owner-only once the agreement is sent for signature or
+  later (any status other than `draft`) and `operators.pay_percentage` at all times, both by
+  BEFORE UPDATE trigger co-existing with 0023's `aa_` guards. **P32 REVISED and P35 recorded:**
+  `contractor_pay_setup` holds no pay at all and is left entirely alone — the 21:00 report's
+  claim otherwise carries an appended correction. Migration 0027. Report
+  `docs/passes/2026-09-21-2359-pay-rates-owner-only.md`.
+- **P31 versioning — NEXT PASS:** `pay_policies` still has no effective-date history, and a
+  driver's percentage lives in TWO places (the agreement and the driver record) with nothing
+  keeping them in step.
+- Superseded description of P26, kept for the record: **the remaining real gap was:** management can change pay policy rates while
   `contractor_pay_setup` accepts ANY staff role, and `pay_policies` has no effective-date
   history. The owner has now answered its hard cases: **P31** a pay-policy change never
   reaches settlements already calculated (effective dates), **P32** `contractor_pay_setup`

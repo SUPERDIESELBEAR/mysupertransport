@@ -190,6 +190,20 @@
       "when": 1790031904912,
       "tag": "0026_dispatch_settlement_void_keeps_record",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1790035086076,
+      "tag": "0027_pay_rates_owner_only",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1790037476283,
+      "tag": "0028_pay_policy_permission_subselect",
+      "breakpoints": true
     }
   ]
 }

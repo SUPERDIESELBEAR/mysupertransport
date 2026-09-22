@@ -122,6 +122,13 @@ export default function ICABuilderModal({
   const [contractId, setContractId] = useState<string | null>(null);
   const [draftResumed, setDraftResumed] = useState(false);
   const [draftLastSaved, setDraftLastSaved] = useState<string | null>(null);
+  // Contracted-pay lock (migration 0027): once the agreement has been sent for
+  // signature, only the owner may change the linehaul split. The database
+  // refuses it outright; the field is shown read-only so nobody types into a
+  // change that cannot be saved.
+  const [contractStatus, setContractStatus] = useState<string | null>(null);
+  const [canChangeDriverPay, setCanChangeDriverPay] = useState(false);
+  const payLocked = !!contractStatus && contractStatus !== 'draft' && !canChangeDriverPay;
   // Linked truck owner (when the truck is owned by someone other than the driver).
   // The ICA is signed by the owner, so every "who is this going to" string keys off this.
   const [truckOwner, setTruckOwner] = useState<{ name: string; email: string | null; user_id: string | null } | null>(null);
@@ -223,6 +230,7 @@ export default function ICABuilderModal({
       const row = existing as any;
 
       setContractId(row.id);
+      setContractStatus(row.status ?? 'draft');
       setDraftResumed(true);
       setDraftLastSaved(row.updated_at ?? null);
 
@@ -256,6 +264,17 @@ export default function ICABuilderModal({
     };
     loadDraft();
   }, [operatorId]);
+
+  // ── May this person change a driver's contracted pay? (owner only today) ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('has_permission', { _action: 'driver_pay.change' } as never);
+      if (!cancelled) setCanChangeDriverPay(data === true);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
 
   // ── Load default carrier signature settings ──
   useEffect(() => {
@@ -680,7 +699,11 @@ export default function ICABuilderModal({
                 <div className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl">
                   <div className="flex-1">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Owner-Operator Linehaul Split (%)</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Contractor's share of adjusted gross linehaul revenue</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {payLocked
+                        ? 'This agreement has already been sent for signature. Only the owner can change the contracted split now.'
+                        : "Contractor's share of adjusted gross linehaul revenue"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
@@ -689,6 +712,9 @@ export default function ICABuilderModal({
                       max={100}
                       value={data.linehaul_split_pct}
                       onChange={e => set('linehaul_split_pct', parseInt(e.target.value) || 72)}
+                      readOnly={payLocked}
+                      disabled={payLocked}
+                      title={payLocked ? 'Only the owner can change the contracted split once the agreement has been sent.' : undefined}
                       className="w-20 text-center font-bold text-lg h-10"
                     />
                     <span className="text-lg font-bold text-gold">%</span>

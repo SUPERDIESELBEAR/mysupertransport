@@ -254,3 +254,34 @@ Consequences recorded in the 23:17 pass (`docs/passes/2026-09-21-2317-settlement
 - Voiding a draft or approved settlement now KEEPS every line item and load contribution,
   marked void (P29, P34), and a month holds one LIVE settlement.
 - `settlement.void` is registered with no role grant.
+
+---
+
+## CORRECTION appended 2026-09-21 23:59 UTC — `contractor_pay_setup` holds no pay
+
+Nothing above is rewritten. This correction stands on top of it.
+
+This report states that a driver's contracted rates are edited through
+`contractor_pay_setup`, and **hard case 5** worries that onboarding staff set the driver's
+contracted percentage in Stage 8. Read live, every column on that table is identity,
+uploads, acknowledgments or submission state — name, business name, phone, email, W-9 and
+void-check uploads, the two acknowledgments, terms accepted, submitted date. **There is no
+percentage, split or rate on it.** Its only writer is the **driver's own Stage 8 screen**;
+staff may update the row afterwards.
+
+A driver's contracted pay lives in two other places, and nothing keeps them in step:
+
+- `ica_contracts.linehaul_split_pct` — set by staff in the agreement builder, default 72.
+- `operators.pay_percentage` — default 72, read by the driver's earnings forecast; nothing in
+  the app writes it.
+
+Consequences recorded in the 23:59 pass
+(`docs/passes/2026-09-21-2359-pay-rates-owner-only.md`):
+
+- **P32 is REVISED** — it was written on this report's wrong premise.
+  `contractor_pay_setup` is left entirely alone (owner's option (a)).
+- **P35** — there is no single onboarding marker. The agreement's split becomes owner-only once
+  the agreement is sent for signature or later (any `ica_contracts.status` other than `draft`);
+  `operators.pay_percentage` is owner-only at all times.
+- `pay_policy.change` and `driver_pay.change` are registered with no role grant and are out of
+  `seed_role_permissions`.
