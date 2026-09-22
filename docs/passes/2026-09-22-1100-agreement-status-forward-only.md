@@ -113,7 +113,34 @@ after 15:05 UTC settles day two's dedup; 0 new rows is the expected answer.
 
 ## Suite and typecheck
 
-See the tail of this file.
+**One real defect this pass introduced and fixed.** 0029 created
+`public.guard_ica_status_forward_only()` without revoking EXECUTE, so a client role could reach
+it — `src/test/definer-live-catalog.test.ts` caught it on two arms. Fixed in
+`drizzle/migrations/0030_revoke_status_guard_execute.sql`, the same three revokes the 0027
+guards carry. Re-run of `definer-live-catalog` + `agreement-status-forward-only`: **23 passed,
+0 failed**.
+
+Full suite, `--maxWorkers=2` (four saturates the pooler, as recorded), verbatim:
+
+```
+ Test Files  3 failed | 209 passed | 2 skipped (214)
+      Tests  4 failed | 2138 passed | 16 skipped (2158)
+     Errors  2 errors
+   Duration  630.77s
+```
+
+That run was taken **before** the 0030 revoke. Of its four failures: two were the revoke above
+(now fixed and re-run green); `grant-parity-live` is the standing harness limitation (the test
+role may not execute `grant_parity_report()`); `share-token-throttle` failed the same way, on a
+`psql` privilege, not on the app. The two errors are the usual
+`[vitest-worker]: Timeout calling "onTaskUpdate"`.
+
+`bunx tsgo --noEmit`: clean.
+
+**Deploy:** no edge function changed — none of them writes `ica_contracts.status`. Migrations
+0029 and 0030 applied to the single Cloud instance serving both preview and the published app,
+confirmed by the live proof above (throwaway rows, rolled back) and by the live-reading
+`definer-live-catalog` arms.
 
 ## Files this pass authored
 
@@ -122,4 +149,5 @@ See the tail of this file.
 - `src/components/ica/ICABuilderModal.tsx` (status no longer written on update)
 - `src/test/agreement-status-forward-only.test.ts`
 - `docs/passes/2026-09-22-1100-agreement-status-forward-only.md` (this file)
+- `drizzle/migrations/0030_revoke_status_guard_execute.sql`
 - `docs/tms-wish-list.md` (rollover proof closed, idle dedup day-two entry, P36 done)
