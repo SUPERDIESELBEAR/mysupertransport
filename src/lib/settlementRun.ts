@@ -29,6 +29,7 @@ import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
 import { operatorLinehaulVersionsQuery, linehaulByOperator } from '@/lib/operatorLinehaulPct';
+import { resolveLinehaulPct } from '@/lib/operatorLinehaulPct';
 
 /**
  * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
@@ -119,6 +120,9 @@ export interface PreviewRow {
   reasons: string[];
   /** A settlement already stored for this operator and period, if any. */
   existing: { id: string; status: string; net_amount: number } | null;
+  /** The linehaul rate this week will pay, even when this preview has no linehaul line. */
+  payingLinehaulPct: number | null;
+  payingLinehaulSource: 'driver_version' | 'company_policy' | null;
 }
 
 export interface RunPreview {
@@ -555,6 +559,10 @@ export function previewFromGathered(run: GatheredRun): RunPreview {
       computed: computeSettlement(g.input),
       reasons: g.reasons,
       existing: run.existing[g.operatorId] ?? null,
+      payingLinehaulPct: resolveLinehaulPct(g.input.operatorLinehaulPct, g.input.companyPolicy),
+      payingLinehaulSource: g.input.operatorLinehaulPct === null || g.input.operatorLinehaulPct === undefined
+        ? (g.input.companyPolicy ? 'company_policy' : null)
+        : 'driver_version',
     });
   }
   rows.sort((a, b) => a.operatorName.localeCompare(b.operatorName));
