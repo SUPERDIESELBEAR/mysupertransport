@@ -54,8 +54,9 @@ describe('0035 / 0036 migration text', () => {
     ]) {
       expect(m36).toContain(fn);
     }
-    expect(m36.match(/SECURITY DEFINER/g) ?? []).toHaveLength(2);
-    expect(m36.match(/SET search_path TO 'public', 'extensions'/g) ?? []).toHaveLength(2);
+    // Count the DDL occurrences only — the header comment names it too.
+    expect(m36.match(/^SECURITY DEFINER$/gm) ?? []).toHaveLength(2);
+    expect(m36.match(/^SET search_path TO 'public', 'extensions'$/gm) ?? []).toHaveLength(2);
   });
 
   it('never grants the helpers to PUBLIC or anon', () => {

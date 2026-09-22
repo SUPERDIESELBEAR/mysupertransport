@@ -326,7 +326,16 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.has_permission(text)",
   "public.has_permission(uuid,text)",
   "public.has_role(uuid,app_role)",
+  // 2026-09-22, migration 0036. Both are called ONLY from inside SELECT policies
+  // on storage.objects, so authenticated EXECUTE is required and not incidental —
+  // a policy subquery runs as the caller. Definer BECAUSE the caller may not read
+  // the row that records the file's company: carrier_signature_settings is
+  // staff-only. Each answers one boolean about ONE path, and only ever about the
+  // caller's own carrier, so neither can be used to enumerate anything.
+  "public.is_carrier_default_signature_of_caller(text)",
+  "public.is_company_inspection_doc_of_caller(text)",
   "public.is_own_rods_operator(uuid)",
+
   "public.is_staff(uuid)",
   "public.is_thread_participant(uuid,uuid)",
   "public.is_truck_owner_for_operator(uuid,uuid)",
@@ -817,7 +826,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   before any table is read, so no grant row can shut the owner out (P1).
 //   `seed_role_permissions(uuid)` is NOT here: it is service_role only, which
 //   is what stops a signed-in user handing a carrier a fresh set of grants.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 135;
+// 2026-09-22: 135 -> 137, the two storage-scoping policy helpers from migration
+// 0036. Raised by exactly two, with the reason recorded beside the entries.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 137;
 
 
 
