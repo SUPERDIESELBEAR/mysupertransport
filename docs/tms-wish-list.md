@@ -1037,6 +1037,22 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
+- **Per-driver pay — DESIGNED, awaiting the owner's choice of option (2026-09-22 1345).** The two
+  P31 questions are answered: **P41** versions the percentages only (the fuel pass-through stays an
+  in-place setting) and re-scopes `pay_policies_single_company_default` to current versions, as P34
+  did for dispatch settlements. New decisions recorded: **P37** a driver's percentage is set on his
+  staff-side driver page, owner only; **P38** settlements pay his linehaul from his percentage and
+  every other rate from the company policy; **P39** the agreement builder pre-fills from the driver
+  page and a disagreement is flagged, never silently paid; **P40** the fuel pass-through stays in
+  Settlement Settings, unchanged. Counted live: every percentage is **72** on all three tables
+  (65 agreements, 157 driver records, 1 policy). **Recommended option (c):** versioned
+  `pay_policies` plus a **linehaul-only** dated driver override, `operators.pay_percentage` kept as
+  the current value. Rejected (a) a standalone driver history table (second source of pay truth) and
+  (b) 157 per-driver copied policies (a later company detention change would not reach a driver).
+  Five build passes, in order: date-test all eleven readers first → version the company policy →
+  the driver linehaul version table → record the rate and its source on `settlement_line_items` →
+  the screens. **Nothing built.** Report
+  `docs/passes/2026-09-22-1345-per-driver-pay-design.md`. Superseded blocked entry kept below.
 - **P31 versioning — BLOCKED on two owner answers (2026-09-22 1230), not built.** `pay_policies`
   still has no effective-date history, and a driver's percentage lives in TWO places (the
   agreement and the driver record) with nothing keeping them in step. The pass stopped at the
