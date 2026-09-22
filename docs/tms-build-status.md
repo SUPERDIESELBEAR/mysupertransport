@@ -19162,3 +19162,52 @@ driver settlement still 327.94, the dispatch verdicts' stored percentages, Steve
 forecast unchanged.
 
 Report: `docs/passes/2026-09-22-1345-per-driver-pay-design.md`.
+
+## 2026-09-22 1400 — per-driver pay, Pass 1 of 5: every pay-rate reader is dated
+
+Option (c) chosen by the owner. This pass is the **gate** the design set: no second pay-policy
+version may exist until every reader handles dates, because six of the eleven readers took the
+company default with no date test at all and would have failed **silently or loudly** the moment a
+second version appeared.
+
+**What changed.** Migration `0037` added nullable `effective_from` / `effective_to` to
+`pay_policies` and backfilled the single live row to `effective_from 2000-01-01`
+(`LEAST(effective_date 2026-08-18, earliest settlement period_start 2026-08-12, '2000-01-01')`),
+leaving `effective_date` untouched and `effective_to` NULL. One resolver now states the window, and
+it is stated exactly twice — `public.company_pay_policy_on(date)` for the three SECURITY DEFINER
+functions (`my_fuel_transactions`, `driver_load_pay_estimate`, `create_accessorial_adjustment`, each
+re-created from its own live definition with only the lookup substituted) and
+`src/lib/payPolicyVersion.ts` for the app. Each caller hands it the date it is actually asking
+about: the driver settlement run its **work week**, the dispatch run its **month**, the screens,
+hints and the pass-through switch **today**. The single-company-default index is deliberately **not**
+re-scoped — that is Pass 2. The fuel pass-through still writes its row in place (P41).
+
+**Proof that the readers are ready for version two.** A throwaway second version (v1 closed at
+2026-09-29, v2 at 82% from 2026-09-30) inside a block that raised, index dropped inside the same
+block: the resolver returned 72 for 2026-08-12, 2026-09-22 and 2026-09-29 and 82 for 2026-09-30 and
+2026-12-01; the client window matched **exactly one** row on every date. The two reads this pass
+removed were shown failing on the same data — the undated `.maybeSingle()` matched **2 rows** (it
+throws, taking a settlement run down) and `ORDER BY effective_date DESC LIMIT 1` returned
+**"THROWAWAY v2"**, a rate that had not started. After rollback: 1 policy row, 1 default, index
+present, `effective_from 2000-01-01`, `effective_to` NULL.
+
+**Proof nothing moved.** Settlement `f77911b0-50cd-4ae3-bff2-ebb0bc4331af` — paid, gross 327.94, net
+327.94, 1 line, period 2026-08-12. Dispatch verdicts — detention 100, lumper 100, tonu 72. Steve
+Figueroa (operator `2c24ca65`, user `878be880`) — 72, active; all **157** driver records still 72;
+the forecast reads `operators.pay_percentage` and was not touched.
+
+**A test-double defect this exposed, worth recording.** Four fake query builders had no `.or()`, so
+they failed loudly the moment a reader used one — the honest outcome. `pgFake` now **implements**
+`.or()` rather than stubbing it (a stub returning every row would let a closed version answer for a
+date it no longer governs while the test still passed) and **throws** on an operator it does not
+support. The PostgREST embed guard also rejected a caller-supplied column list, so the resolver
+selects the whole row with a literal argument; a pay policy is one narrow row.
+
+**Full suite:** `Test Files 1 failed | 214 passed | 2 skipped (217)`, `Tests 1 failed | 2175 passed
+| 16 skipped (2192)`. The single failure was `archived-applicants.test.ts` losing its pooler
+connection (`EAUTHQUERY ... timed out`); re-run alone, 16 passed. Typecheck clean.
+
+**Step 5 not run:** the pass finished at 13:45–14:20 UTC, before 15:05, so today's idle-operator run
+had not happened. `operator_idle` notifications today: 0, as expected before the job.
+
+Report: `docs/passes/2026-09-22-1400-per-driver-pay-pass-1.md`.

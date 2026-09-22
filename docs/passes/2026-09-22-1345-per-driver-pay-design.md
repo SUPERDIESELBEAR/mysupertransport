@@ -232,6 +232,15 @@ definition — the strongest proof this project has had available for a pay chan
 Passes 1 and 2 must ship in that order, and **no second version may be created until Pass 1 is
 green** — contradiction C, read as a sequencing rule.
 
+> **2026-09-22 1400 — PASS 1 IS GREEN, so the gate is lifted.** Every reader now resolves the
+> version in force on its own date through one resolver stated twice
+> (`public.company_pay_policy_on()` and `src/lib/payPolicyVersion.ts`); migration `0037` added the
+> effective window and backfilled version one. Proved against a throwaway second version in a rolled
+> back block, including the two reads that would have thrown or served a future rate. A second policy
+> version may now be created — that is Pass 2, which also re-scopes
+> `pay_policies_single_company_default`. Report
+> `docs/passes/2026-09-22-1400-per-driver-pay-pass-1.md`.
+
 ---
 
 ## Recorded
