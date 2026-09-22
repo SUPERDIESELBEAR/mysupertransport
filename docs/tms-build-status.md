@@ -19211,3 +19211,69 @@ connection (`EAUTHQUERY ... timed out`); re-run alone, 16 passed. Typecheck clea
 had not happened. `operator_idle` notifications today: 0, as expected before the job.
 
 Report: `docs/passes/2026-09-22-1400-per-driver-pay-pass-1.md`.
+
+## Per-driver pay — Pass 2 of 5: the company pay policy is versioned (2026-09-22 1445)
+
+**The one-default rule now covers CURRENT versions only** —
+`pay_policies_single_company_default ... WHERE (is_company_default AND (effective_to IS NULL))`. One
+current default per carrier, any number of closed ones; the undo is in migration 0038.
+
+**A version is append-only.** `guard_pay_policy_append_only` (BEFORE UPDATE OR DELETE) freezes all ten
+percentages plus `charge_pay_classes`, `effective_from`, `effective_date`, `company_id`,
+`is_company_default`, `created_at`, `created_by`. The only date change allowed is setting
+`effective_to` on the current version, and only with `pay_policy.change` — a closed version can never
+be re-opened or back-dated. `fuel_discount_passthrough`, `name`, `description` and `is_active` stay
+**in-place** (P40: the Settlement Settings toggle keeps working, proved below). DELETE is refused for
+everyone, owner included. There is deliberately **no** service_role pass-through: nothing privileged
+writes this table, so a privileged in-place rate edit is a defect too, and a migration that must move
+a rate does it under `DISABLE TRIGGER`, visibly.
+
+**One owner-only RPC opens a version:** `open_pay_policy_version(date, jsonb, text, text)` closes the
+current version the day before the new one starts and inserts the new one in the same statement,
+inheriting every rate not named. **Why one statement:** with the index re-scoped, a new current
+version cannot be inserted while the old one is current — two client writes would leave the carrier
+with **no current pay policy** in between, and a settlement resolving that moment would stop. No
+back-dating; rate keys allowlisted; EXECUTE to `authenticated` + `service_role`, revoked from PUBLIC
+and `anon`.
+
+**A defect caught by the rehearsal, before it shipped.** The RPC stamped `auth.uid()` into
+`created_by` / `updated_by`, but both reference `profiles(id)` — a profile id is not an auth user id,
+so every attempt died on `pay_policies_updated_by_fkey` (23503) and the function could never have
+opened a version. Migration **0039** re-creates it on `public.current_profile_id()`, as every other
+writer on this table already does.
+
+**Proof, real sessions, transaction that raised.** A second **current** default: REFUSED 23505.
+Marcus opens v2 (82% from 2026-09-30): ACCEPTED, v1 closed at 2026-09-29, v2's other rates inherited
+unchanged (detention 100, lumper 100, tonu 72, fsc 72, per_ton 72, loadout 72). The Pass 1 resolver
+returned **72** for 2026-09-22 and 2026-09-29 and **82** for 2026-09-30 and 2026-11-29, matching
+**exactly one** row on every date. Refused: a closed version's percentage (42501, naming the column),
+re-opening a closed version, **the current version's percentage edited in place by Marcus**,
+`effective_to` set by Mae and by Leo (42501 — a loud refusal, not a silent zero-row update), any
+version deleted by Marcus, a back-dated version (22007), an unknown rate key (22023). Mae calling the
+RPC: REFUSED 42501. The fuel pass-through toggled on and off by Marcus: SAVED, **2 → 2 versions** —
+no new version. Two earlier runs of this probe were red on the in-place edit, the deletes and the
+management/dispatch `effective_to` updates; those are the lines this guard closes.
+
+**Proof nothing moved.** After rollback: 1 version, 1 current default, linehaul 72.00,
+`effective_from` 2000-01-01, `effective_to` NULL, `effective_date` 2026-08-18 untouched, index present
+in its new form. Settlement `f77911b0-50cd-4ae3-bff2-ebb0bc4331af` — paid, gross 327.94, net 327.94,
+1 line. Dispatch verdicts — detention 100, lumper 100, tonu 72. Steve Figueroa 72; all **157** driver
+records still 72; his forecast unchanged.
+
+**A finding raised, not silenced.** `open_pay_policy_version` has no caller — the company pay policy
+screen is Pass 3 — so the uncalled-function guard went red, correctly. Allowlisted `AWAITING` with the
+ceiling raised by exactly one, because the RPC has to exist before anything can call it; the entry
+says to remove it when the screen lands.
+
+**Step 5, after 15:05 UTC:** `operator_idle` notifications created today: **0**, as expected — the
+**72** sent on 2026-09-21 (6 distinct recipients) are still current and the job does not re-notify.
+
+**Full suite** (`--maxWorkers=2`): `Test Files 3 failed | 212 passed | 2 skipped (217)`, `Tests 3
+failed | 2173 passed | 16 skipped (2192)`. Two failures were this pass's own guards doing their job —
+`definer-live-catalog` refusing a new authenticated-executable SECURITY DEFINER function until
+`open_pay_policy_version` was registered with its reason (ceiling 137 -> 138), and `tenancy-resolver`
+still holding the old index predicate. Both updated to the new shape; the third,
+`onboarding-test-login`, was the familiar pooler `EAUTHQUERY` timeout. All four re-run together: 153
+passed. Typecheck clean.
+
+Report: `docs/passes/2026-09-22-1445-per-driver-pay-pass-2.md`.

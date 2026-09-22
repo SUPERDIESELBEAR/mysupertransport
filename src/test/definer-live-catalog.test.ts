@@ -358,6 +358,18 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.move_revisions_to_pending(uuid)",
   "public.operator_awaiting_return(uuid)",
   "public.operator_return_requested(uuid)",
+  // 2026-09-22, per-driver pay Pass 2 (migrations 0038/0039). The ONLY writer that
+  // creates a company pay policy version: it closes the current version and opens
+  // the new one in ONE statement, because the re-scoped single-default index makes
+  // two separate writes leave the carrier with no current pay policy in between.
+  // Definer BECAUSE it must close a row the append-only trigger otherwise guards
+  // and stamp the actor through current_profile_id(), which authenticated cannot
+  // execute. Authenticated EXECUTE is the grant the owner's own session uses; the
+  // gate is in-body and first: has_permission(auth.uid(), 'pay_policy.change'),
+  // which has NO role grants, so it is owner-only. Back-dating is refused, so it
+  // can never rewrite what a past work week was paid on.
+  "public.open_pay_policy_version(date,jsonb,text,text)",
+
   "public.raise_eld_sync_alert(uuid,text,date,text)",
   "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
@@ -828,7 +840,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   is what stops a signed-in user handing a carrier a fresh set of grants.
 // 2026-09-22: 135 -> 137, the two storage-scoping policy helpers from migration
 // 0036. Raised by exactly two, with the reason recorded beside the entries.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 137;
+
+// 2026-09-22: 137 -> 138, `open_pay_policy_version` from per-driver pay Pass 2
+// (migrations 0038/0039). Raised by exactly one, reason recorded beside the entry.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 138;
+
 
 
 

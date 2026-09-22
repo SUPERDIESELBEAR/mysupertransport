@@ -1037,7 +1037,27 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
-- **Per-driver pay — option (c) CHOSEN; PASS 1 of 5 DONE, Pass 2 next (2026-09-22 1400).** Every
+- **Per-driver pay — PASS 2 of 5 DONE, Pass 3 next (2026-09-22 1445).** The company pay policy is now
+  **versioned**: a rate is never edited in place — a change closes the current version and opens a new
+  one from a date, and a past work week is always calculated with the rate that was in force for it
+  (P41). `pay_policies_single_company_default` is re-scoped to **current** versions only, so history
+  can accumulate while the carrier still has exactly one live default. An append-only guard freezes
+  every percentage on an existing version, refuses to re-open or back-date a closed one, and refuses
+  DELETE for everyone including the owner — while `fuel_discount_passthrough`, name, description and
+  is_active stay in-place edits, so the Settlement Settings toggle keeps working untouched (P40,
+  proved: toggled on and off, 2 → 2 versions). Opening a version is one owner-only statement,
+  `open_pay_policy_version()`, because two separate writes would leave the carrier with **no current
+  pay policy** in between and a settlement resolving that moment would stop. The rehearsal caught a
+  real defect first: the RPC stamped an auth user id into columns that reference `profiles(id)`, so it
+  could never have opened a version — fixed in 0039 before anyone met it. Proved with real sessions in
+  a rolled-back transaction: a second current default refused, Marcus's v2 accepted (82% from
+  2026-09-30) with the resolver handing 72 up to 2026-09-29 and 82 after, Mae's and Leo's attempts
+  refused loudly, deletes refused, back-dating refused. Nothing moved: settlement `f77911b0` still
+  paid 327.94 on 1 line, dispatch verdicts still 100 / 72 / 100, all 157 driver records still 72.
+  **Pass 3** puts the percentage card and the dated change form on the staff driver page. Report
+  `docs/passes/2026-09-22-1445-per-driver-pay-pass-2.md`.
+- **Per-driver pay — option (c) CHOSEN; PASS 1 of 5 DONE (2026-09-22 1400).** Every
+
   pay-rate reader now resolves the pay-policy **version in force on the date it is asking about** —
   the driver run against its work week, the dispatch run against its month, screens and hints
   against today — through one resolver stated twice and only twice: `public.company_pay_policy_on()`
