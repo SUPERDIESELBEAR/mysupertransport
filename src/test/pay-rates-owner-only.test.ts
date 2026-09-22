@@ -46,7 +46,7 @@ describe('pay policies and assignments', () => {
     for (const table of ['pay_policies', 'pay_policy_assignments']) {
       for (const verb of ['insert', 'update', 'delete']) {
         expect(MIGRATION).toMatch(
-          new RegExp(`CREATE POLICY ${table}_${verb}_permission ON public\\.${table}[\\s\\S]{0,400}has_permission\\(auth\\.uid\\(\\), 'pay_policy\\.change'\\)`),
+          new RegExp(`CREATE POLICY ${table}_${verb}_permission ON public\\.${table}[\\s\\S]{0,400}has_permission\\('pay_policy\\.change'\\)`),
         );
       }
     }
