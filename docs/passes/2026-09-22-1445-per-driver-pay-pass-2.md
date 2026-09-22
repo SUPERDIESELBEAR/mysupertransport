@@ -92,11 +92,11 @@ next to them.
 - Steve Figueroa: **72**; all **157** driver records still 72. His forecast unchanged (0 forecast
   loads; the forecast reads `operators.pay_percentage`, untouched by this pass).
 
-## Step 5 — not run
+## Step 5 — run, after 15:05 UTC
 
-This pass finished at 14:45 UTC, **before 15:05**, so today's idle-operator job had not run yet and
-counting today's `operator_idle` notifications would prove nothing. Stated rather than skipped
-silently.
+Today's idle-operator job has run. `operator_idle` notifications created today: **0** — as expected,
+because the **72** sent on 2026-09-21 are still current and the job does not re-notify. (Those 72 rows
+cover 6 distinct recipients.)
 
 ## A finding raised, not silenced
 
@@ -112,8 +112,22 @@ to leave the function unreachable past Pass 3.
 - `drizzle/migrations/0039_open_pay_policy_version_profile_attribution.sql`
 - `src/integrations/supabase/types.ts` (regenerated)
 - `src/test/function-reachability.test.ts` (allowlist entry + ceiling)
+- `src/test/definer-live-catalog.test.ts` (the new definer registered, with its reason; ceiling 137 -> 138)
+- `src/test/tenancy-resolver.test.ts` (the one-default index assertion now requires the re-scoped predicate)
 - `docs/passes/2026-09-22-1445-per-driver-pay-pass-2.md`
 - `docs/tms-build-status.md`, `docs/tms-wish-list.md` (records)
+
+## Full suite
+
+`Test Files 3 failed | 212 passed | 2 skipped (217)`, `Tests 3 failed | 2173 passed | 16 skipped
+(2192)` — run with `--maxWorkers=2`.
+
+Two of the three were this pass's own guards catching it, which is the point of them:
+`definer-live-catalog` refused a new SECURITY DEFINER function executable by `authenticated` until
+`open_pay_policy_version` was registered with its reason (ceiling 137 -> 138), and
+`tenancy-resolver` held the old index predicate. Both now assert the new shape and pass. The third,
+`onboarding-test-login`, lost its pooler connection (`EAUTHQUERY ... timed out`) — the same harness
+flake as Pass 1. All four re-run together: **153 passed**. Typecheck clean.
 
 Nothing else is deployed: this pass is database-only plus one test file. Confirmed by re-reading the
 live catalog — the index definition, the trigger and the RPC signature all came back from the

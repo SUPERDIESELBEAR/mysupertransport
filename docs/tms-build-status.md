@@ -19265,7 +19265,15 @@ screen is Pass 3 — so the uncalled-function guard went red, correctly. Allowli
 ceiling raised by exactly one, because the RPC has to exist before anything can call it; the entry
 says to remove it when the screen lands.
 
-**Step 5 not run:** this pass finished at 14:45 UTC, before 15:05, so today's idle-operator job had
-not run and counting today's `operator_idle` notifications would prove nothing.
+**Step 5, after 15:05 UTC:** `operator_idle` notifications created today: **0**, as expected — the
+**72** sent on 2026-09-21 (6 distinct recipients) are still current and the job does not re-notify.
+
+**Full suite** (`--maxWorkers=2`): `Test Files 3 failed | 212 passed | 2 skipped (217)`, `Tests 3
+failed | 2173 passed | 16 skipped (2192)`. Two failures were this pass's own guards doing their job —
+`definer-live-catalog` refusing a new authenticated-executable SECURITY DEFINER function until
+`open_pay_policy_version` was registered with its reason (ceiling 137 -> 138), and `tenancy-resolver`
+still holding the old index predicate. Both updated to the new shape; the third,
+`onboarding-test-login`, was the familiar pooler `EAUTHQUERY` timeout. All four re-run together: 153
+passed. Typecheck clean.
 
 Report: `docs/passes/2026-09-22-1445-per-driver-pay-pass-2.md`.
