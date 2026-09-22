@@ -45,7 +45,7 @@ export default function CompanyPayPolicySettings() {
     setLoading(false);
     if (policyRes.error ?? permissionRes.error) {
       const error = policyRes.error ?? permissionRes.error;
-      toast({ title: 'Could not load company rate sheets', description: error?.message, variant: 'destructive' });
+      toast({ title: 'Could not load company rate sheets', description: error instanceof Error ? error.message : String(error), variant: 'destructive' });
       return;
     }
     setRows((policyRes.data ?? []) as PolicyRow[]);

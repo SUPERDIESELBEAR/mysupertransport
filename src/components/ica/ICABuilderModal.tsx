@@ -15,6 +15,8 @@ import DemoLockIcon from '@/components/DemoLockIcon';
 import SignatureCanvas from 'react-signature-canvas';
 import ICADocumentView from './ICADocumentView';
 import { saveTruckSpecs } from '@/lib/truckSync';
+import { fetchEffectiveOperatorLinehaul } from '@/lib/operatorLinehaulPct';
+import { carrierDateOf } from '@/lib/settlementPeriod';
 
 interface ICABuilderModalProps {
   operatorId: string;
@@ -169,8 +171,8 @@ export default function ICABuilderModal({
   // ── Load existing draft on mount ──────────────────────────────────────────
   useEffect(() => {
     const loadDraft = async () => {
-      // Fetch ICA draft and onboarding truck info in parallel
-      const [{ data: existing }, { data: onboardingRow }, { data: truckOwnerRow }] = await Promise.all([
+      // Fetch the agreement and its authoritative effective linehaul rate together.
+      const [{ data: existing }, { data: onboardingRow }, { data: truckOwnerRow }, effectiveLinehaul] = await Promise.all([
         supabase
           .from('ica_contracts')
           .select('*')
@@ -189,6 +191,7 @@ export default function ICABuilderModal({
           .select('legal_first_name, legal_last_name, business_name, email, phone, address_street, address_city, address_state, address_zip, user_id')
           .eq('operator_id', operatorId)
           .maybeSingle(),
+        fetchEffectiveOperatorLinehaul(supabase, operatorId, carrierDateOf(new Date())),
       ]);
 
       const ob = (onboardingRow as any) ?? {};
@@ -204,10 +207,11 @@ export default function ICABuilderModal({
       }
 
       if (!existing) {
-        // No ICA draft — pre-fill from onboarding_status truck fields and linked truck owner (if any)
-        if (ob.truck_year || ob.truck_make || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number || to) {
+        // No saved agreement term exists: pre-fill Appendix B from the dated pay authority.
+        if (effectiveLinehaul || ob.truck_year || ob.truck_make || ob.truck_vin || ob.truck_plate || ob.truck_plate_state || ob.trailer_number || to) {
           setData(prev => ({
             ...prev,
+            linehaul_split_pct: effectiveLinehaul?.pct ?? prev.linehaul_split_pct,
             truck_year: ob.truck_year || prev.truck_year,
             truck_make: ob.truck_make || prev.truck_make,
             truck_vin: ob.truck_vin || prev.truck_vin,
@@ -254,7 +258,9 @@ export default function ICABuilderModal({
         owner_zip: row.owner_zip ?? to?.address_zip ?? applicationData?.address_zip ?? '',
         owner_phone: row.owner_phone ?? to?.phone ?? applicationData?.phone ?? '',
         owner_email: row.owner_email ?? to?.email ?? applicationData?.email ?? operatorEmail,
-        linehaul_split_pct: row.linehaul_split_pct ?? 72,
+        // A saved agreement owns its own historical term; never overwrite it
+        // with today's rate, especially once the P35 sent lock applies.
+        linehaul_split_pct: row.linehaul_split_pct ?? effectiveLinehaul?.pct ?? 72,
         lease_effective_date: row.lease_effective_date ?? new Date().toISOString().split('T')[0],
         lease_termination_date: row.lease_termination_date ?? '',
       });

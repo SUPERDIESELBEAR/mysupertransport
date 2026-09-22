@@ -68,6 +68,7 @@ import TruckOwnerCard from '@/components/management/TruckOwnerCard';
 import SubmittedApplicationSnapshot from '@/components/management/SubmittedApplicationSnapshot';
 import StaffDecalPhotoEditor from '@/components/staff/StaffDecalPhotoEditor';
 import NotifySafetyAdvisorDialog from '@/components/staff/NotifySafetyAdvisorDialog';
+import LinehaulPayCard from '@/components/staff/LinehaulPayCard';
 
 import OffboardingHistoryPanel from '@/components/management/OffboardingHistoryPanel';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
@@ -7448,6 +7449,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
           per-driver exceptions — now lives on Settlement Settings, so there is
           one place the rule is read and one place it is changed. */}
 
+      {isManagement && (
+        <div style={{ order: isQuickView ? 8.75 : 39 }}>
+          <LinehaulPayCard operatorId={operatorId} operatorName={operatorName} />
+        </div>
+      )}
 
       {/* Settlement Forecast — read-only mirror of operator's self-service planning tool */}
       <div ref={el => { stageRefs.current['settlement_forecast'] = el; }} className="bg-white border border-border rounded-xl shadow-sm" style={{ order: isQuickView ? 9 : 40 }}>
