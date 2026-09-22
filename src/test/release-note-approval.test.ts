@@ -154,6 +154,19 @@ describe('pending announcement alerts the owner', () => {
     expect(PENDING_MIGRATION).toContain("'in_app'");
   });
 
+  it('sends the notice through try_notify so a failed alert cannot abort the update', () => {
+    // 0031 shipped a bare INSERT INTO public.notifications, reintroducing the
+    // defect the 2026-09-21 20:30 pass fixed for notify_staff_on_release_note():
+    // one bad notification row would abort the transaction, so the owner's
+    // announcement would fail to save because telling him about it failed.
+    // notification-isolation.test.ts caught it; 0033 is the fix.
+    expect(PENDING_MIGRATION).toContain('public.try_notify(');
+    const finalBody = PENDING_MIGRATION.slice(
+      PENDING_MIGRATION.lastIndexOf('CREATE OR REPLACE FUNCTION public.notify_owner_on_pending_release_note'),
+    );
+    expect(finalBody).not.toContain('INSERT INTO public.notifications');
+  });
+
   it('pins search_path and closes EXECUTE to anon and authenticated', () => {
     expect(PENDING_MIGRATION).toContain('SET search_path = public, extensions');
     expect(PENDING_MIGRATION).toContain('FROM anon');
