@@ -19,6 +19,7 @@
  * a settlement for a past week would read the wrong number from it.
  */
 import { pctForClassification, withLinehaulPct, type PayPolicyRates } from '@/lib/payTreatment';
+import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 type LinehaulClient = any;
@@ -136,4 +137,30 @@ export function policyWithOperatorLinehaul(
     return policy;
   }
   return withLinehaulPct(policy, operatorPct);
+}
+
+/** Staff-screen/builder read of one driver's effective rate on a specific date. */
+export async function fetchEffectiveOperatorLinehaul(
+  sb: LinehaulClient,
+  operatorId: string,
+  asOf: string,
+): Promise<{ pct: number; source: 'driver_version' | 'company_policy'; versionId: string | null; effectiveFrom: string | null } | null> {
+  const [versionsRes, policyRes] = await Promise.all([
+    sb.from('operator_linehaul_pct_versions')
+      .select('id, operator_id, pct, effective_from, effective_to')
+      .eq('operator_id', operatorId)
+      .lte('effective_from', asOf)
+      .or(`effective_to.is.null,effective_to.gte.${asOf}`)
+      .order('effective_from', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+    companyPolicyVersionQuery<PayPolicyRates>(sb, asOf),
+  ]);
+  if (versionsRes.error) throw versionsRes.error;
+  if (policyRes.error) throw policyRes.error;
+  const driver = versionsRes.data as OperatorLinehaulVersionRow | null;
+  if (driver) return { pct: Number(driver.pct), source: 'driver_version', versionId: driver.id ?? null, effectiveFrom: driver.effective_from };
+  const policy = policyRes.data as (PayPolicyRates & { id?: string; effective_from?: string | null }) | null;
+  const pct = resolveLinehaulPct(null, policy);
+  return pct === null ? null : { pct, source: 'company_policy', versionId: policy?.id ?? null, effectiveFrom: policy?.effective_from ?? null };
 }

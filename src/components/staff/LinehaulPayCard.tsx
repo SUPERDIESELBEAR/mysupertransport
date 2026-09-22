@@ -13,6 +13,7 @@ import { useToast } from '@/hooks/use-toast';
 import { carrierDateOf } from '@/lib/settlementPeriod';
 import { agreementMismatch, driverRateConfirmation, rateSourceLabel, type RateSource } from '@/lib/payRatePresentation';
 import { formatLongDay } from '@/lib/settlementMath';
+import { fetchEffectiveOperatorLinehaul } from '@/lib/operatorLinehaulPct';
 
 interface VersionRow { id: string; pct: number | string; effective_from: string; effective_to: string | null; reason: string; actor: string | null; source: string; }
 interface PolicyRow { id: string; linehaul_pct: number | string; effective_from: string | null; effective_to: string | null; }
@@ -38,19 +39,19 @@ export default function LinehaulPayCard({ operatorId, operatorName }: { operator
     setLoading(true);
     const [versionsRes, policyRes, agreementRes, permissionRes] = await Promise.all([
       supabase.from('operator_linehaul_pct_versions').select('id, pct, effective_from, effective_to, reason, actor, source').eq('operator_id', operatorId).order('effective_from', { ascending: false }),
-      supabase.from('pay_policies').select('id, linehaul_pct, effective_from, effective_to').eq('is_company_default', true).eq('is_active', true).or(`effective_from.is.null,effective_from.lte.${today}`).or(`effective_to.is.null,effective_to.gte.${today}`).order('effective_from', { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+      fetchEffectiveOperatorLinehaul(supabase, operatorId, today),
       supabase.from('ica_contracts').select('linehaul_split_pct, status').eq('operator_id', operatorId).in('status', ['fully_executed', 'complete', 'completed', 'signed']).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.rpc('has_permission', { _action: 'driver_pay.change' } as never),
     ]);
     setLoading(false);
-    const failure = versionsRes.error ?? policyRes.error ?? agreementRes.error ?? permissionRes.error;
+    const failure = versionsRes.error ?? agreementRes.error ?? permissionRes.error;
     if (failure) {
       toast({ title: 'Could not load linehaul pay', description: failure.message, variant: 'destructive' });
       return;
     }
     const rows = (versionsRes.data ?? []) as VersionRow[];
     setVersions(rows);
-    setPolicy(policyRes.data as PolicyRow | null);
+    setPolicy(policyRes ? { id: policyRes.versionId ?? '', linehaul_pct: policyRes.pct, effective_from: policyRes.effectiveFrom, effective_to: null } : null);
     setAgreement(agreementRes.data as AgreementRow | null);
     setCanChange(permissionRes.data === true);
     const ids = [...new Set(rows.map(r => r.actor).filter(Boolean) as string[])];
@@ -139,7 +140,7 @@ export default function LinehaulPayCard({ operatorId, operatorName }: { operator
           <DialogHeader><DialogTitle>Change {operatorName}'s linehaul percentage</DialogTitle><DialogDescription>A new dated record will be created. Earlier work weeks never change.</DialogDescription></DialogHeader>
           <div className="grid gap-4">
             <div className="grid gap-1.5"><Label htmlFor="driver-linehaul-pct">Percentage</Label><Input id="driver-linehaul-pct" type="number" min="0" max="100" step="1" value={pct} onChange={e => setPct(e.target.value)} /></div>
-            <div className="grid gap-1.5"><Label>Effective date</Label><DateInput value={effectiveFrom} onChange={setEffectiveFrom} min={today} /><p className="text-xs text-muted-foreground">The date cannot be earlier than today. Past and settled weeks keep the rate already in force.</p></div>
+            <div className="grid gap-1.5"><Label>Effective date</Label><DateInput value={effectiveFrom} onChange={setEffectiveFrom} /><p className="text-xs text-muted-foreground">The date cannot be earlier than today. Past and settled weeks keep the rate already in force.</p></div>
             <div className="grid gap-1.5"><Label htmlFor="driver-linehaul-reason">Reason</Label><Textarea id="driver-linehaul-reason" value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this percentage changing?" /></div>
           </div>
           <DialogFooter><Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button><Button disabled={!formValid} onClick={() => setConfirming(true)}>Review change</Button></DialogFooter>
