@@ -98,3 +98,15 @@ export async function fetchCompanyPolicyVersion<T = Record<string, unknown>>(
   const res = await companyPolicyVersionQuery<T>(sb, asOf);
   return res?.data ?? null;
 }
+
+/** All company versions for staff history screens; still centralized here so no screen invents a second reader. */
+export function companyPolicyHistoryQuery<T = Record<string, unknown>>(
+  sb: PolicyClient,
+): PromiseLike<{ data: T[] | null; error: unknown }> {
+  return sb
+    .from('pay_policies')
+    .select('*')
+    .eq('is_company_default', true)
+    .order('effective_from', { ascending: false, nullsFirst: false })
+    .order('effective_date', { ascending: false }) as PromiseLike<{ data: T[] | null; error: unknown }>;
+}
