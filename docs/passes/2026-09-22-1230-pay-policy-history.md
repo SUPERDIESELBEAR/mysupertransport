@@ -228,3 +228,102 @@ Full suite, `--maxWorkers=2`, verbatim: see the block appended below.
 the published app, so it is live by application; confirmed by `has_function_privilege` reading
 `true` for the harness role and by the four green assertions above. No edge function changed, no
 client behaviour changed — the only application-code change is inside a test file.
+
+---
+
+## Full suite, verbatim (first run, 12:28 UTC)
+
+```
+ Test Files  5 failed | 208 passed | 2 skipped (215)
+      Tests  5 failed | 2138 passed | 16 skipped (2159)
+     Errors  2 errors
+   Start at  12:28:13
+   Duration  586.93s
+```
+
+Five failures. **Three were mine, one was a real defect I had shipped the day before, one was
+infrastructure.** None was allowlisted.
+
+### 1-3. My own 0032 grant, refused by three standing guards (FIXED, migration 0033)
+
+0032 granted EXECUTE on `regrant_sandbox_parity_execute()` to `PUBLIC` so the test could heal its
+own privilege. Three guards refused it:
+
+```
+ FAIL  definer-live-catalog > no NEW SECURITY DEFINER function is executable by anon
+ FAIL  definer-live-catalog > no NEW SECURITY DEFINER function is executable by authenticated
+  public.regrant_sandbox_parity_execute()
+
+ FAIL  function-reachability > every client-executable function has a caller somewhere
+  public.regrant_sandbox_parity_execute() is EXECUTABLE by a client role but nothing calls it.
+```
+
+They were right and my reasoning was wrong. I had argued the public grant was safe because the
+function "can grant nothing to its caller" — true, but beside the point: a SECURITY DEFINER
+function executable by `authenticated` is executable by the whole driver population, and this
+project's rule is that such a function is closed unless it is a token-gated public endpoint.
+The reachability guard's own message says allowlisting a finding "is the class that has cost this
+project the most", so allowlisting three of them to keep my design was not available.
+
+**0033 withdraws the grant** (`REVOKE ALL ... FROM PUBLIC, anon, authenticated`) and schedules the
+re-grant **hourly** instead (`regrant-sandbox-parity-execute`, `0 * * * *`, 24 runs a day).
+Checked first for a cadence-free alternative and there is none: `pg_auth_members` shows both
+sandbox roles belong to **no group**, so there is no persistent group role to grant to; default
+privileges do not reach a role that does not yet exist; event triggers do not fire for
+`CREATE ROLE`. Nothing in the database observes the recreation, so a privileged session on a
+schedule is the only in-database mechanism. **The cost of the hourly cadence, stated plainly: for
+up to an hour after a role recreation `grant-parity-live` goes red.** That is a red test, never a
+data risk, and the test file now documents it with an explicit instruction not to gate, skip or
+allowlist it — re-run after the hourly job, or apply the grant in a migration.
+
+The test's self-call was removed with it. Post-fix, verbatim:
+
+```
+ ✓ src/test/grant-parity-live.test.ts (3 tests)
+ ✓ src/test/definer-live-catalog.test.ts (13 tests)
+ ✓ src/test/function-reachability.test.ts (4 tests)
+```
+
+### 4. A real defect I shipped on 2026-09-21: the owner's alert could abort his own update (FIXED, 0033)
+
+```
+ FAIL  notification-isolation > every notification insert outside try_notify is isolated
+  "public.notify_owner_on_pending_release_note() (1 in drizzle/0031_notify_owner_pending_release_note.sql)"
+```
+
+Migration 0031 — the owner's pending-announcement bell, applied yesterday — used a bare
+`INSERT INTO public.notifications`. That is **the same defect the 2026-09-21 20:30 pass fixed for
+`notify_staff_on_release_note()`**, reintroduced by me in the very next notifier. In an
+`AFTER INSERT` trigger a bare insert means one bad notification row (a constraint, a null
+recipient) aborts the whole transaction: **the owner's update would fail to save because telling
+him about it failed.** 0033 routes it through `public.try_notify(...)`, which records a delivery
+failure and returns false instead of raising. Nothing else about the alert changed.
+
+### 5. Infrastructure, not a defect
+
+```
+ FAIL  billing-schema > create_invoice is the only invoice writer, and the allocator serves only it
+psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" ... port 6543 failed:
+FATAL:  (EAUTHQUERY) auth_query secret check timed out
+```
+
+Pooler saturation at `--maxWorkers=2`, the standing limitation recorded on 2026-09-21. The file
+passes on its own. The two `Timeout calling "onTaskUpdate"` unhandled errors are the same
+condition in the vitest worker RPC.
+
+### Also fixed: a test with a shelf life
+
+`release-note-approval.test.ts` read the 0031 migration from its **staging path** under
+`.lovable/drafts/.../migrations/`. That path vanished when the draft was accepted, so the file
+failed outright with `ENOENT` — it was asserting against a file that no longer existed. It now
+reads the applied `drizzle/migrations/0031_...` plus `0033_...`, and a new assertion holds the
+`try_notify` routing so this defect cannot come back a third time. 21 tests pass.
+
+`bunx tsgo --noEmit`: clean after every change above.
+
+## Files this pass authored (revised)
+
+Add to the list above:
+
+- `drizzle/migrations/0033_harness_regrant_hourly_and_owner_notice_isolated.sql`
+- `src/test/release-note-approval.test.ts` (applied-migration paths; `try_notify` assertion)
