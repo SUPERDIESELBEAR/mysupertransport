@@ -239,6 +239,13 @@
       "when": 1790080935487,
       "tag": "0033_harness_regrant_hourly_and_owner_notice_isolated",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1790081122346,
+      "tag": "0034_permission_actions_read_staff_only",
+      "breakpoints": true
     }
   ]
 }
