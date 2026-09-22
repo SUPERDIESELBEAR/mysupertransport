@@ -222,6 +222,16 @@ const B4_TABLES = [
   'truck_plate_history', 'truck_state_permits', 'vacant_units',
 ] as const;
 
+/**
+ * PER-DRIVER PAY, PASS 3 (2026-09-22), migration
+ * 0040_operator_linehaul_pct_versions.sql. Each driver's own linehaul
+ * percentage, versioned. Born tenant-stamped and restrictive — it never
+ * existed in an untenanted form, so there is no backfill to reconcile. The
+ * migration's own 157-row backfill names each driver's company_id explicitly,
+ * because a migration has no JWT and the stamp resolves NULL for it.
+ */
+const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
+
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace

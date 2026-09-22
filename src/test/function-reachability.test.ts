@@ -146,6 +146,18 @@ const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
       "Remove this entry when the screen calls it; the entry is not a licence to " +
       "leave it unreachable past Pass 3.",
   },
+  {
+    name: "set_operator_linehaul_pct",
+    reason:
+      "AWAITING the Linehaul Pay card on the staff driver page (per-driver pay, " +
+      "Pass 5) — the RPC shipped in Pass 3 (migration 0040) because settlements " +
+      "had to start paying from the versioned percentage in the SAME pass that " +
+      "created the versions, and closing the current version while opening the " +
+      "next must be one statement or operator_linehaul_pct_single_current " +
+      "leaves the driver with no current rate. Owner only " +
+      "(driver_pay.change), a reason is required, no back-dating. Remove this " +
+      "entry when the card calls it.",
+  },
 ];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */

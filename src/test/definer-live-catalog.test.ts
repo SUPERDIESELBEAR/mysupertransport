@@ -370,6 +370,15 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // can never rewrite what a past work week was paid on.
   "public.open_pay_policy_version(date,jsonb,text,text)",
 
+  // PER-DRIVER PAY, PASS 3. Definer for the same three reasons as the policy
+  // version RPC above: it closes a row the append-only trigger guards, stamps
+  // the actor through current_profile_id(), and mirrors the current value onto
+  // operators.pay_percentage, which carries its own owner-only guard. In-body
+  // and first: has_permission(auth.uid(), 'driver_pay.change'), which has NO
+  // role grants, so it is owner-only. A reason is required, back-dating is
+  // refused, so a past work week can never be re-rated.
+  "public.set_operator_linehaul_pct(uuid,numeric,date,text,text)",
+
   "public.raise_eld_sync_alert(uuid,text,date,text)",
   "public.record_rods_unlock(uuid,uuid,date,timestamp with time zone,timestamp with time zone,jsonb,jsonb,text,text,uuid)",
   "public.reject_application_correction(text,text,jsonb)",
@@ -843,7 +852,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 
 // 2026-09-22: 137 -> 138, `open_pay_policy_version` from per-driver pay Pass 2
 // (migrations 0038/0039). Raised by exactly one, reason recorded beside the entry.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 138;
+// 2026-09-22: 138 -> 139, `set_operator_linehaul_pct` from per-driver pay Pass 3
+// (migration 0040). Raised by exactly one, reason recorded beside the entry.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 139;
 
 
 
