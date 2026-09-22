@@ -123,6 +123,22 @@ DRIVER-FACING views are unchanged and must stay so: `src/components/operator/MyS
 selects these columns, and `src/test/operator-pay-exposure.test.ts` plus the rendered-output assertions
 in `mySettlements.test.tsx` (no `%` anywhere in his screen) keep it that way.
 
+## The suite
+
+`bunx vitest run --maxWorkers=2`, verbatim:
+
+```
+ Test Files  3 failed | 214 passed | 2 skipped (219)
+      Tests  3 failed | 2198 passed | 16 skipped (2217)
+```
+
+Two were the familiar pooler `EAUTHQUERY` timeout (`billing-schema`,
+`staff-suspension-permission`; `payments-schema` hit it earlier in the same run and recovered). The
+third was this pass's own guard: `sharedPayPct.test.ts` deep-equals the retained Pratt line, and that
+line now carries the rate record — updated to assert `resolvedPct 72 / company_policy / the policy id`,
+because a per-ton line is priced on the COMPANY column and must never name a driver version. Re-run
+together: **74 passed (4 files)**. Typecheck clean.
+
 ## Files this pass authored
 
 - `drizzle/migrations/0041_linehaul_follows_company_and_line_rate_record.sql`
@@ -132,6 +148,7 @@ in `mySettlements.test.tsx` (no `%` anywhere in his screen) keep it that way.
 - `src/lib/settlementRun.ts` (the version id gathered and persisted)
 - `src/lib/__tests__/settlementLineRateRecord.test.ts` (new)
 - `src/lib/__tests__/perDriverLinehaulPct.test.ts` (the engine-input and persistence assertions)
+- `src/lib/__tests__/sharedPayPct.test.ts` (the retained Pratt line now asserts its rate record)
 - `docs/passes/2026-09-22-1650-per-driver-pay-pass-4.md`, `docs/tms-build-status.md`,
   `docs/tms-wish-list.md`
 

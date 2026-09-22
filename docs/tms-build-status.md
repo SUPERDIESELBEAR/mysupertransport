@@ -19338,6 +19338,10 @@ charge lines and `-A1` adjustment lines — and NULL on every line no percentage
 still says `company_policy`; a half-record REFUSED 23514; `f77911b0` still 327.94/paid with 0 lines
 carrying a record.
 
-**Full suite** (`--maxWorkers=2`): recorded in the pass report. Typecheck clean.
+**Full suite** (`--maxWorkers=2`): `Test Files 3 failed | 214 passed | 2 skipped (219)`, `Tests 3
+failed | 2198 passed | 16 skipped (2217)`. Two were the familiar pooler `EAUTHQUERY` timeout
+(`billing-schema`, `staff-suspension-permission`); the third was this pass's own guard —
+`sharedPayPct.test.ts` deep-equals the retained Pratt line, which now carries the rate record, updated
+to assert `72 / company_policy / the policy id`. Re-run together: 74 passed. Typecheck clean.
 
 Report: `docs/passes/2026-09-22-1650-per-driver-pay-pass-4.md`.
