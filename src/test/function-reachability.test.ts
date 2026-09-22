@@ -133,10 +133,24 @@ const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
       "through this client-side writer. Verified 2026-09-10. KEPT for the same " +
       "reason as assign_user_role: it holds the owner-removal refusal.",
   },
+  {
+    name: "open_pay_policy_version",
+    reason:
+      "AWAITING the company pay policy screen (per-driver pay, Pass 3) — the RPC " +
+      "shipped first, in Pass 2 (migration 0038, attribution fixed in 0039), " +
+      "because it is the ONLY way a second policy version can be created at all: " +
+      "pay_policies_single_company_default now covers current versions only, so " +
+      "closing the old version and opening the new one must happen in one " +
+      "statement or the company is momentarily left with NO current pay policy " +
+      "and settlements stop. Owner only (pay_policy.change), no back-dating. " +
+      "Remove this entry when the screen calls it; the entry is not a licence to " +
+      "leave it unreachable past Pass 3.",
+  },
 ];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
-const KNOWN_NO_CALLER_MAX = 2;
+const KNOWN_NO_CALLER_MAX = 3;
+
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
 

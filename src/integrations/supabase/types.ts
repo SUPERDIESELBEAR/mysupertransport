@@ -15284,6 +15284,15 @@ export type Database = {
         }[]
       }
       normalize_invoice_number: { Args: { p_number: string }; Returns: string }
+      open_pay_policy_version: {
+        Args: {
+          _description?: string
+          _effective_from: string
+          _name?: string
+          _rates?: Json
+        }
+        Returns: string
+      }
       operator_awaiting_return: {
         Args: { _operator_id: string }
         Returns: boolean
