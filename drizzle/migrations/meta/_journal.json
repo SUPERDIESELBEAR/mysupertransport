@@ -253,6 +253,13 @@
       "when": 1790081791298,
       "tag": "0035_shared_storage_reads_scoped_to_carrier",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1790081935900,
+      "tag": "0036_shared_storage_scoping_via_definer_helpers",
+      "breakpoints": true
     }
   ]
 }

@@ -15049,6 +15049,14 @@ export type Database = {
       }
       inspection_grace_used: { Args: { _operator_id: string }; Returns: number }
       invoice_writer_active: { Args: never; Returns: boolean }
+      is_carrier_default_signature_of_caller: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
+      is_company_inspection_doc_of_caller: {
+        Args: { p_name: string }
+        Returns: boolean
+      }
       is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
