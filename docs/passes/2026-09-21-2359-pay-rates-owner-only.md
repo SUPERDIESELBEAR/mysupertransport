@@ -133,4 +133,42 @@ status to `draft`.
 - `src/test/pay-rates-owner-only.test.ts` (13 checks, all passing)
 - `docs/passes/2026-09-21-2359-pay-rates-owner-only.md` (this file)
 - `docs/passes/2026-09-21-2100-money-permissions-inventory.md` (appended correction)
+- `drizzle/migrations/0028_pay_policy_permission_subselect.sql`
 - `docs/tms-wish-list.md` (P26 and P32 done; P31 next)
+
+---
+
+## Suite, typecheck, deploy
+
+**One real defect this pass introduced and fixed.** `src/test/permission-wrapper-guard.test.ts`
+caught all six new pay-policy write policies calling `has_permission()` **bare**, so it would be
+evaluated once per row instead of once per statement. Fixed in
+`drizzle/migrations/0028_pay_policy_permission_subselect.sql` — each policy now reads
+`(SELECT public.has_permission('pay_policy.change'))`. Same rule, same permission; only the
+evaluation shape changed. Re-run: `permission-wrapper-guard`, `policy-grant-parity` and
+`pay-rates-owner-only` all pass (23 passed, 1 failed — the standing
+`grant_parity_report()` harness limitation).
+
+Full suite, `--maxWorkers=4`, verbatim:
+
+```
+ Test Files  9 failed | 202 passed | 2 skipped (213)
+      Tests  9 failed | 2123 passed | 16 skipped (2148)
+     Errors  2 errors
+   Duration  519.19s
+```
+
+That run was taken **before** the 0028 fix. Of its failures: one was the wrapper guard above
+(now fixed); one is the standing `grant-parity-live` limitation (the test role may not execute
+`grant_parity_report()`); the rest are pooler saturation at four concurrent workers —
+`psql: FATAL: (EAUTHQUERY) auth_query secret check timed out`, plus two
+`[vitest-worker]: Timeout calling "onTaskUpdate"` errors. `dispatch-settlement-schema` and
+`accessorial-adjustment-schema` re-run serially: **92 passed, 0 failed**. The standing
+`--maxWorkers=2` / per-file fallback for pooler cascades applies.
+
+`bunx tsgo --noEmit`: clean.
+
+**Deploy:** no edge function changed — none of them writes these columns. Migrations 0027 and
+0028 applied to the single Cloud instance that serves both preview and the published app, and
+were confirmed by the live proof above (throwaway rows, rolled back) and by the live-reading
+tests.
