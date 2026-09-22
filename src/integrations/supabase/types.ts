@@ -9752,6 +9752,70 @@ export type Database = {
           },
         ]
       }
+      operator_linehaul_pct_versions: {
+        Row: {
+          actor: string | null
+          company_id: string
+          created_at: string
+          effective_from: string
+          effective_to: string | null
+          id: string
+          operator_id: string
+          pct: number
+          reason: string
+          source: string
+          updated_at: string
+        }
+        Insert: {
+          actor?: string | null
+          company_id: string
+          created_at?: string
+          effective_from: string
+          effective_to?: string | null
+          id?: string
+          operator_id: string
+          pct: number
+          reason: string
+          source: string
+          updated_at?: string
+        }
+        Update: {
+          actor?: string | null
+          company_id?: string
+          created_at?: string
+          effective_from?: string
+          effective_to?: string | null
+          id?: string
+          operator_id?: string
+          pct?: number
+          reason?: string
+          source?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "operator_linehaul_pct_versions_actor_fkey"
+            columns: ["actor"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_linehaul_pct_versions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "operator_linehaul_pct_versions_operator_id_fkey"
+            columns: ["operator_id"]
+            isOneToOne: false
+            referencedRelation: "operators"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       operator_offboarding_steps: {
         Row: {
           company_id: string
@@ -15756,6 +15820,16 @@ export type Database = {
         Args: { _note: string; _operator_id: string; _value: boolean }
         Returns: Json
       }
+      set_operator_linehaul_pct: {
+        Args: {
+          _effective_from: string
+          _operator_id: string
+          _pct: number
+          _reason: string
+          _source?: string
+        }
+        Returns: string
+      }
       set_operator_parked: {
         Args: {
           _expected_return?: string
@@ -15843,6 +15917,7 @@ export type Database = {
             }
             Returns: string
           }
+      sync_operator_linehaul_pct_mirror: { Args: never; Returns: number }
       transfer_owner: { Args: { p_transfer_id: string }; Returns: undefined }
       try_notify: {
         Args: {

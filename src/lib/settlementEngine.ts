@@ -28,6 +28,7 @@
 import { chargeClassification, type LoadChargeRecord } from '@/lib/loadCharges';
 import { AWAITING_SCALE_TICKET_EXPLANATION, AWAITING_SCALE_TICKET_LABEL } from '@/lib/perTonScale';
 import { payClassOf, pctForClassification, type PayPolicyRates, type PayRateKey } from '@/lib/payTreatment';
+import { policyWithOperatorLinehaul } from '@/lib/operatorLinehaulPct';
 import type { ClassificationKey } from '@/lib/revisedRateCon';
 import {
   evaluateLoadPaperwork,
@@ -242,6 +243,14 @@ export interface SettlementComputeInput {
   companyPolicy: PayPolicyRates | null;
   /** Driver-specific assignment, when one is effective. Beats the default. */
   driverPolicy?: PayPolicyRates | null;
+  /**
+   * HIS OWN LINEHAUL PERCENTAGE, in force for the week being settled (P38).
+   * Resolved by the gathering layer from `operator_linehaul_pct_versions` against
+   * the period's start date, never against today. Null means he follows the
+   * company version's linehaul share. It replaces ONLY the linehaul column, so
+   * detention, FSC, TONU and the rest still come from the company policy.
+   */
+  operatorLinehaulPct?: number | null;
   loads: SettlementLoadInput[];
   fuel?: SettlementFuelInput[];
   deductions?: SettlementDeductionInput[];
@@ -455,6 +464,7 @@ function lineTypeForCharge(klass: ClassificationKey, isReimbursement: boolean): 
 export function computeSettlement(input: SettlementComputeInput): ComputedSettlement {
   const {
     operatorId, periodAnchorDate, settings, companyPolicy, driverPolicy,
+    operatorLinehaulPct = null,
     loads = [], fuel = [], deductions = [], advances = [], adjustments = [],
     bonuses = [],
     rmDeposit = null, carryForwardIn = 0,
@@ -502,7 +512,13 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
       continue;
     }
 
-    const policy = resolveEffectivePolicy(companyPolicy, driverPolicy, load.policyOverride);
+    // His own linehaul share replaces that ONE column on whatever policy applies
+    // (P38). Everything else on the policy stands, so a company-wide change to
+    // any other rate still reaches him.
+    const policy = policyWithOperatorLinehaul(
+      resolveEffectivePolicy(companyPolicy, driverPolicy, load.policyOverride),
+      operatorLinehaulPct,
+    );
     const releaseNote = !paperwork.complete && load.paperworkReleased
       ? ` (released${load.paperworkReleaseReason ? `: ${load.paperworkReleaseReason}` : ''})`
       : '';
@@ -568,7 +584,10 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   // rule a reimbursement-classed CHARGE follows: actual cost, and only to the
   // driver who spent it.
   {
-    const policy = resolveEffectivePolicy(companyPolicy, driverPolicy);
+    const policy = policyWithOperatorLinehaul(
+      resolveEffectivePolicy(companyPolicy, driverPolicy),
+      operatorLinehaulPct,
+    );
     for (const adj of adjustments) {
       const klass = chargeClassification(adj.chargeType);
       const where = adj.loadNumber ? `Load ${adj.loadNumber} — ` : '';

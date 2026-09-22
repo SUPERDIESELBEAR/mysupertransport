@@ -117,6 +117,20 @@ export function pctColumnForClassification(klass: PayRateKey): string {
   return String(PCT_FIELD[klass]);
 }
 
+/**
+ * The same policy with ONLY the linehaul share replaced — a driver's own dated
+ * percentage (P38, per-driver pay Pass 3).
+ *
+ * It lives HERE because this is the one module allowed to name a percentage
+ * column; `operatorLinehaulPct.ts` calls it rather than writing the column name
+ * a second time, which is the rule the source guard enforces. Nothing else on
+ * the policy is touched, so every other rate still comes from the company
+ * version in force.
+ */
+export function withLinehaulPct(policy: PayPolicyRates, pct: number): PayPolicyRates {
+  return { ...policy, linehaul_pct: pct };
+}
+
 
 
 /**

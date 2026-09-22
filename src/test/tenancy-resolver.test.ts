@@ -222,6 +222,16 @@ const B4_TABLES = [
   'truck_plate_history', 'truck_state_permits', 'vacant_units',
 ] as const;
 
+/**
+ * PER-DRIVER PAY, PASS 3 (2026-09-22), migration
+ * 0040_operator_linehaul_pct_versions.sql. Each driver's own linehaul
+ * percentage, versioned. Born tenant-stamped and restrictive — it never
+ * existed in an untenanted form, so there is no backfill to reconcile. The
+ * migration's own 157-row backfill names each driver's company_id explicitly,
+ * because a migration has no JWT and the stamp resolves NULL for it.
+ */
+const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
+
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -587,6 +597,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
       ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
+      ...PER_DRIVER_PAY_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -2252,6 +2263,12 @@ const RESTRICTIVE_DONE = [
   //   release_note_reads_read_reviewers|PERMISSIVE|SELECT|(management OR owner)
   //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
   'release_note_reads',
+  // PER-DRIVER PAY (1), 2026-09-22, migration
+  // 0040_operator_linehaul_pct_versions.sql. Born restrictive, so there is no
+  // window in which a driver's pay percentage was visible across carriers.
+  //   Management reads driver linehaul versions|PERMISSIVE|SELECT|(management OR owner)
+  //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
+  'operator_linehaul_pct_versions',
 ] as const;
 
 /**

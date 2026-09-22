@@ -28,6 +28,7 @@ import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/s
 import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
+import { operatorLinehaulVersionsQuery, linehaulPctByOperator } from '@/lib/operatorLinehaulPct';
 
 /**
  * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
@@ -168,7 +169,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
   const fromIso = `${shift(period.periodStart, -1)}T00:00:00Z`;
   const toIso = `${shift(period.periodEnd, 2)}T00:00:00Z`;
 
-  const [loadRes, existingRes, alreadySettledRes, policyRes, assignRes] = await Promise.all([
+  const [loadRes, existingRes, alreadySettledRes, policyRes, assignRes, linehaulRes] = await Promise.all([
     sb.from('loads')
       .select('id, load_number, load_type, operator_id, delivered_at, rate_type, linehaul_rate, '
         + 'rate_per_mile, loaded_miles, rate_per_ton, confirmed_tons, estimated_tons, fsc_amount, '
@@ -193,6 +194,12 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     companyPolicyVersionQuery(sb, period.periodStart),
     sb.from('pay_policy_assignments')
       .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
+    // PASS 3 — each driver's OWN linehaul percentage, in force for THIS work
+    // week (P38/P41). Resolved against `period_start`, never against today, so a
+    // recompute of a past week pays the rate that governed it. The convenience
+    // mirror on `operators.pay_percentage` is deliberately NOT read here: it
+    // holds only the current value.
+    operatorLinehaulVersionsQuery(sb, period.periodStart),
   ]);
 
   /**
@@ -229,6 +236,12 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
     const endsOk = !a.effective_end_date || a.effective_end_date >= period.periodStart;
     if (startsOk && endsOk && a.pay_policies) driverPolicies[a.operator_id] = a.pay_policies as PayPolicyRates;
   }
+
+  // A FAILED read here throws like every other gather read: silently treating it
+  // as "no override" would pay the company rate to a driver on his own rate.
+  const operatorLinehaulPcts = linehaulPctByOperator(
+    rowsOf(linehaulRes, 'operator_linehaul_pct_versions'),
+  );
 
   const loadsByOperator: Record<string, SettlementLoadInput[]> = {};
   for (const l of rowsOf(loadRes, 'loads')) {
@@ -501,6 +514,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         settings,
         companyPolicy,
         driverPolicy: driverPolicies[operatorId] ?? null,
+        operatorLinehaulPct: operatorLinehaulPcts[operatorId] ?? null,
         loads,
         fuel,
         deductions,
