@@ -12974,6 +12974,9 @@ export type Database = {
           description: string | null
           id: string
           line_type: string
+          pct_source: string | null
+          pct_version_id: string | null
+          resolved_pct: number | null
           settlement_id: string
           source_id: string | null
           source_table: string | null
@@ -12986,6 +12989,9 @@ export type Database = {
           description?: string | null
           id?: string
           line_type: string
+          pct_source?: string | null
+          pct_version_id?: string | null
+          resolved_pct?: number | null
           settlement_id: string
           source_id?: string | null
           source_table?: string | null
@@ -12998,6 +13004,9 @@ export type Database = {
           description?: string | null
           id?: string
           line_type?: string
+          pct_source?: string | null
+          pct_version_id?: string | null
+          resolved_pct?: number | null
           settlement_id?: string
           source_id?: string | null
           source_table?: string | null

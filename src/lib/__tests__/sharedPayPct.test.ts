@@ -146,6 +146,11 @@ describe('the retained Pratt settlement is unchanged by this pass', () => {
       description: 'Load ST-TEST-003 — Linehaul (per ton, from scale ticket)',
       sourceTable: 'loads',
       sourceId: 'c222d62f-3b9d-41a1-8979-be760e43e11b',
+      // PASS 4 — the rate record. A per-ton line is priced on the COMPANY
+      // per_ton column, so it names the policy version, never a driver version.
+      resolvedPct: 72,
+      pctSource: 'company_policy',
+      pctVersionId: LIVE_COMPANY_POLICY.id,
     }]);
     expect(r.grossAmount).toBe(327.94);
     expect(r.deductionsAmount).toBe(0);

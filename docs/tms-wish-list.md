@@ -1037,7 +1037,23 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
-- **Per-driver pay — PASS 3 of 5 DONE, Pass 4 next (2026-09-22 1615).** Each driver's **linehaul
+- **Per-driver pay — PART A (P42) DONE and PASS 4 of 5 DONE, Pass 5 (both screens) next
+  (2026-09-22 1650).** **P42 (owner):** a driver FOLLOWS the company linehaul rate unless the owner has
+  deliberately set his own — the Pass 3 backfill's 157 versions are closed as of 2026-09-21 (157 closed,
+  0 current, nothing deleted; the close ran through the query path with the append-only guard disabled
+  and re-enabled in the same transaction, since a migration holds no `driver_pay.change`), and
+  `sync_operator_linehaul_pct_mirror()` now shows the COMPANY rate for a driver with no version of his
+  own. This closes the Pass 3 open question. **Pass 4:** `settlement_line_items` gained `resolved_pct`,
+  `pct_source` (`driver_version` | `company_policy`) and `pct_version_id` — nullable, deliberately NOT
+  backfilled, paid settlement `f77911b0` untouched — and the engine writes all three on every new line a
+  percentage priced (header, charge and `-A1` lines), NULL on every line no percentage priced. Proved
+  rolled back through the real `store_settlement_run`: his week says `driver_version` + his version id
+  while detention still says `company_policy`; a half-record REFUSED 23514. A staff settlement detail
+  screen reads the three columns off the same row it already selects; driver-facing views never do.
+  **Still owed in Pass 5:** the Linehaul Pay card on the staff driver page and the company pay policy
+  screen calling `open_pay_policy_version`; both `AWAITING` allowlist entries come off then.
+  Report `docs/passes/2026-09-22-1650-per-driver-pay-pass-4.md`.
+- **Per-driver pay — PASS 3 of 5 DONE (2026-09-22 1615).** Each driver's **linehaul
   percentage** is now its own dated history (`operator_linehaul_pct_versions`, migration 0040):
   append-only, one current version per driver, management/owner read only — a driver never sees a
   percentage. Backfilled 157 versions at 72.00, 0 mismatched against the `operators.pay_percentage`

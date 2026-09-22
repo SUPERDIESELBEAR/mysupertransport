@@ -144,7 +144,14 @@ describe('the run resolves his version against the WEEK, not against today', () 
     expect(src).not.toMatch(/select\([^)]*pay_percentage/);
   });
 
-  it('hands the resolved percentage to the engine', () => {
-    expect(src).toContain('operatorLinehaulPct: operatorLinehaulPcts[operatorId] ?? null');
+  it('hands the resolved percentage AND its version to the engine', () => {
+    expect(src).toContain('operatorLinehaulPct: operatorLinehaul[operatorId]?.pct ?? null');
+    expect(src).toContain('operatorLinehaulVersionId: operatorLinehaul[operatorId]?.versionId ?? null');
+  });
+
+  it('persists the rate record on every line it writes', () => {
+    expect(src).toContain('resolved_pct: l.resolvedPct ?? null');
+    expect(src).toContain('pct_source: l.pctSource ?? null');
+    expect(src).toContain('pct_version_id: l.pctVersionId ?? null');
   });
 });

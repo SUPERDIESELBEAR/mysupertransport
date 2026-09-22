@@ -25,10 +25,22 @@ type LinehaulClient = any;
 
 /** One row of the driver's dated linehaul history, as the readers need it. */
 export interface OperatorLinehaulVersionRow {
+  /**
+   * The version's own id. A settlement line records it (Pass 4), so "why was he
+   * paid this percentage" is answered by the row that set it rather than by a
+   * figure with no provenance.
+   */
+  id?: string | null;
   operator_id: string;
   pct: number | string;
   effective_from: string;
   effective_to: string | null;
+}
+
+/** His percentage on the date read for, and the version it was read from. */
+export interface ResolvedOperatorLinehaul {
+  pct: number;
+  versionId: string | null;
 }
 
 export interface LinehaulReadResult {
@@ -49,7 +61,7 @@ export function operatorLinehaulVersionsQuery(
 ): PromiseLike<LinehaulReadResult> {
   return sb
     .from('operator_linehaul_pct_versions')
-    .select('operator_id, pct, effective_from, effective_to')
+    .select('id, operator_id, pct, effective_from, effective_to')
     .lte('effective_from', asOf)
     .or(`effective_to.is.null,effective_to.gte.${asOf}`) as PromiseLike<LinehaulReadResult>;
 }
@@ -67,17 +79,28 @@ const num = (v: unknown): number | null => {
  * rather than a choice to make here: the later `effective_from` wins, which is
  * the same tie-break the company resolver uses.
  */
-export function linehaulPctByOperator(
+export function linehaulByOperator(
   rows: OperatorLinehaulVersionRow[],
-): Record<string, number> {
+): Record<string, ResolvedOperatorLinehaul> {
   const bestFrom: Record<string, string> = {};
-  const out: Record<string, number> = {};
+  const out: Record<string, ResolvedOperatorLinehaul> = {};
   for (const r of rows) {
     const pct = num(r.pct);
     if (pct === null || !r.operator_id) continue;
     if (bestFrom[r.operator_id] && bestFrom[r.operator_id] > r.effective_from) continue;
     bestFrom[r.operator_id] = r.effective_from;
-    out[r.operator_id] = pct;
+    out[r.operator_id] = { pct, versionId: r.id ?? null };
+  }
+  return out;
+}
+
+/** The percentages alone, for callers that record nothing. */
+export function linehaulPctByOperator(
+  rows: OperatorLinehaulVersionRow[],
+): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const [operatorId, resolved] of Object.entries(linehaulByOperator(rows))) {
+    out[operatorId] = resolved.pct;
   }
   return out;
 }
