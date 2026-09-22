@@ -143,59 +143,23 @@ clean (tsgo --noEmit emitted no errors)
 Full suite with `--maxWorkers=2`:
 
 ```text
-writer’s own output > renders the stored verdict without throwing  304ms
-psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (44.238.118.41), port 6543 failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
- ✓ src/hooks/__tests__/useViewPreferences.test.tsx (4 tests) 502ms
- ✓ src/components/fleet/__tests__/UnitNumberPoolPanel.test.tsx (9 tests) 1349ms
-   ✓ UnitNumberPoolPanel > moves the focus to a held lookup result  392ms
-   ✓ UnitNumberPoolPanel > moves the focus to a free lookup result  394ms
- ✓ src/lib/eld/offline/__tests__/drainOrdering.test.ts (2 tests) 121ms
- ✓ src/lib/__tests__/fuelDiscountPassthroughOverride.test.ts (7 tests) 14ms
- ❯ src/test/onboarding-test-login.test.ts (11 tests | 1 failed) 8403ms
-   × the onboarding-only test login is real, single-role and harmless > the profile exists, is active, and is flagged as a test account 1937ms
-     → Command failed: psql -At -c 
-      SELECT account_status || '|' || is_test_account || '|' || is_demo
-        FROM public.profiles WHERE user_id = 'bc0bf6aa-8e61-4ef6-ad03-62e655231898';
-    
+FAIL  src/test/accessorial-adjustment-schema.test.ts > accessorial_adjustments — the settlement seam > the settlement writer stamps BOTH pointers when it pays an adjustment
+psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (35.160.209.8), port 6543 failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
+
+FAIL  src/test/dispatch-settlement-schema.test.ts > dispatch settlement — the fixture carrier > carrier_profile holds exactly one row for USDOT 2309365
+psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (35.160.209.8), port 6543 failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
+
+FAIL  src/test/equipment-receipt-confirmation.test.ts > equipment receipt — live schema > at most one open confirmation per operator
+psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (54.70.143.232), port 6543 failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
+
+FAIL  src/test/onboarding-test-login.test.ts > the onboarding-only test login is real, single-role and harmless > the profile exists, is active, and is flagged as a test account
 psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (44.238.118.41), port 6543 failed: FATAL:  (EAUTHQUERY) auth_query secret check timed out
 
-   ✓ the onboarding-only test login is real, single-role and harmless > it holds EXACTLY one role, onboarding_staff  1066ms
-   ✓ the onboarding-only test login is real, single-role and harmless > it is a member of exactly one company — a staff role without membership works for nobody  1061ms
-   ✓ the onboarding-only test login is real, single-role and harmless > its address is suppressed, so no email can ever reach it  1084ms
-   ✓ the onboarding-only test login is real, single-role and harmless > no driver is assigned to it, and it carries no birthday for the greeting jobs  2145ms
-   ✓ the onboarding-only test login is real, single-role and harmless > onboarding_staff holds NO change-kind grant, and only the two view grants  1092ms
-   ✓ the onboarding-only test login is real, single-role and harmless > a test account is never offered as a coordinator 2ms
-   ✓ the onboarding-only test login is real, single-role and harmless > a test account is never offered as a notification assignee 1ms
-   ✓ the onboarding-only test login is real, single-role and harmless > a test account carries no onboarding workload and is never auto-assigned 1ms
-   ✓ the onboarding-only test login is real, single-role and harmless > the staff list reports the flag and the Staff Directory badges it 1ms
-   ✓ the onboarding-only test login is real, single-role and harmless > no password for the account is committed to the repository 8ms
- ✓ src/lib/eld/offline/queue/__tests__/retryBudget.test.ts (4 tests) 18ms
- ✓ src/lib/__tests__/settlementLineRateRecord.test.ts (9 tests) 8ms
- ✓ src/components/dispatch/broker/__tests__/brokerRelationshipReaders.test.tsx (4 tests) 288ms
- ✓ src/lib/eld/offline/__tests__/divergenceReconcile.test.ts (3 tests) 37ms
- ✓ src/lib/__tests__/invoiceBuilder.test.ts (12 tests) 12ms
- ✓ src/lib/eld/offline/__tests__/roadsideImportGraph.test.ts (4 tests) 18ms
- ✓ src/components/dispatch/loadDetail/__tests__/stopTimeEntry.test.tsx (6 tests) 413ms
- ✓ src/test/pay-rates-owner-only.test.ts (13 tests) 8ms
- ✓ src/test/operator-pay-exposure.test.ts (5 tests) 5291ms
-   ✓ operator pay exposure > no SELECT policy on pay_policies admits the operator role  1087ms
-   ✓ operator pay exposure > no percentage or gross column is operator-readable unscoped  1076ms
-   ✓ operator pay exposure > the driver's estimate function returns dollars only  1075ms
-   ✓ operator pay exposure > the estimate function is definer, pinned, and not PUBLIC  1068ms
-   ✓ operator pay exposure > the function body never selects a percentage column out  979ms
- ✓ src/components/dispatch/loadDetail/__tests__/loadChargesCard.test.tsx (4 tests) 752ms
-   ✓ LoadChargesCard against real query output > renders stored charges with their pay treatment  582ms
- ✓ src/test/operator-settlement-isolation.test.ts (5 tests) 5306ms
-   ✓ operator settlement isolation > every permissive settlement SELECT policy for authenticated is self-scoped  992ms
-   ✓ operator settlement isolation > the one excluded policy is SELECT-only and gated on the permission  1079ms
-   ✓ operator settlement isolation > anon holds no privilege on any settlement table  1071ms
-   ✓ operator settlement isolation > the deposit function is definer, pinned, and not PUBLIC  1076ms
-   ✓ operator settlement isolation > the deposit function returns the caller's balance only  1083ms
- ✓ src/components/dispatch/loadDetail/__tests__/stopTimePicker.test.tsx (9 tests) 425ms
- ✓ src/lib/fuel/__tests__/fuelBucketSourceGuard.test.ts (6 tests) 19ms
- ✓ src/test/archived-applicants.test.ts (16 tests) 3257ms
-   ✓ applied database change > carries the archived value on the live enum  1082ms
-   ✓ applied database change > moved the pipeline-archived rows off denied and stripped the note prefix  2164ms
+Test Files  4 failed | 214 passed | 2 skipped (220)
+Tests       4 failed | 2201 passed | 16 skipped (2221)
+Errors      2 errors
+Start at    19:39:25
+Duration    587.86s (transform 7.42s, setup 26.69s, collect 42.89s, tests 829.14s, environment 174.87s, prepare 28.23s)
 ```
 
 The full suite completed with four transient pooler `EAUTHQUERY auth_query secret check timed out` failures in unrelated live-database checks. The Pass 5 focused screen/reachability guards passed, and typecheck was clean.
