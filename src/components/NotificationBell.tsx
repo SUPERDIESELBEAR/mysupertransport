@@ -168,6 +168,7 @@ export default function NotificationBell({
     dispatch_status_change: { icon: Truck,            bg: 'bg-muted',      color: 'text-muted-foreground' },
     compliance_update:      { icon: ShieldCheck,      bg: 'bg-sky-100',    color: 'text-sky-600' },
     release_note:           { icon: Megaphone,        bg: 'bg-purple-100', color: 'text-purple-600' },
+    release_note_pending:   { icon: Megaphone,        bg: 'bg-gold/15',    color: 'text-gold' },
     pay_setup_submitted:    { icon: Banknote,         bg: 'bg-gold/15',    color: 'text-gold' },
     eld_sync_alert:         { icon: AlertTriangle,    bg: 'bg-red-100',    color: 'text-red-500' },
   };

@@ -212,7 +212,7 @@ export default function ManagementPortal() {
   const { session, isOwner } = useAuth();
   const pendingOwnerTransferForMe = usePendingOwnerTransfer();
   const { isDemo, enterDemo, exitDemo, guardDemo } = useDemoMode();
-  const { unread: unreadReleaseNotes } = useUnreadReleaseNotes();
+  const { unread: unreadReleaseNotes, pendingCount: pendingReleaseNotes } = useUnreadReleaseNotes();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<ManagementView>(() => {
     // `view` is canonical for this portal. `tab` is a COMPATIBILITY SHIM for
@@ -1353,6 +1353,15 @@ export default function ManagementPortal() {
                     {section.path === 'whats-new' && unreadReleaseNotes.length > 0 && (
                       <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-gold text-[10px] font-semibold text-white h-4 min-w-4 px-1">
                         {unreadReleaseNotes.length}
+                      </span>
+                    )}
+                    {/* Announcements waiting for approval — reviewers only. */}
+                    {section.path === 'whats-new' && pendingReleaseNotes > 0 && (
+                      <span
+                        title={`${pendingReleaseNotes} waiting for your approval`}
+                        className="ml-1.5 inline-flex items-center justify-center rounded-full border border-gold/40 bg-gold/15 text-[10px] font-semibold text-gold h-4 min-w-4 px-1"
+                      >
+                        {pendingReleaseNotes}
                       </span>
                     )}
                   </button>

@@ -81,6 +81,10 @@ export const NOTIF_TAXONOMY: Record<string, NotifMeta> = {
 
   // System
   release_note:               { tier: 'watch',  category: 'system',       label: "What's New" },
+  // Owner-only: an announcement is sitting in the approval queue. Registered
+  // here before the trigger can write it, or it renders as a bare
+  // "Notification" on the FYI tab and is never seen.
+  release_note_pending:       { tier: 'action', category: 'system',       label: 'Update Awaiting Approval' },
 
   // Team / assignments
   assignment:                 { tier: 'action', category: 'team',         label: 'Assigned to You' },

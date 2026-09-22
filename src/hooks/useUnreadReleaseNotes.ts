@@ -19,14 +19,32 @@ export function useUnreadReleaseNotes() {
   const { session, roles, isStaff } = useAuth();
   const userId = session?.user?.id ?? null;
   const [unread, setUnread] = useState<ReleaseNote[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
   const [loading, setLoading] = useState(true);
+
+  // Announcements waiting for the owner's approval. The SELECT policy already
+  // limits pending rows to management and the owner, so anyone else reads zero.
+  const canReview = roles.includes('owner') || roles.includes('management');
 
   const load = useCallback(async () => {
     if (!userId || !isStaff) {
       setUnread([]);
+      setPendingCount(0);
       setLoading(false);
       return;
     }
+
+    if (canReview) {
+      const { count } = await notesDb
+        .from('release_notes')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      setPendingCount(count ?? 0);
+    } else {
+      setPendingCount(0);
+    }
+
+
 
     const { data: notes, error } = await notesDb
       .from('release_notes')
@@ -67,7 +85,7 @@ export function useUnreadReleaseNotes() {
       }),
     );
     setLoading(false);
-  }, [userId, isStaff, roles]);
+  }, [userId, isStaff, roles, canReview]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -89,5 +107,5 @@ export function useUnreadReleaseNotes() {
     setUnread(prev => prev.filter(n => n.id !== noteId));
   }, [userId]);
 
-  return { unread, loading, markRead, refresh: load };
+  return { unread, pendingCount, loading, markRead, refresh: load };
 }

@@ -114,3 +114,49 @@ describe('unread pop-up', () => {
     expect(HOOK).toContain(".eq('status', 'approved')");
   });
 });
+
+/**
+ * Owner alert for a pending announcement.
+ *
+ * The trigger is staged in this draft and lands when the draft is accepted, so
+ * these checks read the staged migration and the client code. They fail on the
+ * old behaviour, where a pending draft notified nobody at all.
+ */
+const PENDING_MIGRATION = readFileSync(
+  join(ROOT, '.lovable/drafts/var_01m32gk4s5e59vb0a11jbzd2tr/migrations/20260921180000_notify_owner_pending_release_note.sql'),
+  'utf8',
+);
+const TAXONOMY = readFileSync(join(ROOT, 'src/lib/notifications/taxonomy.ts'), 'utf8');
+const PORTAL = readFileSync(join(ROOT, 'src/pages/management/ManagementPortal.tsx'), 'utf8');
+
+describe('pending announcement alerts the owner', () => {
+  it('fires only when a note is pending, on insert and on the move into pending', () => {
+    expect(PENDING_MIGRATION).toContain("FOR EACH ROW WHEN (NEW.status = 'pending')");
+    expect(PENDING_MIGRATION).toContain("FOR EACH ROW WHEN (NEW.status = 'pending' AND OLD.status <> 'pending')");
+  });
+
+  it('writes to the owner role only', () => {
+    expect(PENDING_MIGRATION).toContain("WHERE ur.role = 'owner'");
+    expect(PENDING_MIGRATION).not.toMatch(/'dispatcher'|'onboarding_staff'|'operator'/);
+  });
+
+  it('stays in-app — no email on the pending path', () => {
+    expect(PENDING_MIGRATION).not.toMatch(/net\.http_post/);
+    expect(PENDING_MIGRATION).toContain("'in_app'");
+  });
+
+  it('pins search_path and closes EXECUTE to anon and authenticated', () => {
+    expect(PENDING_MIGRATION).toContain('SET search_path = public, extensions');
+    expect(PENDING_MIGRATION).toContain('FROM anon');
+    expect(PENDING_MIGRATION).toContain('FROM authenticated');
+  });
+
+  it('registers the notification type so it is not rendered as a bare notification', () => {
+    expect(TAXONOMY).toMatch(/release_note_pending:\s*\{[^}]*label: 'Update Awaiting Approval'/);
+  });
+
+  it('shows a waiting-for-approval count on the What\'s New menu entry', () => {
+    expect(PORTAL).toContain('pendingCount: pendingReleaseNotes');
+    expect(PORTAL).toContain('pendingReleaseNotes > 0');
+  });
+});
