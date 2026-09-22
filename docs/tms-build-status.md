@@ -19054,3 +19054,62 @@ Owner decisions **P27-P34**, and part one of the money permissions slice built.
   open. Nothing committed; the one real dispatch settlement untouched.
 
 Report: `docs/passes/2026-09-21-2317-settlement-void-keeps-record.md`.
+
+## 2026-09-21 23:59 UTC — pay rates are the owner's alone (P26, P32 REVISED, P35)
+
+Recorded late: this entry and the P36 entry below were written into their own pass reports and
+into the wish list on the day, but not into this file. Added 2026-09-22 12:30 UTC, unchanged
+from the reports they cite.
+
+- **P26 and P32 built.** `pay_policy.change` and `driver_pay.change` registered in
+  `permission_actions` with **no `role_permissions` row** and deliberately absent from
+  `seed_role_permissions`, so only the owner short-circuit in `has_permission()` passes them.
+  `pay_policies` and `pay_policy_assignments` write policies now require `pay_policy.change`;
+  reads are unchanged.
+- **P32 REVISED.** The original P32 rested on the 21:00 inventory's wrong claim that
+  `contractor_pay_setup` holds pay figures. It holds none — it is an onboarding entry the driver
+  fills in himself. It is left **entirely alone**.
+- **P35.** Each percentage follows its own document. `ica_contracts.linehaul_split_pct` becomes
+  owner-only once the agreement is sent for signature or later (any status other than `draft`),
+  enforced by `ab_guard_ica_linehaul_split`. `operators.pay_percentage` is owner-only **at all
+  times**, enforced by `ab_guard_operator_pay_percentage`. Both are BEFORE UPDATE and both
+  `RETURN NEW` for service-role callers, per design (d).
+- **Recorded for the versioning pass:** a driver's contracted percentage lives in **two** places
+  — the agreement and the driver record — and nothing keeps them in step.
+- One defect this pass introduced and fixed: all six new write policies called
+  `has_permission()` bare, so it would be evaluated per row rather than per statement. Migration
+  0028 wraps each in `(SELECT ...)`.
+
+Report: `docs/passes/2026-09-21-2359-pay-rates-owner-only.md`. Migrations 0027, 0028.
+
+## 2026-09-22 11:00 UTC — an agreement's status only moves forward (P36)
+
+**P36 — an agreement's status only moves forward; only the owner may move it back.**
+
+- **The bypass, proved live before it was closed.** `ICABuilderModal` wrote `status: 'draft'` on
+  EVERY update. As Leo, saving a **sent** agreement through the builder's own payload was
+  accepted and set the status back to `draft`; the percentage then changed freely, because
+  0027's split guard only locks once the status is something other than `draft`. It also
+  silently un-sent an agreement a driver had already been asked to sign.
+- **Migration 0029.** `ab_guard_ica_status_forward_only`, BEFORE UPDATE on `ica_contracts`,
+  SECURITY DEFINER with a pinned `search_path`. Ranks `draft` 0 → `sent_to_operator` 1 →
+  `fully_executed` 2 → `complete` 3 and refuses any backward move unless the caller holds
+  `driver_pay.change` — the owner. `auth.uid() IS NULL` returns early, so a service-role writer
+  checks its own caller, per design (d). No new permission action: this is the same protection
+  as P35, reached a different way. Ordering: `aa_guard_ica_contract_terms` (0023), then
+  `ab_guard_ica_linehaul_split` (0027), then this one.
+- **Builder.** Both save paths dropped `status` from the update payload; `'draft'` is written
+  only when an agreement is created. Every other writer of `ica_contracts.status` was checked
+  and is forward-only: the send path → `sent_to_operator`, `OperatorICASign` →
+  `fully_executed`, `RecordPaperIcaModal` inserts `complete`; `truckSync` mirrors no status and
+  the deactivation wizard voids via `voided_at`. No edge function writes it.
+- Proved in one transaction that raised: the new payload accepted with the status still
+  `sent_to_operator`; a direct move to `draft` refused for Leo and for Mae; the percentage still
+  refused (P35 holds); Marcus accepted; the forward path draft → sent → executed → complete
+  working end to end.
+- Jobs read the same day: `rollover-dispatch-status` 200 with `checked` 33 / `promoted` 0 (33,
+  not 34, because only 33 of the 43 eligible active operators have any dispatch log row — the
+  eligible set shifted); `notify-idle-operators` read before its 15:00 run, 0 new
+  `operator_idle` notifications against 72 the day before.
+
+Report: `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`. Migration 0029.

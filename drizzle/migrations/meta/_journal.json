@@ -225,6 +225,13 @@
       "when": 1790076603724,
       "tag": "0031_notify_owner_pending_release_note",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1790079956648,
+      "tag": "0032_sandbox_parity_execute_self_heals",
+      "breakpoints": true
     }
   ]
 }

@@ -60,6 +60,29 @@ function psql(sql: string): string[] {
  * report reads every table's grants.
  */
 describe("live grant / policy parity", () => {
+  /**
+   * 2026-09-22: the grant kept being LOST, not mis-made. The harness connects as
+   * the bare role `sandbox_exec`, and the sandbox drops and recreates that role,
+   * taking every grant attached to its OID with it — which is why 0004 and 0008
+   * both read true when applied and false later. Migration 0032 adds
+   * regrant_sandbox_parity_execute(), a definer function that restores EXECUTE
+   * to the sandbox roles only; it is safe for anyone to call because it can
+   * grant nothing to its caller. Calling it here means the next role recreation
+   * costs nothing instead of turning this file red.
+   *
+   * This does NOT weaken the check. The report is still service_role-only for
+   * every client role, and the assertion below is unchanged: if it cannot be
+   * read, this file still goes red rather than skipping.
+   */
+  itLive("EXECUTE is restored to the harness role after a sandbox recreation", () => {
+    expect(psql("select public.regrant_sandbox_parity_execute() is not null")).toEqual(["t"]);
+    expect(
+      psql(
+        "select has_function_privilege(current_user, 'public.grant_parity_report()', 'EXECUTE')",
+      ),
+    ).toEqual(["t"]);
+  });
+
   itLive("grant_parity_report() exists and is readable from the catalog", () => {
     const rows = psql(
       "select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace " +
