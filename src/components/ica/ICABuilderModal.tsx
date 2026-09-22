@@ -699,7 +699,11 @@ export default function ICABuilderModal({
                 <div className="flex items-center gap-4 p-4 bg-gold/5 border border-gold/20 rounded-xl">
                   <div className="flex-1">
                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Owner-Operator Linehaul Split (%)</Label>
-                    <p className="text-xs text-muted-foreground mt-0.5">Contractor's share of adjusted gross linehaul revenue</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {payLocked
+                        ? 'This agreement has already been sent for signature. Only the owner can change the contracted split now.'
+                        : "Contractor's share of adjusted gross linehaul revenue"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Input
@@ -708,6 +712,9 @@ export default function ICABuilderModal({
                       max={100}
                       value={data.linehaul_split_pct}
                       onChange={e => set('linehaul_split_pct', parseInt(e.target.value) || 72)}
+                      readOnly={payLocked}
+                      disabled={payLocked}
+                      title={payLocked ? 'Only the owner can change the contracted split once the agreement has been sent.' : undefined}
                       className="w-20 text-center font-bold text-lg h-10"
                     />
                     <span className="text-lg font-bold text-gold">%</span>
