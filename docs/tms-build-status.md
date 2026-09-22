@@ -19277,3 +19277,38 @@ still holding the old index predicate. Both updated to the new shape; the third,
 passed. Typecheck clean.
 
 Report: `docs/passes/2026-09-22-1445-per-driver-pay-pass-2.md`.
+
+## 2026-09-22 16:15 UTC — Per-driver pay, PASS 3 of 5: each driver's linehaul percentage, versioned
+
+`operator_linehaul_pct_versions` (migration 0040): one dated version per driver, append-only — `pct`
+and `effective_from` frozen, only `effective_to` on the current version may be set, DELETE refused for
+everyone including the owner. Unique index `operator_linehaul_pct_single_current`, so a driver can
+never hold two current rates. Born tenant-stamped and restrictive; management/owner read only — a
+driver never sees a percentage. Backfilled **157** versions at 72.00, `source backfill`, all current,
+**0** mismatched against `operators.pay_percentage`.
+
+One owner-only writer, `set_operator_linehaul_pct(...)`: `driver_pay.change` (no role grants), a reason
+required, back-dating refused, closes the current version the day before and opens the new one in one
+statement. `operators.pay_percentage` is mirrored only when the new version starts today or earlier;
+`sync_operator_linehaul_pct_mirror()` catches a future-dated change up on its start date (cron
+`sync-operator-linehaul-pct-mirror`, `10 5 * * *`). The forecast reads that mirror; settlements never
+do.
+
+Settlements now pay LINEHAUL from his version (P38), resolved against the WORK WEEK's start, never
+against today (P41). One shared resolver, `src/lib/operatorLinehaulPct.ts`; only `linehaul_pct` is
+replaced, so detention, FSC, TONU, lumper, stop-off, per-ton and loadout still follow the company
+version company-wide. A per-ton load is untouched by a linehaul version — asserted.
+
+**Nothing moved:** 1 policy version at 72.00; settlement `f77911b0` still paid, 327.94/327.94; dispatch
+rates 100/100/72; 0 of 157 operators off 72, so no forecast figure moved.
+
+**A finding raised, not smoothed over.** With a backfill version for all 157 drivers, a future
+company-wide LINEHAUL change reaches nobody — each driver's own version wins. That is what option (c)
+plus a per-driver backfill means; the alternative is to backfill no one and let NULL mean "follow the
+company". Put to the owner, unchanged pending his answer. Every other rate is unaffected.
+
+**Full suite** (`--maxWorkers=2`): `Test Files 1 failed | 215 passed | 2 skipped (218)`, `Tests 1
+failed | 2190 passed | 16 skipped (2207)`. The one failure was `dispatch-settlement-schema`, the
+familiar pooler `EAUTHQUERY` timeout; re-run alone: 35 passed. Typecheck clean.
+
+Report: `docs/passes/2026-09-22-1615-per-driver-pay-pass-3.md`.
