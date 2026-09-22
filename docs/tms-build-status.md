@@ -19113,3 +19113,52 @@ Report: `docs/passes/2026-09-21-2359-pay-rates-owner-only.md`. Migrations 0027, 
   `operator_idle` notifications against 72 the day before.
 
 Report: `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`. Migration 0029.
+
+## 2026-09-22 13:45 UTC — per-driver pay, DESIGNED (P37–P41; absorbs P31)
+
+Design only. No migration, no code, no data. Full suite skipped — documentation-only pass.
+
+**The owner's decisions.**
+
+- **P37.** A driver's linehaul percentage is set on his **staff-side driver page** (Management /
+  Staff driver detail), not in the driver's app. Changing it is **owner only** (`driver_pay.change`).
+- **P38.** Settlements pay a driver's **linehaul** from **his** percentage. Every other rate (FSC,
+  detention, layover, TONU, stop-off, lumper and the rest) follows the **company pay policy** unless
+  a driver-specific override is set later.
+- **P39.** The agreement builder **fills in** the percentage from the driver page. If a signed
+  agreement and the driver page disagree, the system **flags it** and never silently pays one.
+- **P40.** The fuel discount pass-through stays in **Management → Settlement Settings**,
+  company-wide plus driver exceptions, exactly as built 2026-09-11. Unchanged.
+- **P41 (answers the P31 stop).** Pay history is kept: a percentage change takes effect **from a
+  date** and a past work week is always calculated with the rate in force for that week. **Only the
+  percentages are versioned**; the fuel pass-through stays an in-place setting.
+  `pay_policies_single_company_default` is **re-scoped to current versions only**, as P34 did for
+  dispatch settlements.
+
+**Starting point, counted live:** `ica_contracts.linehaul_split_pct` 72 on all 65 rows;
+`operators.pay_percentage` 72 on all 157; `pay_policies.linehaul_pct` 72.00 on the one row.
+**Nothing differs from 72** — so any change of resolution order that moves a figure is a defect by
+definition.
+
+**Contradiction check: no stop.** P40 and P41 match the live system and the 1230 report's own
+recommendation. P37, P38 and P39 describe behaviour that does not exist yet, which is the work:
+`operators.pay_percentage` has **no UI anywhere** and is read **only** by the driver's earnings
+forecast; settlements read `pay_policies` alone; `ICABuilderModal` defaults the agreement percentage
+to a **hardcoded 72** and never reads the driver record; no mismatch flag exists.
+
+**Recommended option (c), of three laid out:** version `pay_policies` per P41, **plus** a
+linehaul-only dated driver override (`operator_linehaul_pct_versions`, append-only, owner-gated RPC,
+`operators.pay_percentage` kept as the current value so the forecast and the P35 guard are
+unchanged). Rejected: (a) a standalone driver history table — a second source of pay truth beside
+`pay_policies`; (b) per-driver copied policies via `pay_policy_assignments` — 157 near-duplicate
+rows, and a later company change to detention would silently not reach a driver, contradicting P38.
+
+**Build order, five passes:** date-test all eleven readers while one version still exists → version
+the company policy (index re-scope, append-only guard) → the driver linehaul version table and its
+writer → `pay_policy_id` / `resolved_pct` / `pct_source` on `settlement_line_items` (matching what
+dispatch settlements already store) → the screens. **No second version may be created until pass one
+is green** (the 1230 report's contradiction C, read as a sequencing rule). Every pass proves the one
+driver settlement still 327.94, the dispatch verdicts' stored percentages, Steve's screens and the
+forecast unchanged.
+
+Report: `docs/passes/2026-09-22-1345-per-driver-pay-design.md`.
