@@ -37,6 +37,7 @@ import {
   type DispatchSettlementResult,
 } from '@/lib/dispatchSettlement';
 import { pctColumnForClassification, type PayPolicyRates } from '@/lib/payTreatment';
+import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
 import {
   monthOf,
   currentCarrierMonth,
@@ -108,7 +109,9 @@ export async function gatherDispatchMonth(
       .select('id, label, amount, is_active, effective_from, effective_to')
       .eq('is_active', true)
       .lte('effective_from', monthStart),
-    sb.from('pay_policies').select('*').eq('is_company_default', true).maybeSingle(),
+    // PASS 1 — the version in force for the MONTH being settled, through the
+    // one shared resolver. Previously an undated `.maybeSingle()`.
+    companyPolicyVersionQuery<PayPolicyRates>(sb, monthStart),
     sb.from('pay_policy_assignments')
       .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
     // READER 1 — the "does this month already have one?" lookup. P34: voided

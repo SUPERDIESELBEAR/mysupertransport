@@ -11,6 +11,7 @@
  * It resolves a SETTING. It computes no money.
  */
 import { supabase } from '@/integrations/supabase/client';
+import { fetchCompanyPolicyVersion, todayAsOf } from '@/lib/payPolicyVersion';
 
 export function resolveDiscountPassthrough(
   override: boolean | null | undefined,
@@ -21,11 +22,11 @@ export function resolveDiscountPassthrough(
 
 /** The company default policy's value. Staff-only read; drivers never call it. */
 export async function fetchCompanyDiscountPassthrough(): Promise<boolean | null> {
-  const { data } = await supabase
-    .from('pay_policies')
-    .select('fuel_discount_passthrough')
-    .eq('is_company_default', true)
-    .maybeSingle();
+  // PASS 1 — the version in force TODAY, through the one shared resolver.
+  // The switch itself is NOT versioned (P41: only the percentages are), but it
+  // is read OFF a policy row, so which row answers still has to be the right one.
+  const data = await fetchCompanyPolicyVersion<{ fuel_discount_passthrough: boolean | null }>(
+    supabase, todayAsOf());
   return data?.fuel_discount_passthrough ?? null;
 }
 

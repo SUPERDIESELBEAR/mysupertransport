@@ -37,6 +37,8 @@ function fakeClient(tables: Record<string, any[]>, failTable = '__none__') {
       select: () => chain,
       eq: () => chain, not: () => chain, is: () => chain,
       gte: () => chain, lte: () => chain, lt: () => chain,
+      // The dated pay-policy resolver (per-driver pay, Pass 1) uses both.
+      or: () => chain, limit: () => chain,
       order: () => chain,
       maybeSingle: async () => (failed ? { data: null, error: err } : { data: rows[0] ?? null, error: null }),
       then: (res: any, rej: any) =>

@@ -55,7 +55,8 @@ const result = (over = {}) => computeDispatchSettlement({
 function fakeClient(tables: Record<string, unknown>) {
   const chain = (rows: unknown) => {
     const self: Record<string, unknown> = {};
-    for (const m of ['select', 'eq', 'neq', 'not', 'gte', 'lt', 'lte', 'order', 'in']) {
+    // 'or' and 'limit' are here because the dated pay-policy resolver uses both.
+    for (const m of ['select', 'eq', 'neq', 'not', 'gte', 'lt', 'lte', 'order', 'in', 'or', 'limit']) {
       self[m] = () => self;
     }
     self.maybeSingle = () => Promise.resolve({ data: Array.isArray(rows) ? rows[0] ?? null : rows, error: null });

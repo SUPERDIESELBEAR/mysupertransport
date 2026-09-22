@@ -27,6 +27,7 @@ import { workPeriodForDate, deliveredInPeriod, carrierDateOf, type WorkPeriod } 
 import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/settlementPopulation';
 import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
+import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
 
 /**
  * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
@@ -184,7 +185,12 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
       .select('id, operator_id, status, net_amount')
       .eq('period_start', period.periodStart),
     sb.from('settlement_line_items').select('source_table, source_id, settlements(period_start)'),
-    sb.from('pay_policies').select('*').eq('is_company_default', true).maybeSingle(),
+    // PASS 1 — the company default is the VERSION IN FORCE FOR THIS WORK WEEK,
+    // resolved through the one shared resolver. It was an undated
+    // `.maybeSingle()`, which would have ERRORED the whole run the moment a
+    // second version existed, and a recompute of a past week would otherwise
+    // have re-read whatever rate happens to be current now.
+    companyPolicyVersionQuery(sb, period.periodStart),
     sb.from('pay_policy_assignments')
       .select('operator_id, effective_start_date, effective_end_date, pay_policies(*)'),
   ]);

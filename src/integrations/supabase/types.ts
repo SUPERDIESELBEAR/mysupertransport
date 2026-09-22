@@ -10430,6 +10430,8 @@ export type Database = {
           description: string | null
           detention_pct: number
           effective_date: string
+          effective_from: string | null
+          effective_to: string | null
           fsc_pct: number
           fuel_discount_passthrough: boolean
           id: string
@@ -10455,6 +10457,8 @@ export type Database = {
           description?: string | null
           detention_pct?: number
           effective_date?: string
+          effective_from?: string | null
+          effective_to?: string | null
           fsc_pct?: number
           fuel_discount_passthrough?: boolean
           id?: string
@@ -10480,6 +10484,8 @@ export type Database = {
           description?: string | null
           detention_pct?: number
           effective_date?: string
+          effective_from?: string | null
+          effective_to?: string | null
           fsc_pct?: number
           fuel_discount_passthrough?: boolean
           id?: string
@@ -14609,6 +14615,42 @@ export type Database = {
           _rows: Json
         }
         Returns: Json
+      }
+      company_pay_policy_on: {
+        Args: { _as_of: string }
+        Returns: {
+          charge_pay_classes: Json
+          company_id: string
+          created_at: string
+          created_by: string | null
+          description: string | null
+          detention_pct: number
+          effective_date: string
+          effective_from: string | null
+          effective_to: string | null
+          fsc_pct: number
+          fuel_discount_passthrough: boolean
+          id: string
+          is_active: boolean
+          is_company_default: boolean
+          layover_pct: number
+          linehaul_pct: number
+          loadout_pct: number
+          lumper_reimbursement_pct: number
+          name: string
+          other_accessorial_pct: number
+          per_ton_pct: number
+          stopoff_pct: number
+          tonu_pct: number
+          updated_at: string
+          updated_by: string | null
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "pay_policies"
+          isOneToOne: false
+          isSetofReturn: true
+        }
       }
       compute_dispatch_settlement: {
         Args: { p_mode?: string; p_month: string; p_result: Json }

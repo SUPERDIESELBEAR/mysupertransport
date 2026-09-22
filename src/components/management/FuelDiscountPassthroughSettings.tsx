@@ -17,6 +17,7 @@
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { companyPolicyVersionQuery, todayAsOf } from '@/lib/payPolicyVersion';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -67,9 +68,12 @@ export default function FuelDiscountPassthroughSettings() {
   const load = useCallback(async () => {
     setLoading(true);
     const [policy, options, overrides] = await Promise.all([
-      supabase.from('pay_policies')
-        .select('id, fuel_discount_passthrough')
-        .eq('is_company_default', true).maybeSingle(),
+      // PASS 1 — the company-default VERSION IN FORCE TODAY, through the one
+      // shared resolver. The toggle below still writes this row IN PLACE, which
+      // is P41 as decided: only the percentages are versioned, the pass-through
+      // switch is a setting. What changed is only WHICH row answers.
+      companyPolicyVersionQuery<{ id: string; fuel_discount_passthrough: boolean | null }>(
+        supabase, todayAsOf()),
       fetchOperatorOptions(),
       supabase.from('operators').select('id, fuel_discount_passthrough_override').limit(1000),
     ]);

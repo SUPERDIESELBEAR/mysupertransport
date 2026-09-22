@@ -1,5 +1,6 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { ClassificationKey } from '@/lib/revisedRateCon';
+import { fetchCompanyPolicyVersion, todayAsOf } from '@/lib/payPolicyVersion';
 
 /**
  * What a classification does to the driver's settlement, read from the pay
@@ -198,14 +199,9 @@ export async function fetchEffectivePayPolicy(
     if (policy) return policy;
   }
 
-  const { data: def } = await supabase
-    .from('pay_policies')
-    .select(POLICY_COLUMNS)
-    .eq('is_company_default', true)
-    .eq('is_active', true)
-    .order('effective_date', { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  return (def as unknown as PayPolicyRates | null) ?? null;
+  // PASS 1 — through the one shared resolver, resolved against TODAY. The old
+  // read was `ORDER BY effective_date DESC LIMIT 1`, which would have picked a
+  // version dated in the FUTURE the moment one existed: a rate that has not
+  // started yet, shown on a screen as though it had.
+  return await fetchCompanyPolicyVersion<PayPolicyRates>(supabase, todayAsOf());
 }
