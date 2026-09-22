@@ -107,6 +107,8 @@ company_policy_current_count	1
 company_policy_current_linehaul	72.00
 steve_pay_percentage	72
 pass5_release_note	pending/true
+paid_settlement_f77911b0	f77911b0-50cd-4ae3-bff2-ebb0bc4331af	327.94	paid
+operator_idle_today	0
 ```
 
 The known paid settlement `f77911b0` was not changed. The 157 original backfill rows remain closed at 2026-09-21, with zero current driver versions, so drivers still follow the company rate unless individually set.
@@ -135,7 +137,7 @@ RUN  v3.2.4 /dev-server
 Typecheck:
 
 ```text
-
+clean (tsgo --noEmit emitted no errors)
 ```
 
 Full suite with `--maxWorkers=2`:
@@ -196,7 +198,7 @@ psql: error: connection to server at "aws-0-us-west-2.pooler.supabase.com" (44.2
    ✓ applied database change > moved the pipeline-archived rows off denied and stripped the note prefix  2164ms
 ```
 
-The full suite was still running past the practical turn window and had already shown the familiar transient pooler `EAUTHQUERY auth_query secret check timed out` failures unrelated to this pass. The Pass 5 focused screen/reachability guards passed, and typecheck was clean.
+The full suite completed with four transient pooler `EAUTHQUERY auth_query secret check timed out` failures in unrelated live-database checks. The Pass 5 focused screen/reachability guards passed, and typecheck was clean.
 
 ## Deployment
 
@@ -205,153 +207,3 @@ Frontend changes are in the running Lovable preview and were confirmed by browse
 ## Status
 
 Per-driver pay is COMPLETE: five passes finished.
-
-
-## Browser proof rerun
-
-```text
-[no stdout]
-STDERR: Skipping host requirements validation logic because `PLAYWRIGHT_SKIP_VALIDATE_HOST_REQUIREMENTS` env variable is set.
-Traceback (most recent call last):
-  File "/tmp/browser/pass5_final_proofs.py", line 109, in <module>
-    asyncio.run(main())
-    ~~~~~~~~~~~^^^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/asyncio/runners.py", line 195, in run
-    return runner.run(main)
-           ~~~~~~~~~~^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/asyncio/runners.py", line 118, in run
-    return self._loop.run_until_complete(task)
-           ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^^^^^^
-  File "/nix/store/44rn0p64x92bnnh7cwn6x6ybvflybmvz-python3-3.13.12/lib/python3.13/asyncio/base_events.py", line 725, in run_until_complete
-    return future.result()
-           ~~~~~~~~~~~~~^^
-  File "/tmp/browser/pass5_final_proofs.py", line 48, in main
-    await expect(page.get_by_test_id('linehaul-pay-card')).to_be_visible(timeout=30000)
-  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/playwright/async_api/_generated.py", line 20285, in to_be_visible
-    await self._impl_obj.to_be_visible(visible=visible, timeout=timeout)
-  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/playwright/_impl/_assertions.py", line 765, in to_be_visible
-    await self._expect_impl(
-    ...<5 lines>...
-    )
-  File "/nix/store/zccmygwl3jqyv571gxx7pnghrp1fs8xh-sandbox-python-env/lib/python3.13/site-packages/playwright/_impl/_assertions.py", line 85, in _expect_impl
-    raise AssertionError(
-        f"{out_message}\nActual value: {actual}{error_message} {format_call_log(result.get('log'))}"
-    )
-AssertionError: Locator expected to be visible
-Actual value: None
-Error: element(s) not found 
-Call log:
-  - Expect "to_be_visible" with timeout 30000ms
-  - waiting for get_by_test_id("linehaul-pay-card")
-```
-
-Screenshots present:
-
-```text
-leo.png
-mae.png
-marcus-company-rates.png
-marcus-company-version-form.png
-marcus-steve-linehaul-card.png
-onboarding.png
-pass5-final-marcus-company.png
-staff-debug.png
-steve.png
-```
-
-Exact final facts:
-
-```text
-paid_settlement_f77911b0	f77911b0-50cd-4ae3-bff2-ebb0bc4331af	327.94	paid
-operator_idle_today	0
-```
-
-Full suite latest status:
-
-```text
-.test.tsx > resume gate > mounting with ?resume does NOT consume the token
-⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
-⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
-
- ✓ src/test/resume-gate-ui.test.tsx (4 tests) 483ms
- ✓ src/test/binder-expiry-editor.test.ts (9 tests) 13ms
- ✓ src/lib/__tests__/binderStorage.test.ts (9 tests) 12ms
- ✓ src/lib/__tests__/driverLoadPay.test.ts (6 tests) 8ms
- ✓ src/lib/eld/__tests__/amendmentChain.test.ts (9 tests) 26ms
- ✓ src/components/dispatch/__tests__/rateConBadgeIsolation.test.tsx (1 test) 71ms
- ✓ src/lib/eld/offline/queue/__tests__/runnerKick.test.ts (2 tests) 9ms
- ✓ src/lib/__tests__/operatorHome.test.ts (7 tests) 9ms
-stderr | src/components/__tests__/notificationBellChannelIsolation.test.tsx > NotificationBell realtime channel > two concurrent mounts do not collide on one channel
-⚠️ React Router Future Flag Warning: React Router will begin wrapping state updates in `React.startTransition` in v7. You can use the `v7_startTransition` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_starttransition.
-⚠️ React Router Future Flag Warning: Relative route resolution within Splat routes is changing in v7. You can use the `v7_relativeSplatPath` future flag to opt-in early. For more information, see https://reactrouter.com/v6/upgrading/future#v7_relativesplatpath.
-Warning: An update to NotificationBell inside a test was not wrapped in act(...).
-
-When testing, code that causes React state updates should be wrapped into act(...):
-
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
-    at NotificationBell (/dev-server/src/components/NotificationBell.tsx:25:29)
-    at Router (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
-    at MemoryRouter (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
-Warning: An update to NotificationBell inside a test was not wrapped in act(...).
-
-When testing, code that causes React state updates should be wrapped into act(...):
-
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
-    at NotificationBell (/dev-server/src/components/NotificationBell.tsx:25:29)
-    at Router (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
-    at MemoryRouter (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
-Warning: An update to NotificationBell inside a test was not wrapped in act(...).
-
-When testing, code that causes React state updates should be wrapped into act(...):
-
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
-    at NotificationBell (/dev-server/src/components/NotificationBell.tsx:25:29)
-    at Router (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
-    at MemoryRouter (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
-Warning: An update to NotificationBell inside a test was not wrapped in act(...).
-
-When testing, code that causes React state updates should be wrapped into act(...):
-
-act(() => {
-  /* fire events that update state */
-});
-/* assert on the output */
-
-This ensures that you're testing the behavior the user would see in the browser. Learn more at https://reactjs.org/link/wrap-tests-with-act
-    at NotificationBell (/dev-server/src/components/NotificationBell.tsx:25:29)
-    at Router (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1203:17)
-    at MemoryRouter (/dev-server/node_modules/react-router-dom/node_modules/react-router/dist/umd/react-router.development.js:1097:7)
-
- ✓ src/components/__tests__/notificationBellChannelIsolation.test.tsx (1 test) 209ms
- ✓ src/lib/__tests__/confirmedTons.test.ts (6 tests) 11ms
- ✓ src/components/equipment/__tests__/SerialConflictsPanel.test.tsx (1 test) 143ms
- ✓ src/test/per-driver-pay-screens.test.ts (4 tests) 4ms
- ✓ src/lib/fuel/__tests__/fuelUnitSourceGuard.test.ts (4 tests) 7ms
- ✓ src/components/operator/__tests__/operatorTodayCardPay.test.tsx (4 tests) 76ms
- ✓ src/lib/fuel/__tests__/unitConflict.test.ts (6 tests) 7ms
- ✓ src/lib/__tests__/inspectionBonus.test.ts (8 tests) 9ms
-stderr | src/components/operator/rods/__tests__/tapLogEntry.test.tsx > TapLogEntry > a tap records the change and leaves no gap or open end
-Warning: Missing `Description` or `aria-describedby={undefined}` for {DialogContent}.
-
- ✓ src/components/operator/rods/__tests__/tapLogEntry.test.tsx (4 tests) 462ms
-   ✓ TapLogEntry > a tap records the change and leaves no gap or open end  336ms
- ✓ src/test/driver-picker-shared.test.ts (2 tests) 89ms
- ✓ src/components/dispatch/loadDetail/__tests__/loadReferencesCard.test.tsx (2 tests) 397ms
-   ✓ LoadReferencesCard against real query output > renders filed references with their class and stop citations  383ms
- ✓ src/test/equipment-sort.test.ts (6 tests) 5ms
-```
