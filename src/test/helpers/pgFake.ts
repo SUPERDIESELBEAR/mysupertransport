@@ -1152,6 +1152,28 @@ export function createPgFake(): PgFake {
               eq: (c: string, v: unknown) => resolved(l.filter(r => r[c] === v)),
               is: (c: string, v: unknown) => resolved(l.filter(r => (r[c] ?? null) === v)),
               in: (c: string, vs: unknown[]) => resolved(l.filter(r => vs.includes(r[c]))),
+              /**
+               * PostgREST `.or('a.is.null,a.lte.2026-09-22')` — a disjunction of
+               * simple predicates, as the dated pay-policy resolver writes it.
+               *
+               * Implemented rather than stubbed on purpose. A stub returning every
+               * row would let a CLOSED policy version answer for a date it no
+               * longer governs while the test still passed — which is precisely the
+               * defect the dated reader exists to prevent. An unsupported operator
+               * throws instead of silently matching, so a future caller cannot get
+               * a false green out of this fake.
+               */
+              or: (filter: string) => resolved(l.filter(r => filter.split(',').some(term => {
+                const [col, op, ...rest] = term.split('.');
+                const want = rest.join('.');
+                const cell = r[col] ?? null;
+                if (op === 'is') return want === 'null' ? cell === null : String(cell) === want;
+                if (cell === null) return false;
+                if (op === 'lte') return String(cell) <= want;
+                if (op === 'gte') return String(cell) >= want;
+                if (op === 'eq') return String(cell) === want;
+                throw new Error(`pgFake: unsupported .or() operator "${op}" in "${term}"`);
+              }))),
               order: () => resolved(l),
               limit: (n: number) => resolved(l.slice(0, n)),
               maybeSingle: () => Promise.resolve({ data: l[0] ?? null, error: null }),
