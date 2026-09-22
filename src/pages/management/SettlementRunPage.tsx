@@ -55,7 +55,7 @@ export default function SettlementRunPage() {
         const { data, error } = await supabase.from('ica_contracts')
           .select('operator_id, linehaul_split_pct, status, updated_at')
           .in('operator_id', operatorIds)
-          .in('status', ['fully_executed', 'complete', 'completed', 'signed'])
+          .eq('status', 'complete')
           .order('updated_at', { ascending: false });
         if (error) throw error;
         const terms: Record<string, AgreementTerm> = {};
@@ -200,7 +200,7 @@ export default function SettlementRunPage() {
                 {row.existing && (
                   <div className="space-y-2">
                     <p className="text-xs flex items-center gap-1"><ShieldAlert className="h-3.5 w-3.5" />A settlement already exists for this week — {SETTLEMENT_STATUS_LABELS[row.existing.status as never] ?? row.existing.status}, net {money(row.existing.net_amount)}.{row.existing.status === 'paid' ? ' It is PAID and cannot be replaced; a correction belongs on a later settlement.' : ' It will be refused unless you accept a recomputation below.'}</p>
-                    <Button size="sm" variant="ghost" onClick={() => void toggleStored(row.existing!.id)}>{openStored === row.existing.id ? <ChevronUp className="mr-1 h-3.5 w-3.5" /> : <ChevronDown className="mr-1 h-3.5 w-3.5" />}Stored settlement detail</Button>
+                    <Button size="sm" variant="ghost" onClick={() => void toggleStored(row.existing.id)}>{openStored === row.existing.id ? <ChevronUp className="mr-1 h-3.5 w-3.5" /> : <ChevronDown className="mr-1 h-3.5 w-3.5" />}Stored settlement detail</Button>
                     {openStored === row.existing.id && <ul className="rounded-md border p-2 text-xs space-y-1">{storedLines[row.existing.id]?.map(line => <li key={line.id} className="flex justify-between gap-4"><span>{line.description ?? 'Settlement line'}<span className="block text-[11px] text-muted-foreground">{rateRecordLabel(line.resolved_pct === null ? null : Number(line.resolved_pct), line.pct_source)}</span></span><span>{money(Number(line.amount))}</span></li>) ?? <li className="text-muted-foreground">Loading stored detail…</li>}</ul>}
                   </div>
                 )}
