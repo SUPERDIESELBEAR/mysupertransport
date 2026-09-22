@@ -1037,6 +1037,17 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
+- **Signed-agreement mismatch flag — PROVEN ON SCREEN (2026-09-22).** The Pass 5 throwaway was
+  refused by `stamp_tenant_company_id()` (42501: "the caller holds no company_members row and no
+  server-side company was named"); this pass created the throwaway driver while impersonating the
+  owner's session, so the company resolved normally. With a signed agreement at 65% against a 72%
+  effective rate, the Linehaul Pay card showed "Agreement mismatch. The signed agreement says 65%;
+  the effective pay rate is 72%. Settlements pay 72% from the company rate sheet." and the staff
+  settlement review showed "Agreement mismatch — review before money moves." before any money moved.
+  Setting the agreement to 72% cleared both. A mismatch means **the driver is being paid something
+  other than what he signed**; the flag prompts the owner to correct one or the other, and which
+  number pays was not changed. Throwaway removed with zero residue. Report
+  `docs/passes/2026-09-22-2020-mismatch-flag-proven.md`.
 - **Per-driver pay — COMPLETE, five passes DONE (2026-09-22 1925).** P37-P42 are built end to end:
   the staff-side driver record has the Linehaul Pay card with current rate, effective source, dated
   history, owner-only change flow through `set_operator_linehaul_pct()`, and signed-agreement mismatch
