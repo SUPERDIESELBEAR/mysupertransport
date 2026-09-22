@@ -839,8 +839,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 //   `seed_role_permissions(uuid)` is NOT here: it is service_role only, which
 //   is what stops a signed-in user handing a carrier a fresh set of grants.
 // 2026-09-22: 135 -> 137, the two storage-scoping policy helpers from migration
-// 0036. Raised by exactly two, with the reason recorded beside the entries.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 137;
+// 2026-09-22: 137 -> 138, `open_pay_policy_version` from per-driver pay Pass 2
+// (migrations 0038/0039). Raised by exactly one, reason recorded beside the entry.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 138;
+
 
 
 
