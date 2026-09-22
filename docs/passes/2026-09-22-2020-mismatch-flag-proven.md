@@ -91,8 +91,21 @@ items were appended. `roadmap.md` is now 208 lines: 194 restored + the Pass 5 li
 
 ## Verification
 
-- Full suite: `bunx vitest run --maxWorkers=2` — summary quoted verbatim in the closing note below.
-- Typecheck: `tsgo --noEmit` clean.
+Full suite, `bunx vitest run --maxWorkers=2`, summary verbatim:
+
+```
+ Test Files  2 failed | 216 passed | 2 skipped (220)
+      Tests  2 failed | 2203 passed | 16 skipped (2221)
+   Start at  20:18:14
+   Duration  826.53s (transform 14.67s, setup 67.91s, collect 89.38s, tests 863.85s, environment 415.41s, prepare 65.91s)
+```
+
+Both failures are the familiar transient pooler fault, not this pass:
+`src/test/accessorial-adjustment-schema.test.ts` and `src/test/share-token-throttle.test.ts` each
+failed on `psql: FATAL: (EAUTHQUERY) auth_query secret check timed out`. Re-run together with the
+pay-screen guards: `Test Files 3 passed (3) / Tests 69 passed (69)`.
+
+Typecheck: `bunx tsgo --noEmit` clean.
 
 ## Files this pass authored
 
