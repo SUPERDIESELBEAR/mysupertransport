@@ -40,7 +40,7 @@ export default function LinehaulPayCard({ operatorId, operatorName }: { operator
     const [versionsRes, policyRes, agreementRes, permissionRes] = await Promise.all([
       supabase.from('operator_linehaul_pct_versions').select('id, pct, effective_from, effective_to, reason, actor, source').eq('operator_id', operatorId).order('effective_from', { ascending: false }),
       fetchEffectiveOperatorLinehaul(supabase, operatorId, today),
-      supabase.from('ica_contracts').select('linehaul_split_pct, status').eq('operator_id', operatorId).in('status', ['fully_executed', 'complete', 'completed', 'signed']).order('updated_at', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('ica_contracts').select('linehaul_split_pct, status').eq('operator_id', operatorId).eq('status', 'complete').order('updated_at', { ascending: false }).limit(1).maybeSingle(),
       supabase.rpc('has_permission', { _action: 'driver_pay.change' } as never),
     ]);
     setLoading(false);

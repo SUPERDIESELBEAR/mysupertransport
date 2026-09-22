@@ -13,14 +13,14 @@ describe('per-driver pay screens', () => {
   it('puts the driver card on the staff record but limits it to management', () => {
     expect(operatorDetail).toContain('<LinehaulPayCard');
     expect(operatorDetail).toMatch(/\{isManagement && \([\s\S]*?<LinehaulPayCard/);
-    expect(card).toContain("has_permission', { _action_key: 'driver_pay.change' }");
+    expect(card).toContain("has_permission', { _action: 'driver_pay.change' }");
     expect(card).toContain("rpc('set_operator_linehaul_pct'");
     expect(card).toContain('Weeks already settled are unaffected');
   });
 
   it('puts dated company versions beside Settlement Settings and uses the sole writer', () => {
     expect(settingsPage).toContain('<CompanyPayPolicySettings />');
-    expect(settings).toContain("has_permission', { _action_key: 'pay_policy.change' }");
+    expect(settings).toContain("has_permission', { _action: 'pay_policy.change' }");
     expect(settings).toContain("rpc('open_pay_policy_version'");
     expect(settings).toContain('carried forward');
   });
@@ -28,7 +28,7 @@ describe('per-driver pay screens', () => {
   it('prefills only an unsaved agreement from the dated effective rate', () => {
     expect(builder).toContain('fetchEffectiveOperatorLinehaul');
     expect(builder).toMatch(/if \(!existing\)[\s\S]*linehaul_split_pct: effectiveLinehaul\?\.pct/);
-    expect(builder).toContain("isSentStatus = ['sent_for_signature', 'complete'].includes");
+    expect(builder).toMatch(/\['sent_for_signature', 'complete'\]\.includes\(data\.status\)/);
   });
 
   it('warns staff before payment and reads stored rate records without exposing them to drivers', () => {
