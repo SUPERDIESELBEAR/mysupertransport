@@ -15389,6 +15389,7 @@ export type Database = {
         }
         Returns: string
       }
+      regrant_sandbox_parity_execute: { Args: never; Returns: number }
       reject_accessorial_adjustment: {
         Args: { p_id: string; p_reason: string }
         Returns: undefined

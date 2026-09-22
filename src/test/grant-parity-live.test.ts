@@ -60,6 +60,30 @@ function psql(sql: string): string[] {
  * report reads every table's grants.
  */
 describe("live grant / policy parity", () => {
+  /**
+   * 2026-09-22: why the privilege kept vanishing, and what now restores it.
+   *
+   * It was LOST, not mis-made. The sandbox DROPS AND RECREATES the bare role
+   * `sandbox_exec`, and a grant is attached to a role OID, so 0004's and 0008's
+   * grants went with it — which is why both read true when applied and false
+   * days later. There is no durable target to grant to instead: both sandbox
+   * roles belong to no group at all, default privileges do not reach a role that
+   * does not exist yet, and event triggers do not fire for CREATE ROLE.
+   *
+   * Migration 0032 added public.regrant_sandbox_parity_execute(), which restores
+   * EXECUTE to the sandbox roles only; 0033 schedules it HOURLY and revokes it
+   * from every client role. This test must NOT call it: 0032 briefly granted it
+   * to PUBLIC so it could, and definer-live-catalog and function-reachability
+   * both refused that, rightly — a definer function executable by
+   * `authenticated` is executable by the whole driver population, and a test is
+   * not a caller.
+   *
+   * The consequence to know: for up to an hour after a role recreation this file
+   * goes RED. That is the intended behaviour. Do NOT gate, skip or allowlist it
+   * — re-run after the hourly job, or apply the grant in a migration. A skipped
+   * parity check is indistinguishable from a passing one, which is the whole
+   * reason this file exists.
+   */
   itLive("grant_parity_report() exists and is readable from the catalog", () => {
     const rows = psql(
       "select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace " +

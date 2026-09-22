@@ -1037,9 +1037,30 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
-- **P31 versioning — NEXT PASS:** `pay_policies` still has no effective-date history, and a
-  driver's percentage lives in TWO places (the agreement and the driver record) with nothing
-  keeping them in step.
+- **P31 versioning — BLOCKED on two owner answers (2026-09-22 1230), not built.** `pay_policies`
+  still has no effective-date history, and a driver's percentage lives in TWO places (the
+  agreement and the driver record) with nothing keeping them in step. The pass stopped at the
+  design step because the owner's design contradicts the live system twice: (1) the unique index
+  `pay_policies_single_company_default` allows only ONE company-default row, so a new version
+  cannot be inserted without re-scoping it to current versions as P34 did for dispatch
+  settlements; (2) "never updated in place" contradicts the shipped Fuel Discount Passthrough
+  screen, which updates `pay_policies.fuel_discount_passthrough` in place. **The two questions:**
+  which columns are versioned (percentages only, recommended — or the whole row?), and may the
+  index be re-scoped? Recorded finding that shrinks the work: dispatch settlements ALREADY store
+  the rate they used (`resolved_pct`, `pay_policy_id`); driver `settlement_line_items` store
+  amounts only, so money is frozen but the rate is not recorded and a draft recompute re-reads
+  the policy. Also recorded: **eight readers and three definer functions take the company default
+  with `.maybeSingle()` or `LIMIT 1` and no date test**, so a second version breaks or silently
+  mis-resolves every one of them. Report `docs/passes/2026-09-22-1230-pay-policy-history.md`.
+- **Test harness, grant parity — CLOSED (2026-09-22 1230).** The EXECUTE grant the harness needs
+  was being lost because the sandbox drops and recreates its role. Migrations 0032/0033 add
+  `regrant_sandbox_parity_execute()`, re-granted hourly by cron and executable by no client role.
+  Known cost: for up to an hour after a recreation `grant-parity-live` is red; it must never be
+  gated or allowlisted. `share-token-throttle` was never failing — it passes 8/8 and its banner
+  is a deliberate refusal to burn a real QR sticker's throttle allowance.
+- **Owner pending-announcement alert — defect fixed (2026-09-22 1230).** Migration 0031 inserted
+  the notification bare, so a failed alert could abort the owner's own update; 0033 routes it
+  through `try_notify`.
 - Superseded description of P26, kept for the record: **the remaining real gap was:** management can change pay policy rates while
   `contractor_pay_setup` accepts ANY staff role, and `pay_policies` has no effective-date
   history. The owner has now answered its hard cases: **P31** a pay-policy change never
