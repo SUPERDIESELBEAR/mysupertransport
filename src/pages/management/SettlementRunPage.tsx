@@ -18,13 +18,17 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Loader2, Play, ShieldAlert, Wallet } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Play, ShieldAlert, Wallet } from 'lucide-react';
 import {
   previewSettlementRun, storeSettlementRun,
   type PreviewRow, type RunPreview, type StoreResultRow,
 } from '@/lib/settlementRun';
 import { SETTLEMENT_STATUS_LABELS } from '@/lib/settlementConfig';
 import PageHeading from '@/components/shared/PageHeading';
+import { agreementMismatch, rateRecordLabel } from '@/lib/payRatePresentation';
+
+interface AgreementTerm { pct: number; status: string; }
+interface StoredLine { id: string; description: string | null; amount: number | string; resolved_pct: number | string | null; pct_source: 'driver_version' | 'company_policy' | null; }
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -37,12 +41,29 @@ export default function SettlementRunPage() {
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [acceptReplace, setAcceptReplace] = useState(false);
   const [results, setResults] = useState<StoreResultRow[] | null>(null);
+  const [agreementTerms, setAgreementTerms] = useState<Record<string, AgreementTerm>>({});
+  const [storedLines, setStoredLines] = useState<Record<string, StoredLine[]>>({});
+  const [openStored, setOpenStored] = useState<string | null>(null);
 
   const runPreview = useCallback(async () => {
     setLoading(true);
     setResults(null);
     try {
       const p = await previewSettlementRun(supabase, anchor);
+      const operatorIds = p.rows.map(r => r.operatorId);
+      if (operatorIds.length) {
+        const { data, error } = await supabase.from('ica_contracts')
+          .select('operator_id, linehaul_split_pct, status, updated_at')
+          .in('operator_id', operatorIds)
+          .eq('status', 'complete')
+          .order('updated_at', { ascending: false });
+        if (error) throw error;
+        const terms: Record<string, AgreementTerm> = {};
+        (data ?? []).forEach(r => {
+          if (!terms[r.operator_id]) terms[r.operator_id] = { pct: Number(r.linehaul_split_pct), status: r.status };
+        });
+        setAgreementTerms(terms);
+      } else setAgreementTerms({});
       setPreview(p);
       setSelected(Object.fromEntries(p.rows.map(r => [r.operatorId, true])));
       setAcceptReplace(false);
@@ -52,6 +73,21 @@ export default function SettlementRunPage() {
       setLoading(false);
     }
   }, [anchor, toast]);
+
+  const toggleStored = useCallback(async (settlementId: string) => {
+    if (openStored === settlementId) { setOpenStored(null); return; }
+    setOpenStored(settlementId);
+    if (storedLines[settlementId]) return;
+    const { data, error } = await supabase.from('settlement_line_items')
+      .select('id, description, amount, resolved_pct, pct_source')
+      .eq('settlement_id', settlementId)
+      .order('created_at');
+    if (error) {
+      toast({ title: 'Could not load stored settlement detail', description: error.message, variant: 'destructive' });
+      return;
+    }
+    setStoredLines(s => ({ ...s, [settlementId]: (data ?? []) as StoredLine[] }));
+  }, [openStored, storedLines, toast]);
 
   const chosen: PreviewRow[] = useMemo(
     () => (preview?.rows ?? []).filter(r => selected[r.operatorId]),
@@ -132,11 +168,18 @@ export default function SettlementRunPage() {
                   <p className="text-xs">{row.computed.holdReason}</p>
                 )}
 
+                {agreementMismatch(agreementTerms[row.operatorId]?.pct, row.payingLinehaulPct) && (
+                  <div className="flex gap-2 rounded-md border border-status-warning/40 bg-status-warning/10 p-3 text-xs" data-testid="settlement-agreement-mismatch">
+                    <AlertTriangle className="h-4 w-4 shrink-0 text-status-warning" />
+                    <p><strong>Agreement mismatch — review before money moves.</strong> The signed agreement says {agreementTerms[row.operatorId].pct}%; this week pays {row.payingLinehaulPct}% from the {row.payingLinehaulSource === 'driver_version' ? "driver's dated rate" : 'company rate sheet'}.</p>
+                  </div>
+                )}
+
                 {row.computed.lines.length > 0 && (
                   <ul className="text-xs space-y-0.5">
                     {row.computed.lines.map((l, i) => (
                       <li key={i} className="flex justify-between gap-4">
-                        <span className="text-muted-foreground">{l.description}</span>
+                        <span className="text-muted-foreground">{l.description}<span className="block text-[11px]">{rateRecordLabel(l.resolvedPct, l.pctSource)}</span></span>
                         <span>{money(l.amount)}</span>
                       </li>
                     ))}
@@ -155,14 +198,11 @@ export default function SettlementRunPage() {
                 ))}
 
                 {row.existing && (
-                  <p className="text-xs flex items-center gap-1">
-                    <ShieldAlert className="h-3.5 w-3.5" />
-                    A settlement already exists for this week — {SETTLEMENT_STATUS_LABELS[row.existing.status as never] ?? row.existing.status}
-                    , net {money(row.existing.net_amount)}.
-                    {row.existing.status === 'paid'
-                      ? ' It is PAID and cannot be replaced; a correction belongs on a later settlement.'
-                      : ' It will be refused unless you accept a recomputation below.'}
-                  </p>
+                  <div className="space-y-2">
+                    <p className="text-xs flex items-center gap-1"><ShieldAlert className="h-3.5 w-3.5" />A settlement already exists for this week — {SETTLEMENT_STATUS_LABELS[row.existing.status as never] ?? row.existing.status}, net {money(row.existing.net_amount)}.{row.existing.status === 'paid' ? ' It is PAID and cannot be replaced; a correction belongs on a later settlement.' : ' It will be refused unless you accept a recomputation below.'}</p>
+                    <Button size="sm" variant="ghost" onClick={() => void toggleStored(row.existing.id)}>{openStored === row.existing.id ? <ChevronUp className="mr-1 h-3.5 w-3.5" /> : <ChevronDown className="mr-1 h-3.5 w-3.5" />}Stored settlement detail</Button>
+                    {openStored === row.existing.id && <ul className="rounded-md border p-2 text-xs space-y-1">{storedLines[row.existing.id]?.map(line => <li key={line.id} className="flex justify-between gap-4"><span>{line.description ?? 'Settlement line'}<span className="block text-[11px] text-muted-foreground">{rateRecordLabel(line.resolved_pct === null ? null : Number(line.resolved_pct), line.pct_source)}</span></span><span>{money(Number(line.amount))}</span></li>) ?? <li className="text-muted-foreground">Loading stored detail…</li>}</ul>}
+                  </div>
                 )}
               </div>
             ))}
