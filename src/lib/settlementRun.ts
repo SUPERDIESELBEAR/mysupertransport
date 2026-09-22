@@ -28,7 +28,7 @@ import { hasUnsettledWork, populationReasons, type UnsettledWork } from '@/lib/s
 import { fuelBucketLines } from '@/lib/fuel/fuelBuckets';
 import type { PayPolicyRates } from '@/lib/payTreatment';
 import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
-import { operatorLinehaulVersionsQuery, linehaulPctByOperator } from '@/lib/operatorLinehaulPct';
+import { operatorLinehaulVersionsQuery, linehaulByOperator } from '@/lib/operatorLinehaulPct';
 
 /**
  * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
@@ -239,7 +239,9 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
 
   // A FAILED read here throws like every other gather read: silently treating it
   // as "no override" would pay the company rate to a driver on his own rate.
-  const operatorLinehaulPcts = linehaulPctByOperator(
+  // PASS 4 — the VERSION as well as the percentage: every line his rate priced
+  // records which row of his history it came from.
+  const operatorLinehaul = linehaulByOperator(
     rowsOf(linehaulRes, 'operator_linehaul_pct_versions'),
   );
 
@@ -514,7 +516,8 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
         settings,
         companyPolicy,
         driverPolicy: driverPolicies[operatorId] ?? null,
-        operatorLinehaulPct: operatorLinehaulPcts[operatorId] ?? null,
+        operatorLinehaulPct: operatorLinehaul[operatorId]?.pct ?? null,
+        operatorLinehaulVersionId: operatorLinehaul[operatorId]?.versionId ?? null,
         loads,
         fuel,
         deductions,
@@ -585,6 +588,11 @@ export function runPayload(rows: PreviewRow[]): unknown[] {
       description: l.description,
       source_table: l.sourceTable,
       source_id: l.sourceId,
+      // PASS 4 — the rate that produced the line. Null on lines no percentage
+      // priced, so "no percentage applied" stays distinct from "72% applied".
+      resolved_pct: l.resolvedPct ?? null,
+      pct_source: l.pctSource ?? null,
+      pct_version_id: l.pctVersionId ?? null,
     })),
     withheld: [
       ...r.computed.withheldLoads.flatMap(w => w.reasons.map(reason => ({

@@ -19312,3 +19312,32 @@ failed | 2190 passed | 16 skipped (2207)`. The one failure was `dispatch-settlem
 familiar pooler `EAUTHQUERY` timeout; re-run alone: 35 passed. Typecheck clean.
 
 Report: `docs/passes/2026-09-22-1615-per-driver-pay-pass-3.md`.
+
+## 2026-09-22 16:50 UTC — Per-driver pay: Part A (P42) and PASS 4 of 5 (the line rate record)
+
+**P42 (owner, 2026-09-22):** a driver FOLLOWS the company linehaul rate unless the owner has
+deliberately set his own. The Pass 3 backfill's 157 versions are closed as of 2026-09-21, so from
+2026-09-22 every driver follows the company. The close is a DATA change, run through the query path
+with `ab_guard_operator_linehaul_pct_append_only` disabled and re-enabled in the same transaction (the
+escape 0038 set out for migrations — a migration holds no `driver_pay.change`), nothing deleted. Read
+back live: **157 closed, 0 current, 157 total, 0 operators off 72, guard re-enabled**.
+`sync_operator_linehaul_pct_mirror()` now coalesces his version with `company_pay_policy_on(CURRENT_DATE)`,
+so a driver with no version shows the COMPANY rate in the mirror the forecast reads; cron at 05:10 UTC,
+so a new company version is mirrored during its start date. Proved rolled back: past week 72 from his
+closed backfill, today 72 from the company, a 65% company version from 2026-09-29 reaches a driver with
+no version of his own and leaves a driver set at 82 on 82.
+
+**PASS 4:** `public.settlement_line_items` gained `resolved_pct`, `pct_source`
+(`driver_version` | `company_policy`) and `pct_version_id` — nullable and deliberately NOT backfilled,
+so "no record" stays distinct from "recorded as the company rate"; paid settlement `f77911b0` was not
+modified. CHECKs refuse a percentage with no origin and an origin with no percentage. The engine writes
+all three on every new line a percentage priced, through one `rateRecord()` helper — header lines,
+charge lines and `-A1` adjustment lines — and NULL on every line no percentage priced.
+`store_settlement_run` persists them. Proved rolled back through the real function: company week says
+`company_policy` + the policy id; his 82% week says `driver_version` + his version id while detention
+still says `company_policy`; a half-record REFUSED 23514; `f77911b0` still 327.94/paid with 0 lines
+carrying a record.
+
+**Full suite** (`--maxWorkers=2`): recorded in the pass report. Typecheck clean.
+
+Report: `docs/passes/2026-09-22-1650-per-driver-pay-pass-4.md`.

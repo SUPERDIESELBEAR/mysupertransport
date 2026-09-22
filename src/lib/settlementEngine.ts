@@ -51,6 +51,14 @@ export type SettlementSourceTable =
   | 'cash_advances' | 'rm_deposits' | 'settlements' | 'accessorial_adjustments'
   | 'inspection_program_payments';
 
+/**
+ * WHERE the percentage on a line came from (Pass 4):
+ *  - `driver_version` — his own dated `operator_linehaul_pct_versions` row;
+ *  - `company_policy` — the `pay_policies` version in force, whether that is
+ *    the company default, a driver assignment or a load-specific override.
+ */
+export type PctSource = 'driver_version' | 'company_policy';
+
 export interface SettlementLine {
   lineType: SettlementLineType;
   /** Signed. Positive pays the driver, negative deducts. */
@@ -58,6 +66,17 @@ export interface SettlementLine {
   description: string;
   sourceTable: SettlementSourceTable | null;
   sourceId: string | null;
+  /**
+   * THE RATE RECORD (Pass 4). The percentage that produced this line, where it
+   * came from, and the id of the version it was read from. Null on every line no
+   * percentage priced — fuel, deductions, cash advances, the Repair &
+   * Maintenance Deposit, carry-forward, a reimbursement paid at cost, a Clean
+   * Roadside bonus paid at 100% — so "no percentage applied" and "a percentage
+   * of zero" stay different facts.
+   */
+  resolvedPct?: number | null;
+  pctSource?: PctSource | null;
+  pctVersionId?: string | null;
 }
 
 /* ------------------------------------------------------------------ */
@@ -251,6 +270,12 @@ export interface SettlementComputeInput {
    * detention, FSC, TONU and the rest still come from the company policy.
    */
   operatorLinehaulPct?: number | null;
+  /**
+   * The id of the `operator_linehaul_pct_versions` row `operatorLinehaulPct`
+   * came from, recorded on every line it priced (Pass 4). Null when he has no
+   * version of his own and follows the company (P42).
+   */
+  operatorLinehaulVersionId?: string | null;
   loads: SettlementLoadInput[];
   fuel?: SettlementFuelInput[];
   deductions?: SettlementDeductionInput[];
@@ -384,11 +409,43 @@ export function resolveEffectivePolicy(
  * broker-facing total are two readings of one set of numbers. Each header
  * becomes its OWN line so a driver sees linehaul and FSC separately.
  */
+/**
+ * THE RATE RECORD for one line (Pass 4). Only `linehaul` can come from a
+ * driver's own version; `per_ton`, `loadout`, `fsc`, detention and the rest are
+ * company columns, so they always record `company_policy` even on a week where
+ * his linehaul is his own.
+ */
+function rateRecord(
+  rateKey: string,
+  pct: number,
+  policy: PayPolicyRates | null,
+  operatorLinehaulPct: number | null,
+  operatorLinehaulVersionId: string | null,
+): { resolvedPct: number; pctSource: PctSource; pctVersionId: string | null } {
+  const fromDriver = rateKey === 'linehaul'
+    && operatorLinehaulPct !== null
+    && Number.isFinite(operatorLinehaulPct);
+  return {
+    resolvedPct: pct,
+    pctSource: fromDriver ? 'driver_version' : 'company_policy',
+    pctVersionId: fromDriver ? operatorLinehaulVersionId : (policy?.id ?? null),
+  };
+}
+
+interface HeaderRateLine {
+  lineType: SettlementLineType;
+  amount: number;
+  description: string;
+  /** Which policy column priced it, so the caller can record the rate. */
+  rateKey: PayRateKey;
+  pct: number;
+}
+
 function headerRateLines(
   load: SettlementLoadInput,
   policy: PayPolicyRates | null,
-): { lines: Array<{ lineType: SettlementLineType; amount: number; description: string }>; pendingScaleTicket: boolean } {
-  const out: Array<{ lineType: SettlementLineType; amount: number; description: string }> = [];
+): { lines: HeaderRateLine[]; pendingScaleTicket: boolean } {
+  const out: HeaderRateLine[] = [];
   let pendingScaleTicket = false;
   const pctOf = (klass: PayRateKey): number | null => pctForClassification(klass, policy);
 
@@ -402,7 +459,10 @@ function headerRateLines(
     const pct = pctOf('loadout');
     const amount = pct === null ? 0 : round2(fee * (pct / 100));
     if (amount) {
-      out.push({ lineType: 'load_pay', amount, description: 'Trailer relocation fee' });
+      out.push({
+        lineType: 'load_pay', amount, description: 'Trailer relocation fee',
+        rateKey: 'loadout', pct: pct as number,
+      });
     }
     return { lines: out, pendingScaleTicket };
   }
@@ -439,14 +499,24 @@ function headerRateLines(
   }
   const linehaulPct = pctOf(linehaulKey);
   const linehaul = linehaulPct === null ? 0 : round2(base * (linehaulPct / 100));
-  if (linehaul) out.push({ lineType: 'load_pay', amount: linehaul, description: label });
+  if (linehaul) {
+    out.push({
+      lineType: 'load_pay', amount: linehaul, description: label,
+      rateKey: linehaulKey, pct: linehaulPct as number,
+    });
+  }
 
   // Bundled (true OR null) means the FSC is already inside the linehaul rate.
   const bundled = load.fscBundledIntoLinehaul ?? true;
   if (!bundled) {
     const fscPct = pctOf('fsc');
     const fsc = fscPct === null ? 0 : round2(num(load.fscAmount) * (fscPct / 100));
-    if (fsc) out.push({ lineType: 'load_pay', amount: fsc, description: 'Fuel surcharge' });
+    if (fsc) {
+      out.push({
+        lineType: 'load_pay', amount: fsc, description: 'Fuel surcharge',
+        rateKey: 'fsc', pct: fscPct as number,
+      });
+    }
   }
 
   return { lines: out, pendingScaleTicket };
@@ -465,6 +535,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
   const {
     operatorId, periodAnchorDate, settings, companyPolicy, driverPolicy,
     operatorLinehaulPct = null,
+    operatorLinehaulVersionId = null,
     loads = [], fuel = [], deductions = [], advances = [], adjustments = [],
     bonuses = [],
     rmDeposit = null, carryForwardIn = 0,
@@ -541,6 +612,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         description: `Load ${load.loadNumber} — ${header.description}${releaseNote}`,
         sourceTable: 'loads',
         sourceId: load.id,
+        ...rateRecord(header.rateKey, header.pct, policy, operatorLinehaulPct, operatorLinehaulVersionId),
       });
     }
 
@@ -572,6 +644,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         description: `Load ${load.loadNumber} — ${charge.description || charge.charge_type}${releaseNote}`,
         sourceTable: 'loads',
         sourceId: load.id,
+        ...rateRecord(klass, pct, policy, operatorLinehaulPct, operatorLinehaulVersionId),
       });
     }
   }
@@ -617,6 +690,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
         description: `${where}${what} (late adjustment ${adj.reference})`,
         sourceTable: 'accessorial_adjustments',
         sourceId: adj.id,
+        ...rateRecord(klass, pct, policy, operatorLinehaulPct, operatorLinehaulVersionId),
       });
     }
   }
