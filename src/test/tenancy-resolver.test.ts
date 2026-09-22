@@ -2263,6 +2263,12 @@ const RESTRICTIVE_DONE = [
   //   release_note_reads_read_reviewers|PERMISSIVE|SELECT|(management OR owner)
   //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
   'release_note_reads',
+  // PER-DRIVER PAY (1), 2026-09-22, migration
+  // 0040_operator_linehaul_pct_versions.sql. Born restrictive, so there is no
+  // window in which a driver's pay percentage was visible across carriers.
+  //   Management reads driver linehaul versions|PERMISSIVE|SELECT|(management OR owner)
+  //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
+  'operator_linehaul_pct_versions',
 ] as const;
 
 /**
