@@ -829,12 +829,14 @@ export default function ManagementPortal() {
     if (statusFilter === 'all') {
       // Show submitted apps + any awaiting revisions
       query = query.or('is_draft.eq.false,review_status.eq.revisions_requested,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null');
-    } else if (statusFilter === 'revisions_requested') {
-      query = query.eq('review_status', 'revisions_requested');
+    } else if (statusFilter === 'revisions_requested' || statusFilter === 'archived') {
+      // Archived applicants are set aside, not submitted-state dependent: some
+      // were archived straight from the pipeline, so no draft/reviewed filter.
+      query = query.eq('review_status', statusFilter);
     } else {
       query = query
         .or('is_draft.eq.false,revisions_handled_by_staff_at.not.is.null,reviewed_at.not.is.null')
-        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied' | 'archived');
+        .eq('review_status', statusFilter as 'pending' | 'approved' | 'denied');
     }
 
     const { data } = await query;
