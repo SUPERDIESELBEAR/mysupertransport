@@ -19345,3 +19345,79 @@ failed | 2198 passed | 16 skipped (2217)`. Two were the familiar pooler `EAUTHQU
 to assert `72 / company_policy / the policy id`. Re-run together: 74 passed. Typecheck clean.
 
 Report: `docs/passes/2026-09-22-1650-per-driver-pay-pass-4.md`.
+
+## 2026-09-22 21:05 UTC — Demo carrier, stage 1 of 6: what still assumes one carrier
+
+READ-ONLY survey. No migration, code, function or data change. Full suite skipped (docs only).
+Report: `docs/passes/2026-09-22-2105-demo-carrier-stage-1.md`.
+
+**Live baseline:** `carrier_profile` = 1 row (`6b54d0e6…`, SUPERTRANSPORT, USDOT 2309365).
+201 public base tables; **164 carry `company_id`, 163 of those carry the restrictive
+`tenant_isolation` policy**, `company_members` permanently exempt and self-scoped;
+**37 tables carry no `company_id`**; 735 policies in `public`.
+
+**Contradiction with the six-day-old survey, both directions.** "159 tables" was the count
+of RESTRICTIVE policies on 2026-09-18, not a count of unenforced tables.
+**Cross-carrier read enforcement on company-bearing tables is structurally CLOSED.** The
+remaining read exposure is the 37 columnless tables and `storage.objects`.
+
+**The original four, re-checked live.** All still true: `generate-application-pdf:110`,
+`send-officer-packet:248` and `process-eld-escalations:251` still read an ARBITRARY carrier
+via `.limit(1)`; `receive-rate-con-email:323` still goes through `soleCompanyId` and would
+**stop SUPERTRANSPORT's inbound rate-con ingestion the moment the second row commits**;
+`bootstrap_assign_owner` still holds the bare scalar `(SELECT id FROM public.carrier_profile)`
+and raises 21000; still **no path** creates a carrier with an owner, a membership and its
+permission grants. Only three live functions touch `carrier_profile`: that one (unsafe by
+design), `recompute_eld_extension_projection` (USDOT-filtered, safe) and
+`seed_role_permissions` (takes and validates `_company_id`, safe).
+
+**NEW DEFECT OF THE SAME CLASS, built since the survey.** `public.company_pay_policy_on(date)`
+selects the company-default pay policy **with no `company_id` predicate**, and is called from
+four SECURITY DEFINER functions — `create_accessorial_adjustment`, `driver_load_pay_estimate`,
+`my_fuel_transactions`, `sync_operator_linehaul_pct_mirror` — which run as the function owner
+with RLS not applied. With two rate sheets it would silently price accessorial adjustments,
+the driver earnings estimate and the 05:10 mirror from an arbitrary carrier's percentages.
+**Prerequisite, money, silent.** Everything else in the per-driver pay work is carrier-clean:
+`pay_policies`, `operator_linehaul_pct_versions` and `settlement_line_items` are all
+company-bearing and isolated, and `pay_policies_single_company_default` is already keyed
+`(company_id, is_company_default) WHERE (is_company_default AND effective_to IS NULL)`.
+
+**Permissions.** `permission_actions` is correctly shared. `role_permissions` and
+`user_permission_exceptions` are per carrier and isolated — but **`seed_role_permissions(<new
+carrier id>)` must run in the same transaction that creates the carrier**, or `has_permission`
+returns false for every action for every non-owner at the demo carrier (the owner is
+unaffected: P1 short-circuits first).
+
+**Still shared on day one:** the whole `applications` family and the PEI family (role-only
+`is_staff` policies, no column to scope — carrier B's staff would read, edit and delete
+SUPERTRANSPORT's applicants **including SSNs**), `profiles` (every person's name, editable),
+the nine content tables (`driver_documents`' read policy is `is_visible AND signed in` — any
+account of any carrier, applicants included), `release_notes`, `pipeline_config`, `audit_log`,
+the email tables, and `/apply`, which prints the hard-coded SUPERTRANSPORT letterhead to any
+carrier's applicant. `storage.objects`: of 83 policies, about **50 test a role alone**, so
+files stay cross-readable even where the rows are hidden — migration 0035 bound only two
+folders.
+
+**Tests.** The biggest item is `src/test/tenancy-resolver.test.ts`: **nine bare
+`(SELECT id FROM public.carrier_profile)` subqueries** (lines 502, 577, 707, 862, 998, 1085,
+1184, 1270, 1885) that raise `21000` the day a second row exists, taking the tenancy safety
+net red. `dispatch-settlement-schema` is already repaired (filters by the globally-unique
+USDOT and passes). Silently-wrong-but-green: `invoice-dispatch-reconciliation.test.ts:118`
+(`is_company_default … limit 1`, unfiltered) and `src/test/helpers/tenancy.ts`, which keeps
+adopting the oldest `company_members` row. No fixture hard-codes the carrier id.
+
+**Order of work.** Before the row exists: the rate-con ingest mapping, the
+`company_pay_policy_on` company argument, `bootstrap_assign_owner`, the nine test subqueries,
+and `generate-application-pdf`. With the row: an atomic creation path through
+`seed_role_permissions`, one company-default pay version and the settlement settings. After:
+the `driver_documents` policy, the ~50 storage policies, `profiles` scoping, per-carrier
+`/apply`, then `send-officer-packet` and `process-eld-escalations` (held at bay only by the
+2026-09-17 ELD/RODS HIDE decision — they must be fixed before it is unhidden).
+
+**DECISIONS OWED BEFORE STAGE 2.** (1) `applications` + PEI: GLOBAL or per-carrier — the
+demo's hand-onboarding puts carrier B's applicants, SSNs included, in a table carrier A reads.
+(2) `profiles`: GLOBAL with scoped staff reads, or per-carrier. (3) The nine content tables:
+product-level or per carrier. (4) `release_notes`: product-wide or per carrier. (5) Does the
+demo carrier get its own `/apply` link. (6) Does it share the sending domain and email
+templates. (7) Is a shared content library acceptable for a demo at all — that answer
+collapses or expands half the list.
