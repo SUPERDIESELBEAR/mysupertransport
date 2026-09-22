@@ -218,6 +218,13 @@
       "when": 1790075470964,
       "tag": "0030_revoke_status_guard_execute",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1790076603724,
+      "tag": "0031_notify_owner_pending_release_note",
+      "breakpoints": true
     }
   ]
 }

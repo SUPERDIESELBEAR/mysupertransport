@@ -1,17 +1,3 @@
--- Tell the owner when an announcement is waiting for his approval.
---
--- Additive only. A pending announcement currently notifies nobody, so the owner
--- only finds an auto-drafted update by opening Settings -> What's New. This adds
--- one in-app notification, to the owner role only, when a release note lands in
--- (or returns to) 'pending'. Nothing is emailed here and no staff member is told
--- anything about a pending draft: staff delivery still happens only on approval,
--- through notify_staff_on_release_note, which this migration does not touch.
---
--- UNDO:
---   DROP TRIGGER IF EXISTS trg_notify_owner_pending_release_note_ins ON public.release_notes;
---   DROP TRIGGER IF EXISTS trg_notify_owner_pending_release_note_upd ON public.release_notes;
---   DROP FUNCTION IF EXISTS public.notify_owner_on_pending_release_note();
-
 CREATE OR REPLACE FUNCTION public.notify_owner_on_pending_release_note()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -27,7 +13,6 @@ BEGIN
     FROM public.user_roles ur
     WHERE ur.role = 'owner'
   LOOP
-    -- Same courtesy as the published path: an explicit opt-out is honoured.
     IF COALESCE(
       (SELECT in_app_enabled FROM public.notification_preferences
        WHERE user_id = v_owner.user_id AND event_type = 'release_note_pending' LIMIT 1),
