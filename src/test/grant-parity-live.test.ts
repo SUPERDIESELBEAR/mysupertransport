@@ -61,28 +61,29 @@ function psql(sql: string): string[] {
  */
 describe("live grant / policy parity", () => {
   /**
-   * 2026-09-22: the grant kept being LOST, not mis-made. The harness connects as
-   * the bare role `sandbox_exec`, and the sandbox drops and recreates that role,
-   * taking every grant attached to its OID with it — which is why 0004 and 0008
-   * both read true when applied and false later. Migration 0032 adds
-   * regrant_sandbox_parity_execute(), a definer function that restores EXECUTE
-   * to the sandbox roles only; it is safe for anyone to call because it can
-   * grant nothing to its caller. Calling it here means the next role recreation
-   * costs nothing instead of turning this file red.
+   * 2026-09-22: why the privilege kept vanishing, and what now restores it.
    *
-   * This does NOT weaken the check. The report is still service_role-only for
-   * every client role, and the assertion below is unchanged: if it cannot be
-   * read, this file still goes red rather than skipping.
+   * It was LOST, not mis-made. The sandbox DROPS AND RECREATES the bare role
+   * `sandbox_exec`, and a grant is attached to a role OID, so 0004's and 0008's
+   * grants went with it — which is why both read true when applied and false
+   * days later. There is no durable target to grant to instead: both sandbox
+   * roles belong to no group at all, default privileges do not reach a role that
+   * does not exist yet, and event triggers do not fire for CREATE ROLE.
+   *
+   * Migration 0032 added public.regrant_sandbox_parity_execute(), which restores
+   * EXECUTE to the sandbox roles only; 0033 schedules it HOURLY and revokes it
+   * from every client role. This test must NOT call it: 0032 briefly granted it
+   * to PUBLIC so it could, and definer-live-catalog and function-reachability
+   * both refused that, rightly — a definer function executable by
+   * `authenticated` is executable by the whole driver population, and a test is
+   * not a caller.
+   *
+   * The consequence to know: for up to an hour after a role recreation this file
+   * goes RED. That is the intended behaviour. Do NOT gate, skip or allowlist it
+   * — re-run after the hourly job, or apply the grant in a migration. A skipped
+   * parity check is indistinguishable from a passing one, which is the whole
+   * reason this file exists.
    */
-  itLive("EXECUTE is restored to the harness role after a sandbox recreation", () => {
-    expect(psql("select public.regrant_sandbox_parity_execute() is not null")).toEqual(["t"]);
-    expect(
-      psql(
-        "select has_function_privilege(current_user, 'public.grant_parity_report()', 'EXECUTE')",
-      ),
-    ).toEqual(["t"]);
-  });
-
   itLive("grant_parity_report() exists and is readable from the catalog", () => {
     const rows = psql(
       "select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace " +
