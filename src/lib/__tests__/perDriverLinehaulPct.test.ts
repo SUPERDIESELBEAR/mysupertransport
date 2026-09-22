@@ -69,16 +69,16 @@ describe('policyWithOperatorLinehaul — ONE column, not the policy', () => {
 describe('linehaulPctByOperator — the version in force, later start wins', () => {
   it('keeps the later effective_from when a driver has more than one row', () => {
     const map = linehaulPctByOperator([
-      { operator_id: 'a', pct: 72, effective_from: '2000-01-01' },
-      { operator_id: 'a', pct: 82, effective_from: '2026-09-16' },
-      { operator_id: 'b', pct: 70, effective_from: '2026-01-01' },
+      { operator_id: 'a', pct: 72, effective_from: '2000-01-01', effective_to: '2026-09-15' },
+      { operator_id: 'a', pct: 82, effective_from: '2026-09-16', effective_to: null },
+      { operator_id: 'b', pct: 70, effective_from: '2026-01-01', effective_to: null },
     ]);
     expect(map).toEqual({ a: 82, b: 70 });
   });
 
   it('reads a numeric(5,2) arriving as a string', () => {
     const map = linehaulPctByOperator([
-      { operator_id: 'a', pct: '82.00' as unknown as number, effective_from: '2026-09-16' },
+      { operator_id: 'a', pct: '82.00' as unknown as number, effective_from: '2026-09-16', effective_to: null },
     ]);
     expect(map.a).toBe(82);
   });
