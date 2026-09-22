@@ -265,6 +265,17 @@ export default function ICABuilderModal({
     loadDraft();
   }, [operatorId]);
 
+  // ── May this person change a driver's contracted pay? (owner only today) ──
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const { data } = await supabase.rpc('has_permission', { _action: 'driver_pay.change' } as never);
+      if (!cancelled) setCanChangeDriverPay(data === true);
+    })();
+    return () => { cancelled = true; };
+  }, [session?.user?.id]);
+
+
   // ── Load default carrier signature settings ──
   useEffect(() => {
     const loadDefaultSig = async () => {
