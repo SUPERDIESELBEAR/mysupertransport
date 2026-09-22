@@ -23,6 +23,8 @@ function fakeClient(tables: Record<string, any[]>) {
     const chain: any = {
       select: () => chain,
       eq: () => chain, not: () => chain, is: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
+      // PASS 1: the dated pay-policy resolver uses .or() and .limit().
+      or: () => chain, limit: () => chain,
       order: () => chain,
       maybeSingle: async () => ({ data: rows[0] ?? null, error: null }),
       then: (res: any, rej: any) => Promise.resolve({ data: rows, error: null }).then(res, rej),
@@ -258,7 +260,9 @@ describe('a failed read aborts the run', () => {
       const chain: any = {
         select: () => chain,
         eq: () => chain, not: () => chain, is: () => chain, gte: () => chain, lte: () => chain, lt: () => chain,
-        order: () => chain,
+        // PASS 1: the dated pay-policy resolver uses .or() and .limit().
+      or: () => chain, limit: () => chain,
+      order: () => chain,
         maybeSingle: async () => (failed ? { data: null, error: err } : { data: rows[0] ?? null, error: null }),
         then: (res: any, rej: any) =>
           Promise.resolve(failed ? { data: null, error: err } : { data: rows, error: null }).then(res, rej),

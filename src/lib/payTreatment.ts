@@ -203,6 +203,5 @@ export async function fetchEffectivePayPolicy(
   // read was `ORDER BY effective_date DESC LIMIT 1`, which would have picked a
   // version dated in the FUTURE the moment one existed: a rate that has not
   // started yet, shown on a screen as though it had.
-  return await fetchCompanyPolicyVersion<PayPolicyRates>(
-    supabase, todayAsOf(), POLICY_COLUMNS);
+  return await fetchCompanyPolicyVersion<PayPolicyRates>(supabase, todayAsOf());
 }

@@ -65,11 +65,13 @@ export function todayAsOf(): AsOfDate {
 export function companyPolicyVersionQuery<T = Record<string, unknown>>(
   sb: PolicyClient,
   asOf: AsOfDate,
-  columns = '*',
 ): PromiseLike<PolicyReadResult<T>> {
   return sb
     .from('pay_policies')
-    .select(columns)
+    // Deliberately the whole row, with a LITERAL select argument: a column list
+    // passed in by the caller cannot be checked by the PostgREST embed guard, and
+    // a pay policy is one narrow row — there is nothing to save by trimming it.
+    .select('*')
     .eq('is_company_default', true)
     .eq('is_active', true)
     // Open-start versions cover every earlier date; a NULL effective_to is the
@@ -92,8 +94,7 @@ export function companyPolicyVersionQuery<T = Record<string, unknown>>(
 export async function fetchCompanyPolicyVersion<T = Record<string, unknown>>(
   sb: PolicyClient,
   asOf: AsOfDate,
-  columns = '*',
 ): Promise<T | null> {
-  const res = await companyPolicyVersionQuery<T>(sb, asOf, columns);
+  const res = await companyPolicyVersionQuery<T>(sb, asOf);
   return res?.data ?? null;
 }

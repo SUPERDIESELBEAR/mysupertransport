@@ -73,7 +73,7 @@ export default function FuelDiscountPassthroughSettings() {
       // is P41 as decided: only the percentages are versioned, the pass-through
       // switch is a setting. What changed is only WHICH row answers.
       companyPolicyVersionQuery<{ id: string; fuel_discount_passthrough: boolean | null }>(
-        supabase, todayAsOf(), 'id, fuel_discount_passthrough'),
+        supabase, todayAsOf()),
       fetchOperatorOptions(),
       supabase.from('operators').select('id, fuel_discount_passthrough_override').limit(1000),
     ]);

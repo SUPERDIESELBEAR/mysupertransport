@@ -26,7 +26,7 @@ export async function fetchCompanyDiscountPassthrough(): Promise<boolean | null>
   // The switch itself is NOT versioned (P41: only the percentages are), but it
   // is read OFF a policy row, so which row answers still has to be the right one.
   const data = await fetchCompanyPolicyVersion<{ fuel_discount_passthrough: boolean | null }>(
-    supabase, todayAsOf(), 'fuel_discount_passthrough');
+    supabase, todayAsOf());
   return data?.fuel_discount_passthrough ?? null;
 }
 
