@@ -1037,7 +1037,24 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   migration 0029's `ab_guard_ica_status_forward_only` refuses any backward status move unless
   the caller holds `driver_pay.change`. Report
   `docs/passes/2026-09-22-1100-agreement-status-forward-only.md`.
-- **Per-driver pay — PASS 2 of 5 DONE, Pass 3 next (2026-09-22 1445).** The company pay policy is now
+- **Per-driver pay — PASS 3 of 5 DONE, Pass 4 next (2026-09-22 1615).** Each driver's **linehaul
+  percentage** is now its own dated history (`operator_linehaul_pct_versions`, migration 0040):
+  append-only, one current version per driver, management/owner read only — a driver never sees a
+  percentage. Backfilled 157 versions at 72.00, 0 mismatched against the `operators.pay_percentage`
+  mirror the forecast reads. One owner-only writer, `set_operator_linehaul_pct()`: `driver_pay.change`,
+  a reason required, no back-dating, closing the old version and opening the new one in one statement;
+  the mirror is written only when the new rate has already started, and a nightly job catches a
+  future-dated change up on its start date. Settlements pay **linehaul** from his version, resolved
+  against the work week being settled, never against today (P38, P41) — only that one column, so
+  detention, FSC, TONU, lumper, stop-off, per-ton and loadout still follow the company version
+  company-wide. Proved in a rolled-back transaction: 82% from next Wednesday accepted, this week and
+  the past week still 72, Mae and Leo refused, a missing reason refused, back-dating refused, a delete
+  and an in-place edit refused, a second current version refused. Nothing moved: `f77911b0` still
+  327.94, dispatch 100/100/72, all 157 records still 72. **Open question for the owner:** with every
+  driver holding a backfilled version, a future company-wide LINEHAUL change reaches nobody — his own
+  version wins. Other rates are unaffected. **Still owed in Pass 5:** the Linehaul Pay card on the
+  staff driver page and the company pay policy screen; both `AWAITING` allowlist entries come off then.
+- **Per-driver pay — PASS 2 of 5 DONE (2026-09-22 1445).** The company pay policy is now
   **versioned**: a rate is never edited in place — a change closes the current version and opens a new
   one from a date, and a past work week is always calculated with the rate that was in force for it
   (P41). `pay_policies_single_company_default` is re-scoped to **current** versions only, so history
