@@ -33,6 +33,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { STAFF_HELP_INDEX } from '@/lib/staffHelp/help-index';
+import DraftWithAiDrawer, { type AiDraft } from '@/components/management/DraftWithAiDrawer';
 import {
   notesDb, RELEASE_NOTE_COLUMNS, STAFF_AUDIENCE_ROLES, AUDIENCE_LABELS,
   CATEGORY_LABELS, STATUS_LABELS,
@@ -83,6 +84,7 @@ export default function ReleaseNotesManager() {
   const [denyId, setDenyId] = useState<string | null>(null);
   const [denyReason, setDenyReason] = useState('');
   const [expandedReads, setExpandedReads] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
 
   const [staffFaqs, setStaffFaqs] = useState<StaffFaqOption[]>([]);
   const [flagSearch, setFlagSearch] = useState('');
@@ -169,6 +171,27 @@ export default function ReleaseNotesManager() {
     setFlaggedIds([]); setFlagSearch('');
     setEditingId(null);
   };
+
+  // An AI draft lands in the composer as a fresh announcement, never as an edit
+  // of an existing row: nothing is saved until the writer submits it.
+  const loadAiDraft = (d: AiDraft) => {
+    setEditingId(null);
+    setTitle(d.title);
+    setBody(d.body);
+    setCategory(d.category);
+    setAudience(
+      d.target_roles.length
+        ? d.target_roles
+        : [...STAFF_AUDIENCE_ROLES],
+    );
+    setLinkRoute(d.link_route && SCREEN_OPTIONS.some(s => s.route === d.link_route) ? d.link_route : 'none');
+    setRequiresAck(false);
+    setIsPinned(false);
+    setFlaggedIds([]);
+    setFlagSearch('');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
 
   // Load a pending draft into the composer so it can be corrected before the
   // owner approves it. Saving an edit updates the same row — it stays pending
@@ -257,7 +280,7 @@ export default function ReleaseNotesManager() {
       title: isOwner ? 'Announcement published' : 'Sent for approval',
       description: isOwner
         ? 'The chosen staff groups have been notified by bell and email.'
-        : 'Marcus will review it. Nothing is sent to staff until he approves it.',
+        : 'The owner will review it. Nothing is sent to staff until it is approved.',
     });
     resetComposer();
     void fetchNotes();
@@ -371,19 +394,37 @@ export default function ReleaseNotesManager() {
 
   return (
     <div className="space-y-6">
+      <DraftWithAiDrawer
+        open={aiOpen}
+        onOpenChange={setAiOpen}
+        onLoadDraft={loadAiDraft}
+        onSaved={() => { setAiOpen(false); void fetchNotes(); }}
+      />
+
       {/* Compose */}
       <Card className="border-gold/30">
         <CardContent className="pt-6 space-y-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Megaphone className="h-5 w-5 text-gold" />
-            <h3 className="font-semibold text-base">
-              {editingId ? 'Edit Pending Announcement' : isOwner ? 'Post a New Announcement' : 'Write an Announcement'}
-            </h3>
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+            <div className="flex items-center gap-2">
+              <Megaphone className="h-5 w-5 text-gold" />
+              <h3 className="font-semibold text-base">
+                {editingId ? 'Edit Pending Announcement' : isOwner ? 'Post a New Announcement' : 'Write an Announcement'}
+              </h3>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-xs border-gold/50 hover:bg-gold/10"
+              onClick={() => setAiOpen(true)}
+            >
+              <Pencil className="h-3.5 w-3.5 mr-1.5 text-gold" />
+              Draft with AI
+            </Button>
           </div>
           <p className="text-xs text-muted-foreground">
             {isOwner
               ? 'The groups you choose receive an in-app notification and an email the moment you post.'
-              : 'Nothing is sent until Marcus approves it. He can also send it back with a note or shelve it.'}
+              : 'Nothing is sent until the owner approves it. It can also be sent back with a note or shelved.'}
           </p>
 
           <Input
