@@ -673,10 +673,11 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
   // 3a deliberately did NOT change — the duplicate-email rule stays global, so
   // one person cannot hold a live application at two carriers under one email
   // until that is decided on its own.
-  itLive('applications carries a nullable carrier, and its email rule is untouched', () => {
+  // 3a added the column nullable; 3e (migration 0054) made it NOT NULL.
+  itLive('applications carries a required carrier, and its email rule is untouched', () => {
     const [col] = psql(`SELECT a.attnotnull::text FROM pg_attribute a
       WHERE a.attrelid = 'public.applications'::regclass AND a.attname = 'company_id'`);
-    expect(col).toBe('false');
+    expect(col).toBe('true');
     const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
       AND indexname = 'applications_email_non_draft_unique'`);
     expect(idx).toBeTruthy();
