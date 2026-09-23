@@ -180,13 +180,33 @@ platform screen (is_platform_admin) --> edge function create-carrier
 
 ## Tests, typecheck
 
-See the summary lines appended below.
+Full suite, `npx vitest run --maxWorkers=2`, verbatim:
+
+```text
+ Test Files  6 failed | 215 passed | 2 skipped (223)
+      Tests  6 failed | 2216 passed | 16 skipped (2238)
+   Start at  18:42:19
+   Duration  690.88s (transform 9.36s, setup 64.28s, collect 54.17s, tests 855.86s, environment 270.33s, prepare 40.73s)
+```
+
+- **One real, caused by this pass:** `function-reachability` — `is_platform_admin(uuid)` is
+  client-executable with no caller yet. Correct finding. Recorded as `AWAITING demo carrier
+  stage 4 part 2` (the create-carrier function and platform screen), `KNOWN_NO_CALLER_MAX`
+  2 → 3; to be removed when those callers land. Not silenced: the entry names its consumer.
+- **Five: the familiar pooler `EAUTHQUERY auth_query secret check timed out`** —
+  accessorial-adjustment-schema, billing-schema, caller-evaluated-functions,
+  fuel-import-live, share-token-throttle.
+- Re-run of those six plus tenancy-resolver, definer-live-catalog, grant-parity-live:
+  `Test Files 1 failed | 8 passed (9)`, `Tests 1 failed | 268 passed (269)` — the one a
+  fresh EAUTHQUERY in share-token-throttle; that file alone re-run: `Tests 8 passed (8)`.
+- Typecheck (`npx tsgo --noEmit -p tsconfig.app.json`): clean.
 
 ## Files authored by this pass
 
 - `drizzle/migrations/0056_platform_admins.sql` (+ drizzle meta journal/snapshot; `src/integrations/supabase/types.ts` regenerated automatically)
 - `src/test/tenancy-resolver.test.ts`
 - `src/test/definer-live-catalog.test.ts`
+- `src/test/function-reachability.test.ts`
 - `docs/tms-build-status.md`
 - `docs/tms-wish-list.md`
 - `docs/passes/2026-09-23-1842-demo-carrier-stage-4-part-1.md`
