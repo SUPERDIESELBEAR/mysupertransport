@@ -98,6 +98,8 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
 
   const group = useMemo(() => inspectionGroup(unitNumber), [unitNumber]);
 
+  const [programmeOff, setProgrammeOff] = useState(false);
+
   const load = useCallback(async () => {
     setLoading(true);
     const [cyclesRes, settingsRes, usedRes] = await Promise.all([
@@ -107,6 +109,7 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
       db.rpc('inspection_grace_used', { _operator_id: operatorId }),
     ]);
     setRows((cyclesRes.data as CycleRow[]) ?? []);
+    setProgrammeOff(!settingsRes.data || settingsRes.data.programme_enabled === false);
     if (settingsRes.data) {
       setGraceLimit(settingsRes.data.max_grace_per_12_months ?? 2);
       setMaxGraceDays(settingsRes.data.max_grace_days ?? 15);
@@ -147,6 +150,18 @@ export default function QuarterlyInspectionPanel({ operatorId, unitNumber, readO
   }, [currentRef, currentRow]);
 
   const daysLeft = currentRef ? daysUntilDeadline(currentRef, currentRow?.grace_until) : null;
+
+  if (programmeOff) {
+    return (
+      <div className="bg-white border border-border rounded-xl shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarClock className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">Quarterly Inspection Program</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">The inspection programme is off for this carrier. No inspection reminders, extensions, reimbursements or bonuses apply until it is switched on.</p>
+      </div>
+    );
+  }
 
   if (!group) {
     return (
