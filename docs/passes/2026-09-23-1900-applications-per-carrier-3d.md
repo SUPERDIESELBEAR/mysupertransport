@@ -199,3 +199,61 @@ holds across all carriers**. The owner's call before a second carrier recruits.
 `generate-application-pdf` and `pei-release-fcra` deployed and confirmed live.
 
 Next: **3e — `company_id` NOT NULL, and the fixtures.**
+
+---
+
+## Checks
+
+Full suite, `--maxWorkers=2`, verbatim:
+
+```
+ Test Files  7 failed | 213 passed | 2 skipped (222)
+      Tests  11 failed | 2209 passed | 16 skipped (2236)
+     Errors  2 errors
+   Duration  851.89s (transform 11.55s, setup 118.87s, collect 72.91s, tests 842.07s, environment 463.64s, prepare 72.23s)
+```
+
+**Ten of the eleven were real, caused by this pass, and are fixed — not silenced.**
+They were the standing security guards doing their job:
+
+1. **`definer-search-path` — the pin.** `carrier_public_identity`, `carrier_identity_for_draft`
+   and the re-authored `save_application_draft` were pinned to `'public'` alone; the convention
+   requires `public, extensions`. Migration **`0052`** pins all three (settings only, no body
+   change). The stale legacy-allowlist entry for `save_application_draft` was **deleted** and
+   `LEGACY_MAX` lowered 72 → 71, which is the only direction that list may move.
+2. **`definer-live-catalog` — the two new anon-callable readers** were not in the inventory.
+   Registered in `KNOWN_ANON_EXECUTABLE_ENTRIES` and `KNOWN_AUTHENTICATED_EXECUTABLE`, each with
+   the route it serves and the five fields it is limited to; `KNOWN_ANON_EXECUTABLE_MAX` 31 → 33
+   and `KNOWN_AUTHENTICATED_EXECUTABLE_MAX` 139 → 141, each raised by exactly the number added.
+3. **`definer-live-catalog` — `anon` table privileges.** The guard still expected
+   `applications: INSERT`. That expectation is now **`faq: SELECT` alone** — the list shrank,
+   which is the whole point of Step 0.
+4. **`grant-parity-live` — a dead policy.** With the grant revoked, the permissive policy
+   `"Public can submit application with email"` named `anon` while `anon` held no INSERT grant.
+   Migration **`0053`** re-declares it as `"Signed-in applicant can submit application with email"`
+   `TO authenticated` — the identical predicate, no widening, and nothing anonymous loses anything
+   it could reach.
+5. **`resume-token-reuse`** asserts the newest migration must not redefine
+   `save_application_draft`. `0053` is now the newest and does not.
+
+The eleventh failure, `billing-schema`, was the familiar pooler `EAUTHQUERY` timeout — untouched
+by this pass and green on re-run.
+
+Re-run of exactly the affected files after the fixes:
+
+```
+ Test Files  5 passed (5)
+      Tests  38 passed (38)
+```
+
+plus `billing-schema` + `resume-gate-ui`: `2 passed (2) / 41 passed (41)`. Type check clean.
+
+Two further migrations authored by these fixes:
+
+- `drizzle/migrations/0052_pin_apply_identity_search_path.sql`
+- `drizzle/migrations/0053_applications_public_insert_authenticated_only.sql`
+
+and two further test files touched:
+
+- `src/test/definer-live-catalog.test.ts`
+- `src/test/helpers/legacyPublicOnlyPins.ts`

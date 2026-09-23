@@ -19676,3 +19676,42 @@ to the harness role and re-revokes it from PUBLIC, `anon` and `authenticated`; t
 
 Report: `docs/passes/2026-09-23-1730-applications-per-carrier-3c.md`. **3d — the per-carrier apply
 link and the letterhead — is next.**
+
+## 2026-09-23 ~1900 — demo carrier, stage 3, pass 3d: the per-carrier apply link
+
+**The link.** `carrier_profile.apply_slug` (format-checked, unique on `lower(apply_slug)`), plus
+`applicant_locality`. SUPERTRANSPORT's slug is **`supertransport`** — its own registered name,
+lower-cased, no new public name invented: `https://gosuperdrive.com/apply/supertransport`. The bare
+`/apply` route is unchanged while one carrier exists and, at two, asks the applicant for his
+carrier's own link rather than guessing. An unknown slug shows a plain not-found message and saves
+nothing.
+
+**The identity.** `DEFAULT_COMPANY_IDENTITY` is **deleted**. `carrier_public_identity(slug)` and
+`carrier_identity_for_draft(draft_token)` return **exactly five** fields — legal name, locality,
+USDOT, MC, slug — and nothing else. All five documents that print carrier identity refuse to render
+rather than print anyone's details when the lookup fails; `generate-application-pdf` returns 500 and
+generates nothing. `/pei-release/:token`, which is anonymous, now gets the carrier with the release.
+
+**The carrier reaches the database** as a slug the server resolves itself, never as an id from the
+browser. `save_application_draft` announces the resolved carrier transaction-locally
+(`app.apply_link_company`) and the stamp trigger trusts `NEW.company_id` only on an exact match —
+found and fixed because the two-carrier proof refused every linked application without it.
+
+**Step 0, settled:** `anon` really did hold an INSERT grant on `applications` (3c was right about
+the grant); it was unreachable because no permissive policy admitted `anon` (3b was right about the
+outcome). Migration 0048 revoked it; 0053 re-declared the matching policy for `authenticated` only.
+The public form never used the grant and still works.
+
+**Staff:** the copy-link control sits in **Invite Someone to Apply**, above the invite form.
+
+**Proofs:** both routes render SUPERTRANSPORT, LLC / Pleasant Hill, Missouri / USDOT 2309365 /
+MC 788425 — the carrier's exact current values, matching what the page printed when they were
+constants. Throwaway applicants completed both routes and were deleted. With a scratch carrier
+inside a transaction that raised: each slug returned its own carrier, a linked draft landed on the
+scratch carrier, the bare route refused, an unknown slug refused. Residue: 1 carrier, 347
+applications, 0 without a carrier, 0 probe rows.
+
+**Owed later, not now:** `applications_email_non_draft_unique` still carries no carrier.
+
+Report: `docs/passes/2026-09-23-1900-applications-per-carrier-3d.md`. **3e — `company_id` NOT NULL
+and the fixtures — is next.**
