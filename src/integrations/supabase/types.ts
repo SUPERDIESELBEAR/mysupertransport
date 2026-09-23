@@ -1569,6 +1569,7 @@ export type Database = {
           legal_name: string
           main_office_address: string
           mc_number: string
+          rate_con_ingest_address: string | null
           updated_at: string
           usdot_number: string
         }
@@ -1581,6 +1582,7 @@ export type Database = {
           legal_name: string
           main_office_address: string
           mc_number: string
+          rate_con_ingest_address?: string | null
           updated_at?: string
           usdot_number: string
         }
@@ -1593,6 +1595,7 @@ export type Database = {
           legal_name?: string
           main_office_address?: string
           mc_number?: string
+          rate_con_ingest_address?: string | null
           updated_at?: string
           usdot_number?: string
         }
@@ -14618,7 +14621,7 @@ export type Database = {
         Returns: string
       }
       bootstrap_assign_owner: {
-        Args: { p_user_id: string }
+        Args: { p_company_id?: string; p_user_id: string }
         Returns: undefined
       }
       cancel_application_correction: {
@@ -14690,7 +14693,7 @@ export type Database = {
         Returns: Json
       }
       company_pay_policy_on: {
-        Args: { _as_of: string }
+        Args: { _as_of: string; _company: string }
         Returns: {
           charge_pay_classes: Json
           company_id: string

@@ -408,16 +408,18 @@ describe('company_members — membership is not a user assertion', () => {
   itLive('a member IS stamped with that member’s company, and a supplied company is overridden', () => {
     const [stamped] = psql(`BEGIN;
       SELECT set_config('request.jwt.claims',
-        json_build_object('sub', (SELECT user_id FROM public.company_members ORDER BY created_at LIMIT 1),
+        json_build_object('sub', (SELECT cm.user_id FROM public.company_members cm
+                            JOIN public.carrier_profile c ON c.id = cm.company_id
+                           WHERE c.usdot_number = '2309365' ORDER BY cm.created_at LIMIT 1),
                           'role', 'authenticated')::text, true);
       INSERT INTO public.invoices (company_id, load_id, invoice_number, billing_path, amount)
-      VALUES ((SELECT id FROM public.carrier_profile ORDER BY created_at LIMIT 1),
+      VALUES ((SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'),
               (SELECT l.id FROM public.loads l
                 WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) LIMIT 1),
               'ST-SCRATCH-TENANCY', 'factored', 1)
       RETURNING company_id::text;
       ROLLBACK;`).filter(l => /^[0-9a-f-]{36}$/.test(l));
-    const [expected] = psql(`SELECT company_id::text FROM public.company_members ORDER BY created_at LIMIT 1`);
+    const [expected] = psql(`SELECT cm.company_id::text FROM public.company_members cm JOIN public.carrier_profile c ON c.id = cm.company_id WHERE c.usdot_number = '2309365' ORDER BY cm.created_at LIMIT 1`);
     expect(stamped).toBe(expected);
   });
 });
@@ -499,7 +501,7 @@ describe('tenancy batch B2 part one — operators, brokers, facilities', () => {
     for (const t of TABLES) {
       const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
           count(DISTINCT company_id)::text || ' ' ||
-          bool_and(company_id = (SELECT id FROM public.carrier_profile))::text
+          bool_and(company_id = (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toEqual(['0 1 true']);
     }
@@ -574,7 +576,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     for (const t of TABLES) {
       const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
           count(DISTINCT company_id)::text || ' ' ||
-          bool_and(company_id = (SELECT id FROM public.carrier_profile))::text
+          bool_and(company_id = (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toEqual(['0 1 true']);
     }
@@ -651,8 +653,9 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'public' AND p.proname = '${fn}'`).join('\n');
       expect(code, fn).toMatch(/company_id/);
-      // No "ORDER BY created_at LIMIT 1" carrier pick: bootstrap uses a bare
-      // scalar subquery, which raises 21000 once a second carrier exists.
+      // No "ORDER BY created_at LIMIT 1" carrier pick. Since demo carrier
+      // stage 2, bootstrap_assign_owner TAKES p_company_id; omitted, it counts
+      // the carriers and refuses (42501) unless there is exactly one.
       expect(code, fn).not.toMatch(/ORDER BY created_at\s+LIMIT 1/i);
     }
   });
@@ -704,7 +707,7 @@ describe('tenancy batch B3 — pay_policies, owner_transfers', () => {
   itLive('no row is null and none points off the live carrier', () => {
     for (const t of TABLES) {
       const row = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toEqual(['0 0']);
     }
@@ -859,7 +862,7 @@ describe('tenancy batch B4 — the 31 empty tables', () => {
   itLive('no B4 row points off the live carrier', () => {
     for (const t of B4_TABLES) {
       const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toBe('0 0');
     }
@@ -995,7 +998,7 @@ describe('tenancy B5 part two — settings and the settlement family', () => {
   itLive('every row of all 19 belongs to the live carrier', () => {
     for (const t of [...B5B_SETTINGS, ...B5B_SETTLEMENTS]) {
       const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toBe('0 0');
     }
@@ -1082,7 +1085,7 @@ describe('the three federal breaks — inspection and ELD records own their carr
   itLive('every federal row sits under the live carrier, none stranded', () => {
     for (const t of FEDERAL_TABLES) {
       const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toBe('0 0');
     }
@@ -1181,7 +1184,7 @@ describe('tenancy B5 group C — the staff-written remainder', () => {
   itLive('every row of all 17 belongs to the live carrier', () => {
     for (const t of [...B5C_PLAIN, ...B5C_TRIGGERED]) {
       const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toBe('0 0');
     }
@@ -1267,7 +1270,7 @@ describe('tenancy B6 group 1 — ELD / RODS', () => {
   itLive('every row belongs to the live carrier', () => {
     for (const t of B6_ELD_RODS) {
       const [row] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text || ' ' ||
-          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile))::text
+          count(*) FILTER (WHERE company_id <> (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text
         FROM public.${t}`);
       expect(row, t).toBe('0 0');
     }
@@ -1882,7 +1885,7 @@ describe('the twelve — fuel, operator events, staff acknowledgments', () => {
           AND a.attrelid = 'public.${t}'::regclass`);
       expect(shape, `${t} company_id shape`).toBe('true false');
       const [rows] = psql(`SELECT count(*) FILTER (WHERE company_id IS NULL)::text
-          || ' ' || coalesce(bool_and(company_id = (SELECT id FROM public.carrier_profile))::text, 'empty')
+          || ' ' || coalesce(bool_and(company_id = (SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'))::text, 'empty')
         FROM public.${t}`);
       expect(rows, `${t} rows`).toMatch(/^0 (true|empty)$/);
     }

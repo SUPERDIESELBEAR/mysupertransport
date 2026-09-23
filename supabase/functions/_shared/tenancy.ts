@@ -126,3 +126,56 @@ export async function companyIdForOperator(admin: AnyClient, operatorId: string)
   if (!data?.company_id) throw new Error(`No company for operator ${operatorId}`);
   return data.company_id as string;
 }
+
+/**
+ * THE CARRIER AN INBOUND EMAIL BELONGS TO — demo carrier, stage 2, item 2.
+ *
+ * `receive-rate-con-email` used `soleCompanyId`, which REFUSES once a second
+ * carrier exists: the moment carrier B was created, SUPERTRANSPORT's inbound
+ * rate-con intake would have stopped, silently to the broker who sent the mail.
+ *
+ * The Resend `email.received` webhook carries the sender, the subject, the
+ * attachments and the RECIPIENT list. The sender is a broker and identifies
+ * nothing; the subject is free text. The recipient is the only signal that can
+ * name a carrier, and each carrier already needs its own dedicated parse
+ * mailbox, so the recipient IS the routing key:
+ * `carrier_profile.rate_con_ingest_address`.
+ *
+ * Matching ignores case, a display name, and any `+tag` — `rates+abc@x` routes
+ * exactly as `rates@x`. Returns null when no carrier claims the address; the
+ * caller decides what to do with unroutable mail, and never guesses a carrier.
+ */
+function normalizeEmailAddress(raw: string): string {
+  const inAngles = raw.match(/<([^>]+)>/);
+  const addr = (inAngles ? inAngles[1] : raw).trim().toLowerCase();
+  const at = addr.lastIndexOf('@');
+  if (at < 0) return addr;
+  const local = addr.slice(0, at).split('+')[0];
+  return `${local}${addr.slice(at)}`;
+}
+
+export async function companyIdForIngestRecipient(
+  admin: AnyClient,
+  recipients: string[],
+): Promise<string | null> {
+  const wanted = new Set(recipients.filter(Boolean).map(normalizeEmailAddress));
+  if (wanted.size === 0) return null;
+
+  const { data, error } = await admin
+    .from('carrier_profile')
+    .select('id, rate_con_ingest_address')
+    .not('rate_con_ingest_address', 'is', null);
+  if (error) throw new Error(`Could not read carrier_profile: ${error.message}`);
+
+  const rows = (data ?? []) as { id: string; rate_con_ingest_address: string }[];
+  const matched = new Set<string>();
+  for (const row of rows) {
+    if (wanted.has(normalizeEmailAddress(row.rate_con_ingest_address))) matched.add(row.id);
+  }
+  if (matched.size > 1) {
+    throw new Error(
+      `The recipients ${[...wanted].join(', ')} match ${matched.size} carriers. Refusing to choose one.`,
+    );
+  }
+  return matched.size === 1 ? [...matched][0] : null;
+}

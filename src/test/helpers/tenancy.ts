@@ -20,8 +20,18 @@
  * If `company_members` is ever empty, `sub` is null, the resolver returns NULL
  * and the insert fails loudly. That is the intended signal, not a silent pass.
  */
+/**
+ * DEMO CARRIER, STAGE 2: the member is SUPERTRANSPORT's, named by USDOT 2309365
+ * (globally unique), not "the oldest membership row". Unfiltered, this helper
+ * would adopt whichever carrier's staff happened to be created first the day a
+ * second carrier exists — and the billing tests would stay green while writing
+ * their scratch rows under the wrong company.
+ */
 export const AS_COMPANY_MEMBER = `SELECT set_config('request.jwt.claims',
-  json_build_object('sub', (SELECT cm.user_id FROM public.company_members cm ORDER BY cm.created_at LIMIT 1),
+  json_build_object('sub', (SELECT cm.user_id FROM public.company_members cm
+                              JOIN public.carrier_profile c ON c.id = cm.company_id
+                             WHERE c.usdot_number = '2309365'
+                             ORDER BY cm.created_at LIMIT 1),
                     'role', 'authenticated')::text, true);`;
 
 /** Prepends the membership identity to every transaction the SQL opens. */
