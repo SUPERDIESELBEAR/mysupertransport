@@ -245,6 +245,16 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
     reason:
       "ROUTE /binder-share/:token (src/pages/BinderShareBundlePage.tsx). GUARD filters on the bundle token AND expires_at > now(), returning nothing when either fails.",
   },
+  {
+    signature: "public.carrier_public_identity(text)",
+    reason:
+      "ROUTE /apply and /apply/:slug (src/pages/ApplicationForm.tsx), which a walk-up applicant reaches with no session. GUARD returns FIVE public identity fields only -- legal_name, applicant_locality, usdot_number, mc_number, apply_slug -- all of them printed on the disclosures the applicant signs, and no internal id, address, phone or financial column. A NULL slug returns the sole carrier only while exactly one exists, and NO ROW once two do.",
+  },
+  {
+    signature: "public.carrier_identity_for_draft(text)",
+    reason:
+      "ROUTE /apply resumed from an emailed link, where the carrier must come from the DRAFT and not the URL. GUARD filters on the draft_token bearer credential and returns the same five public identity fields, nothing from the application row itself.",
+  },
 ];
 
 const KNOWN_ANON_EXECUTABLE: readonly string[] =
@@ -266,7 +276,13 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // 32 - 1 (get_application_pei_summary, DROPPED 2026-09-10 by the uncalled-
 // function sweep: no caller in any schema; the application PEI tab reads
 // `pei_requests` directly) = 31.
-const KNOWN_ANON_EXECUTABLE_MAX = 31;
+// 31 + 2 (carrier_public_identity, carrier_identity_for_draft, migration 0048,
+// demo carrier stage 3 pass 3d) = 33. Both are the public apply page's only way
+// to learn which carrier's name, city, USDOT and MC belong on the disclosures an
+// applicant signs; the hard-coded SUPERTRANSPORT fallback they replace printed
+// one carrier's identity to every carrier's applicant. Reasons beside the
+// entries.
+const KNOWN_ANON_EXECUTABLE_MAX = 33;
 
 
 
@@ -288,6 +304,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.archive_applicant_pei(uuid,text)",
   "public.assign_user_role(uuid,app_role)",
   "public.cancel_application_correction(uuid)",
+  // 2026-09-23, migration 0048, demo carrier stage 3 pass 3d. Both are granted
+  // to anon for the public apply page (see KNOWN_ANON_EXECUTABLE), so signed-in
+  // EXECUTE follows; they return five public carrier identity fields and nothing
+  // else. See the KNOWN_AUTHENTICATED_EXECUTABLE_MAX note dated 2026-09-23.
+  "public.carrier_identity_for_draft(text)",
+  "public.carrier_public_identity(text)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
   // create_eld_document_day / replace_rods_document used to be pinned here.
@@ -854,7 +876,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // (migrations 0038/0039). Raised by exactly one, reason recorded beside the entry.
 // 2026-09-22: 138 -> 139, `set_operator_linehaul_pct` from per-driver pay Pass 3
 // (migration 0040). Raised by exactly one, reason recorded beside the entry.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 139;
+// 2026-09-23: 139 -> 141, the two public carrier-identity readers from migration
+// 0048 (demo carrier stage 3 pass 3d). Raised by exactly two, reasons recorded
+// beside the entries.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 141;
 
 
 
@@ -1124,17 +1149,22 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
       ORDER BY c.relname;
     `);
 
-    // The only two anon table privileges this app needs:
-    //   applications INSERT -- the public job-application form
-    //   faq SELECT          -- published owner-operator FAQs, row-filtered by
-    //                          a TO public policy
+    // The ONE anon table privilege this app needs:
+    //   faq SELECT -- published owner-operator FAQs, row-filtered by a TO
+    //                 public policy
+    // `applications: INSERT` used to be listed here for the public job
+    // application form. It was never actually used: the form writes through
+    // save_application_draft / submit_application_draft, both SECURITY
+    // DEFINER, and no permissive INSERT policy admitted anon, so the grant was
+    // unreachable. Migration 0048 revoked it and 0053 re-declared the matching
+    // policy for `authenticated` only. The list may shrink, never grow.
     // Anything else means a table was created without scoped GRANTs, or a
     // blanket "GRANT ... ON ALL TABLES IN SCHEMA public TO anon" was run.
     expect(
       granted,
       `Unexpected anon table privileges. Every row here is readable or ` +
         `writable by an unauthenticated client:\n  ${granted.join("\n  ")}`,
-    ).toEqual(["applications: INSERT", "faq: SELECT"]);
+    ).toEqual(["faq: SELECT"]);
   });
 
   itLive("the mail queue RPCs are service-role only", () => {

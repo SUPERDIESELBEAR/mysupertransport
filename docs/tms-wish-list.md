@@ -1180,3 +1180,12 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   approval and dispatch keeps it. **P33** limits dispatch to ISSUING invoices.
 - Nothing in the money layer is protected by the UI alone — unlike slice 1, the gaps are
   wrong-role and unnamed-action, not absent enforcement.
+
+- **Demo carrier, stage 3 — pass 3d DONE (2026-09-23 1900).** Per-carrier apply link
+  (`/apply/supertransport`), two five-field public carrier-identity readers, the hard-coded
+  SUPERTRANSPORT letterhead removed from every applicant document, `anon`'s unused INSERT grant on
+  `applications` revoked and its dead policy re-declared for signed-in callers only, and a copy-link
+  control in Invite Someone to Apply. **3e next:** `company_id` NOT NULL across the eleven tables,
+  and the one-carrier fixtures. **Still owed by the owner:** whether one live application per email
+  should hold across all carriers or per carrier (`applications_email_non_draft_unique` carries no
+  carrier today), plus the seven stage-1 decisions.
