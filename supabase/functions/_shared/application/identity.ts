@@ -6,10 +6,14 @@
  * and terminal street address; the driver application must not — the company
  * shows only its locality on those documents.
  *
- * The record of truth is the `carrier_profile` singleton. These constants are
- * the fallback used when the profile cannot be read (offline, RLS, cold edge
- * invocation). They are never allowed to drift silently: the values below are
- * the same ones stored in carrier_profile today.
+ * NO FALLBACK CONSTANTS. Until 2026-09-23 this module carried SUPERTRANSPORT's
+ * legal name, locality, USDOT and MC as defaults, and anything that could not
+ * read `carrier_profile` printed them — including the public /apply page, which
+ * cannot read the table at all. With a second carrier that would have put
+ * SUPERTRANSPORT's identity on another carrier's signed federal authorizations.
+ *
+ * The record of truth is `carrier_profile`, read per carrier. When it cannot be
+ * read, the caller must SAY SO and print nothing.
  */
 export interface CompanyIdentity {
   legalName: string;
@@ -18,12 +22,14 @@ export interface CompanyIdentity {
   mc: string;
 }
 
-export const DEFAULT_COMPANY_IDENTITY: CompanyIdentity = {
-  legalName: 'SUPERTRANSPORT, LLC',
-  locality: 'Pleasant Hill, Missouri',
-  usdot: '2309365',
-  mc: '788425',
-};
+/** The five public fields `carrier_public_identity()` returns. */
+export interface PublicCarrierIdentityRow {
+  legal_name?: string | null;
+  applicant_locality?: string | null;
+  usdot_number?: string | null;
+  mc_number?: string | null;
+  apply_slug?: string | null;
+}
 
 /** "USDOT 2309365 · MC 788425" */
 export function identityRegistrationLine(i: CompanyIdentity): string {
@@ -36,17 +42,19 @@ export function identityLine(i: CompanyIdentity): string {
 }
 
 /**
- * Builds a CompanyIdentity from a carrier_profile row, falling back field by
- * field. A profile missing its MC number must not blank the MC line on a
- * signed authorization.
+ * Builds a CompanyIdentity from a carrier row.
+ *
+ * Returns NULL when any of the four printed fields is missing. A signed
+ * authorization with a blank company name, locality, USDOT or MC is not a
+ * document — it is a defect, and the caller must refuse rather than emit it.
  */
 export function identityFromProfile(
-  row: { legal_name?: string | null; usdot_number?: string | null; mc_number?: string | null } | null | undefined,
-): CompanyIdentity {
-  return {
-    legalName: row?.legal_name?.trim() || DEFAULT_COMPANY_IDENTITY.legalName,
-    locality: DEFAULT_COMPANY_IDENTITY.locality,
-    usdot: row?.usdot_number?.trim() || DEFAULT_COMPANY_IDENTITY.usdot,
-    mc: row?.mc_number?.trim() || DEFAULT_COMPANY_IDENTITY.mc,
-  };
+  row: PublicCarrierIdentityRow | null | undefined,
+): CompanyIdentity | null {
+  const legalName = row?.legal_name?.trim() || '';
+  const locality = row?.applicant_locality?.trim() || '';
+  const usdot = row?.usdot_number?.trim() || '';
+  const mc = row?.mc_number?.trim() || '';
+  if (!legalName || !locality || !usdot || !mc) return null;
+  return { legalName, locality, usdot, mc };
 }

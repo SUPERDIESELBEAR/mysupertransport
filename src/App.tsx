@@ -163,6 +163,9 @@ function AppRoutes() {
       {/* Public routes */}
       <Route path="/apply" element={<ApplicationForm />} />
       <Route path="/apply/ssn" element={<SubmitSSN />} />
+      {/* Per-carrier apply link. The bare /apply above keeps working while one
+          carrier exists; this one names the carrier explicitly. */}
+      <Route path="/apply/:slug" element={<ApplicationForm />} />
       <Route path="/login" element={!user ? <LoginPage /> : <Navigate to="/dashboard" replace />} />
       <Route path="/reset-password" element={<ResetPassword />} />
       <Route path="/welcome" element={<WelcomeOperator />} />

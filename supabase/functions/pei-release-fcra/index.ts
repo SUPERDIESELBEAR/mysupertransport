@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
   const { data: app, error: appErr } = await supabase
     .from('applications')
     .select(
-      'id, first_name, last_name, email, dob, typed_full_name, signed_date, signature_image_url, auth_safety_history, auth_drug_alcohol, auth_previous_employers',
+      'id, company_id, first_name, last_name, email, dob, typed_full_name, signed_date, signature_image_url, auth_safety_history, auth_drug_alcohol, auth_previous_employers',
     )
     .eq('id', pei.application_id)
     .maybeSingle()
@@ -107,6 +107,16 @@ Deno.serve(async (req) => {
     return json(409, {
       error: 'No signed authorization is on file for this applicant yet.',
     })
+
+  // WHOSE LETTERHEAD. This viewer is anonymous, so the browser cannot read
+  // carrier_profile; the five public identity fields travel with the response,
+  // read from the carrier THIS application belongs to. Without them the page
+  // says so rather than printing another carrier's name on a signed FCRA form.
+  const { data: carrier } = await supabase
+    .from('carrier_profile')
+    .select('legal_name, applicant_locality, usdot_number, mc_number, apply_slug')
+    .eq('id', (app as Record<string, unknown>).company_id as string)
+    .maybeSingle()
 
   const signatureDataUrl = await fetchSignatureDataUrl(
     supabase,
@@ -134,6 +144,7 @@ Deno.serve(async (req) => {
   }
 
   return json(200, {
+    carrier: carrier ?? null,
     application: {
       id: app.id,
       first_name: app.first_name,
