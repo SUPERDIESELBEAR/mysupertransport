@@ -330,6 +330,13 @@
       "when": 1790176935765,
       "tag": "0046_applications_family_restrictive_tenant_policy",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "7",
+      "when": 1790179009416,
+      "tag": "0047_grant_parity_report_execute_to_sandbox_exec",
+      "breakpoints": true
     }
   ]
 }
