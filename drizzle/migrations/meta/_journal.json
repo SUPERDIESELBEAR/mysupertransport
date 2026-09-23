@@ -372,6 +372,13 @@
       "when": 1790182883668,
       "tag": "0052_pin_apply_identity_search_path",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1790182913481,
+      "tag": "0053_applications_public_insert_authenticated_only",
+      "breakpoints": true
     }
   ]
 }
