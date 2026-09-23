@@ -276,7 +276,13 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // 32 - 1 (get_application_pei_summary, DROPPED 2026-09-10 by the uncalled-
 // function sweep: no caller in any schema; the application PEI tab reads
 // `pei_requests` directly) = 31.
-const KNOWN_ANON_EXECUTABLE_MAX = 31;
+// 31 + 2 (carrier_public_identity, carrier_identity_for_draft, migration 0048,
+// demo carrier stage 3 pass 3d) = 33. Both are the public apply page's only way
+// to learn which carrier's name, city, USDOT and MC belong on the disclosures an
+// applicant signs; the hard-coded SUPERTRANSPORT fallback they replace printed
+// one carrier's identity to every carrier's applicant. Reasons beside the
+// entries.
+const KNOWN_ANON_EXECUTABLE_MAX = 33;
 
 
 
