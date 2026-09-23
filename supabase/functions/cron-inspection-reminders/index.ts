@@ -68,11 +68,12 @@ Deno.serve(async (req) => {
       // asking for one made PostgREST reject the read, so this job silently sent
       // nothing at all.
       supabase.from('operators')
-        .select('id, user_id, unit_number, is_active, application_id, applications(first_name, last_name, email)')
+        .select('id, user_id, company_id, unit_number, is_active, application_id, applications(first_name, last_name, email)')
         .eq('is_active', true),
       supabase.from('inspection_cycles').select('*'),
       supabase.from('onboarding_status').select('operator_id, unit_number'),
-      supabase.from('inspection_program_settings').select('*').limit(1).maybeSingle(),
+      // PER CARRIER (stage 4 part 2a): every carrier's own programme row.
+      supabase.from('inspection_program_settings').select('*'),
     ]);
 
     // A REJECTED READ MUST NOT LOOK LIKE "NOBODY NEEDED A REMINDER".
@@ -83,17 +84,22 @@ Deno.serve(async (req) => {
         status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-    const operators = opsRes.data, cycles = cyclesRes.data, settings = setRes.data as any;
+    const operators = opsRes.data, cycles = cyclesRes.data;
+    const settingsByCompany = new Map<string, any>(
+      ((setRes.data ?? []) as any[]).map((s) => [s.company_id, s]),
+    );
     const onboardingUnits = new Map<string, string | null>(
       (unitsRes.data ?? []).map((r: any) => [r.operator_id, r.unit_number]),
     );
 
-    const offsets: number[] = settings?.reminder_offsets_days ?? [30, 14, 3];
-    const [preMonth, midMonth, lateMonth] = [offsets[0] ?? 30, offsets[1] ?? 14, offsets[2] ?? 3];
-
-    let sent = 0, skipped = 0;
+    let sent = 0, skipped = 0, programmeOff = 0;
 
     for (const op of operators ?? []) {
+      // A carrier with no programme row, or with the programme OFF, gets no reminders.
+      const settings = settingsByCompany.get((op as any).company_id);
+      if (!settings || settings.programme_enabled === false) { programmeOff++; continue; }
+      const offsets: number[] = settings.reminder_offsets_days ?? [30, 14, 3];
+      const [preMonth, midMonth, lateMonth] = [offsets[0] ?? 30, offsets[1] ?? 14, offsets[2] ?? 3];
       const unit = resolveUnit(onboardingUnits.get(op.id) ?? null, op.unit_number);
       const group = groupFor(unit);
       if (!group || !op.user_id) { skipped++; continue; }
@@ -164,7 +170,7 @@ Deno.serve(async (req) => {
       sent++;
     }
 
-    return new Response(JSON.stringify({ sent, skipped }), {
+    return new Response(JSON.stringify({ sent, skipped, programme_off: programmeOff }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (e) {
