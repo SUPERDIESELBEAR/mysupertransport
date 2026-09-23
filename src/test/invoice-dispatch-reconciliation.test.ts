@@ -115,7 +115,12 @@ function readSeedLoads(names: string[] = SEED): LoadRow[] {
 function readCompanyPolicy(): PayPolicyRates {
   const p = psqlJson<PayPolicyRates | null>(
     "select coalesce(row_to_json(p), 'null'::json) from public.pay_policies p "
-    + 'where p.is_company_default order by p.created_at limit 1');
+    // SUPERTRANSPORT's rate sheet by name (USDOT 2309365 is unique), not
+    // "the oldest company default": on the day a second carrier exists an
+    // unfiltered pick reads the wrong rate sheet and stays GREEN while doing it.
+    + "join public.carrier_profile c on c.id = p.company_id "
+    + "where c.usdot_number = '2309365' and p.is_company_default "
+    + 'order by p.created_at limit 1');
   if (!p) throw new Error('no company default pay policy');
   return p;
 }

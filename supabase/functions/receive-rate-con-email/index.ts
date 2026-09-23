@@ -29,7 +29,7 @@ import { verifySvixSignature } from '../_shared/svixVerify.ts';
 import { parseRateConfirmationCore } from '../_shared/rateConCore.ts';
 import { extractPdfTextLayerDeno } from '../_shared/pdfTextLayerDeno.ts';
 import { judgeParsedVerbatimServer } from '../_shared/verbatimIngest.ts';
-import { soleCompanyId } from '../_shared/tenancy.ts';
+import { companyIdForIngestRecipient, soleCompanyId } from '../_shared/tenancy.ts';
 
 const BUCKET = 'rate-con-ingest';
 const RESEND_API = 'https://api.resend.com';
@@ -317,10 +317,34 @@ Deno.serve(async (req) => {
       .maybeSingle();
     if (existing) return json(200, { duplicate: true, id: existing.id });
 
+    // WHOSE MAIL IS THIS? The recipient address, matched against each carrier's
+    // own parse mailbox (carrier_profile.rate_con_ingest_address). This replaced
+    // soleCompanyId, which would have STOPPED this intake outright the moment a
+    // second carrier existed.
+    //
+    // Unclaimed address: while exactly one carrier exists it is that carrier's —
+    // there is no one else it could belong to, and junk mail must still reach a
+    // dispatcher to dismiss. With two or more carriers an unclaimed address is
+    // unroutable and the mail is acknowledged and dropped with a logged error,
+    // because attributing a broker's rate con to a guessed carrier is worse.
+    let ingestCompanyId = await companyIdForIngestRecipient(admin, toAddresses);
+    if (!ingestCompanyId) {
+      try {
+        ingestCompanyId = await soleCompanyId(admin);
+        console.warn(
+          'rate-con ingest: recipient claimed by no carrier; using the sole carrier',
+          toAddress,
+        );
+      } catch (_err) {
+        console.error('rate-con ingest: unroutable recipient, mail dropped', toAddress);
+        return json(200, { ignored: true, reason: 'unroutable_recipient' });
+      }
+    }
+
     const { data: row, error: insertErr } = await admin
       .from('rate_con_ingest_queue')
       .insert({
-        company_id: await soleCompanyId(admin),
+        company_id: ingestCompanyId,
         resend_email_id: emailId,
         from_address: fromAddress ?? null,
         to_address: toAddress,

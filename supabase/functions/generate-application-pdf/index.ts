@@ -17,6 +17,7 @@ import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { buildApplicationDocument, applicationPdfFilename, applicantName } from '../_shared/application/documentModel.ts';
 import { identityFromProfile } from '../_shared/application/identity.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
 import { renderApplicationPdf } from '../_shared/application/renderPdf.ts';
 
 const corsHeaders = {
@@ -106,11 +107,36 @@ serve(async (req) => {
     if (appError) return json({ error: appError.message }, 500);
     if (!app) return json({ error: 'Application not found' }, 404);
 
+    // WHOSE LETTERHEAD — demo carrier, stage 2, item 5.
+    //
+    // This read was `.limit(1)` with no filter, so with two carriers it would
+    // have stamped an arbitrary legal name, USDOT and MC onto a signed
+    // compliance document, undetectably.
+    //
+    // Once applications are per-carrier (stage 3) the company comes from
+    // `app.company_id` — the line below picks that up automatically the day the
+    // column exists. Until then the applications pool is shared and the only
+    // honest signal is the staff member who asked for the document: his own
+    // membership, which in a single-pool world is the carrier that received the
+    // application. It is never "the first carrier row".
+    const companyId = ((app as Record<string, unknown>).company_id as string | undefined)
+      ?? await companyIdForUser(admin, userId);
+
     const { data: profile } = await admin
       .from('carrier_profile')
       .select('legal_name, usdot_number, mc_number')
-      .limit(1)
+      .eq('id', companyId)
       .maybeSingle();
+    // REFUSE rather than fall back: the constants in identityFromProfile name
+    // SUPERTRANSPORT, and printing them for another carrier is the exact defect
+    // this change exists to remove.
+    if (!profile) {
+      console.error('carrier identity unresolved for application', { applicationId, companyId });
+      return json(
+        { error: 'The carrier identity for this application could not be resolved, so the document was not generated.' },
+        500,
+      );
+    }
     const identity = identityFromProfile(profile);
 
     // The drawn signature lives in a private bucket; pull the bytes directly
