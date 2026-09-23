@@ -19757,3 +19757,4 @@ Report: `docs/passes/2026-09-23-2013-demo-carrier-stage-4-part-2a.md`. **Next: p
 - Migration `0058_create_carrier_and_load_number_d1.sql`: D1 fixed (`generate_load_number` reads only the caller's carrier, refuses 42501 with no carrier and P0002 with no row); `create_carrier(jsonb, uuid, uuid)` service_role only; `stamp_billing_company_id` gains one narrow exception (service_role + no resolvable caller + company equal to the transaction-local `app.creating_carrier`).
 - Edge function `create-carrier`, hidden screen `/platform/carriers/new`. `is_platform_admin` AWAITING entry removed (KNOWN_NO_CALLER_MAX 3 → 2).
 - No carrier committed; residue zero. Report: `docs/passes/2026-09-23-2120-demo-carrier-stage-4-part-2b.md`. **Next: stage 5 — create carrier B from the screen.**
+- 0059: billing stamp session sources wrapped in COALESCE (definer fail-open guard).

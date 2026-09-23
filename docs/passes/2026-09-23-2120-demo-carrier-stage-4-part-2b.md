@@ -6,7 +6,7 @@ Nothing below contradicted the live system. Two things are worth recording (see 
 
 ## Step 1 — owner answers recorded (P44–P47)
 
-Recorded word for word in `docs/tms-build-status.md` (entry 2026-09-23 21:20 UTC).
+Recorded word for word in `docs/tms-build-status.md` (entry 2026-09-23 21:20 UTC); 0059 billing-stamp COALESCE follow-up.
 
 ## Step 2 — D1, `generate_load_number()`
 
