@@ -37,6 +37,7 @@ import ApplicationApprove from "./pages/ApplicationApprove";
 import QPassportView from "./pages/QPassportView";
 import PassengerAuthSign from "./pages/PassengerAuthSign";
 import PreviewLogin from "./pages/PreviewLogin";
+import CreateCarrierPage from "./pages/platform/CreateCarrierPage";
 import PreviewSessionBanner from "@/components/PreviewSessionBanner";
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import PortalErrorBoundary from "@/components/shared/PortalErrorBoundary";
@@ -228,6 +229,9 @@ function AppRoutes() {
         !rolesLoaded ? <PortalFallback /> :
         <Navigate to="/dashboard" replace />
       } />
+      {/* Hidden platform route (P43). The page re-checks is_platform_admin and
+          the create-carrier function checks again; the screen is never the gate. */}
+      <Route path="/platform/carriers/new" element={!user ? <LoginRedirect /> : <CreateCarrierPage />} />
       <Route path="/management/deactivate/:operatorId" element={
         !user ? <LoginRedirect /> :
         isManagement ? <DeactivationPage /> :
