@@ -2,6 +2,7 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { emailHeader, emailFooter, RECRUITING_EMAIL } from '../_shared/email-layout.ts';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
+import { companyIdForUser } from '../_shared/tenancy.ts';
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
@@ -194,6 +195,10 @@ Deno.serve(async (req) => {
           note: note ?? null,
           invited_by: callerId,
           invited_by_name: callerName,
+          // Service-role write: no auth.uid(), so the carrier is named from the
+          // INVITING staff member's membership rather than left to the trigger's
+          // sole-carrier fallback.
+          company_id: await companyIdForUser(supabaseAdmin, callerId),
           email_sent: emailSent,
           email_error: emailError,
         })

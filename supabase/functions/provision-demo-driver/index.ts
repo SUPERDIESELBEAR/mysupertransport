@@ -80,6 +80,8 @@ Deno.serve(withErrorEnvelope(async (req) => {
     reviewed_at: appStatus.review_status === 'approved' ? new Date().toISOString() : null,
     review_status: appStatus.review_status,
     is_draft: appStatus.is_draft,
+    // Service-role insert: named from the requesting staff member's membership.
+    company_id: await companyIdForUser(admin, userId),
   }).select('id').single()
   if (appErr || !app) return fail(500, `Could not create demo application: ${appErr?.message}`)
 

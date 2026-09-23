@@ -83,6 +83,9 @@ Deno.serve(async (req) => {
         is_draft: false,
         submitted_at: new Date().toISOString(),
         reviewed_at: new Date().toISOString(),
+        // Bootstrap path: the sole carrier, the same source this function's
+        // operator insert already uses.
+        company_id: await soleCompanyId(supabaseAdmin),
       })
       .select('id')
       .single();
