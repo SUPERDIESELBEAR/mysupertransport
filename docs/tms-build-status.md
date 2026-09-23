@@ -19557,3 +19557,53 @@ onboarding-only login): pipeline 37 / dispatch 7 / rate-con 3; PEI queue 144 (12
 not hired, 1 active); one application opened in the review drawer with its Documents, PEI,
 correction and document-history panels intact. Unexpired resume tokens: zero before, zero
 after, so nothing in the wild could break.
+
+---
+
+## 2026-09-23 16:00 UTC — demo carrier, stage 3, pass 3b of 5: every writer stamps the carrier
+
+The carrier is now decided **when the row is created**, not by a backfill. Migration
+`0045_applications_roots_stamp_company.sql` adds `public.stamp_application_company()` (SECURITY
+DEFINER, pinned search_path, EXECUTE revoked from PUBLIC/`anon`/`authenticated`) as trigger
+`stamp_company_id` BEFORE INSERT on `applications` and `application_invites`.
+
+Three cases: a resolvable signed-in caller gets their own carrier and a **disagreeing**
+caller-supplied carrier is **REFUSED** (42501) rather than overwritten — a root is not a child,
+and a staff member naming another carrier is a bug or an attempt; `service_role` naming a carrier
+explicitly is trusted; an anonymous insert with no carrier resolves the sole carrier **while
+exactly one exists** and is **REFUSED** at two or more, until the per-carrier apply link (3d).
+
+Writers: `invite-applicant` takes the carrier from the **inviting staff member**
+(`companyIdForUser`), `provision-demo-driver` from the user it provisions, `create-test-operator`
+from `soleCompanyId`. `StaffApplicationModal` needs no change (case 1 covers it) and
+`provision-test-driver` makes no carrier decision — it only updates existing applications.
+`submit_application_draft` is an UPDATE of the draft, so the carrier was fixed at draft creation.
+
+**The design had one fact wrong, in the safe direction.** `anon` has **no privilege at all** on
+`applications` — live grants are `SELECT, INSERT` to the read-only harness role only, and an
+anonymous POST straight at the table returns `42501 permission denied`. The public application
+already runs entirely through the two definer RPCs, so 3c has no anon grant to revoke; it must
+confirm those two remain the only door and write the restrictive policies.
+
+**Proof.** All six entry paths (anonymous draft, submit, invite, staff-created, demo-driver
+provision, test-operator provision) stamped SUPERTRANSPORT. Inside a transaction that ended by
+raising, with a scratch carrier present: an anonymous insert REFUSED; a scratch-carrier staff
+member's application and invite resolved to the **scratch** carrier; that member naming
+SUPERTRANSPORT REFUSED with 42501. `/apply` was then driven end to end by a throwaway applicant
+through the real RPCs and removed — residue zero: 346 applications, 0 NULL carrier, 1 carrier.
+
+**Unchanged for SUPERTRANSPORT**, one real sign-in per identity: pipeline 37 / dispatch 7 /
+rate-con 3; Applications Pending 7, Archived 50 as Marcus and as Mae; the onboarding-only login
+still has no Applications screen; the PEI queue and one full review drawer (Overview, Documents,
+PEI, signature, SSN reveal, corrections) intact. PEI requests 144 → 147, correction requests
+80 → 81, fields 137 → 140 and the queue's active count 1 → 2 — ordinary staff work in the
+intervening hours, not this pass. All eleven tables: 0 NULL carrier.
+
+**Owed later, not now:** `applications_email_non_draft_unique` carries no carrier, so one live
+application per email holds **across all carriers**. Whether that is correct is the owner's call
+before a second carrier recruits.
+
+Deployed and confirmed live by their own refusals (401 / 401 / 503, not boot errors):
+`invite-applicant`, `provision-demo-driver`, `create-test-operator`. Suite: 3 failed | 2209
+passed | 16 skipped, all three the familiar pooler timeout, all three green on re-run (82 tests).
+Type check clean. Report: `docs/passes/2026-09-23-1600-applications-per-carrier-3b.md`.
