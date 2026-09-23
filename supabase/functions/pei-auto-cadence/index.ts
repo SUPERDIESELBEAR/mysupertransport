@@ -50,26 +50,37 @@ Deno.serve(async (req) => {
 
   const now = new Date();
 
-  // Company-wide cadence settings
-  const { data: settings } = await supabase
+  // PER-CARRIER cadence (stage 4 part 2a). Each carrier's requests follow that
+  // carrier's own row; a carrier with no row, or with follow-ups off, is skipped.
+  const { data: settingsRows, error: setErr } = await supabase
     .from('pei_cadence_settings')
-    .select('auto_follow_ups_enabled, follow_up_interval_days, gfe_after_days')
-    .maybeSingle();
-
-  if (settings && settings.auto_follow_ups_enabled === false) {
-    return new Response(JSON.stringify({ skipped: 'disabled' }), {
+    .select('company_id, auto_follow_ups_enabled, follow_up_interval_days, gfe_after_days');
+  if (setErr) {
+    return new Response(JSON.stringify({ error: setErr.message }), {
+      status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   }
+  const cadenceByCompany = new Map<string, { interval: number; gfeDay: number; milestones: number[] }>();
+  const disabledCompanies: string[] = [];
+  for (const s of settingsRows ?? []) {
+    if (s.auto_follow_ups_enabled === false) { disabledCompanies.push(s.company_id as string); continue; }
+    const interval = (s.follow_up_interval_days as number) ?? DEFAULT_INTERVAL;
+    const gfeDay = (s.gfe_after_days as number) ?? DEFAULT_GFE_DAY;
+    cadenceByCompany.set(s.company_id as string, { interval, gfeDay, milestones: milestonesFor(interval, gfeDay) });
+  }
 
-  const INTERVAL = (settings?.follow_up_interval_days as number) ?? DEFAULT_INTERVAL;
-  const GFE_DAY = (settings?.gfe_after_days as number) ?? DEFAULT_GFE_DAY;
-  const MILESTONES = milestonesFor(INTERVAL, GFE_DAY);
-
-  // Candidates: still awaiting a response
+  // Candidates: still awaiting a response, only for carriers whose follow-ups are on
+  const enabledIds = [...cadenceByCompany.keys()];
+  if (enabledIds.length === 0) {
+    return new Response(JSON.stringify({ skipped: 'disabled', disabled_companies: disabledCompanies.length }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+  }
   const { data: rows, error } = await supabase
     .from('pei_requests')
     .select('*')
+    .in('company_id', enabledIds)
     .in('status', ['sent', 'follow_up_sent'])
     .not('date_sent', 'is', null)
     .is('date_response_received', null)
@@ -82,10 +93,14 @@ Deno.serve(async (req) => {
     });
   }
 
-  const summary = { checked: rows?.length ?? 0, sent: 0, gfe: 0, paused: 0, skipped: 0, errors: [] as string[] };
+  const summary = { companies: enabledIds.length, disabled_companies: disabledCompanies.length, checked: rows?.length ?? 0, sent: 0, gfe: 0, paused: 0, skipped: 0, errors: [] as string[] };
 
   for (const r of rows ?? []) {
     try {
+      const cadence = cadenceByCompany.get(r.company_id as string);
+      if (!cadence) { summary.skipped++; continue; }
+      const GFE_DAY = cadence.gfeDay;
+      const MILESTONES = cadence.milestones;
       const dateSent = new Date(r.date_sent as string);
       const daysSince = Math.floor((now.getTime() - dateSent.getTime()) / 86_400_000);
 
