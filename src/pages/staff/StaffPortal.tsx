@@ -1,3 +1,4 @@
+import { stampedInsert } from '@/lib/db/stampedInsert';
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { toast } from 'sonner';
@@ -97,7 +98,7 @@ export default function StaffPortal() {
       .single();
     const { data: newApp, error } = await supabase
       .from('applications')
-      .insert({
+      .insert(stampedInsert<'applications'>({
         email: '', // will be filled in by staff
         user_id: userId,
         first_name: profile?.first_name ?? '',
@@ -106,7 +107,7 @@ export default function StaffPortal() {
         address_state: profile?.home_state ?? '',
         review_status: 'approved',
         is_draft: false,
-      })
+      }))
       .select('*')
       .single();
     if (error || !newApp) { toast.error(error?.message ?? 'Failed to create application record.'); return; }

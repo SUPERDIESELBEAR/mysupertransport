@@ -1,3 +1,4 @@
+import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useRef, useState } from 'react';
 import { Eye, Upload, Camera, Loader2, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -66,7 +67,7 @@ export function DocumentSlotRow({
         staffName = [prof?.first_name, prof?.last_name].filter(Boolean).join(' ').trim() || user.email || null;
       }
 
-      const { error: histErr } = await supabase.from('application_document_history').insert({
+      const { error: histErr } = await supabase.from('application_document_history').insert(stampedInsert<'application_document_history'>({
         application_id: applicationId,
         document_key: docKey,
         old_path: currentPath,
@@ -75,7 +76,7 @@ export function DocumentSlotRow({
         note: file.name,
         changed_by: user?.id ?? null,
         changed_by_name: staffName,
-      });
+      }));
       if (histErr) console.warn('[DocumentSlotRow] history insert failed', histErr);
 
       onReplaced(path);
