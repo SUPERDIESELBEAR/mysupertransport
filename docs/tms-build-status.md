@@ -19715,3 +19715,15 @@ applications, 0 without a carrier, 0 probe rows.
 
 Report: `docs/passes/2026-09-23-1900-applications-per-carrier-3d.md`. **3e — `company_id` NOT NULL
 and the fixtures — is next.**
+
+## 2026-09-23 ~1745 UTC — Demo carrier stage 3 COMPLETE (applications + PEI per-carrier, passes 3a–3e)
+
+- **3a** (0043/0044): nullable `company_id` on the eleven family tables, backfilled from USDOT 2309365; nine children derive their carrier from the parent by trigger and overwrite anything supplied.
+- **3b** (0045): the two roots stamp on insert — staff get their own carrier, a disagreeing carrier is refused (42501), anonymous inserts get the sole carrier and are refused at two. invite-applicant, provision-demo-driver, create-test-operator name the carrier.
+- **3c** (0046): restrictive `tenant_isolation` on all eleven (applications also admits the applicant's own row). **First observed cross-carrier refusal:** a scratch carrier's staff member saw 0 of SUPERTRANSPORT's 346 applications and 0 of every PEI/correction row, against the full live counts before 0046.
+- **3d** (0048–0053): per-carrier apply link `/apply/supertransport`, disclosures read the carrier from `carrier_public_identity`, hard-coded letterhead removed, anon's unused INSERT on applications revoked. **Defect the two-carrier proof caught:** the 3b stamp could not tell a slug-resolved carrier from a browser-typed one and refused every linked application once two carriers existed; fixed by a transaction-local announcement from `save_application_draft` (0050/0051).
+- **3e** (0054/0055): `company_id NOT NULL` on all eleven (0055 a no-op, recorded). Proven: stamp refuses first (42501), NOT NULL refuses with the stamp disabled (23502). Browser inserts wrapped in `stampedInsert`, which forbids naming a carrier. New guard `applications-company-not-null.test.ts`.
+- **Live now:** 1 carrier; applications 347, invites 5, correction requests 81, correction fields 140, document history 12, interview notes 2, revision attachments 1, PEI requests 147, responses 16, accidents 1, events 527 — all NOT NULL, 0 NULL.
+- **Owed:** `applications_email_non_draft_unique` (`lower(email) WHERE is_draft IS NOT TRUE`) is carrier-blind — one live application per email across all carriers. Owner decision before carrier B recruits.
+
+Report: `docs/passes/2026-09-23-1745-applications-per-carrier-3e.md`.
