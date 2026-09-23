@@ -14,6 +14,8 @@ Last updated: 2026-09-23
 
 ## OWNER FOLLOW-UP LIST — before and during the second-carrier demo
 
+- **Demo carrier stage 4 part 1 — DONE (2026-09-23 1842).** P43 platform role built (`platform_admins`, `is_platform_admin`). Carrier requirements listed, inputs listed, creation function proposed. **Next: stage 4 part 2 — build `create_carrier` + the create-carrier function.** Before it: fix D1 (`generate_load_number` company predicate). Owed from the owner: are the 72/100 pay percentages a SUPERDRIVE default or SUPERTRANSPORT's terms; may an existing SUPERDRIVE user become another carrier's owner.
+
 Kept at the owner's request (2026-09-16). One line per item, each pointing to the
 record entry that explains it. Items are removed only when the record shows them
 closed, and the removing pass says so.

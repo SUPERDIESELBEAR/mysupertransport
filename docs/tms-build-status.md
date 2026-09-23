@@ -19727,3 +19727,13 @@ and the fixtures — is next.**
 - **Owed:** `applications_email_non_draft_unique` (`lower(email) WHERE is_draft IS NOT TRUE`) is carrier-blind — one live application per email across all carriers. Owner decision before carrier B recruits.
 
 Report: `docs/passes/2026-09-23-1745-applications-per-carrier-3e.md`.
+
+## 2026-09-23 18:42 UTC — demo carrier, stage 4 part 1
+
+- **P43 recorded (owner, 2026-09-23):** "Creating a carrier is a SUPERDRIVE platform power, not a carrier power. It belongs to a platform role held only by the platform operator (today, Marcus Mueller). No carrier's owner holds it by default, and nothing a carrier does can grant it."
+- **0056** `platform_admins` (no company_id, own-row SELECT only, no client writes) + `is_platform_admin(uuid)` (definer, STABLE, pinned; authenticated + service_role). One row: Marcus. Proven: Marcus true; Mae, Leo, onboarding-only, both Steves, both Donalds false; Marcus's insert/update/delete refused 42501; anon EXECUTE refused; scratch carrier owner false. Zero residue.
+- Finding: `stamp_tenant_company_id` rewrites company_id to the caller's carrier — carrier creation must run as service_role with explicit ids, never in Marcus's session.
+- Defect D1 named, not fixed: `generate_load_number()` picks `load_number_config` with no company predicate.
+- Parts B–D (carrier needs, inputs, proposed creation function): see report.
+
+Report: `docs/passes/2026-09-23-1842-demo-carrier-stage-4-part-1.md`.
