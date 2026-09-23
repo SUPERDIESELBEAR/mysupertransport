@@ -19514,3 +19514,46 @@ for SUPERTRANSPORT as Marcus, Mae and the onboarding-only login.
 family has no carrier filter, so it keeps working. What breaks is confidentiality: carrier B's
 staff would read, edit and **delete** SUPERTRANSPORT's 346 applications, its 144 PEI requests
 and the SSNs on them, from the day the row exists.
+
+## 2026-09-23 — Demo carrier, stage 3, pass 3a: the carrier column and the backfill
+
+`applications` and `application_invites` gained a NULLABLE `company_id uuid REFERENCES
+carrier_profile(id) ON DELETE RESTRICT`, decided from outside the family. The nine children —
+`application_correction_requests`, `application_correction_fields`,
+`application_document_history`, `application_interview_notes`,
+`application_revision_attachments`, `pei_requests`, `pei_responses`, `pei_accidents`,
+`pei_request_events` — gained the same column plus a BEFORE INSERT OR UPDATE trigger,
+`stamp_child_company_from_parent`, which DERIVES the carrier from the parent row and
+OVERWRITES anything the caller supplies. A cross-carrier child therefore cannot be stored
+even by a definer function or a direct SQL writer.
+
+Counts, exact, zero NULL after: 346 / 5 / 80 / 137 / 12 / 2 / 1 / 144 / 16 / 1 / 527.
+
+**Why the backfill needed the triggers disabled.** `application_document_history` is
+append-only — `enforce_application_document_history_append_only()` raises on any UPDATE — and
+four other tables carry triggers that would have logged spurious events or re-derived PEI
+deadlines and statuses from a column-filling UPDATE. The migration therefore creates the
+columns and the stamping triggers, runs `DISABLE TRIGGER USER` on all eleven tables, backfills
+parents before children, re-enables every trigger, then creates the indexes. No guard was
+dropped, relaxed or rewritten.
+
+**Deliberately not changed:** no policy, no definer function, no edge function, no screen and
+not the `anon` INSERT grant on `applications`. Those are passes 3b and 3c. The
+duplicate-email rule `applications_email_non_draft_unique` stays GLOBAL — whether one person
+may hold a live application at two carriers is its own decision.
+
+Migration `0044` revokes EXECUTE on the new trigger function from PUBLIC, `anon` and
+`authenticated`, so it matches `stamp_tenant_company_id`: reachable only by the triggers that
+own it.
+
+**Guard lists.** `GLOBAL_TABLES` went 19 → 12; the seven application tables left it by being
+STAMPED on the owner's per-carrier decision, not by being decided away.
+`AWAITING_APPLICATIONS` (the four PEI tables) is retired for the same reason. All eleven are
+declared in `PENDING_RESTRICTIVE` until 3c writes their restrictive policies, and the
+DONE-list floor now counts DONE plus PENDING against the live inventory.
+
+**Unchanged for SUPERTRANSPORT**, proven with one real sign-in per identity (Marcus, Mae, the
+onboarding-only login): pipeline 37 / dispatch 7 / rate-con 3; PEI queue 144 (128 hired, 15
+not hired, 1 active); one application opened in the review drawer with its Documents, PEI,
+correction and document-history panels intact. Unexpired resume tokens: zero before, zero
+after, so nothing in the wild could break.
