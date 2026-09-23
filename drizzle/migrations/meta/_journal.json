@@ -302,6 +302,13 @@
       "when": 1790161280317,
       "tag": "0042_carrier_scoped_pay_resolver_and_bootstrap",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "7",
+      "when": 1790166708789,
+      "tag": "0043_applications_family_company_column",
+      "breakpoints": true
     }
   ]
 }
