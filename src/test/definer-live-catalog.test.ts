@@ -876,7 +876,10 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // (migrations 0038/0039). Raised by exactly one, reason recorded beside the entry.
 // 2026-09-22: 138 -> 139, `set_operator_linehaul_pct` from per-driver pay Pass 3
 // (migration 0040). Raised by exactly one, reason recorded beside the entry.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 139;
+// 2026-09-23: 139 -> 141, the two public carrier-identity readers from migration
+// 0048 (demo carrier stage 3 pass 3d). Raised by exactly two, reasons recorded
+// beside the entries.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 141;
 
 
 
