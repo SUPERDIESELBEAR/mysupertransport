@@ -154,8 +154,16 @@ block 3c, 3d or 3e; it must be settled before a second carrier recruits.
 Full suite, `--maxWorkers=2`, summary verbatim:
 
 ```
-SUITE_SUMMARY_PLACEHOLDER
+ Test Files  3 failed | 216 passed | 2 skipped (221)
+      Tests  3 failed | 2209 passed | 16 skipped (2228)
+   Duration  788.34s (transform 10.16s, setup 101.13s, collect 67.99s, tests 834.18s, environment 400.94s, prepare 60.48s)
 ```
+
+All three failures are the familiar pooler timeout — `FATAL: (EAUTHQUERY) auth_query secret
+check timed out` — in `billing-schema`, `dispatch-settlement-schema` and
+`passthroughDriverList`, none of them touched by this pass. Re-run of exactly those three files:
+**3 files, 82 tests, all passed.** The two unhandled `onTaskUpdate` timeouts are the same
+reporter symptom of the same slow connection.
 
 Type check: clean.
 
