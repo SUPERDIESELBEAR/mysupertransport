@@ -379,6 +379,13 @@
       "when": 1790182913481,
       "tag": "0053_applications_public_insert_authenticated_only",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1790183608604,
+      "tag": "0054_applications_family_company_not_null",
+      "breakpoints": true
     }
   ]
 }
