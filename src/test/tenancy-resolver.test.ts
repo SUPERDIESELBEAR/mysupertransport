@@ -89,6 +89,11 @@ const GLOBAL_TABLES = [
   // because each one only means anything where the code checks it. Rows arrive by
   // migration and the table has no write policy at all.
   'permission_actions',
+  // 2026-09-23, P43: `platform_admins` is the SUPERDRIVE platform role (who may
+  // create a carrier). It belongs to NO carrier on purpose: a company_id would
+  // make it something a carrier holds, and P43 says no carrier holds it and
+  // nothing a carrier does can grant it. Rows arrive only by migration.
+  'platform_admins',
 ] as const;
 
 
@@ -970,7 +975,7 @@ describe('tenancy B5 part one — settlement settings and the signature block', 
         WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
       expect(cols, t).toEqual([]);
     }
-    expect(GLOBAL_TABLES.length).toBe(12);
+    expect(GLOBAL_TABLES.length).toBe(13);
   });
 
 
