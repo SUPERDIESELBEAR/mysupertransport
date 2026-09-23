@@ -151,7 +151,20 @@ fallback, which is SUPERTRANSPORT for every current user.
 ## Verification
 
 - Typecheck `bunx tsgo --noEmit`: clean, exit 0.
-- Full suite `bunx vitest run --maxWorkers=2`: summary recorded in the roadmap entry.
+- Full suite `bunx vitest run --maxWorkers=2`, verbatim:
+
+  ```
+   Test Files  2 failed | 217 passed | 2 skipped (221)
+        Tests  2 failed | 2210 passed | 16 skipped (2228)
+       Errors  2 errors
+      Start at  11:16:50
+      Duration  596.13s
+  ```
+
+  Both failures are the familiar transient pooler failure
+  (`FATAL: (EAUTHQUERY) auth_query secret check timed out`) in
+  `dispatch-settlement-schema` and `payments-schema`, neither touched by this pass.
+  Re-run of exactly those two files: **2 files, 48 tests, all passed.**
 - Deploys: `receive-rate-con-email` and `generate-application-pdf` both deployed and
   probed live — the first answers `401 Invalid signature` to an unsigned webhook, the
   second `401 Unauthorized` to an anonymous call, so both boot and both still refuse
