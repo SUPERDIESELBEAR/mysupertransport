@@ -1,3 +1,4 @@
+import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { updatePayload } from '@/integrations/supabase/helpers';
@@ -94,7 +95,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
       // 1. Create a minimal application record
       const { data: app, error: appErr } = await supabase
         .from('applications')
-        .insert({
+        .insert(stampedInsert<'applications'>({
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
@@ -106,7 +107,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
           medical_cert_expiration: form.medical_cert_expiration || null,
           review_status: 'approved',
           is_draft: false,
-        })
+        }))
         .select('id')
         .single();
 

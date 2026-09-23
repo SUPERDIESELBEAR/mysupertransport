@@ -1,3 +1,4 @@
+import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
@@ -3404,7 +3405,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               // No application — create an application record so all contact fields persist
               const { data: newApp, error: insertErr } = await supabase
                 .from('applications')
-                .insert({
+                .insert(stampedInsert<'applications'>({
                   email: contactDraft.email || '',
                   phone: contactDraft.phone || null,
                   address_street: contactDraft.address_street || null,
@@ -3419,7 +3420,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
                   last_name: contactDraft.last_name || null,
                   cdl_state: contactCdlDraft.cdl_state || null,
                   cdl_number: contactCdlDraft.cdl_number || null,
-                })
+                }))
                 .select('id')
                 .single();
               if (insertErr) throw insertErr;

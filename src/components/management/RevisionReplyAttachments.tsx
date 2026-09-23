@@ -1,3 +1,4 @@
+import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -84,7 +85,7 @@ export function RevisionReplyAttachments({ applicationId, onChanged }: Props) {
 
       const { error: insErr } = await supabase
         .from('application_revision_attachments')
-        .insert({
+        .insert(stampedInsert<'application_revision_attachments'>({
           application_id: applicationId,
           file_path: path,
           file_name: file.name,
@@ -92,7 +93,7 @@ export function RevisionReplyAttachments({ applicationId, onChanged }: Props) {
           size_bytes: file.size,
           uploaded_by: user?.id,
           uploaded_by_name: uploaderName,
-        });
+        }));
       if (insErr) {
         // Best-effort cleanup of the storage object
         await supabase.storage.from(BUCKET).remove([path]).catch(() => {});
