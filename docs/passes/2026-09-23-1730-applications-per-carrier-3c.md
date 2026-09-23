@@ -133,13 +133,30 @@ not file one at another carrier. The owner's call, before a second carrier recru
 
 ## Checks
 
-- Full suite, `--maxWorkers=2` — summary lines verbatim in the record entry.
+- Full suite, `--maxWorkers=2`, verbatim:
+
+```
+ Test Files  4 failed | 215 passed | 2 skipped (221)
+      Tests  5 failed | 2208 passed | 16 skipped (2229)
+     Errors  2 errors
+   Duration  627.50s (transform 8.39s, setup 52.98s, collect 46.12s, tests 831.33s, environment 212.56s, prepare 33.69s)
+```
+
+  Four of the five were the familiar pooler `EAUTHQUERY` timeout and passed on re-run
+  (`accessorial-adjustment-schema`, `return-sheet-device-enum`, `settlement-foundation`:
+  `3 passed / 93 passed`). The fifth was real but **environmental, not caused by this pass**:
+  the sandbox now connects as the generic `sandbox_exec` role, which held no EXECUTE on
+  `public.grant_parity_report()`, so `grant-parity-live.test.ts` could not read its own report.
+  Migration `0047_grant_parity_report_execute_to_sandbox_exec.sql` grants that one read-only
+  report to the harness role and re-revokes it from PUBLIC, `anon` and `authenticated`. The file
+  is green (`3 passed`).
 - Type check: clean.
 - **No edge function changed, so none was deployed.**
 
 ## Files this pass authored
 
 - `drizzle/migrations/0046_applications_family_restrictive_tenant_policy.sql`
+- `drizzle/migrations/0047_grant_parity_report_execute_to_sandbox_exec.sql`
 - `src/test/tenancy-resolver.test.ts`
 - `src/integrations/supabase/types.ts` (regenerated)
 - `docs/passes/2026-09-23-1730-applications-per-carrier-3c.md`
