@@ -245,6 +245,16 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
     reason:
       "ROUTE /binder-share/:token (src/pages/BinderShareBundlePage.tsx). GUARD filters on the bundle token AND expires_at > now(), returning nothing when either fails.",
   },
+  {
+    signature: "public.carrier_public_identity(text)",
+    reason:
+      "ROUTE /apply and /apply/:slug (src/pages/ApplicationForm.tsx), which a walk-up applicant reaches with no session. GUARD returns FIVE public identity fields only -- legal_name, applicant_locality, usdot_number, mc_number, apply_slug -- all of them printed on the disclosures the applicant signs, and no internal id, address, phone or financial column. A NULL slug returns the sole carrier only while exactly one exists, and NO ROW once two do.",
+  },
+  {
+    signature: "public.carrier_identity_for_draft(text)",
+    reason:
+      "ROUTE /apply resumed from an emailed link, where the carrier must come from the DRAFT and not the URL. GUARD filters on the draft_token bearer credential and returns the same five public identity fields, nothing from the application row itself.",
+  },
 ];
 
 const KNOWN_ANON_EXECUTABLE: readonly string[] =
