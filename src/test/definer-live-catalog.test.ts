@@ -312,6 +312,11 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.carrier_public_identity(text)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
+  // 2026-09-23, migration 0056, P43. is_platform_admin(uuid) answers "is this
+  // user a SUPERDRIVE platform operator?" from platform_admins (no company_id).
+  // STABLE, pinned, returns only a boolean; authenticated EXECUTE so a future
+  // carrier-creation path and its screen can gate on it. Never granted to anon.
+  "public.is_platform_admin(uuid)",
   // create_eld_document_day / replace_rods_document used to be pinned here.
   // The HEIC migration replaced both signatures and, in doing so, dropped the
   // anon EXECUTE grant. Verified live 2026-08-01: anon has no EXECUTE on
@@ -879,7 +884,9 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // 2026-09-23: 139 -> 141, the two public carrier-identity readers from migration
 // 0048 (demo carrier stage 3 pass 3d). Raised by exactly two, reasons recorded
 // beside the entries.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 141;
+// 2026-09-23: 141 -> 142, `is_platform_admin(uuid)` (migration 0056, P43).
+// Raised by exactly one, reason recorded beside the entry.
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 142;
 
 
 
