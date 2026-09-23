@@ -19607,3 +19607,72 @@ Deployed and confirmed live by their own refusals (401 / 401 / 503, not boot err
 `invite-applicant`, `provision-demo-driver`, `create-test-operator`. Suite: 3 failed | 2209
 passed | 16 skipped, all three the familiar pooler timeout, all three green on re-run (82 tests).
 Type check clean. Report: `docs/passes/2026-09-23-1600-applications-per-carrier-3b.md`.
+
+---
+
+## 2026-09-23 ~1730 UTC — DEMO CARRIER STAGE 3, PASS 3c of 5: the isolation rules on the applications and PEI families
+
+**A correction first.** An earlier summary claimed 3c was done. It was not: before migration
+`0046_applications_family_restrictive_tenant_policy.sql`, **not one of the eleven tables carried a
+restrictive policy**, verified live from `pg_policies`. This entry records the real 3c.
+
+**What is now true.** All eleven tables of the applications and PEI families carry
+`tenant_isolation` as `RESTRICTIVE FOR ALL TO authenticated`, matching the other 163
+company-bearing tables. Ten carry the standard predicate `company_id = (SELECT
+current_company_id())`. `applications` carries a **deliberately wider** one —
+`company_id = (SELECT current_company_id()) OR user_id = auth.uid()` — because
+`src/pages/ApplicationStatus.tsx:38-42` reads the applicant's own row by `user_id` and a signed-in
+applicant is neither operator, truck owner nor staff, so his company resolves to NULL under
+decision C. The exception is keyed to `auth.uid()`, reaches his own row only, and is accepted on
+`applications` alone; a new fixture in `src/test/tenancy-resolver.test.ts` fails if that predicate
+appears on any of the other ten. `PENDING_RESTRICTIVE` is empty again; `RESTRICTIVE_DONE` names the
+eleven. No permissive policy, writer, grant, definer function, edge function or screen changed.
+
+**The anonymous door needed nothing.** Live `pg_class.relacl`: the eleven grant to `postgres`,
+`authenticated`, `service_role` and the sandbox harness roles only. `anon` holds INSERT on
+`applications` and nothing else, and nothing uses it — the public form runs entirely through
+`save_application_draft` / `submit_application_draft`. Driven end to end as a real anonymous caller
+with only the publishable key: draft saved, submitted, `is_draft=false`, `review_status=pending`,
+carrier `6b54d0e6-8743-4284-b55b-8cd094b093dd`. Row removed.
+
+**Isolation proven, rolled back.** One transaction that ended by raising, with a scratch carrier
+and a scratch staff member holding one application of his own:
+`sees SUPERTRANSPORT applications: 0; sees own: 1; PEI requests 0; PEI responses 0; PEI events 0;
+PEI accidents 0; invites 0; corrections 0; correction fields 0; doc history 0; interview notes 0;
+revision attachments 0`. Before 0046 the first number was 346 and the rest were the full live
+counts, SSNs included. Two earlier attempts failed **because the guards work**: a member picked
+from `company_members` alone was not staff, so no permissive policy admitted even his own row; a
+live staff member resolved to NO carrier once his membership moved, because he also holds an
+operator or truck-owner row at SUPERTRANSPORT — two companies, decision C, NOTHING. Residue live:
+1 carrier, 346 applications, 0 NULL carrier, 0 probe rows, 0 memberships pointing elsewhere.
+
+**Unchanged for SUPERTRANSPORT**, one real sign-in per identity, before and after: Marcus and Mae
+pipeline 37 / driver status 7 / rate-con 3, Applications Pending 7 / Archived 50, PEI 2 active /
+128 hired / 15 not hired; the onboarding-only login pipeline 70 / driver hub 36 and still no
+Applications screen; Steve's driver app unchanged. One review drawer (Michael Underwood, 1
+correction request, 3 document-history rows) with Overview, Documents, PEI, employment history,
+disclosures, signature, Reveal SSN, uploaded documents and interview notes all intact.
+
+**Owed later, not now:** `applications_email_non_draft_unique` still carries no carrier, so one
+live application per email holds across ALL carriers.
+
+**Suite**, `--maxWorkers=2`, verbatim:
+
+```
+ Test Files  4 failed | 215 passed | 2 skipped (221)
+      Tests  5 failed | 2208 passed | 16 skipped (2229)
+     Errors  2 errors
+   Duration  627.50s (transform 8.39s, setup 52.98s, collect 46.12s, tests 831.33s, environment 212.56s, prepare 33.69s)
+```
+
+Four of the five failures were the familiar pooler `EAUTHQUERY` timeout and passed on re-run
+(`accessorial-adjustment-schema`, `return-sheet-device-enum`, `settlement-foundation`:
+`3 passed / 93 passed`). The fifth was **real but environmental**, not caused by this pass: the
+sandbox now connects as the generic `sandbox_exec` role, which held no EXECUTE on
+`public.grant_parity_report()`, so `grant-parity-live.test.ts` could not read its own report.
+Migration `0047_grant_parity_report_execute_to_sandbox_exec.sql` grants that one read-only report
+to the harness role and re-revokes it from PUBLIC, `anon` and `authenticated`; the file is green
+(`3 passed`). Type check clean. **No edge function changed, so none was deployed.**
+
+Report: `docs/passes/2026-09-23-1730-applications-per-carrier-3c.md`. **3d — the per-carrier apply
+link and the letterhead — is next.**

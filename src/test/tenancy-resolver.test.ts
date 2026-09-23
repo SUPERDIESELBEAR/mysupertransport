@@ -2126,6 +2126,25 @@ describe('tenancy disposition — every table accounted for', () => {
 const RESTRICTIVE_PREDICATE =
   '(company_id = ( SELECT current_company_id() AS current_company_id))';
 
+/**
+ * Tables whose restrictive policy is deliberately WIDER than the standard
+ * predicate, with the exact wider text asserted here so it cannot drift.
+ *
+ * `applications` (2026-09-23, stage 3 pass 3c): an applicant who has signed in
+ * but is not yet an operator, a truck owner or a staff member resolves to NO
+ * company, and `src/pages/ApplicationStatus.tsx` reads his OWN row by
+ * `user_id` — the long-standing "Owner can view own application" permissive
+ * policy. The standard predicate alone would empty that screen for him. Every
+ * one of today's 158 owner-held applications resolves to SUPERTRANSPORT, so the
+ * exception is forward-looking, not a hole in the present: it widens the rule by
+ * the applicant's own row only, never by another carrier's row.
+ */
+const RESTRICTIVE_WIDER: Record<string, string> = {
+  applications:
+    '((company_id = ( SELECT current_company_id() AS current_company_id))'
+    + ' OR (user_id = auth.uid()))',
+};
+
 /** `company_members` is never a target: its `company_id` IS the assertion, it
  * has no company stamp trigger, and it is service_role-only. */
 const RESTRICTIVE_EXEMPT = ['company_members'] as const;
@@ -2287,6 +2306,21 @@ const RESTRICTIVE_DONE = [
   //   Management reads driver linehaul versions|PERMISSIVE|SELECT|(management OR owner)
   //   tenant_isolation|RESTRICTIVE|ALL|(company_id = (SELECT current_company_id()))
   'operator_linehaul_pct_versions',
+  // APPLICATIONS AND PEI (11), 2026-09-23, migration
+  // 0046_applications_family_restrictive_tenant_policy.sql (stage 3 pass 3c).
+  // Stamped in 3a, written to in 3b, isolated here. Ten carry the exact
+  // standard predicate; `applications` carries the wider one declared in
+  // RESTRICTIVE_WIDER, because a signed-in applicant who is not yet an
+  // operator resolves to no company and must still read his own row. No
+  // permissive policy was touched: the anonymous apply path runs through the
+  // SECURITY DEFINER RPCs `save_application_draft` / `submit_application_draft`
+  // and the PEI response route through its own definer path, so a
+  // RESTRICTIVE ... TO authenticated policy cannot reach either.
+  'applications', 'application_invites',
+  'application_correction_requests', 'application_correction_fields',
+  'application_document_history', 'application_interview_notes',
+  'application_revision_attachments',
+  'pei_requests', 'pei_responses', 'pei_accidents', 'pei_request_events',
 ] as const;
 
 /**
@@ -2305,18 +2339,11 @@ const RESTRICTIVE_DONE = [
 /**
  * 2026-09-23, demo carrier stage 3 pass 3a: the applications and PEI families
  * were given a nullable `company_id` and backfilled, deliberately WITHOUT any
- * policy change — pass 3a changed no policy, no writer and no behaviour. Their
- * restrictive policies, and the anonymous-access narrowing the public apply and
- * PEI-response routes need, are pass 3c. Until then they are declared pending
- * here rather than silently undisposed.
+ * policy change. Pass 3c (migration 0046) wrote their policies, so they moved
+ * into RESTRICTIVE_DONE and this list is EMPTY again — the rollout is complete
+ * once more.
  */
-const PENDING_RESTRICTIVE = [
-  'applications', 'application_invites',
-  'application_correction_requests', 'application_correction_fields',
-  'application_document_history', 'application_interview_notes',
-  'application_revision_attachments',
-  'pei_requests', 'pei_responses', 'pei_accidents', 'pei_request_events',
-] as const;
+const PENDING_RESTRICTIVE = [] as const;
 
 
 type RestrictiveRow = {
@@ -2334,12 +2361,13 @@ export function restrictiveShapeProblems(
   if (rows.length > 1) {
     problems.push(`${table}: ${rows.length} restrictive policies (${rows.map(r => r.policyname).join(', ')})`);
   }
+  const expected = RESTRICTIVE_WIDER[table] ?? RESTRICTIVE_PREDICATE;
   for (const r of rows) {
     if (r.policyname !== 'tenant_isolation') problems.push(`${table}: policy named ${r.policyname}`);
     if (r.cmd !== 'ALL') problems.push(`${table}: cmd ${r.cmd}, expected ALL`);
     if (r.roles !== '{authenticated}') problems.push(`${table}: roles ${r.roles}, expected {authenticated}`);
-    if (r.qual !== RESTRICTIVE_PREDICATE) problems.push(`${table}: qual ${r.qual}`);
-    if (r.with_check !== RESTRICTIVE_PREDICATE) problems.push(`${table}: with_check ${r.with_check}`);
+    if (r.qual !== expected) problems.push(`${table}: qual ${r.qual}`);
+    if (r.with_check !== expected) problems.push(`${table}: with_check ${r.with_check}`);
   }
   return problems;
 }
@@ -2413,6 +2441,29 @@ describe('restrictive tenant policy — exact shape, or declared pending', () =>
         'brokers: 2 restrictive policies (tenant_isolation, tenant_isolation_v2)',
         'brokers: policy named tenant_isolation_v2',
       ]);
+  });
+
+  it('FIXTURE — the applicant self-exception is accepted ONLY on applications', () => {
+    const wider = RESTRICTIVE_WIDER.applications;
+    const row: RestrictiveRow = {
+      policyname: 'tenant_isolation', cmd: 'ALL', roles: '{authenticated}',
+      qual: wider, with_check: wider,
+    };
+    // Exactly as live on `applications`.
+    expect(restrictiveShapeProblems('applications', [row])).toEqual([]);
+    // The same widening anywhere else is a problem.
+    expect(restrictiveShapeProblems('pei_requests', [row])).toEqual([
+      `pei_requests: qual ${wider}`,
+      `pei_requests: with_check ${wider}`,
+    ]);
+    // And `applications` narrowed back to the standard predicate is ALSO a
+    // problem: the applicant's own-row read would have been dropped silently.
+    expect(restrictiveShapeProblems('applications', [{
+      ...row, qual: RESTRICTIVE_PREDICATE, with_check: RESTRICTIVE_PREDICATE,
+    }])).toEqual([
+      `applications: qual ${RESTRICTIVE_PREDICATE}`,
+      `applications: with_check ${RESTRICTIVE_PREDICATE}`,
+    ]);
   });
 
   it('FIXTURE — a predicate naming a literal uuid is a problem', () => {
