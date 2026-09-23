@@ -19421,3 +19421,96 @@ product-level or per carrier. (4) `release_notes`: product-wide or per carrier. 
 demo carrier get its own `/apply` link. (6) Does it share the sending domain and email
 templates. (7) Is a shared content library acceptable for a demo at all — that answer
 collapses or expands half the list.
+
+## 2026-09-23 11:30 UTC — Demo carrier, stage 2 of 6: the five day-one breaks closed
+
+Entry written 2026-09-23 13:10 UTC; the stage 2 pass shipped the work but recorded no entry
+here and did not update the wish list. Report:
+`docs/passes/2026-09-23-1130-demo-carrier-stage-2.md`. No second `carrier_profile` row was
+created; every proof ran in a transaction that deliberately raised.
+
+Migration `0042_carrier_scoped_pay_resolver_and_bootstrap.sql`.
+
+1. **`company_pay_policy_on(_company uuid, _as_of date)`** replaces the one-argument form,
+   which is DROPPED. EXECUTE is service_role-only; no client or edge function ever called
+   it. A NULL company returns no row rather than another carrier's rate sheet. The four
+   SECURITY DEFINER callers now pass the company they already work in:
+   `create_accessorial_adjustment` from the adjustment's load, `driver_load_pay_estimate`
+   from the driver's `operators` row, `my_fuel_transactions` from the fuel row, and
+   `sync_operator_linehaul_pct_mirror` through a LATERAL join so each driver is mirrored
+   from his own carrier's sheet.
+2. **Rate-con ingest.** `carrier_profile.rate_con_ingest_address` (nullable, unique on
+   `lower(address)` where not null), backfilled `rates@parse.mysupertransport.com` for
+   USDOT 2309365 — the address the five existing queue rows were delivered to.
+   `receive-rate-con-email` maps the recipient to a carrier, falls back to the sole carrier
+   only while one exists (with a logged warning), and drops an unclaimed recipient as
+   `unroutable_recipient` once two carriers exist.
+3. **`bootstrap_assign_owner(p_user_id uuid, p_company_id uuid DEFAULT NULL)`** —
+   parameterised. With the company omitted it counts `carrier_profile` and raises 42501
+   unless exactly one row exists; a named company that does not exist raises 23503. EXECUTE
+   service_role-only.
+4. **Tests.** `src/test/tenancy-resolver.test.ts`'s nine bare
+   `(SELECT id FROM carrier_profile)` scalars and its member/rate-sheet picks now name
+   USDOT 2309365; `src/test/helpers/tenancy.ts` joins `AS_COMPANY_MEMBER` by USDOT;
+   `invoice-dispatch-reconciliation.test.ts` reads the policy by USDOT. New file
+   `src/test/ingest-recipient-routing.test.ts` (7 tests).
+5. **`generate-application-pdf`** takes the company from `applications.company_id ??
+   companyIdForUser(...)`, reads `carrier_profile` by id, and generates nothing (500, plain
+   sentence) if it cannot resolve one.
+
+Suite: 2 failed | 2210 passed | 16 skipped (2228) — both failures the familiar pooler
+EAUTHQUERY timeout in `dispatch-settlement-schema` and `payments-schema`, neither touched;
+those two files re-run green (48 tests). Typecheck clean. Both changed functions deployed
+and confirmed live. **Left deliberately:** `process-eld-escalations` and
+`send-officer-packet` still read an arbitrary carrier for the DOT line they print — that
+belongs with the ELD identity work.
+
+## 2026-09-23 13:10 UTC — Demo carrier, stage 3 of 6: per-carrier applications, DESIGNED
+
+Design only. No migration, no code, no data. Full suite deliberately skipped (documentation
+pass). Report `docs/passes/2026-09-23-1310-applications-per-carrier-design.md`, which holds
+all seven steps verbatim. Owner decision 2026-09-23: applications and the PEI family become
+per-carrier, superseding the 2026-09-13 decision that they stay global.
+
+**Live facts.** 346 applications (77 drafts) — not the 338 of 2026-09-13, which counted real
+applications only; 5 invites; 56 resume tokens of which **zero unexpired**; 80 correction
+requests and 137 fields; 144 PEI requests (127 not completed), 16 responses, 1 accident, 527
+events; 176 profiles. **`pei_cadence_settings` is already per-carrier** (`company_id`,
+RESTRICT FK, restrictive `tenant_isolation`), and `documents`, `driver_uploads` and
+`onboarding_status` already carry `company_id`. Every one of the 30 staff policies across the
+eleven remaining tables is `is_staff(auth.uid())` or a bare role test — **none mentions a
+carrier.**
+
+**The shape of the fix.** `applications` is the root; every child cascades from it, so only
+`applications` and `application_invites` need a carrier decided from outside the family and
+every child derives its own through a stamping trigger. The anonymous surface is already
+almost entirely definer-mediated: the **only** anonymous table privilege in the family is
+`anon`'s INSERT grant on `applications` with the `Public can submit application with email`
+policy, and it can be closed entirely by routing the first write through
+`save_application_draft` / `submit_application_draft`, which are already anon-executable.
+
+**Recommended answer to the hard question (the owner has not chosen):** a **per-carrier apply
+link**, with the invite path falling out of it and a sole-carrier fallback behind it. It is
+the only option that also fixes a federal-disclosure problem: `useCompanyIdentity` cannot read
+`carrier_profile` as `anon`, so it silently falls back to the hard-coded SUPERTRANSPORT
+constants and **every disclosure any carrier's applicant signs names SUPERTRANSPORT.** The
+demo alone needs only the invite path; a real second customer needs the link. A default-carrier
+flag is a fallback, not a mechanism — with it `company_id` can never become NOT NULL.
+
+**Tokens in the wild:** none. Zero unexpired resume tokens live, and the 24h expiry keeps that
+true for any cutover a day after the last issue. Resume, correction, SSN and PEI-response
+routes all derive the carrier from the row the token points at, so no token needs a carrier.
+
+**`profiles` follows, and must never get a `company_id`** — a profile exists before any
+carrier is known, and one person may exist at two carriers. The fix there is scoped staff
+reads through `company_members`/`operators`, not a column.
+
+**Five build passes:** 3a column + backfill, 3b writers stamp, 3c policies plus the anon
+revoke, 3d the apply link and the letterhead (only if the owner picks it), 3e NOT NULL and the
+fixtures. Each proves the pipeline screen, the PEI queue and the 346 applications unchanged
+for SUPERTRANSPORT as Marcus, Mae and the onboarding-only login.
+
+**What creating the carrier today without stage 3 would cost:** nothing mechanically — the
+family has no carrier filter, so it keeps working. What breaks is confidentiality: carrier B's
+staff would read, edit and **delete** SUPERTRANSPORT's 346 applications, its 144 PEI requests
+and the SSNs on them, from the day the row exists.
