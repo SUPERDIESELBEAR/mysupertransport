@@ -218,6 +218,7 @@ export type Database = {
       }
       application_correction_fields: {
         Row: {
+          company_id: string | null
           created_at: string
           field_label: string
           field_path: string
@@ -227,6 +228,7 @@ export type Database = {
           request_id: string
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           field_label: string
           field_path: string
@@ -236,6 +238,7 @@ export type Database = {
           request_id: string
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           field_label?: string
           field_path?: string
@@ -245,6 +248,13 @@ export type Database = {
           request_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "application_correction_fields_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "application_correction_fields_request_id_fkey"
             columns: ["request_id"]
@@ -259,6 +269,7 @@ export type Database = {
           application_id: string
           cancelled_at: string | null
           cancelled_by: string | null
+          company_id: string | null
           courtesy_message: string | null
           created_at: string
           expires_at: string
@@ -281,6 +292,7 @@ export type Database = {
           application_id: string
           cancelled_at?: string | null
           cancelled_by?: string | null
+          company_id?: string | null
           courtesy_message?: string | null
           created_at?: string
           expires_at?: string
@@ -303,6 +315,7 @@ export type Database = {
           application_id?: string
           cancelled_at?: string | null
           cancelled_by?: string | null
+          company_id?: string | null
           courtesy_message?: string | null
           created_at?: string
           expires_at?: string
@@ -329,6 +342,13 @@ export type Database = {
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "application_correction_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       application_document_history: {
@@ -337,6 +357,7 @@ export type Database = {
           changed_at: string
           changed_by: string | null
           changed_by_name: string | null
+          company_id: string | null
           created_at: string
           document_key: string
           id: string
@@ -351,6 +372,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_name?: string | null
+          company_id?: string | null
           created_at?: string
           document_key: string
           id?: string
@@ -365,6 +387,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           changed_by_name?: string | null
+          company_id?: string | null
           created_at?: string
           document_key?: string
           id?: string
@@ -382,6 +405,13 @@ export type Database = {
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "application_document_history_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       application_interview_notes: {
@@ -390,6 +420,7 @@ export type Database = {
           author_id: string
           author_name: string
           body: string
+          company_id: string | null
           created_at: string
           edited_at: string | null
           id: string
@@ -400,6 +431,7 @@ export type Database = {
           author_id: string
           author_name: string
           body: string
+          company_id?: string | null
           created_at?: string
           edited_at?: string | null
           id?: string
@@ -410,6 +442,7 @@ export type Database = {
           author_id?: string
           author_name?: string
           body?: string
+          company_id?: string | null
           created_at?: string
           edited_at?: string | null
           id?: string
@@ -423,10 +456,18 @@ export type Database = {
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "application_interview_notes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       application_invites: {
         Row: {
+          company_id: string | null
           created_at: string
           email: string
           email_error: string | null
@@ -441,6 +482,7 @@ export type Database = {
           resent_at: string | null
         }
         Insert: {
+          company_id?: string | null
           created_at?: string
           email: string
           email_error?: string | null
@@ -455,6 +497,7 @@ export type Database = {
           resent_at?: string | null
         }
         Update: {
+          company_id?: string | null
           created_at?: string
           email?: string
           email_error?: string | null
@@ -468,7 +511,15 @@ export type Database = {
           phone?: string | null
           resent_at?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "application_invites_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       application_resume_tokens: {
         Row: {
@@ -508,6 +559,7 @@ export type Database = {
       application_revision_attachments: {
         Row: {
           application_id: string
+          company_id: string | null
           file_name: string
           file_path: string
           id: string
@@ -520,6 +572,7 @@ export type Database = {
         }
         Insert: {
           application_id: string
+          company_id?: string | null
           file_name: string
           file_path: string
           id?: string
@@ -532,6 +585,7 @@ export type Database = {
         }
         Update: {
           application_id?: string
+          company_id?: string | null
           file_name?: string
           file_path?: string
           id?: string
@@ -548,6 +602,13 @@ export type Database = {
             columns: ["application_id"]
             isOneToOne: false
             referencedRelation: "applications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "application_revision_attachments_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -573,6 +634,7 @@ export type Database = {
           ch_received_date: string | null
           ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
+          company_id: string | null
           created_at: string
           current_step: number
           dl_front_url: string | null
@@ -666,6 +728,7 @@ export type Database = {
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          company_id?: string | null
           created_at?: string
           current_step?: number
           dl_front_url?: string | null
@@ -759,6 +822,7 @@ export type Database = {
           ch_received_date?: string | null
           ch_requested_date?: string | null
           ch_status?: Database["public"]["Enums"]["mvr_status"]
+          company_id?: string | null
           created_at?: string
           current_step?: number
           dl_front_url?: string | null
@@ -832,7 +896,15 @@ export type Database = {
           user_id?: string | null
           years_experience?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "applications_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       ar_aging_snapshots: {
         Row: {
@@ -10761,6 +10833,7 @@ export type Database = {
       pei_accidents: {
         Row: {
           accident_date: string | null
+          company_id: string | null
           created_at: string
           hazmat_spill: boolean | null
           id: string
@@ -10771,6 +10844,7 @@ export type Database = {
         }
         Insert: {
           accident_date?: string | null
+          company_id?: string | null
           created_at?: string
           hazmat_spill?: boolean | null
           id?: string
@@ -10781,6 +10855,7 @@ export type Database = {
         }
         Update: {
           accident_date?: string | null
+          company_id?: string | null
           created_at?: string
           hazmat_spill?: boolean | null
           id?: string
@@ -10790,6 +10865,13 @@ export type Database = {
           pei_response_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "pei_accidents_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pei_accidents_pei_response_id_fkey"
             columns: ["pei_response_id"]
@@ -10839,6 +10921,7 @@ export type Database = {
       }
       pei_request_events: {
         Row: {
+          company_id: string | null
           event_type: string
           id: string
           ip_address: unknown
@@ -10848,6 +10931,7 @@ export type Database = {
           user_agent: string | null
         }
         Insert: {
+          company_id?: string | null
           event_type: string
           id?: string
           ip_address?: unknown
@@ -10857,6 +10941,7 @@ export type Database = {
           user_agent?: string | null
         }
         Update: {
+          company_id?: string | null
           event_type?: string
           id?: string
           ip_address?: unknown
@@ -10866,6 +10951,13 @@ export type Database = {
           user_agent?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pei_request_events_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pei_request_events_pei_request_id_fkey"
             columns: ["pei_request_id"]
@@ -10880,6 +10972,7 @@ export type Database = {
           application_id: string
           auto_paused_reason: string | null
           auto_send_count: number
+          company_id: string | null
           created_at: string
           date_final_notice_sent: string | null
           date_follow_up_sent: string | null
@@ -10921,6 +11014,7 @@ export type Database = {
           application_id: string
           auto_paused_reason?: string | null
           auto_send_count?: number
+          company_id?: string | null
           created_at?: string
           date_final_notice_sent?: string | null
           date_follow_up_sent?: string | null
@@ -10962,6 +11056,7 @@ export type Database = {
           application_id?: string
           auto_paused_reason?: string | null
           auto_send_count?: number
+          company_id?: string | null
           created_at?: string
           date_final_notice_sent?: string | null
           date_follow_up_sent?: string | null
@@ -11007,12 +11102,20 @@ export type Database = {
             referencedRelation: "applications"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "pei_requests_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
         ]
       }
       pei_responses: {
         Row: {
           actual_end_date: string | null
           actual_start_date: string | null
+          company_id: string | null
           created_at: string
           date_signed: string | null
           dates_accurate: boolean | null
@@ -11074,6 +11177,7 @@ export type Database = {
         Insert: {
           actual_end_date?: string | null
           actual_start_date?: string | null
+          company_id?: string | null
           created_at?: string
           date_signed?: string | null
           dates_accurate?: boolean | null
@@ -11135,6 +11239,7 @@ export type Database = {
         Update: {
           actual_end_date?: string | null
           actual_start_date?: string | null
+          company_id?: string | null
           created_at?: string
           date_signed?: string | null
           dates_accurate?: boolean | null
@@ -11194,6 +11299,13 @@ export type Database = {
           was_employed?: boolean | null
         }
         Relationships: [
+          {
+            foreignKeyName: "pei_responses_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "pei_responses_pei_request_id_fkey"
             columns: ["pei_request_id"]
@@ -14841,6 +14953,7 @@ export type Database = {
           ch_received_date: string | null
           ch_requested_date: string | null
           ch_status: Database["public"]["Enums"]["mvr_status"]
+          company_id: string | null
           created_at: string
           current_step: number
           dl_front_url: string | null
