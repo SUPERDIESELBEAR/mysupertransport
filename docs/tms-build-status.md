@@ -19746,3 +19746,14 @@ Report: `docs/passes/2026-09-23-1842-demo-carrier-stage-4-part-1.md`.
 - Proven with a scratch carrier (3/20 cadence, programme off) in raising transactions; SUPERTRANSPORT before/after identical; residue 0.
 
 Report: `docs/passes/2026-09-23-2013-demo-carrier-stage-4-part-2a.md`. **Next: part 2b — the creation build.**
+
+
+## 2026-09-23 21:20 UTC — demo carrier, stage 4 part 2b (stage 4 COMPLETE)
+
+- **P44 (owner, 2026-09-23):** A new carrier's pay percentages start at SUPERDRIVE's standard defaults (72% linehaul, FSC, TONU, stop-off, loadout, per-ton, other; 100% detention, layover, lumper), SHOWN pre-filled at creation so the platform operator confirms or changes them.
+- **P45 (owner, 2026-09-23):** Dispatch % and factoring % are required inputs — SUPERTRANSPORT's terms are never a default.
+- **P46 (owner, 2026-09-23):** The inspection bonus programme is OFF for a new carrier (programme_enabled false) until it sets its own numbers.
+- **P47 (owner, 2026-09-23):** Creation is refused if the owner's email already belongs to a SUPERDRIVE user, because a person linked to two carriers resolves to neither.
+- Migration `0058_create_carrier_and_load_number_d1.sql`: D1 fixed (`generate_load_number` reads only the caller's carrier, refuses 42501 with no carrier and P0002 with no row); `create_carrier(jsonb, uuid, uuid)` service_role only; `stamp_billing_company_id` gains one narrow exception (service_role + no resolvable caller + company equal to the transaction-local `app.creating_carrier`).
+- Edge function `create-carrier`, hidden screen `/platform/carriers/new`. `is_platform_admin` AWAITING entry removed (KNOWN_NO_CALLER_MAX 3 → 2).
+- No carrier committed; residue zero. Report: `docs/passes/2026-09-23-2120-demo-carrier-stage-4-part-2b.md`. **Next: stage 5 — create carrier B from the screen.**

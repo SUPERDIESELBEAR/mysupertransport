@@ -16,6 +16,7 @@ Last updated: 2026-09-23
 
 - **Demo carrier stage 4 part 1 — DONE (2026-09-23 1842).** P43 platform role built (`platform_admins`, `is_platform_admin`). Carrier requirements listed, inputs listed, creation function proposed. **Next: stage 4 part 2 — build `create_carrier` + the create-carrier function.** Before it: fix D1 (`generate_load_number` company predicate). Owed from the owner: are the 72/100 pay percentages a SUPERDRIVE default or SUPERTRANSPORT's terms; may an existing SUPERDRIVE user become another carrier's owner.
 - **Demo carrier stage 4 part 2a — DONE (2026-09-23 2013).** PEI cadence and inspection programme per carrier (programme can be off); SUPERTRANSPORT values gone from column defaults. **Next: stage 4 part 2b — the creation build as written (P44–P47, D1 load-number fix, `create_carrier`, create-carrier function, platform screen).** Then stage 5: create carrier B for real, from the screen.
+- **Demo carrier stage 4 — COMPLETE (2026-09-23, part 2b).** P44–P47 recorded; load numbers per carrier (D1 fixed); `create_carrier` + `create-carrier` function + hidden platform screen `/platform/carriers/new` built and proven with nothing committed. **Next: stage 5 — create carrier B for real, from the screen.** Still owed from the owner: shared profiles/content/templates/sending domain, the one-application-per-email rule, ELD identity, inspection reminder wording.
 
 Kept at the owner's request (2026-09-16). One line per item, each pointing to the
 record entry that explains it. Items are removed only when the record shows them
