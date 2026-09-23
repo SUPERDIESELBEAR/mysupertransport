@@ -1651,7 +1651,7 @@ export type Database = {
           applicant_locality?: string | null
           apply_slug?: string | null
           created_at?: string
-          fmcsa_division_state?: string
+          fmcsa_division_state: string
           home_terminal_address: string
           home_terminal_timezone: string
           id?: string
@@ -6833,6 +6833,7 @@ export type Database = {
           id: string
           max_grace_days: number
           max_grace_per_12_months: number
+          programme_enabled: boolean
           reimbursement_cap: number
           reminder_offsets_days: number[]
           submission_email: string
@@ -6851,9 +6852,10 @@ export type Database = {
           id?: string
           max_grace_days?: number
           max_grace_per_12_months?: number
+          programme_enabled?: boolean
           reimbursement_cap?: number
           reminder_offsets_days?: number[]
-          submission_email?: string
+          submission_email: string
           updated_at?: string
           updated_by?: string | null
         }
@@ -6869,6 +6871,7 @@ export type Database = {
           id?: string
           max_grace_days?: number
           max_grace_per_12_months?: number
+          programme_enabled?: boolean
           reimbursement_cap?: number
           reminder_offsets_days?: number[]
           submission_email?: string
@@ -7079,7 +7082,7 @@ export type Database = {
           created_at?: string
           id?: string
           next_sequence?: number
-          prefix?: string
+          prefix: string
           separator?: string
           sequence_padding?: number
           updated_at?: string
@@ -7708,7 +7711,7 @@ export type Database = {
           id?: string
           include_year?: boolean
           next_sequence?: number
-          prefix?: string
+          prefix: string
           reset_annually?: boolean
           separator?: string
           sequence_padding?: number
@@ -10919,7 +10922,7 @@ export type Database = {
           {
             foreignKeyName: "pei_cadence_settings_company_id_fkey"
             columns: ["company_id"]
-            isOneToOne: false
+            isOneToOne: true
             referencedRelation: "carrier_profile"
             referencedColumns: ["id"]
           },
