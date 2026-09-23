@@ -206,3 +206,23 @@
 
 - [x] Prove the signed-agreement mismatch flag on a throwaway driver (staff card + settlement review), prove the driver app shows nothing, prove it clears when the two agree, remove the throwaway with zero residue.
 - [x] Restore roadmap.md content removed unasked in commit 1e32ac928.
+
+## Demo carrier — stage 2 of 6 (2026-09-23)
+
+- [x] Item 1: `company_pay_policy_on(company, date)`; four definer callers each pass the
+      company they already work in; one-argument form dropped; NULL company resolves to nothing.
+- [x] Item 2: inbound rate-cons route by recipient via `carrier_profile.rate_con_ingest_address`;
+      unroutable mail dropped, never filed under a guessed carrier.
+- [x] Item 3: `bootstrap_assign_owner(p_user_id, p_company_id)` — refuses (42501) when the
+      company is omitted and more than one carrier exists; 23503 for an unknown company.
+- [x] Item 4: every test/fixture carrier scalar names SUPERTRANSPORT by USDOT 2309365;
+      proven green with a scratch carrier inside a raising transaction.
+- [x] Item 5: `generate-application-pdf` renders the application's own carrier identity.
+- [x] Report `docs/passes/2026-09-23-1130-demo-carrier-stage-2.md`. Full suite
+      `2 failed | 2210 passed | 16 skipped (2228)` — both failures the familiar pooler
+      `EAUTHQUERY` timeout, both files green on re-run (48 passed). Typecheck clean.
+- LEFT, named: `process-eld-escalations` and `send-officer-packet` still read an arbitrary
+      carrier for the DOT identity they print; they belong with the ELD identity work.
+- NEXT — stage 3: applications per-carrier. The owner has decided **applications and PEI
+      become per-carrier**. Seven decisions from stage 1 remain owed for the shared tables
+      (profiles, the nine content libraries, the announcement feed, the apply page).
