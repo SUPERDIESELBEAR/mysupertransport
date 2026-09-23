@@ -309,6 +309,13 @@
       "when": 1790166708789,
       "tag": "0043_applications_family_company_column",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790168777041,
+      "tag": "0044_revoke_stamp_child_company_execute",
+      "breakpoints": true
     }
   ]
 }

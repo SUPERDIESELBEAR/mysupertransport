@@ -66,11 +66,18 @@ const B5_SINGLETONS = ['carrier_signature_settings', 'settlement_settings'] as c
  * Declared GLOBAL — no `company_id`, ever. A table with no column and no
  * declaration is indistinguishable from one that was missed, so the
  * declaration lives here as an assertion, not only in prose.
+ *
+ * 2026-09-23, demo carrier stage 3 pass 3a: SEVEN application tables LEFT this
+ * list by being stamped, not by being decided away — `applications`,
+ * `application_invites`, `application_correction_requests`,
+ * `application_correction_fields`, `application_document_history`,
+ * `application_interview_notes`, `application_revision_attachments`. The owner
+ * decided on 2026-09-23 that applications and the PEI family are PER-CARRIER,
+ * superseding the 2026-09-13 GLOBAL declaration. `application_resume_tokens`
+ * stays here: it resolves its carrier through the application it points at.
  */
 const GLOBAL_TABLES = [
-  'applications', 'application_correction_requests', 'application_correction_fields',
-  'application_document_history', 'application_interview_notes',
-  'application_resume_tokens', 'application_invites', 'application_revision_attachments',
+  'application_resume_tokens',
   'profiles', 'carrier_profile', 'resource_documents', 'resource_history',
   'release_notes', 'eld_device_models', 'eld_revoked_list_checks',
   'revert_courtesy_email_defaults',
@@ -83,6 +90,7 @@ const GLOBAL_TABLES = [
   // migration and the table has no write policy at all.
   'permission_actions',
 ] as const;
+
 
 /**
  * DEFERRED, not global: eight content tables await the product-versus-carrier
@@ -660,15 +668,21 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
     }
   });
 
-  itLive('applications is still GLOBAL, and its email rule is untouched', () => {
-    const cols = psql(`SELECT a.attname FROM pg_attribute a
+  // 2026-09-23, stage 3 pass 3a: `applications` now CARRIES a nullable
+  // company_id (owner decision: per-carrier). What this guard protects is what
+  // 3a deliberately did NOT change — the duplicate-email rule stays global, so
+  // one person cannot hold a live application at two carriers under one email
+  // until that is decided on its own.
+  itLive('applications carries a nullable carrier, and its email rule is untouched', () => {
+    const [col] = psql(`SELECT a.attnotnull::text FROM pg_attribute a
       WHERE a.attrelid = 'public.applications'::regclass AND a.attname = 'company_id'`);
-    expect(cols).toEqual([]);
+    expect(col).toBe('false');
     const [idx] = psql(`SELECT indexdef FROM pg_indexes WHERE schemaname = 'public'
       AND indexname = 'applications_email_non_draft_unique'`);
     expect(idx).toBeTruthy();
     expect(idx).not.toMatch(/company_id/);
   });
+
 });
 
 /**
@@ -945,18 +959,19 @@ describe('tenancy B5 part one — settlement settings and the signature block', 
     expect(chk).toBe('email_send_state_id_check');
   });
 
-  // 2026-09-21: 18 + 1 = 19. `permission_actions` joined the GLOBAL list with the
-  // permissions foundation — the action catalogue is product-level, not a
-  // carrier's to edit. The count stays an exact assertion, not a floor, so a
-  // table cannot drift onto this list unannounced.
-  itLive('the 19 GLOBAL tables carry no company_id', () => {
+  // 2026-09-21: 18 + 1 = 19. 2026-09-23, stage 3 pass 3a: 19 - 7 = 12, the seven
+  // application tables having been stamped per-carrier by the owner's decision.
+  // The count stays an exact assertion, not a floor, so a table cannot drift
+  // onto this list unannounced.
+  itLive('the 12 GLOBAL tables carry no company_id', () => {
     for (const t of GLOBAL_TABLES) {
       const cols = psql(`SELECT a.attname FROM pg_attribute a
         WHERE a.attrelid = 'public.${t}'::regclass AND a.attname = 'company_id'`);
       expect(cols, t).toEqual([]);
     }
-    expect(GLOBAL_TABLES.length).toBe(19);
+    expect(GLOBAL_TABLES.length).toBe(12);
   });
+
 
   itLive('the 8 DEFERRED content tables are untouched, and that is deliberate', () => {
     for (const t of DEFERRED_TABLES) {
@@ -2028,13 +2043,14 @@ const GLOBAL_LOGS = [
 ] as const;
 
 /**
- * Children of `applications`, which stays GLOBAL (2026-09-13). They cannot be
- * scoped while their parent is not; scoping them would be a decision about
- * `applications`, not about them.
+ * The four PEI tables were declared AWAITING_APPLICATIONS while `applications`
+ * was GLOBAL. They left that list on 2026-09-23 (stage 3 pass 3a) by being
+ * STAMPED, together with their parent, on the owner's per-carrier decision —
+ * not by being decided away. The list is gone with them; their disposition is
+ * now the column itself, plus PENDING_RESTRICTIVE until pass 3c writes the
+ * policies.
  */
-const AWAITING_APPLICATIONS = [
-  'pei_requests', 'pei_request_events', 'pei_responses', 'pei_accidents',
-] as const;
+
 
 /**
  * NO DECISION YET. Found live 2026-09-16, not by any batch. Proposals are in
@@ -2068,7 +2084,6 @@ describe('tenancy disposition — every table accounted for', () => {
       GLOBAL: GLOBAL_TABLES,
       DEFERRED: DEFERRED_TABLES,
       GLOBAL_LOGS,
-      AWAITING_APPLICATIONS,
       UNASSIGNED,
     };
 
@@ -2287,7 +2302,21 @@ const RESTRICTIVE_DONE = [
  * `RESTRICTIVE_DONE`, still fails. A future table with `company_id` and no
  * policy fails as undeclared until it is migrated or listed here.
  */
-const PENDING_RESTRICTIVE = [] as const;
+/**
+ * 2026-09-23, demo carrier stage 3 pass 3a: the applications and PEI families
+ * were given a nullable `company_id` and backfilled, deliberately WITHOUT any
+ * policy change — pass 3a changed no policy, no writer and no behaviour. Their
+ * restrictive policies, and the anonymous-access narrowing the public apply and
+ * PEI-response routes need, are pass 3c. Until then they are declared pending
+ * here rather than silently undisposed.
+ */
+const PENDING_RESTRICTIVE = [
+  'applications', 'application_invites',
+  'application_correction_requests', 'application_correction_fields',
+  'application_document_history', 'application_interview_notes',
+  'application_revision_attachments',
+  'pei_requests', 'pei_responses', 'pei_accidents', 'pei_request_events',
+] as const;
 
 
 type RestrictiveRow = {
@@ -2325,11 +2354,14 @@ describe('restrictive tenant policy — exact shape, or declared pending', () =>
             AND col.column_name = 'company_id')
       ORDER BY 1`);
     expect(tables.length, 'the inventory query returned nothing — it broke').toBeGreaterThan(0);
-    // The rollout is complete, so the pending list is empty and there is nothing
-    // to assert about its length. What replaces it: the DONE list must not have
-    // been emptied or truncated, which is what a lost list would look like.
-    expect(RESTRICTIVE_DONE.length, 'the DONE list shrank below the live inventory — it was lost or truncated')
+    // The DONE list must not have been emptied or truncated, which is what a
+    // lost list would look like. 2026-09-23: the pending list is no longer
+    // empty — the eleven applications/PEI tables await pass 3c — so DONE plus
+    // PENDING, not DONE alone, has to cover the inventory minus the exempt.
+    expect(RESTRICTIVE_DONE.length + PENDING_RESTRICTIVE.length,
+      'the DONE list shrank below the live inventory — it was lost or truncated')
       .toBeGreaterThanOrEqual(tables.length - RESTRICTIVE_EXEMPT.length);
+
 
     const rows = psql(`SELECT tablename || '\t' || policyname || '\t' || cmd || '\t'
         || roles::text || '\t' || coalesce(qual,'') || '\t' || coalesce(with_check,'')
