@@ -19737,3 +19737,12 @@ Report: `docs/passes/2026-09-23-1745-applications-per-carrier-3e.md`.
 - Parts B–D (carrier needs, inputs, proposed creation function): see report.
 
 Report: `docs/passes/2026-09-23-1842-demo-carrier-stage-4-part-1.md`.
+
+## 2026-09-23 20:13 UTC — demo carrier, stage 4 part 2a
+
+- **0057:** `pei_cadence_settings` keyed by `company_id` (boolean singleton key retired); setter and `pei-auto-cadence` per carrier. `inspection_program_settings.programme_enabled` (default true) + one row per carrier; grace request/grant, a payments trigger and `cron-inspection-reminders` refuse or skip when off; three screens say "off". Defaults dropped: `'ST'` prefixes (load, invoice), `inspections@mysupertransport.com`, `fmcsa_division_state 'MO'`; `fleet_settings` one per carrier. `allocate_invoice_number` now carries the carrier's own prefix into a new year.
+- **Correction to Part 1, Part B row 18:** PEI cadence was a platform singleton, not a per-carrier default.
+- **Defect fixed:** both inspection grace functions wrote a non-existent `audit_log.details` column, so every grace request and grant failed. Now `metadata`.
+- Proven with a scratch carrier (3/20 cadence, programme off) in raising transactions; SUPERTRANSPORT before/after identical; residue 0.
+
+Report: `docs/passes/2026-09-23-2013-demo-carrier-stage-4-part-2a.md`. **Next: part 2b — the creation build.**

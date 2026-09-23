@@ -210,6 +210,15 @@ export default function InspectionProgramPanel({ onSelectOperator }: Props) {
         icon={<CalendarClock className="h-6 w-6 text-gold shrink-0" />}
       />
 
+      {!loading && !loadError && (!settings || settings.programme_enabled === false) && (
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-xs font-medium text-foreground">The inspection programme is off for this carrier.</p>
+          <p className="text-xs text-muted-foreground mt-0.5">
+            No inspection reminders are sent, drivers cannot request extensions, and no reimbursement or bonus can be recorded.
+          </p>
+        </div>
+      )}
+
       {loadError && (
         <div className="rounded-lg border border-destructive/40 bg-destructive/5 p-3">
           <p className="text-xs font-medium text-destructive flex items-center gap-1.5">

@@ -51,22 +51,38 @@ export default function InspectionGraceRequestCard({
 
   const group = useMemo(() => inspectionGroup(unitNumber), [unitNumber]);
 
+  const [programmeOff, setProgrammeOff] = useState(false);
+
   const load = useCallback(async () => {
     const [cyclesRes, settingsRes] = await Promise.all([
       db.from('inspection_cycles').select('*')
         .eq('operator_id', operatorId).is('closed_at', null)
         .order('cycle_year', { ascending: false }).order('cycle_month', { ascending: false })
         .limit(1),
-      db.from('inspection_program_settings').select('max_grace_days').limit(1).maybeSingle(),
+      db.from('inspection_program_settings').select('max_grace_days, programme_enabled').limit(1).maybeSingle(),
     ]);
     setRow((cyclesRes.data?.[0] as CycleRow) ?? null);
     if (settingsRes.data?.max_grace_days) setMaxDays(settingsRes.data.max_grace_days);
+    // No row, or the programme switched off: nothing can be requested.
+    setProgrammeOff(!settingsRes.data || settingsRes.data.programme_enabled === false);
     setLoaded(true);
   }, [operatorId]);
 
   useEffect(() => { load(); }, [load]);
 
   if (!group || !loaded) return null;
+
+  if (programmeOff) {
+    return (
+      <div className="bg-white border border-border rounded-xl shadow-sm p-5">
+        <div className="flex items-center gap-2 mb-2">
+          <CalendarClock className="h-4 w-4 text-primary" />
+          <h3 className="font-semibold text-sm">Quarterly DOT Inspection</h3>
+        </div>
+        <p className="text-xs text-muted-foreground">The inspection programme is off for your carrier, so there are no inspection deadlines or extension requests right now.</p>
+      </div>
+    );
+  }
 
   const cycleRef = nextCycleOnOrAfter(group, new Date());
   const status = cycleStatus({
