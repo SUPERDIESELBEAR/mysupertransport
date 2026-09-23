@@ -133,19 +133,12 @@ const KNOWN_NO_CALLER_ENTRIES: readonly NoCallerEntry[] = [
       "through this client-side writer. Verified 2026-09-10. KEPT for the same " +
       "reason as assign_user_role: it holds the owner-removal refusal.",
   },
-  {
-    name: "is_platform_admin",
-    reason:
-      "AWAITING demo carrier stage 4 part 2 — the create-carrier edge function " +
-      "(gate on the caller) and the platform screen that shows the Create carrier " +
-      "control only to a platform admin. Built 2026-09-23 in migration 0056 (P43) " +
-      "ahead of both. Remove this entry in the pass that adds those callers.",
-  },
 ];
 
 /** Ceiling. May fall freely; may rise only for a new entry carrying its reason. */
 // 2026-09-23: 2 -> 3, is_platform_admin (P43), AWAITING stage 4 part 2.
-const KNOWN_NO_CALLER_MAX = 3;
+// 2026-09-23: 3 -> 2, is_platform_admin now called by create-carrier and the platform screen (stage 4 part 2b).
+const KNOWN_NO_CALLER_MAX = 2;
 
 
 const ALLOWLISTED = new Set(KNOWN_NO_CALLER_ENTRIES.map((e) => e.name));
