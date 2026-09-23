@@ -7,6 +7,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { Mail, Send, Loader2 } from 'lucide-react';
+import ApplyLinkCopyField from './ApplyLinkCopyField';
 
 interface InviteApplicantModalProps {
   open: boolean;
@@ -103,6 +104,10 @@ export default function InviteApplicantModal({ open, onClose, onInviteSent }: In
             Enter their contact details and we'll send a branded invite email with a link to the application.
           </DialogDescription>
         </DialogHeader>
+
+        {/* Staff who would rather share a link than send an invite email find it
+            here, next to the thing it replaces. */}
+        <ApplyLinkCopyField />
 
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-3">

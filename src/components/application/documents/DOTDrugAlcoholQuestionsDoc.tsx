@@ -1,6 +1,7 @@
 import { FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import CompanyLetterhead, { CompanyDocFooter } from './CompanyLetterhead';
 import { useCompanyIdentity } from '@/lib/application/identity';
+import CarrierIdentityUnavailable from './CarrierIdentityUnavailable';
 
 interface Props {
   app: FullApplication;
@@ -70,6 +71,9 @@ function AnswerRow({ answer }: { answer: boolean | null }) {
 
 export default function DOTDrugAlcoholQuestionsDoc({ app, signatureDataUrl }: Props) {
   const identity = useCompanyIdentity();
+  // No carrier, no document: a signed federal form must never print a blank
+  // company name, locality, USDOT or MC -- nor another carrier's.
+  if (!identity) return <CarrierIdentityUnavailable docLabel={"DOT Drug & Alcohol Pre-Employment Questions"} />;
   const fullName = [app.first_name, app.last_name].filter(Boolean).join(' ') || app.email;
   const signedDate = app.signed_date
     ? new Date(app.signed_date + 'T12:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })

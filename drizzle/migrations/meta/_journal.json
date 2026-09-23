@@ -337,6 +337,34 @@
       "when": 1790179009416,
       "tag": "0047_grant_parity_report_execute_to_sandbox_exec",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1790180125046,
+      "tag": "0048_apply_slug_public_identity",
+      "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1790180507619,
+      "tag": "0049_public_identity_execute_to_sandbox_exec",
+      "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1790180607595,
+      "tag": "0050_apply_link_company_trusted_by_stamp",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1790180708824,
+      "tag": "0051_save_draft_announces_link_carrier",
+      "breakpoints": true
     }
   ]
 }

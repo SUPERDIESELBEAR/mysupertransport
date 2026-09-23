@@ -1,5 +1,6 @@
 import CompanyLetterhead, { CompanyDocFooter } from '@/components/application/documents/CompanyLetterhead';
 import { useCompanyIdentity } from '@/lib/application/identity';
+import CarrierIdentityUnavailable from '@/components/application/documents/CarrierIdentityUnavailable';
 import {
   buildApplicationDocument,
   type ApplicationRow,
@@ -134,6 +135,9 @@ function Block({ block, signatureDataUrl }: { block: DocBlock; signatureDataUrl?
 
 export default function ApplicationPrintDocument({ id, application, signatureDataUrl }: Props) {
   const identity = useCompanyIdentity();
+  // No carrier, no document: a signed federal form must never print a blank
+  // company name, locality, USDOT or MC -- nor another carrier's.
+  if (!identity) return <CarrierIdentityUnavailable docLabel={"Driver Application for Employment"} />;
   const model = buildApplicationDocument(application);
 
   return (

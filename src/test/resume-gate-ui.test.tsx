@@ -22,7 +22,19 @@ vi.mock('@/integrations/supabase/client', () => ({
 }));
 
 vi.mock('@/lib/application/identity', () => ({
-  useCompanyIdentity: () => ({}),
+  // The gate screens render before the carrier matters; a resolved carrier keeps
+  // the form past its "which carrier is this?" guard.
+  CarrierIdentityProvider: ({ children }: { children: unknown }) => children,
+  fetchCarrierIdentityBySlug: async () => ({
+    status: 'ready',
+    identity: { legalName: 'Test Carrier', locality: 'Somewhere, MO', usdot: '1', mc: '2' },
+    slug: 'test',
+  }),
+  fetchCarrierIdentityForDraft: async () => ({
+    status: 'ready',
+    identity: { legalName: 'Test Carrier', locality: 'Somewhere, MO', usdot: '1', mc: '2' },
+    slug: 'test',
+  }),
   identityLine: () => '',
 }));
 

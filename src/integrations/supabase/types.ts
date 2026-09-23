@@ -1633,6 +1633,8 @@ export type Database = {
       }
       carrier_profile: {
         Row: {
+          applicant_locality: string | null
+          apply_slug: string | null
           created_at: string
           fmcsa_division_state: string
           home_terminal_address: string
@@ -1646,6 +1648,8 @@ export type Database = {
           usdot_number: string
         }
         Insert: {
+          applicant_locality?: string | null
+          apply_slug?: string | null
           created_at?: string
           fmcsa_division_state?: string
           home_terminal_address: string
@@ -1659,6 +1663,8 @@ export type Database = {
           usdot_number: string
         }
         Update: {
+          applicant_locality?: string | null
+          apply_slug?: string | null
           created_at?: string
           fmcsa_division_state?: string
           home_terminal_address?: string
@@ -14745,6 +14751,26 @@ export type Database = {
         Returns: undefined
       }
       canonical_equipment_serial: { Args: { _serial: string }; Returns: string }
+      carrier_identity_for_draft: {
+        Args: { p_draft_token: string }
+        Returns: {
+          applicant_locality: string
+          apply_slug: string
+          legal_name: string
+          mc_number: string
+          usdot_number: string
+        }[]
+      }
+      carrier_public_identity: {
+        Args: { p_slug?: string }
+        Returns: {
+          applicant_locality: string
+          apply_slug: string
+          legal_name: string
+          mc_number: string
+          usdot_number: string
+        }[]
+      }
       certify_rods_day:
         | {
             Args: {

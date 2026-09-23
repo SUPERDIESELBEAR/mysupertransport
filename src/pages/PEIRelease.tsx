@@ -6,6 +6,13 @@ import { logPEIEvent } from '@/lib/pei/api';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import FCRAAuthorizationDoc from '@/components/application/documents/FCRAAuthorizationDoc';
+import {
+  CarrierIdentityProvider,
+  fetchCarrierIdentityBySlug,
+  identityFromProfile,
+  type CarrierIdentityState,
+  type PublicCarrierIdentityRow,
+} from '@/lib/application/identity';
 import type { FullApplication } from '@/components/management/ApplicationReviewDrawer';
 import { openPrintableDocument, type PrintPageSize } from '@/lib/printDocument';
 
@@ -13,6 +20,8 @@ const PAGE_SIZE_KEY = 'pei_release_page_size';
 const SAMPLE_TOKEN = 'sample';
 
 interface ReleaseResponse {
+  /** The five public identity fields of the carrier this application belongs to. */
+  carrier?: PublicCarrierIdentityRow | null;
   application: Partial<FullApplication> & {
     id: string;
     email: string;
@@ -33,6 +42,18 @@ export default function PEIRelease() {
     const stored = window.localStorage.getItem(PAGE_SIZE_KEY);
     return stored === 'a4' ? 'a4' : 'letter';
   });
+
+  // The sample release carries no application, so its letterhead comes from the
+  // bare public lookup -- the sole carrier while there is one, nothing after.
+  const [sampleCarrier, setSampleCarrier] = useState<CarrierIdentityState>({
+    status: 'loading', identity: null, slug: null,
+  });
+  useEffect(() => {
+    if (!isSample) return;
+    let cancelled = false;
+    fetchCarrierIdentityBySlug(null).then((st) => { if (!cancelled) setSampleCarrier(st); });
+    return () => { cancelled = true; };
+  }, [isSample]);
 
   function updatePageSize(next: PrintPageSize) {
     setPageSize(next);
@@ -118,6 +139,14 @@ export default function PEIRelease() {
   }
 
   const app = effectiveData.application as FullApplication;
+  // The carrier that belongs on this signed form: from the response for a real
+  // release, from the bare lookup for the sample. Never a hard-coded name.
+  const responseIdentity = identityFromProfile(effectiveData.carrier);
+  const carrierState: CarrierIdentityState = isSample
+    ? sampleCarrier
+    : responseIdentity
+      ? { status: 'ready', identity: responseIdentity, slug: effectiveData.carrier?.apply_slug ?? null }
+      : { status: 'error', identity: null, slug: null };
 
   return (
     <div className="min-h-dvh bg-muted/40 py-8 px-4">
@@ -197,10 +226,12 @@ export default function PEIRelease() {
 
         <Card className="overflow-hidden p-0">
           <div id="fcra-release-doc" style={{ position: 'relative' }}>
-            <FCRAAuthorizationDoc
-              app={app}
-              signatureDataUrl={effectiveData.signatureDataUrl}
-            />
+            <CarrierIdentityProvider value={carrierState}>
+              <FCRAAuthorizationDoc
+                app={app}
+                signatureDataUrl={effectiveData.signatureDataUrl}
+              />
+            </CarrierIdentityProvider>
             {isSample && (
               <div
                 aria-hidden="true"

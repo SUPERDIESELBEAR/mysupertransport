@@ -1,11 +1,17 @@
 import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useSearchParams, useParams } from 'react-router-dom';
 import { useSwipeGesture } from '@/hooks/useSwipeGesture';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Truck, Save, ChevronLeft, ChevronRight, CheckCircle2, Loader2, AlertTriangle, FileText, X, Link2Off, Check } from 'lucide-react';
 import logo from '@/assets/supertransport-logo.png';
-import { useCompanyIdentity, identityLine } from '@/lib/application/identity';
+import {
+  CarrierIdentityProvider,
+  fetchCarrierIdentityBySlug,
+  fetchCarrierIdentityForDraft,
+  identityLine,
+  type CarrierIdentityState,
+} from '@/lib/application/identity';
 import FormProgress from '@/components/application/FormProgress';
 // Step 1 stays eagerly imported (it's the first paint). Steps 2-9 lazy-load
 // to keep the initial /apply bundle small for first-time applicants.
@@ -70,6 +76,10 @@ async function logApplicationError(payload: {
 // ─── Main Component ─────────────────────────────────────────────────────────
 export default function ApplicationForm() {
   const [searchParams, setSearchParams] = useSearchParams();
+  // /apply/:slug names the carrier. The bare /apply route leaves it undefined:
+  // the sole carrier answers while there is exactly one, and once there are two
+  // the applicant is asked for his carrier's own link -- never a guess.
+  const { slug: linkSlug } = useParams<{ slug?: string }>();
   const [step, setStep] = useState(1);
   const [slideDir, setSlideDir] = useState<'forward' | 'back'>('forward');
   const [formData, setFormData] = useState<ApplicationFormData>(defaultFormData);
@@ -103,6 +113,13 @@ export default function ApplicationForm() {
   // immediately see why they can't proceed (validation gaps, server errors,
   // duplicate-email pre-check failures, etc.) instead of getting stuck.
   const [stepError, setStepError] = useState<string | null>(null);
+  // The carrier whose name, locality, USDOT and MC go on every disclosure.
+  const [carrier, setCarrier] = useState<CarrierIdentityState>({
+    status: 'loading', identity: null, slug: null,
+  });
+  // Set once a draft token is in hand, so a RESUMED application shows the
+  // carrier it was filed under rather than the one in the URL.
+  const [carrierDraftToken, setCarrierDraftToken] = useState<string | null>(null);
 
   // Container for the active step's content — focused after a step change so
   // keyboard/screen-reader users land on the new step instead of the old one.
@@ -118,6 +135,20 @@ export default function ApplicationForm() {
   const isDirtyRef = useRef<boolean>(false);
   // Guard against overlapping autosaves.
   const savingRef = useRef<boolean>(false);
+
+  // ── Resolve the carrier ─────────────────────────────────────────────────
+  // Anonymous, so carrier_profile is unreachable: the two definer readers return
+  // ONLY the five public identity fields. A draft in hand wins over the link.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const state = carrierDraftToken
+        ? await fetchCarrierIdentityForDraft(carrierDraftToken)
+        : await fetchCarrierIdentityBySlug(linkSlug ?? null);
+      if (!cancelled) setCarrier(state);
+    })();
+    return () => { cancelled = true; };
+  }, [linkSlug, carrierDraftToken]);
 
   // ── Load draft on mount ─────────────────────────────────────────────────
   useEffect(() => {
@@ -231,6 +262,7 @@ export default function ApplicationForm() {
 
     const token = localStorage.getItem(DRAFT_TOKEN_KEY);
     if (!token) { setDraftLoaded(true); return; }
+    setCarrierDraftToken(token);
     loadDraft(token);
 
     return () => { cancelled = true; };
@@ -270,6 +302,7 @@ export default function ApplicationForm() {
       return;
     }
     localStorage.setItem(DRAFT_TOKEN_KEY, draftToken);
+    setCarrierDraftToken(draftToken);
     setDraftLoaded(false);
     loadDraftRef.current?.(draftToken);
     setConsumingResume(false);
@@ -315,6 +348,10 @@ export default function ApplicationForm() {
       const payload = {
         ...buildPayload(formData, token, true),
         current_step: furthestStepRef.current,
+        // The SLUG, never a carrier id: save_application_draft resolves it
+        // server-side. Omitted on the bare route, where the stamp trigger's
+        // sole-carrier fallback applies (and refuses at two carriers).
+        ...(linkSlug ? { carrier_slug: linkSlug } : {}),
       };
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase.rpc as any)('save_application_draft', {
@@ -439,6 +476,7 @@ export default function ApplicationForm() {
         ...buildPayload(formData, token, false, ssnEncrypted),
         submitted_at: new Date().toISOString(),
         review_status: 'pending',
+        ...(linkSlug ? { carrier_slug: linkSlug } : {}),
       };
 
       // Anonymous applicants cannot UPDATE the row directly (RLS requires
@@ -551,6 +589,7 @@ export default function ApplicationForm() {
         ...buildPayload(formData, token, false),
         submitted_at: new Date().toISOString(),
         review_status: 'pending',
+        ...(linkSlug ? { carrier_slug: linkSlug } : {}),
       };
       delete (payload as Record<string, unknown>).ssn_encrypted;
 
@@ -691,7 +730,7 @@ export default function ApplicationForm() {
   // ── Swipe gesture — MUST be above early returns (Rules of Hooks) ────────
   // Carrier identity shown on the form itself, so an applicant always knows
   // which authorized carrier they are giving their information to.
-  const companyIdentity = useCompanyIdentity();
+  const companyIdentity = carrier.identity;
 
   // Callbacks are no-ops when the form isn't in an interactive state.
   const swipe = useSwipeGesture({
@@ -725,9 +764,11 @@ export default function ApplicationForm() {
               </p>
             </div>
           </div>
-          <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
-            {identityLine(companyIdentity)}
-          </p>
+          {companyIdentity && (
+            <p className="mt-4 text-[11px] leading-relaxed text-muted-foreground">
+              {identityLine(companyIdentity)}
+            </p>
+          )}
         </div>
       </div>
     );
@@ -737,6 +778,47 @@ export default function ApplicationForm() {
     return (
       <div className="min-h-dvh bg-secondary flex items-center justify-center">
         <Loader2 className="h-8 w-8 text-gold animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Which carrier is this application for? ───────────────────────────────
+  // Nothing is offered until the carrier is known. The page NEVER guesses: a
+  // stranger must not fill in a federal application without seeing whose it is.
+  if (carrier.status === 'loading') {
+    return (
+      <div className="min-h-dvh bg-secondary flex items-center justify-center">
+        <Loader2 className="h-8 w-8 text-gold animate-spin" />
+      </div>
+    );
+  }
+
+  if (carrier.status !== 'ready') {
+    const unknownSlug = carrier.status === 'not_found' && !!linkSlug;
+    const needsLink = carrier.status === 'not_found' && !linkSlug;
+    return (
+      <div className="min-h-dvh bg-secondary flex items-center justify-center p-4">
+        <div className="w-full max-w-md text-center" data-testid="apply-carrier-unresolved">
+          <div className="bg-white border border-border rounded-2xl p-8 shadow-sm">
+            <div className="h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto mb-4">
+              <AlertTriangle className="h-8 w-8 text-destructive" />
+            </div>
+            <h1 className="text-xl font-bold text-foreground mb-2">
+              {unknownSlug
+                ? 'This application link is not valid'
+                : needsLink
+                  ? 'Which company are you applying to?'
+                  : 'We could not open the application'}
+            </h1>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              {unknownSlug
+                ? 'We do not recognise this link, so nothing has been started or saved. Check the link the recruiter sent you, or ask them for a fresh one.'
+                : needsLink
+                  ? 'Please use the application link your recruiter sent you. It tells us which company you are applying to, so your forms carry the right company name and DOT number.'
+                  : 'Something went wrong loading the company details this application belongs to. Nothing has been saved. Please try again in a moment.'}
+            </p>
+          </div>
+        </div>
       </div>
     );
   }
@@ -1083,9 +1165,11 @@ export default function ApplicationForm() {
             {' '}when you use "Save Progress."
           </p>
         )}
-      <p className="mt-8 mb-2 text-center text-[11px] leading-relaxed text-muted-foreground">
-        {identityLine(companyIdentity)}
-      </p>
+      {companyIdentity && (
+        <p className="mt-8 mb-2 text-center text-[11px] leading-relaxed text-muted-foreground">
+          {identityLine(companyIdentity)}
+        </p>
+      )}
       </div>
 
       {/* ── Mobile sticky bottom nav ── */}
