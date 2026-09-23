@@ -46,7 +46,7 @@ describe("applications family: company_id NOT NULL (3e)", () => {
   });
 
   itLive("each table still has its enabled stamp trigger", () => {
-    const rows = psql(`SELECT c.relname || ':' || p.proname || ':' || t.tgenabled
+    const rows = psql(`SELECT c.relname || ':' || p.proname || ':' || t.tgenabled::text
       FROM pg_trigger t JOIN pg_class c ON c.oid=t.tgrelid JOIN pg_proc p ON p.oid=t.tgfoid
       JOIN pg_namespace n ON n.oid=c.relnamespace
       WHERE n.nspname='public' AND NOT t.tgisinternal
