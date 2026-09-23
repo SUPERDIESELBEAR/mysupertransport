@@ -1124,17 +1124,22 @@ describe("live SECURITY DEFINER catalog (pg_proc)", () => {
       ORDER BY c.relname;
     `);
 
-    // The only two anon table privileges this app needs:
-    //   applications INSERT -- the public job-application form
-    //   faq SELECT          -- published owner-operator FAQs, row-filtered by
-    //                          a TO public policy
+    // The ONE anon table privilege this app needs:
+    //   faq SELECT -- published owner-operator FAQs, row-filtered by a TO
+    //                 public policy
+    // `applications: INSERT` used to be listed here for the public job
+    // application form. It was never actually used: the form writes through
+    // save_application_draft / submit_application_draft, both SECURITY
+    // DEFINER, and no permissive INSERT policy admitted anon, so the grant was
+    // unreachable. Migration 0048 revoked it and 0053 re-declared the matching
+    // policy for `authenticated` only. The list may shrink, never grow.
     // Anything else means a table was created without scoped GRANTs, or a
     // blanket "GRANT ... ON ALL TABLES IN SCHEMA public TO anon" was run.
     expect(
       granted,
       `Unexpected anon table privileges. Every row here is readable or ` +
         `writable by an unauthenticated client:\n  ${granted.join("\n  ")}`,
-    ).toEqual(["applications: INSERT", "faq: SELECT"]);
+    ).toEqual(["faq: SELECT"]);
   });
 
   itLive("the mail queue RPCs are service-role only", () => {
