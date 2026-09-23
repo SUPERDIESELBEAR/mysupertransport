@@ -304,6 +304,12 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.archive_applicant_pei(uuid,text)",
   "public.assign_user_role(uuid,app_role)",
   "public.cancel_application_correction(uuid)",
+  // 2026-09-23, migration 0048, demo carrier stage 3 pass 3d. Both are granted
+  // to anon for the public apply page (see KNOWN_ANON_EXECUTABLE), so signed-in
+  // EXECUTE follows; they return five public carrier identity fields and nothing
+  // else. See the KNOWN_AUTHENTICATED_EXECUTABLE_MAX note dated 2026-09-23.
+  "public.carrier_identity_for_draft(text)",
+  "public.carrier_public_identity(text)",
   "public.check_application_email_taken(text)",
   "public.consume_application_resume_token(text)",
   // create_eld_document_day / replace_rods_document used to be pinned here.
