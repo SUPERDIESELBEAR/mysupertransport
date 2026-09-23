@@ -11393,6 +11393,27 @@ export type Database = {
         }
         Relationships: []
       }
+      platform_admins: {
+        Row: {
+          granted_at: string
+          granted_by: string
+          reason: string
+          user_id: string
+        }
+        Insert: {
+          granted_at?: string
+          granted_by: string
+          reason: string
+          user_id: string
+        }
+        Update: {
+          granted_at?: string
+          granted_by?: string
+          reason?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       preview_sessions: {
         Row: {
           code_hash: string
@@ -15316,6 +15337,7 @@ export type Database = {
       }
       is_own_operator: { Args: { _operator_id: string }; Returns: boolean }
       is_own_rods_operator: { Args: { _operator_id: string }; Returns: boolean }
+      is_platform_admin: { Args: { _user_id: string }; Returns: boolean }
       is_retention_admin: { Args: { _user_id: string }; Returns: boolean }
       is_staff: { Args: { _user_id: string }; Returns: boolean }
       is_thread_participant: {
