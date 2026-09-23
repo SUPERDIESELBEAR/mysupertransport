@@ -14922,6 +14922,10 @@ export type Database = {
         }
         Returns: string
       }
+      create_carrier: {
+        Args: { p_actor: string; p_inputs: Json; p_owner: string }
+        Returns: Json
+      }
       create_invoice: {
         Args: { p_load_id: string; p_payload: Json }
         Returns: Json
