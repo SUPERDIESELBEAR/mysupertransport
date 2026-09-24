@@ -19777,3 +19777,19 @@ Draft-merge check (0060) and the stock take: see docs/passes/2026-09-24-1234-sup
 **P49 (owner, 2026-09-24), verbatim:** "SUPERTRANSPORT uses Alvys today for load tracking, invoicing and operator settlements. The whole TMS will be finished; these three are the first milestone, in that order, because invoices and settlements are built from loads."
 
 Cutover list and revised stock take: docs/passes/2026-09-24-1242-supertransport-stock-take.md (supersedes the 12:34 report, which stays unaltered).
+
+## 2026-09-24 14:39 UTC — Alvys M1 pass 1: owner cutover answers, load status history, driver side, five scheduled functions
+
+**Standing rule (2026-09-24): a stock take uses exact counts only** — never table-statistics estimates. Corrections to the 12:42 stock take: docs/passes/2026-09-24-1439-alvys-m1-load-history.md, Step 0.
+
+- **P50 (owner, 2026-09-24):** Cutover: SUPERDRIVE runs alongside Alvys with ONE dispatcher and his drivers as the pilot; issues are fixed in use; then a clean switch on November 1, December 1 or January 1, depending on what needs fixing. Nothing is migrated from Alvys.
+- **P51 (owner, 2026-09-24):** Drivers upload load documents through the app today (in Alvys); SUPERDRIVE's driver app must do the same.
+- **P52 (owner, 2026-09-24):** Brokers do not get tracking links today and keep emailing and calling. SUPERDRIVE will offer a broker tracking link per load, showing status and stops and NO rates or money.
+- **P53 (owner, 2026-09-24):** Invoices go to Smart Freight Funding with all supporting PDFs. SUPERDRIVE will offer, per factor or customer, EITHER separate PDFs (invoice, BOL, signed paperwork) OR one stitched continuous PDF.
+- **P54 (owner, 2026-09-24):** Deductions must be simple to set up: one-time, recurring, or spread over a set number of settlements (N of M). SUPERTRANSPORT deducts fuel, registrations, repairs and IFTA (quarterly); insurance and ELD are NOT deducted (inside the 28%). Categories are configurable per carrier — never hard-coded.
+- **P55 (owner, 2026-09-24):** Cash advances come from the MultiService fuel report (card advances) or are entered by hand (Comchek, usually for a repair), and are repaid in one deduction or over 3-5 settlements. The R&M Deposit is not used yet; the owner wants it available.
+- **P56 (owner, 2026-09-24):** Drivers view settlements in the app (in Alvys today); drivers are paid through Everee, not by the TMS.
+- 0061: the one status-history trigger now records source (staff_screen / driver_app / system) and the signed-in person; the status buttons declare staff_screen up front. No backfill; older rows show "recorded without a source".
+- 0062: drivers can upload load paperwork files into their own load's folder (was staff-only — every driver BOL/POD upload failed).
+- Five scheduled functions gated on x-cron-secret (notify-pwa-install also staff). Draft-merge trigger-function revokes done.
+- Found: drivers cannot move a load's status (wish list).
