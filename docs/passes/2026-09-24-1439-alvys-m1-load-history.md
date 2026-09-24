@@ -101,3 +101,20 @@ New: `src/test/scheduled-function-gate.test.ts`. Full suite (--maxWorkers=2) and
 
 ## Contradictions
 One: the Step 2 driver proof assumes a driver can move status; none can. Reported, not worked around. Commits save automatically; no git commands run.
+
+## Addendum — full suite, typecheck, deploy (first full run since the 2026-09-24 draft merge)
+First attempt hit the 590 s cap (killed, no summary). Second full run, `bunx vitest run --maxWorkers=2`, summary verbatim:
+```
+ Test Files  22 failed | 201 passed | 2 skipped (225)
+      Tests  212 failed | 2020 passed | 16 skipped (2248)
+```
+Real failures (3 files), all from the draft merge or this pass:
+1. `definer-search-path` / `definer-live-catalog`: 0060 pinned its four PEI definer functions to `public` alone. **Fixed** by `0063_pei_functions_search_path_pin.sql` (bodies identical, pin → `public, extensions`, revokes restated); two legacy allowlist entries deleted, LEGACY_MAX 71 → 69.
+2. `scheduled-function-gate` (new): my own check was too broad (the word 'operator' appears legitimately). Narrowed to the STAFF_ROLES list.
+
+Everything else was the familiar database-connection timeouts (psql EAUTHQUERY / command failures). Rerun of those 18 files: 15 passed, 3 failed on the same connection errors; those 3 rerun alone: `Test Files 3 passed (3) Tests 80 passed (80)`. The four fixed files rerun: `Test Files 4 passed (4) Tests 30 passed (30)`.
+
+Typecheck (`tsgo --noEmit -p tsconfig.app.json`): clean.
+Deploy: the five scheduled functions were deployed earlier in the pass and confirmed by live calls (Step 4). No other function changed. 0063 is database-only.
+
+Added to files authored: drizzle/migrations/0063_pei_functions_search_path_pin.sql, src/test/helpers/legacyPublicOnlyPins.ts.
