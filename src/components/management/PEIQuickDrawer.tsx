@@ -1,6 +1,7 @@
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ShieldCheck, X } from 'lucide-react';
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
+import { PEIProgressStrip } from '@/components/pei/PEIProgressStrip';
 
 interface Props {
   open: boolean;
@@ -42,6 +43,11 @@ export function PEIQuickDrawer({ open, onClose, applicationId, applicantName }: 
             <X className="h-4 w-4" />
           </button>
         </div>
+        {applicationId && (
+          <div className="shrink-0">
+            <PEIProgressStrip applicationId={applicationId} />
+          </div>
+        )}
         <div className="flex-1 overflow-y-auto">
           {applicationId ? (
             <ApplicationPEITab applicationId={applicationId} />

@@ -1,0 +1,38 @@
+<svg viewBox="0 0 640 210" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .lbl { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: var(--fg-secondary); }
+    .mono { font-family: var(--font-mono); font-size: 12px; fill: var(--fg-secondary); }
+  </style>
+
+  <rect x="8" y="8" width="624" height="120" rx="8" fill="none" stroke="var(--fg-secondary)"/>
+
+  <text class="note" x="24" y="32">Application review — Marquis Bowie</text>
+
+  <!-- progress strip -->
+  <rect x="24" y="46" width="180" height="10" rx="5" fill="var(--bg-muted)"/>
+  <rect x="24" y="46" width="58" height="10" rx="5" fill="var(--bg-accent-translucent)"/>
+  <rect x="86" y="46" width="56" height="10" rx="5" fill="var(--bg-muted)"/>
+  <rect x="146" y="46" width="58" height="10" rx="5" fill="var(--bg-muted)"/>
+  <text class="lbl" x="220" y="56">Previous-employer checks 0/3 complete</text>
+  <text class="note" x="24" y="76">3 not sent yet — click to open the PEI tab</text>
+
+  <!-- tabs -->
+  <line x1="24" y1="94" x2="616" y2="94" stroke="var(--border-translucent)"/>
+  <text class="note" x="60" y="115">Overview</text>
+  <text class="note" x="170" y="115">Documents</text>
+  <text class="note" x="290" y="115">PEI</text>
+  <rect x="322" y="102" width="34" height="16" rx="8" fill="var(--bg-accent-translucent)"/>
+  <text class="mono" x="329" y="114" style="fill: var(--fg-accent)">0/3</text>
+
+  <!-- legend -->
+  <circle cx="30" cy="158" r="5" fill="var(--bg-muted)"/>
+  <text class="note" x="42" y="162">not sent</text>
+  <circle cx="130" cy="158" r="5" fill="var(--bg-accent-translucent)"/>
+  <text class="note" x="142" y="162">out and waiting</text>
+  <circle cx="270" cy="158" r="5" fill="var(--bg-tertiary)" stroke="var(--fg-secondary)"/>
+  <text class="note" x="282" y="162">completed / GFE documented</text>
+
+  <text class="note" x="24" y="192">Hover a segment: employer name + status. No checks built yet: quiet one-line note instead.</text>
+</svg>

@@ -98,7 +98,9 @@ export function useStaffBirthdayAnniversaryEvents() {
       // Fetch this user's acks whose event_date falls in the current year.
       const { data: acks } = await supabase
         .from('staff_event_acknowledgments')
-        .select('operator_id, event_type, event_date')
+        // subject_user_id is required: staff birthdays are keyed by it, and
+        // leaving it out made every sent staff card reappear on reload.
+        .select('operator_id, subject_user_id, event_type, event_date')
         .eq('user_id', user.id)
         .gte('event_date', `${currentYear}-01-01`)
         .lte('event_date', `${currentYear}-12-31`);
@@ -211,17 +213,24 @@ export function useStaffBirthdayAnniversaryEvents() {
     void load();
   }, [load]);
 
-  const acknowledge = useCallback(async (ev: BdayAnnivEvent) => {
+  /**
+   * Record that THIS staff member sent the message. Only called after a
+   * successful send — closing or minimizing never marks a card done.
+   * Throws if the record could not be saved, so the caller can say so.
+   */
+  const markSent = useCallback(async (ev: BdayAnnivEvent) => {
     if (!user) return;
-    setEvents((prev) => prev.filter((e) => e.id !== ev.id));
-    await supabase.from('staff_event_acknowledgments').insert({
+    const { error } = await supabase.from('staff_event_acknowledgments').insert({
       user_id: user.id,
       operator_id: ev.subjectKind === 'operator' ? ev.operatorId : null,
       subject_user_id: ev.subjectKind === 'staff' ? ev.subjectUserId : null,
       event_type: ev.kind,
       event_date: ev.actualDateISO,
     } as any);
+    // 23505 = already recorded (e.g. sent from another tab) — that is success.
+    if (error && error.code !== '23505') throw error;
+    setEvents((prev) => prev.filter((e) => e.id !== ev.id));
   }, [user]);
 
-  return useMemo(() => ({ events, loading, refetch: load, acknowledge }), [events, loading, load, acknowledge]);
+  return useMemo(() => ({ events, loading, refetch: load, markSent }), [events, loading, load, markSent]);
 }

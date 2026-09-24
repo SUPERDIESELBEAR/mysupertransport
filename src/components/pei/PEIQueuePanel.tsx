@@ -41,6 +41,8 @@ import { ChangeArchiveCategoryDialog } from './ChangeArchiveCategoryDialog';
 import { StaffNotesPopover } from './StaffNotesPopover';
 import { BulkArchiveDialog, BulkSendDateDialog } from './PEIBulkDialogs';
 import { PEICadenceSettingsCard } from './PEICadenceSettingsCard';
+import { PEIStatusMismatchAlert } from './PEIStatusMismatchAlert';
+
 
 interface Props {
   onOpenApplication?: (applicationId: string) => void;
@@ -519,6 +521,10 @@ export default function PEIQueuePanel({ onOpenApplication }: Props) {
           <PEICadenceSettingsCard />
         </div>
       </header>
+
+      <PEIStatusMismatchAlert onOpenApplication={onOpenApplication} />
+
+
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
         <StatTile icon={<Mail className="h-4 w-4" />} label="Active Applicants" value={stats.applicants} />

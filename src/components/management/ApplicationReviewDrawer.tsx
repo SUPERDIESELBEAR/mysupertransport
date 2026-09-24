@@ -29,6 +29,7 @@ import PreEmploymentAuthorizationsDoc from '@/components/application/documents/P
 import DOTDrugAlcoholQuestionsDoc from '@/components/application/documents/DOTDrugAlcoholQuestionsDoc';
 import CompanyTestingPolicyCertDoc from '@/components/application/documents/CompanyTestingPolicyCertDoc';
 import { ApplicationPEITab } from '@/components/pei/ApplicationPEITab';
+import { PEIProgressStrip, usePEIProgress } from '@/components/pei/PEIProgressStrip';
 import { RevertRevisionModal } from '@/components/management/RevertRevisionModal';
 import { RevertedBanner } from '@/components/management/RevertedBanner';
 import { ProposeChangesDrawer } from '@/components/management/ProposeChangesDrawer';
@@ -282,6 +283,8 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
   // Interview notes are hiring-staff only: onboarding staff, management, owner.
   const canLogInterview = roles.includes('onboarding_staff') || roles.includes('management') || roles.includes('owner');
   const [activeTab, setActiveTab] = useState<DrawerTab>(initialTab ?? 'overview');
+  /** Shared read for the PEI strip above the tabs and the PEI tab badge. */
+  const peiProgress = usePEIProgress(app?.id);
   const [notes, setNotes] = useState('');
   const [confirmAction, setConfirmAction] = useState<'approve' | 'deny' | 'revise' | 'archive' | null>(null);
   /** Pending move-out of the Archived tab, awaiting confirmation. */
@@ -873,6 +876,15 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           </div>
         </div>
 
+        {/* PEI progress at a glance */}
+        <div className="shrink-0">
+          <PEIProgressStrip
+            applicationId={app.id}
+            progress={peiProgress}
+            onOpenPEI={() => setActiveTab('pei')}
+          />
+        </div>
+
         {/* Tab Navigation */}
         <div className="flex border-b border-border bg-surface-dark/5 shrink-0">
           <button
@@ -906,6 +918,11 @@ export default function ApplicationReviewDrawer({ app, onClose, onApprove, onDen
           >
             <ShieldCheck className="h-3.5 w-3.5" />
             PEI
+            {peiProgress && peiProgress.total > 0 && (
+              <span className="text-[10px] font-semibold tabular-nums px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
+                {peiProgress.completed}/{peiProgress.total}
+              </span>
+            )}
           </button>
         </div>
 

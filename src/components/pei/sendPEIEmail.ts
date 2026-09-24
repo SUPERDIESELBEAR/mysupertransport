@@ -148,6 +148,14 @@ export async function sendPEIEmail(
         : { status: 'final_notice_sent', date_final_notice_sent: now };
   if (messageId) patch.last_email_message_id = messageId;
 
+  // Who sent it. The database logs the status change; this records the person
+  // on the record itself, so the employer row names its sender too.
+  const { data: authData } = await supabase.auth.getUser();
+  if (authData?.user?.id && !req.sent_by_staff_id) {
+    patch.sent_by_staff_id = authData.user.id;
+  }
+
+
   const { error: updateError } = await supabase
     .from('pei_requests')
     .update(patch as any)

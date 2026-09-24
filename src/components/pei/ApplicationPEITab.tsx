@@ -18,7 +18,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { US_STATES } from '@/components/application/types';
 import { toTitleCase } from '@/components/application/utils';
-import { autoBuildPEIRequests, deletePEIRequest, fetchPEIRequestsByApplication } from '@/lib/pei/api';
+import { autoBuildPEIRequests, withdrawPEIRequest, fetchPEIRequestsByApplication, fetchWithdrawnPEIRequests } from '@/lib/pei/api';
 import { printCombinedPEIHistory } from '@/lib/pei/combinedHistoryPrint';
 import type { PEIRequest } from '@/lib/pei/types';
 import { lookupEmployerEmail, type EmailCandidate } from '@/lib/pei/lookupEmail';
@@ -51,7 +51,10 @@ export function ApplicationPEITab({ applicationId }: Props) {
   const [edit, setEdit] = useState<{ email: string; city: string; state: string }>({ email: '', city: '', state: '' });
   const [savingEdit, setSavingEdit] = useState(false);
   const [deletingFor, setDeletingFor] = useState<PEIRequest | null>(null);
+  const [withdrawReason, setWithdrawReason] = useState('');
+  const [withdrawn, setWithdrawn] = useState<PEIRequest[]>([]);
   const [deleteBusy, setDeleteBusy] = useState(false);
+
   const [lookingUpId, setLookingUpId] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<EmailCandidate[]>([]);
   const [candidatesOpen, setCandidatesOpen] = useState(false);
@@ -102,16 +105,21 @@ export function ApplicationPEITab({ applicationId }: Props) {
     }
   }
 
-  async function handleDelete() {
+  async function handleWithdraw() {
     if (!deletingFor) return;
+    if (!withdrawReason.trim()) {
+      toast.error('Enter a reason so the record explains itself');
+      return;
+    }
     setDeleteBusy(true);
     try {
-      await deletePEIRequest(deletingFor.id);
-      toast.success('PEI request deleted');
+      await withdrawPEIRequest(deletingFor.id, withdrawReason);
+      toast.success('Request withdrawn — the record is kept');
       setDeletingFor(null);
+      setWithdrawReason('');
       await reload();
     } catch (e: any) {
-      toast.error(e?.message ?? 'Failed to delete PEI request');
+      toast.error(e?.message ?? 'Failed to withdraw PEI request');
     } finally {
       setDeleteBusy(false);
     }
@@ -120,13 +128,19 @@ export function ApplicationPEITab({ applicationId }: Props) {
   async function reload() {
     setLoading(true);
     try {
-      setRows(await fetchPEIRequestsByApplication(applicationId));
+      const [live, gone] = await Promise.all([
+        fetchPEIRequestsByApplication(applicationId),
+        fetchWithdrawnPEIRequests(applicationId),
+      ]);
+      setRows(live);
+      setWithdrawn(gone);
     } catch (e: any) {
       toast.error(e?.message ?? 'Failed to load PEI requests');
     } finally {
       setLoading(false);
     }
   }
+
 
   useEffect(() => { reload(); /* eslint-disable-next-line */ }, [applicationId]);
 
@@ -464,12 +478,13 @@ export function ApplicationPEITab({ applicationId }: Props) {
                     <Button
                       size="sm"
                       variant="ghost"
-                      onClick={() => setDeletingFor(r)}
+                      onClick={() => { setDeletingFor(r); setWithdrawReason(''); }}
                       className="text-destructive hover:text-destructive"
-                      title="Delete PEI request"
+                      title="Withdraw this employer record (kept, not deleted)"
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
+
                   </div>
                 </div>
 
@@ -579,6 +594,32 @@ export function ApplicationPEITab({ applicationId }: Props) {
         </div>
       )}
 
+      {withdrawn.length > 0 && (
+        <div className="space-y-2" data-testid="pei-withdrawn-section">
+          <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2">
+            Withdrawn ({withdrawn.length}) — kept for the record
+          </h4>
+          {withdrawn.map((r) => (
+            <Card key={r.id} className="p-3 opacity-80">
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <span className="font-medium text-sm">{r.employer_name}</span>
+                <span className="text-[10px] uppercase tracking-wide text-muted-foreground bg-muted px-1.5 py-0.5 rounded">
+                  Withdrawn
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground mt-1">
+                {r.withdrawn_by_name ?? 'Unknown staff member'}
+                {r.withdrawn_at ? ` · ${new Date(r.withdrawn_at).toLocaleString('en-US')}` : ''}
+                {r.withdrawn_reason ? ` · ${r.withdrawn_reason}` : ''}
+              </div>
+
+            </Card>
+          ))}
+        </div>
+      )}
+
+
+
       {gfeFor && (
         <GFEModal
           open
@@ -597,32 +638,42 @@ export function ApplicationPEITab({ applicationId }: Props) {
         onCreated={reload}
       />
 
-      <AlertDialog open={!!deletingFor} onOpenChange={(o) => { if (!o) setDeletingFor(null); }}>
+      <AlertDialog
+        open={!!deletingFor}
+        onOpenChange={(o) => { if (!o) { setDeletingFor(null); setWithdrawReason(''); } }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete PEI record?</AlertDialogTitle>
+            <AlertDialogTitle>Withdraw this employer record?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently removes the request for{' '}
-              <strong>{deletingFor?.employer_name}</strong>
-              {(deletingFor?.status === 'completed' || deletingFor?.status === 'gfe_documented')
-                ? ' and any submitted response or accident records.'
-                : '.'}{' '}
-              This cannot be undone.
+              The request for <strong>{deletingFor?.employer_name}</strong> stops counting toward
+              this applicant's previous-employer checks, but the record and its history are kept,
+              with your name and the reason below. Records cannot be deleted.
             </AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-1">
+            <label className="text-[11px] uppercase tracking-wide text-muted-foreground">Reason</label>
+            <Input
+              value={withdrawReason}
+              onChange={(e) => setWithdrawReason(e.target.value)}
+              placeholder="Why is this employer being withdrawn?"
+              className="h-9 text-sm"
+              data-testid="pei-withdraw-reason"
+            />
+          </div>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleteBusy}>Cancel</AlertDialogCancel>
             <AlertDialogAction
-              onClick={(e) => { e.preventDefault(); handleDelete(); }}
-              disabled={deleteBusy}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => { e.preventDefault(); handleWithdraw(); }}
+              disabled={deleteBusy || !withdrawReason.trim()}
             >
               {deleteBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : null}
-              Delete
+              Withdraw
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
     </div>
   );
 }
