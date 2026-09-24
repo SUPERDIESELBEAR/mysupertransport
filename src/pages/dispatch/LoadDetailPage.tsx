@@ -10,6 +10,7 @@ import { useAuth } from '@/hooks/useAuth';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import { SectionErrorBoundary } from '@/components/shared/SectionErrorBoundary';
 import LoadStatusControls from '@/components/dispatch/loadDetail/LoadStatusControls';
+import BrokerTrackingCard from '@/components/dispatch/loadDetail/BrokerTrackingCard';
 import StatusHistoryCard from '@/components/dispatch/loadDetail/StatusHistoryCard';
 import LoadSummaryCard from '@/components/dispatch/loadDetail/LoadSummaryCard';
 import RateDetailsCard from '@/components/dispatch/loadDetail/RateDetailsCard';
@@ -165,6 +166,10 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
           </div>
         ) : null}
       </div>
+
+      {canChangeStatus ? (
+        <BrokerTrackingCard loadId={load.id} status={load.status} deliveredAt={load.delivered_at ?? null} />
+      ) : null}
 
       {isStaff && holdFlag ? (
         <div className="flex items-start gap-3 rounded-lg border border-destructive/40 bg-destructive/10 p-4">
