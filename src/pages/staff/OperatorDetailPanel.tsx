@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';
@@ -3405,7 +3405,11 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               // No application — create an application record so all contact fields persist
               const { data: newApp, error: insertErr } = await supabase
                 .from('applications')
+<<<<<<< src/pages/staff/OperatorDetailPanel.tsx
                 .insert(stampedInsert<'applications'>({
+=======
+                .insert(stampedInsert('applications', {
+>>>>>>> /tmp/d
                   email: contactDraft.email || '',
                   phone: contactDraft.phone || null,
                   address_street: contactDraft.address_street || null,

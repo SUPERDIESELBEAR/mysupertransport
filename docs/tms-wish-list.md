@@ -1184,6 +1184,7 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   approval and dispatch keeps it. **P33** limits dispatch to ISSUING invoices.
 - Nothing in the money layer is protected by the UI alone — unlike slice 1, the gaps are
   wrong-role and unnamed-action, not absent enforcement.
+<<<<<<< docs/tms-wish-list.md
 
 - **Demo carrier, stage 3 — pass 3d DONE (2026-09-23 1900).** Per-carrier apply link
   (`/apply/supertransport`), two five-field public carrier-identity readers, the hard-coded
@@ -1196,3 +1197,15 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
 
 - **Demo carrier, stage 3 — COMPLETE (2026-09-23 1745).** Applications and the PEI family are per-carrier end to end: carrier column NOT NULL on all eleven tables, stamped on every write, isolated by restrictive policy, per-carrier apply link and letterhead. **Stage 4 next: the carrier creation path** (how carrier B's row, owner, members and settings get created).
   **Decisions still owed before carrier B is created:** (1) the duplicate-email rule — one live application per email across ALL carriers today; (2) `profiles` — global with scoped staff reads, or per-carrier; (3) the nine content tables — product-level or per carrier; (4) `release_notes` — product-wide or per carrier; (5) shared sending domain and email templates; (6) whether a shared content library is acceptable for a demo at all; (7) ELD identity — process-eld-escalations and send-officer-packet still print an arbitrary carrier's DOT. Report: `docs/passes/2026-09-23-1745-applications-per-carrier-3e.md`.
+=======
+- **PEI attribution — CLOSED (2026-09-23 1330).** A previous-employer request can no longer
+  vanish: creating, sending and withdrawing are written to `audit_log` with the staff member's
+  name, a hard DELETE is refused, and any application claiming PEI progress with no live request
+  is flagged on the PEI Q. Marquis Bowie's three checks were rebuilt unsent from his own
+  application. Report `docs/passes/2026-09-23-1330-pei-restart-and-attribution.md`.
+- **Tenancy fixture drift — OPEN.** `tenancy-resolver.test.ts` still declares `applications` and
+  ten sibling tables GLOBAL although they carry `company_id` live, and `RESTRICTIVE_DONE` (163)
+  is below the live inventory (174). Four red tests until demo-carrier stage 3 updates them.
+- **Westbrook — OPEN.** His application is marked `complete` with no request behind it; decide
+  whether to rebuild his previous-employer checks.
+>>>>>>> /tmp/d

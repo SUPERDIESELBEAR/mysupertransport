@@ -4,7 +4,7 @@ import { Eye, Upload, Camera, Loader2, AlertTriangle, Clock } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';
@@ -67,7 +67,11 @@ export function DocumentSlotRow({
         staffName = [prof?.first_name, prof?.last_name].filter(Boolean).join(' ').trim() || user.email || null;
       }
 
+<<<<<<< src/components/management/DocumentSlotRow.tsx
       const { error: histErr } = await supabase.from('application_document_history').insert(stampedInsert<'application_document_history'>({
+=======
+      const { error: histErr } = await supabase.from('application_document_history').insert(stampedInsert('application_document_history', {
+>>>>>>> /tmp/d
         application_id: applicationId,
         document_key: docKey,
         old_path: currentPath,

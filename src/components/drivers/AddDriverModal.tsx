@@ -1,7 +1,7 @@
 import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload } from '@/integrations/supabase/helpers';
+import { updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -95,7 +95,11 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
       // 1. Create a minimal application record
       const { data: app, error: appErr } = await supabase
         .from('applications')
+<<<<<<< src/components/drivers/AddDriverModal.tsx
         .insert(stampedInsert<'applications'>({
+=======
+        .insert(stampedInsert('applications', {
+>>>>>>> /tmp/d
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),
