@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isCronCaller, forbidden } from '../_shared/cronAuth.ts';
 import { buildEmail, sendEmail, BRAND_NAME } from '../_shared/email-layout.ts';
 
 const corsHeaders = {
@@ -22,6 +23,8 @@ Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
+  // Scheduled function: cron secret (or service role) only.
+  if (!isCronCaller(req)) return forbidden(corsHeaders);
 
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;

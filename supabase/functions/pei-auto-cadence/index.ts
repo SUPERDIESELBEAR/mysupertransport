@@ -9,6 +9,7 @@
 // send-transactional-email idempotency key `pei-<id>-auto-day<N>` prevents
 // duplicate sends across retried cron runs.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isCronCaller, forbidden } from '../_shared/cronAuth.ts';
 import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 import { buildAppUrl } from '../_shared/app-url.ts';
 
@@ -43,6 +44,8 @@ function fmtDeadline(value: string | null | undefined): string {
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // Scheduled function: cron secret (or service role) only.
+  if (!isCronCaller(req)) return forbidden(corsHeaders);
 
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;

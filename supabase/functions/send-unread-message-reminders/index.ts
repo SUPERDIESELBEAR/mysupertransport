@@ -1,4 +1,5 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isCronCaller, forbidden } from '../_shared/cronAuth.ts';
 import { buildEmail, sendEmail } from '../_shared/email-layout.ts';
 import { buildAppUrl } from '../_shared/app-url.ts';
 import { isDemoRecipient } from '../_shared/demo-email.ts';
@@ -49,6 +50,8 @@ function previewOf(m: { body: string | null; attachment_name: string | null; att
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
+  // Scheduled function: cron secret (or service role) only.
+  if (!isCronCaller(req)) return forbidden(corsHeaders);
 
   const admin = createClient(
     Deno.env.get('SUPABASE_URL')!,

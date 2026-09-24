@@ -6,6 +6,7 @@
 // Thresholds (days_until → label):
 //   45 → 45d, 14 → 14d, 3 → 3d, 0 → 0d, -1 → expired+1
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { isCronCaller, forbidden } from '../_shared/cronAuth.ts';
 import { buildEmail, sendEmailStrict as sendEmail } from '../_shared/email-layout.ts';
 
 import { buildAppUrl } from '../_shared/app-url.ts';
@@ -34,6 +35,8 @@ const THRESHOLDS: Array<{ days: number; label: string }> = [
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
+  // Scheduled function: cron secret (or service role) only.
+  if (!isCronCaller(req)) return forbidden(corsHeaders);
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,

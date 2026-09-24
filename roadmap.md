@@ -1,51 +1,49 @@
-# Roadmap (rewritten 2026-09-24 — see docs/passes/2026-09-24-1242-supertransport-stock-take.md)
+# Roadmap (rewritten 2026-09-24 14:39 — see docs/passes/2026-09-24-1439-alvys-m1-load-history.md)
 
-Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits) and P49 (replace Alvys: load tracking → invoicing → operator settlements). Both in docs/tms-build-status.md, 2026-09-24.
+Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits), P49 (replace Alvys), P50–P56 (cutover answers). All in docs/tms-build-status.md, 2026-09-24. Stock takes use exact counts only.
 
-## Owed first (housekeeping)
-1. Revoke PUBLIC/anon/authenticated EXECUTE on log_pei_request_audit and refuse_pei_request_delete (0060)
-2. Full suite on main after the 2026-09-24 draft merge
-3. Owner answers to the nine Alvys questions (report, step 4)
+## Milestone 1 — Loads
+1. ~~Status history source and person~~ — done 2026-09-24 (0061)
+2. Driver proof — paperwork upload fixed (0062), check-ins work; **open: drivers cannot move a load's status** (wish list, decision owed)
+3. Broker tracking link per load — status and stops, no money (P52)
 
-## Milestone 1 — Load tracking (replace Alvys)
-1. Record load status history on every status change
-2. Driver load check-ins proven in use (if drivers use Alvys for this — Q1)
-3. Parallel-run week: every SUPERTRANSPORT load entered in SUPERDRIVE
-4. Nice-to-have: load-aware dispatch board; tracking links
+## Milestone 2 — Invoicing
+1. Invoice packet: separate PDFs or one stitched PDF, per factor/customer (P53)
+2. Factor submission to Smart Freight Funding + factoring payment received
+3. Direct-bill payment posting
+4. Module 7 Pass 5 supplemental-invoice (-A1) decision
 
-## Milestone 2 — Invoicing (replace Alvys)
-1. Sendable invoice to factor/broker (Q3)
-2. Factoring submission to Smart Freight Funding
-3. Factoring payment received (triggers settlement eligibility)
-4. Direct-bill payment posting
-5. Nice-to-have: supplemental (-A1) invoice send; AR aging
+## Milestone 3 — Settlements
+1. Deductions: one-time, recurring, N of M; per-carrier categories (P54)
+2. Cash advances incl. MultiService import; repay in 1 or 3–5 settlements (P55)
+3. R&M Deposit available (P55) + a real-week fuel reconciliation
 
-## Milestone 3 — Operator settlements (replace Alvys)
-1. Fuel deduction reconciled onto a real weekly settlement
-2. Recurring deductions and installments — staff entry (Q4)
-3. R&M Deposit balance and $200/week deduction (Q5)
-4. Cash advances (Q6)
-5. Payout path decided (Q8); history brought over (Q9)
-6. Nice-to-have: emailed/PDF driver statement (Q7)
+## The pilot (P50)
+One dispatcher and his drivers alongside Alvys; clean switch Nov 1, Dec 1 or Jan 1. Nothing migrated.
+
+## After the pilot
+- Module 9 — settle the miles question first
+- Detention clock
 
 ## Rest of the TMS
 ### Built and in use
-- Onboarding (apply → go-live → deactivation) — build-status, stages 3a–3e; PEI 2026-09-23
-- Compliance & documents, inspections — build-status, 2026-09-11/12
-- Dispatch status board and day logs — build-status, dispatch board entries
-- Driver app documents, messages, ICA — build-status, operator portal entries
+- Onboarding, ICAs (66) — build-status stages 3a–3e; PEI 2026-09-23
+- Compliance, documents, DOT inspections (109) — build-status 2026-09-11/12
+- Dispatch status board and day logs — dispatch board entries
+- Driver app documents, messages — operator portal entries
+- Forecasts (290 forecast loads) — Module 9 forecast entries
+- Load status history (16 rows) — 2026-09-24 14:39
 
-### Built, not yet used
-- Rate-con parsing — build-status, rate-con parsing
-- Brokers directory — build-status, broker foundation
-- Settlement run, per-driver pay — build-status, Module 4; per-driver pay passes 2–5
-- Fuel import — build-status, Module 6
-- Carrier creation screen — build-status, stage 4 part 2b
+### Built, lightly used
+- Loads (18), stops (37), load paperwork (25), rate-con intake (5) — Module 2 / rate-con entries
+- Brokers directory (13), facilities (2) — broker foundation
+- Settlement run (1), dispatch company settlement with SUPERTRANSPORT rates (1) — Module 4 / Module 7 pass 2
+- Fuel import (1 batch) — Module 6
+- Carrier creation screen — stage 4 part 2b
 
 ### Partly built
-- Accessorials & detention (no detention clock) — build-status, Module 5
-- Dispatch company settlement (no SUPERTRANSPORT rates) — build-status, Module 7 pass 2
+- Accessorials & detention (no detention clock) — Module 5
 
 ### Not started
-- Financial Intelligence reporting — wish list, Module 9
+- Payments/AR aging — wish list
 - Before any second carrier: definer-function audit (get_pei_queue first), demo stages 5–6 — wish list

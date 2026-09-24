@@ -60,7 +60,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   
   "20260416211554_45d4b817-c95f-480b-afbf-fdaacf793399.sql::public.get_equipment_shipping_for_operator(uuid)",
   
-  "20260727195451_f65f922b-e025-4ed4-86e4-b609458f05a3.sql::public.get_pei_queue()",
   "20260513153456_cf7023f6-f04b-41ab-9d7a-22a684c381c5.sql::public.get_pei_request_for_response(uuid)",
   "20260729161818_17cf3a9f-6df2-4a6a-abc8-9c2b0c874ce1.sql::public.get_thread_participants(uuid)",
   "20260609121456_f3d54378-f762-4062-818d-76ec63094e29.sql::public.handle_operator_document_soft_delete()",
@@ -107,7 +106,6 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
   "20260729123623_6c7c969d-1a1e-4fc1-a403-1ed040340a0b.sql::public.sync_mo_plate_expiry_to_irp()",
   "20260723165445_9915b9a4-b93d-4c80-ba34-bdd65e50b2dc.sql::public.sync_photos_from_storage()",
   "20260618185610_96052999-3491-4f8a-99b2-032e2cb5cc05.sql::public.unacked_go_live_blockers(uuid)",
-  "20260513151918_1701f4a4-1d3f-4686-918d-2b6bbe53841c.sql::public.update_application_pei_status()",
   "20260727153803_44f36d19-304d-4f53-98b7-06ea7d627ee1.sql::public.update_operator_offboarding_steps_updated_at()",
   "20260727200644_de97ba98-fa40-4df2-bfd2-680bc81bbb0b.sql::public.update_pei_archive_category(uuid, text, text)",
   "20260720153657_d81fc002-e4c6-4f66-804e-ede3bee9da67.sql::public.validate_ica_amendment()",
@@ -135,4 +133,4 @@ export const LEGACY_PUBLIC_ONLY_PINS: readonly string[] = [
 // user's role array, including who holds `owner`. Nothing called it; roles are
 // read via `useAuth` under `user_roles` RLS, `has_role()` in policies, and
 // direct service-role reads in edge functions. A shrink by deletion.
-export const LEGACY_MAX = 71;
+export const LEGACY_MAX = 69;

@@ -1,4 +1,4 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1'
+import { createClient } from 'npm:@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -6,6 +6,10 @@ const corsHeaders = {
 }
 import { buildEmail, sendEmail, BRAND_COLOR, BRAND_DARK } from '../_shared/email-layout.ts'
 import { buildAppUrl } from '../_shared/app-url.ts'
+
+import { isCronCaller } from '../_shared/cronAuth.ts'
+
+const STAFF_ROLES = ['onboarding_staff', 'dispatcher', 'management', 'owner']
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -17,6 +21,21 @@ Deno.serve(async (req) => {
     const serviceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const resendKey = Deno.env.get('RESEND_API_KEY')!
     const supabase = createClient(supabaseUrl, serviceKey)
+
+    // Caller gate: the daily cron (x-cron-secret) OR a signed-in staff session.
+    if (!isCronCaller(req)) {
+      const authHeader = req.headers.get('Authorization') ?? ''
+      const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+      const deny = (status: number, error: string) =>
+        new Response(JSON.stringify({ error }), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+      if (!token) return deny(401, 'Unauthorized')
+      const { data: claims, error: claimsErr } = await supabase.auth.getClaims(token)
+      const sub = claims?.claims?.sub
+      if (claimsErr || !sub) return deny(401, 'Unauthorized')
+      const { data: roleRow } = await supabase
+        .from('user_roles').select('role').eq('user_id', sub).in('role', STAFF_ROLES).limit(1)
+      if (!roleRow || roleRow.length === 0) return deny(403, 'Forbidden: staff only')
+    }
 
     // Accept optional operator_id to target a single operator
     const body = await req.json().catch(() => ({}))

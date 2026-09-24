@@ -4,7 +4,19 @@ import { Skeleton } from '@/components/ui/skeleton';
 import LoadStatusBadge from '@/components/dispatch/LoadStatusBadge';
 import { DetailSection } from './DetailPrimitives';
 import { fetchLoadStatusHistory, formatDateTime } from '@/lib/loadDetail';
-const SOURCE_LABELS: Record<string, string> = { manual_ui: 'Manual change' };
+const SOURCE_LABELS: Record<string, string> = {
+  staff_screen: 'Staff screen',
+  driver_app: 'Driver app',
+  system: 'System',
+  manual_ui: 'Staff screen',
+  auto_assignment: 'System, on driver assignment',
+};
+
+/** Older entries were written before sources were recorded; never guessed. */
+export function sourceLabel(source: string | null): string {
+  if (!source) return 'recorded without a source';
+  return SOURCE_LABELS[source] ?? source;
+}
 
 /** Notes may contain internal commentary, so operators never see them. */
 export default function StatusHistoryCard({ loadId, canSeeNotes }: { loadId: string; canSeeNotes: boolean }) {
@@ -40,7 +52,7 @@ export default function StatusHistoryCard({ loadId, canSeeNotes }: { loadId: str
               <p className="mt-1 text-xs text-muted-foreground">
                 {formatDateTime(entry.changed_at)}
                 {entry.changed_by_name ? ` · ${entry.changed_by_name}` : ''}
-                {entry.change_source ? ` · ${SOURCE_LABELS[entry.change_source] ?? entry.change_source}` : ''}
+                {` · ${sourceLabel(entry.change_source)}`}
               </p>
               {canSeeNotes && entry.notes?.trim() ? (
                 <p className="mt-1 whitespace-pre-wrap text-sm text-foreground">{entry.notes}</p>
