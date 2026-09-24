@@ -11018,6 +11018,10 @@ export type Database = {
           staff_notes: Json
           status: Database["public"]["Enums"]["pei_request_status"]
           updated_at: string
+          withdrawn_at: string | null
+          withdrawn_by: string | null
+          withdrawn_by_name: string | null
+          withdrawn_reason: string | null
         }
         Insert: {
           application_id: string
@@ -11060,6 +11064,10 @@ export type Database = {
           staff_notes?: Json
           status?: Database["public"]["Enums"]["pei_request_status"]
           updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_by_name?: string | null
+          withdrawn_reason?: string | null
         }
         Update: {
           application_id?: string
@@ -11102,6 +11110,10 @@ export type Database = {
           staff_notes?: Json
           status?: Database["public"]["Enums"]["pei_request_status"]
           updated_at?: string
+          withdrawn_at?: string | null
+          withdrawn_by?: string | null
+          withdrawn_by_name?: string | null
+          withdrawn_reason?: string | null
         }
         Relationships: [
           {

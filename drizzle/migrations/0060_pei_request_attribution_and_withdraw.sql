@@ -1,17 +1,5 @@
 -- Previous-employer requests: attribution, withdraw-instead-of-delete, and
 -- status-mismatch visibility.
---
--- WHY. A PEI request for application c815e1bd (Marquis Bowie) was created,
--- sent on 2026-08-05, then deleted. Nothing recorded who did any of it, the
--- delete cascaded its tracking events away, and the application was left
--- reading pei_status = in_progress with no request behind it for seven weeks.
--- Three changes: every create/status change/withdraw lands in audit_log; a
--- hard DELETE is refused so the record can never vanish again; the PEI status
--- rollup and the staff queue ignore withdrawn rows so a withdrawal reads as
--- "not started" rather than as progress that does not exist.
---
--- Additive only: new nullable columns, new trigger functions, and in-place
--- replacements of two existing functions whose signatures are unchanged.
 
 -- 1. Soft-delete columns -----------------------------------------------------
 ALTER TABLE public.pei_requests
