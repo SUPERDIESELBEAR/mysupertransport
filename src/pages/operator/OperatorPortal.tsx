@@ -35,6 +35,8 @@ const OperatorStatusPage = lazyWithRetry(() => import('@/components/operator/Ope
 import OperatorDispatchStatus from '@/components/operator/OperatorDispatchStatus';
 import { fetchStaffContact } from '@/lib/staffContacts';
 import { useOperatorHome } from '@/hooks/useOperatorHome';
+import { useOwnedTrucks } from '@/hooks/useOwnedTrucks';
+import MyTrucksSwitcher from '@/components/operator/MyTrucksSwitcher';
 import {
   OperatorTodayCard, OperatorPaperworkTail, OperatorNoLoadCard,
 } from '@/components/operator/OperatorTodayCard';
