@@ -246,7 +246,18 @@ after the modules are complete rather than retrofitting isolation later.
 TRIGGER: after the module build is complete, and before any SaaS prospect is
 given access.
 
-### Truck-owner fleet view — switcher first, summary later
+### Truck owners: several trucks, owner who also drives (designed 2026-09-24)
+
+Design: docs/passes/2026-09-24-2001-truck-owner-design.md. LIVE DEFECT FIRST:
+three owner-drivers see their hired driver's portal instead of their own.
+Passes: (1) owner-driver portal + truck switcher; (2) drop truck_owners_user_id_key
+for UNIQUE(user_id, operator_id); (3) invite links a same-carrier driver login,
+refuses staff and other-carrier logins (unblocks Michael Underwood → Kirt Frazer);
+(4) owner read on per-driver inspection binder; (5) owner settlements across his
+trucks (inside the Alvys settlements milestone). Owner decisions owed: shape,
+hired-driver settlement visibility, ICA per truck, loads/fuel visibility, Michael now.
+
+### Truck-owner fleet view — switcher first, summary later (superseded in part by the entry above)
 
 A truck owner should see fuel, loads and anything related to ANY of his trucks.
 Shape decided 2026-09-15: A TRUCK SWITCHER FIRST, a fleet summary later.
