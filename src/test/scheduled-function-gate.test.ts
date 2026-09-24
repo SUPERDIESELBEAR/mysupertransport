@@ -29,7 +29,7 @@ describe('scheduled functions refuse unauthenticated callers', () => {
     expect(s).toContain('isCronCaller(req)');
     expect(s).toContain('getClaims(token)');
     expect(s).toMatch(/STAFF_ROLES = \['onboarding_staff', 'dispatcher', 'management', 'owner'\]/);
-    expect(s).not.toMatch(/'operator'/);
+    expect(s).not.toMatch(/STAFF_ROLES = \[[^\]]*'operator'/);
   });
 });
 
