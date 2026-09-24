@@ -55,7 +55,12 @@ export interface PEIRequest {
   auto_send_count?: number | null;
   auto_paused_reason?: string | null;
   last_auto_send_at?: string | null;
+  withdrawn_at?: string | null;
+  withdrawn_by?: string | null;
+  withdrawn_by_name?: string | null;
+  withdrawn_reason?: string | null;
 }
+
 
 export type PEIArchiveCategory = 'hired' | 'not_hired';
 

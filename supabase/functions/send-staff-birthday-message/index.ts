@@ -127,6 +127,14 @@ Deno.serve(async (req) => {
     }
 
     // Send email.
+    // Sender name comes from the signed-in account, never from the request,
+    // so the recipient always knows which teammate wrote.
+    const { data: senderProf } = await supabase
+      .from('profiles').select('first_name, last_name').eq('user_id', callerId).maybeSingle();
+    const senderName = [senderProf?.first_name, senderProf?.last_name]
+      .map((v) => (v ?? '').toString().trim()).filter(Boolean).join(' ') || `${BRAND_NAME} staff`;
+    const fromLine = `From ${senderName}`;
+
     if (sendEmail && recipientEmail) {
       const resendKey = Deno.env.get('RESEND_API_KEY');
       if (!resendKey) {
@@ -138,8 +146,12 @@ Deno.serve(async (req) => {
         ? `Happy Birthday, ${escapeHtml(firstName)}! 🎂`
         : `Happy Anniversary, ${escapeHtml(firstName)}! 🎉`;
       const bodyHtml = escapeHtml(body).replace(/\n/g, '<br/>');
-      const html = buildEmail(subject, heading, `<p>${bodyHtml}</p>`);
-      await sendEmailStrict(recipientEmail, subject, html, resendKey);
+      const html = buildEmail(
+        subject,
+        heading,
+        `<p style="color:#555555;font-size:13px;margin:0 0 12px">${escapeHtml(fromLine)}</p><p>${bodyHtml}</p>`,
+      );
+      await sendEmailStrict(recipientEmail, `${subject} — from ${senderName}`, html, resendKey);
     }
 
     // In-app notification.
@@ -147,7 +159,7 @@ Deno.serve(async (req) => {
       await supabase.from('notifications').insert({
         user_id: recipientUserId,
         type: 'birthday_anniversary',
-        title: subject,
+        title: `${subject} — from ${senderName}`,
         body,
       });
     }

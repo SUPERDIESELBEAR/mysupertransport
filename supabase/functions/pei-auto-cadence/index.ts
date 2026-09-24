@@ -84,7 +84,9 @@ Deno.serve(async (req) => {
     .in('status', ['sent', 'follow_up_sent'])
     .not('date_sent', 'is', null)
     .is('date_response_received', null)
+    .is('withdrawn_at', null)
     .is('auto_paused_reason', null);
+
 
   if (error) {
     return new Response(JSON.stringify({ error: error.message }), {

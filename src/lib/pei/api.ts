@@ -128,10 +128,26 @@ export async function fetchPEIRequestsByApplication(
     .from('pei_requests')
     .select('*')
     .eq('application_id', applicationId)
+    .is('withdrawn_at', null)
     .order('created_at', { ascending: false });
   if (error) throw error;
   return (data ?? []) as PEIRequest[];
 }
+
+/** Withdrawn requests are kept for the record — read separately, shown apart. */
+export async function fetchWithdrawnPEIRequests(
+  applicationId: string
+): Promise<PEIRequest[]> {
+  const { data, error } = await supabase
+    .from('pei_requests')
+    .select('*')
+    .eq('application_id', applicationId)
+    .not('withdrawn_at', 'is', null)
+    .order('withdrawn_at', { ascending: false });
+  if (error) throw error;
+  return (data ?? []) as PEIRequest[];
+}
+
 
 export async function fetchPEIRequestById(id: string): Promise<PEIRequest | null> {
   const { data, error } = await supabase
@@ -219,10 +235,79 @@ export async function updatePEIRequest(
   return data as PEIRequest;
 }
 
-export async function deletePEIRequest(id: string): Promise<void> {
-  const { error } = await supabase.from('pei_requests').delete().eq('id', id);
+/**
+ * Withdraws a request instead of deleting it. The row stays, marked with who
+ * withdrew it, when and why; the database refuses a hard DELETE outright, so
+ * a request can no longer disappear without a trace.
+ */
+export async function withdrawPEIRequest(id: string, reason: string): Promise<void> {
+  const trimmed = reason.trim();
+  if (!trimmed) throw new Error('A reason is required to withdraw this request');
+
+  const { data: auth } = await supabase.auth.getUser();
+  const userId = auth?.user?.id ?? null;
+  let actorName: string | null = null;
+  if (userId) {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('first_name, last_name')
+      .eq('user_id', userId)
+      .maybeSingle();
+    actorName =
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || null;
+  }
+
+  const { error } = await supabase
+    .from('pei_requests')
+    .update({
+      withdrawn_at: new Date().toISOString(),
+      withdrawn_by: userId,
+      withdrawn_by_name: actorName,
+      withdrawn_reason: trimmed,
+    } as any)
+    .eq('id', id);
   if (error) throw error;
 }
+
+export interface PEIStatusMismatch {
+  application_id: string;
+  applicant_name: string;
+  pei_status: string;
+  pei_deadline: string | null;
+}
+
+/**
+ * Applications whose PEI status claims progress (or completion) while no live
+ * request stands behind it — the exact state a deleted request used to leave.
+ */
+export async function fetchPEIStatusMismatches(): Promise<PEIStatusMismatch[]> {
+  const { data: apps, error } = await supabase
+    .from('applications')
+    .select('id, first_name, last_name, pei_status, pei_deadline')
+    .in('pei_status', ['in_progress', 'complete']);
+  if (error) throw error;
+  const rows = (apps ?? []) as any[];
+  if (rows.length === 0) return [];
+
+  const { data: live, error: liveErr } = await supabase
+    .from('pei_requests')
+    .select('application_id')
+    .is('withdrawn_at', null)
+    .in('application_id', rows.map((a) => a.id));
+  if (liveErr) throw liveErr;
+  const backed = new Set(((live ?? []) as any[]).map((r) => r.application_id));
+
+  return rows
+    .filter((a) => !backed.has(a.id))
+    .map((a) => ({
+      application_id: a.id,
+      applicant_name:
+        [a.first_name, a.last_name].filter(Boolean).join(' ').trim() || 'Unnamed applicant',
+      pei_status: String(a.pei_status),
+      pei_deadline: a.pei_deadline ?? null,
+    }));
+}
+
 
 export async function createGoodFaithEffort(
   requestId: string,

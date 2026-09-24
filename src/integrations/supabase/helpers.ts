@@ -31,3 +31,15 @@ export function insertPayload<T extends TableName>(
 ): InsertOf<T> {
   return row as InsertOf<T>;
 }
+/**
+ * Insert payload for tables whose `company_id` is stamped by a database
+ * trigger (stamp_company_id / trg_stamp_company_from_parent). The generated
+ * types mark the column required because it is NOT NULL, but the client must
+ * not choose a carrier — the trigger resolves it. Everything else stays typed.
+ */
+export function stampedInsert<T extends TableName>(
+  _table: T,
+  row: Omit<InsertOf<T>, 'company_id'>,
+): InsertOf<T> {
+  return row as InsertOf<T>;
+}

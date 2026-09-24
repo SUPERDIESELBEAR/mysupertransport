@@ -103,7 +103,11 @@ export default function TruckOwnerCard({ operatorId }: Props) {
           send_invite: sendInvite,
         },
       });
-      if (error) throw error;
+      if (error) {
+        let msg = error.message;
+        try { const b = await (error as any).context?.json?.(); if (b?.error) msg = b.error; } catch { /* keep default */ }
+        throw new Error(msg);
+      }
       toast.success(sendInvite ? 'Truck owner saved and invited.' : 'Truck owner saved.');
       setOpen(false);
       fetchOwner();

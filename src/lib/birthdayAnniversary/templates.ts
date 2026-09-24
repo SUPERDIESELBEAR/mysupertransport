@@ -1,8 +1,7 @@
 /**
  * Default staff-authored subject/body for the personalized birthday and
- * anniversary messages triggered from the management popup. Mirrors the
- * tone of the automated `send-birthday-anniversary` templates so staff can
- * tweak instead of writing from scratch.
+ * anniversary messages triggered from the management popup. Signed by the
+ * sender so several teammates' messages never arrive as identical copies.
  */
 
 export const BRAND_NAME = 'SUPERTRANSPORT';
@@ -10,6 +9,8 @@ export const BRAND_NAME = 'SUPERTRANSPORT';
 export interface TemplateArgs {
   firstName: string;
   years?: number;
+  /** The signed-in staff member writing the message. */
+  senderName?: string;
 }
 
 export function ordinal(n: number): string {
@@ -24,16 +25,21 @@ export function ordinal(n: number): string {
   }
 }
 
+function signOff(senderName?: string) {
+  const name = senderName?.trim();
+  return name ? `— ${name}, ${BRAND_NAME}` : `— The ${BRAND_NAME} Team`;
+}
+
 export function birthdayDefaults(args: TemplateArgs) {
   const name = args.firstName || 'Driver';
   return {
     subject: `Happy Birthday, ${name}! 🎂`,
     body:
       `Happy Birthday, ${name}!\n\n` +
-      `The entire ${BRAND_NAME} family wants to wish you a very happy birthday. ` +
-      `We appreciate everything you do and hope you have a wonderful day filled with joy and celebration.\n\n` +
+      `Wishing you a very happy birthday. ` +
+      `I appreciate everything you do and hope you have a wonderful day filled with joy and celebration.\n\n` +
       `Here's to another great year ahead!\n\n` +
-      `— The ${BRAND_NAME} Team`,
+      signOff(args.senderName),
   };
 }
 
@@ -49,6 +55,6 @@ export function anniversaryDefaults(args: TemplateArgs) {
       `Your dedication, hard work, and commitment have been a vital part of our success. ` +
       `We're proud to have you on the team.\n\n` +
       `Here's to many more miles and milestones together!\n\n` +
-      `— The ${BRAND_NAME} Team`,
+      signOff(args.senderName),
   };
 }

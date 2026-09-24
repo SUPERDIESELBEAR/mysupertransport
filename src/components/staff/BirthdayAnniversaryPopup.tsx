@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
-import { X, Send, ChevronDown, Cake } from 'lucide-react';
+import { Send, ChevronDown, Cake } from 'lucide-react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { useStaffBirthdayAnniversaryEvents, type BdayAnnivEvent } from '@/hooks/useStaffBirthdayAnniversaryEvents';
 import SendBirthdayAnniversaryModal from './SendBirthdayAnniversaryModal';
@@ -36,7 +37,7 @@ function labelFor(ev: BdayAnnivEvent): { emoji: string; title: string; sub?: str
 }
 
 export default function BirthdayAnniversaryPopup() {
-  const { events, acknowledge } = useStaffBirthdayAnniversaryEvents();
+  const { events, markSent } = useStaffBirthdayAnniversaryEvents();
   const [composing, setComposing] = useState<BdayAnnivEvent | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -116,17 +117,6 @@ export default function BirthdayAnniversaryPopup() {
                       </Button>
                     </div>
                   </div>
-                  <div className="flex flex-col items-end gap-1">
-                    <button
-                      type="button"
-                      onClick={() => acknowledge(ev)}
-                      className="text-muted-foreground hover:text-foreground p-1 -m-1"
-                      aria-label="Dismiss"
-                      title="Dismiss"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  </div>
                 </div>
               );
             })}
@@ -168,7 +158,9 @@ export default function BirthdayAnniversaryPopup() {
         onClose={() => setComposing(null)}
         onSent={(ev) => {
           setComposing(null);
-          void acknowledge(ev);
+          markSent(ev).catch(() => {
+            toast.error(`Message sent, but it could not be marked as sent. The reminder for ${ev.firstName} may appear again.`);
+          });
         }}
       />
     </>

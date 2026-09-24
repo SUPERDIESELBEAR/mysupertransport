@@ -226,3 +226,19 @@
 - NEXT — stage 3: applications per-carrier. The owner has decided **applications and PEI
       become per-carrier**. Seven decisions from stage 1 remain owed for the shared tables
       (profiles, the nine content libraries, the announcement feed, the apply page).
+
+## 2026-09-23 — PEI restart and attribution (Marquis Bowie)
+- [x] Bowie's three employer checks rebuilt from his application, unsent (`pending`); stale
+      4 Sep deadline cleared; status now honestly `not_started`.
+- [x] Staged migration `20260923132000_pei_request_attribution_and_withdraw.sql`: withdraw
+      columns, create/send/withdraw written to `audit_log`, hard DELETE refused (42501),
+      withdrawn rows excluded from the status rollup and the queue.
+- [x] UI: withdraw-with-reason replaces delete, withdrawn rows kept and named, PEI Q banner
+      flags a status that claims progress with no live request, sender stamped on send.
+- [x] Report `docs/passes/2026-09-23-1330-pei-restart-and-attribution.md`. Typecheck clean.
+      Full suite `6 failed | 2206 passed | 16 skipped (2228)`: 2 familiar pooler timeouts
+      (green on re-run), 4 pre-existing `tenancy-resolver` drift — `applications` and ten
+      siblings now carry `company_id` live while the test still declares them GLOBAL, and
+      `RESTRICTIVE_DONE` (163) is below the live inventory (174). Owned by stage 3.
+- NEXT: William Westbrook's application shows the same orphaned-status shape and will appear
+      in the new banner; decide whether to rebuild his checks too.

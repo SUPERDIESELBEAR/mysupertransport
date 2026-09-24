@@ -80,6 +80,23 @@ Deno.serve(async (req) => {
     const existing = users?.find(u => (u.email ?? '').toLowerCase() === cleanEmail);
 
     if (existing) {
+      // Refuse an email that belongs to a driver or staff member: reusing it
+      // would attach the owner role to that person's login.
+      const { data: existingRoles } = await supabaseAdmin
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', existing.id)
+        .in('role', ['operator', 'applicant', 'dispatcher', 'management', 'onboarding_staff', 'owner']);
+      const { data: opRow } = await supabaseAdmin
+        .from('operators').select('user_id').eq('id', operator_id).maybeSingle();
+      if ((existingRoles && existingRoles.length > 0) || opRow?.user_id === existing.id) {
+        const { data: p } = await supabaseAdmin
+          .from('profiles').select('first_name,last_name').eq('user_id', existing.id).maybeSingle();
+        const who = [p?.first_name, p?.last_name].filter(Boolean).join(' ') || 'an existing driver or staff member';
+        return new Response(JSON.stringify({ error: `This email belongs to ${who}. Enter the truck owner's own email.` }), {
+          status: 409, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
       ownerUserId = existing.id;
     } else if (send_invite) {
       const { data: inviteData, error: inviteError } = await supabaseAdmin.auth.admin.inviteUserByEmail(
@@ -126,11 +143,13 @@ Deno.serve(async (req) => {
     }
 
 
-    // Make sure profile name is set
-    await supabaseAdmin
-      .from('profiles')
-      .update({ first_name: legal_first_name, last_name: legal_last_name })
-      .eq('user_id', ownerUserId);
+    // Only name a login this call just created — never rename an existing person.
+    if (!existing) {
+      await supabaseAdmin
+        .from('profiles')
+        .update({ first_name: legal_first_name, last_name: legal_last_name })
+        .eq('user_id', ownerUserId);
+    }
 
     // Upsert truck_owners row (operator_id is UNIQUE so this enforces 1:1)
     const { error: upsertErr } = await supabaseAdmin

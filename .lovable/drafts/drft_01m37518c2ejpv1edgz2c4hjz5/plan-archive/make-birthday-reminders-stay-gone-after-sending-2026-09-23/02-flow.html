@@ -1,0 +1,36 @@
+<svg viewBox="0 0 640 300" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Birthday reminder behavior before and after sending">
+  <style>
+    text { font-family: var(--font-sans); fill: var(--fg-primary); }
+    .label { font-size: 14px; font-weight: 480; }
+    .note { font-size: 12px; fill: var(--fg-secondary); }
+    .box { fill: none; stroke: var(--fg-secondary); stroke-width: 1; rx: 8; }
+    .quiet { fill: var(--bg-muted); stroke: var(--border-translucent); stroke-width: 1; rx: 8; }
+    .accent { fill: var(--bg-accent-translucent); stroke: var(--fg-accent); stroke-width: 1; rx: 8; }
+    .wire { fill: none; stroke: var(--fg-secondary); stroke-width: 1; marker-end: url(#arrow); }
+    .dash { stroke-dasharray: 4 3; }
+  </style>
+  <defs><marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="var(--fg-secondary)"/></marker></defs>
+  <rect x="25" y="86" width="150" height="76" class="quiet"/>
+  <text x="100" y="116" text-anchor="middle" class="label">Birthday reminder</text>
+  <text x="100" y="139" text-anchor="middle" class="note">visible to this staff member</text>
+
+  <line x1="175" y1="105" x2="263" y2="62" class="wire"/>
+  <text x="217" y="70" text-anchor="middle" class="note">Send succeeds</text>
+  <rect x="270" y="25" width="160" height="76" class="accent"/>
+  <text x="350" y="55" text-anchor="middle" class="label">Save send state</text>
+  <text x="350" y="78" text-anchor="middle" class="note">including staff recipient ID</text>
+  <line x1="430" y1="63" x2="508" y2="63" class="wire"/>
+  <rect x="515" y="25" width="100" height="76" class="box"/>
+  <text x="565" y="55" text-anchor="middle" class="label">Stay gone</text>
+  <text x="565" y="78" text-anchor="middle" class="note">after reload</text>
+
+  <line x1="175" y1="143" x2="263" y2="191" class="wire dash"/>
+  <text x="220" y="184" text-anchor="middle" class="note">Close/minimize</text>
+  <rect x="270" y="166" width="160" height="76" class="box"/>
+  <text x="350" y="196" text-anchor="middle" class="label">No send state</text>
+  <text x="350" y="219" text-anchor="middle" class="note">reminder remains owed</text>
+  <line x1="430" y1="204" x2="508" y2="204" class="wire"/>
+  <rect x="515" y="166" width="100" height="76" class="quiet"/>
+  <text x="565" y="196" text-anchor="middle" class="label">Returns</text>
+  <text x="565" y="219" text-anchor="middle" class="note">until date passes</text>
+</svg>

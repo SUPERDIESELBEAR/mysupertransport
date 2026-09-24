@@ -10,6 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { BdayAnnivEvent } from '@/hooks/useStaffBirthdayAnniversaryEvents';
 import { anniversaryDefaults, birthdayDefaults } from '@/lib/birthdayAnniversary/templates';
 import { getEdgeFunctionErrorMessage } from '@/lib/edgeFunctionError';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Props {
   event: BdayAnnivEvent | null;
@@ -19,12 +20,15 @@ interface Props {
 
 export default function SendBirthdayAnniversaryModal({ event, onClose, onSent }: Props) {
   const open = !!event;
+  const { profile } = useAuth();
+  const senderName = [profile?.first_name, profile?.last_name]
+    .map((v) => (v ?? '').trim()).filter(Boolean).join(' ');
   const defaults = useMemo(() => {
     if (!event) return { subject: '', body: '' };
     return event.kind === 'birthday'
-      ? birthdayDefaults({ firstName: event.firstName })
-      : anniversaryDefaults({ firstName: event.firstName, years: event.years });
-  }, [event]);
+      ? birthdayDefaults({ firstName: event.firstName, senderName })
+      : anniversaryDefaults({ firstName: event.firstName, years: event.years, senderName });
+  }, [event, senderName]);
 
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
@@ -120,6 +124,9 @@ export default function SendBirthdayAnniversaryModal({ event, onClose, onSent }:
 
           <div className="space-y-1.5">
             <Label htmlFor="bday-body">Message</Label>
+            <p className="text-xs text-muted-foreground">
+              Add a personal note — everyone else on the team may be sending one too.
+            </p>
             <Textarea
               id="bday-body"
               value={body}
