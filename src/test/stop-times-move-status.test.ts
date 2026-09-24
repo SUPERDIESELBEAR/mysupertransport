@@ -5,9 +5,15 @@ import { gatedIt, skipBanner } from '@/test/helpers/gate';
 /**
  * LIVE RULE CHECK — a recorded stop time moves the load's status (0065).
  *
- * Follows stop-time-source-trigger.test.ts: the harness role has SELECT and
- * INSERT but no UPDATE, and the rule is an AFTER UPDATE trigger, so the
- * behavioural arm is gated on the real capability and says so loudly. The
+ * Follows stop-time-source-trigger.test.ts. The behavioural arm CANNOT run in a
+ * rolled-back transaction here, checked 2026-09-24 (pass 3): the harness role
+ * sandbox_exec holds SELECT + INSERT and no UPDATE on public.load_stops, and is
+ * a member of no other role, so it cannot SET ROLE to one that has UPDATE.
+ * The rule is an AFTER UPDATE trigger; an INSERT cannot fire it, and
+ * INSERT ... ON CONFLICT DO UPDATE itself needs UPDATE. The other live tests
+ * that roll back (e.g. equipment-serial-guard) exercise INSERT triggers, which
+ * this role can fire. Granting UPDATE to the harness is forbidden, so the arm
+ * stays gated on the real capability and says so loudly. The
  * behaviour was proven in a raising transaction in
  * docs/passes/2026-09-24-2330-stop-times-move-status.md. Structure runs here.
  */

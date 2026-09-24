@@ -44,15 +44,14 @@ describe('broker tracking link (structure)', () => {
     }
   });
   itS('grants: create/revoke authenticated only; resolve anon + authenticated; helper nobody', () => {
-    const g = (role: string, fn: string) => psql(`select has_function_privilege('${role}','public.${fn}(uuid)','EXECUTE')::text`)[0];
-    expect(g('anon', 'get_or_create_load_tracking_link')).toBe('false');
-    expect(g('anon', 'revoke_load_tracking_link')).toBe('false');
-    expect(g('authenticated', 'get_or_create_load_tracking_link')).toBe('true');
-    expect(g('authenticated', 'revoke_load_tracking_link')).toBe('true');
-    expect(g('anon', 'resolve_load_tracking_link')).toBe('true');
-    expect(g('authenticated', 'resolve_load_tracking_link')).toBe('true');
-    expect(g('anon', '_load_tracking_assert_staff')).toBe('false');
-    expect(g('authenticated', '_load_tracking_assert_staff')).toBe('false');
+    const pairs: [string, string, string][] = [
+      ['anon', 'get_or_create_load_tracking_link', 'false'], ['anon', 'revoke_load_tracking_link', 'false'],
+      ['authenticated', 'get_or_create_load_tracking_link', 'true'], ['authenticated', 'revoke_load_tracking_link', 'true'],
+      ['anon', 'resolve_load_tracking_link', 'true'], ['authenticated', 'resolve_load_tracking_link', 'true'],
+      ['anon', '_load_tracking_assert_staff', 'false'], ['authenticated', '_load_tracking_assert_staff', 'false'],
+    ];
+    const [row] = psql(`select ${pairs.map(([r, f]) => `has_function_privilege('${r}','public.${f}(uuid)','EXECUTE')::text`).join(" || '|' || ")}`);
+    expect(row).toBe(pairs.map(p => p[2]).join('|'));
   });
   itS('caller check: dispatcher/management/owner and same company, written in the function', () => {
     const body = def('_load_tracking_assert_staff');
