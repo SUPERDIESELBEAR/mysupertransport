@@ -4,7 +4,7 @@ import { Eye, Upload, Camera, Loader2, AlertTriangle, Clock } from 'lucide-react
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { uploadToBucket } from '@/lib/uploadWithAuth';
 import { validateFile } from '@/lib/validateFile';

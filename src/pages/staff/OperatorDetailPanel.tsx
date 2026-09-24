@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { isEquipmentFullyComplete, looksPre2000, ELD_EXEMPT_DEFAULT_REASON } from '@/lib/equipmentCompletion';
 import * as React from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { insertPayload, updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
+import { insertPayload, updatePayload } from '@/integrations/supabase/helpers';
 import type { Json } from '@/integrations/supabase/types';
 import { cn, formatPhoneDisplay } from '@/lib/utils';
 import { sanitizeText, sanitizeRichHtml } from '@/lib/sanitize';

@@ -1,7 +1,7 @@
 import { stampedInsert } from '@/lib/db/stampedInsert';
 import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { updatePayload, stampedInsert } from '@/integrations/supabase/helpers';
+import { updatePayload } from '@/integrations/supabase/helpers';
 import { useAuth } from '@/hooks/useAuth';
 import { useDemoMode } from '@/hooks/useDemoMode';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
