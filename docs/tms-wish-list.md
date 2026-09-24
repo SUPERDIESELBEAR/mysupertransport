@@ -12,6 +12,13 @@ Last updated: 2026-09-23
 
 ---
 
+## BEFORE ANY SECOND CARRIER SHARES THE DATABASE (P48, 2026-09-24)
+
+Demo carrier is PAUSED, not abandoned. In this order:
+1. **Definer-function audit (get_pei_queue finding, 2026-09-24) — FIRST.** `get_pei_queue()` returns every carrier's PEI requests (no company filter in its body) and must be scoped to the caller's carrier before a second carrier exists. Audit every other SECURITY DEFINER function that reads or writes company data for the same gap (habit 3).
+2. Demo carrier stage 5 — create carrier B for real, from /platform/carriers/new.
+3. Demo carrier stage 6.
+
 ## OWNER FOLLOW-UP LIST — before and during the second-carrier demo
 
 - **Demo carrier stage 4 part 1 — DONE (2026-09-23 1842).** P43 platform role built (`platform_admins`, `is_platform_admin`). Carrier requirements listed, inputs listed, creation function proposed. **Next: stage 4 part 2 — build `create_carrier` + the create-carrier function.** Before it: fix D1 (`generate_load_number` company predicate). Owed from the owner: are the 72/100 pay percentages a SUPERDRIVE default or SUPERTRANSPORT's terms; may an existing SUPERDRIVE user become another carrier's owner.

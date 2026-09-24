@@ -19758,3 +19758,16 @@ Report: `docs/passes/2026-09-23-2013-demo-carrier-stage-4-part-2a.md`. **Next: p
 - Edge function `create-carrier`, hidden screen `/platform/carriers/new`. `is_platform_admin` AWAITING entry removed (KNOWN_NO_CALLER_MAX 3 → 2).
 - No carrier committed; residue zero. Report: `docs/passes/2026-09-23-2120-demo-carrier-stage-4-part-2b.md`. **Next: stage 5 — create carrier B from the screen.**
 - 0059: billing stamp session sources wrapped in COALESCE (definer fail-open guard).
+
+## 2026-09-24 12:34 UTC — P48 recorded; supertransport stock take (docs only)
+
+**P48 (owner, 2026-09-24), verbatim:** "SUPERDRIVE is built for SUPERTRANSPORT first, used in daily operation, and refined in use. When it is stable, a customer version will be built as ONE shared multi-carrier system — never a separate copy per customer. The demo carrier (stages 5-6) is PAUSED, not abandoned. Until the customer version begins, every pass keeps three habits: (1) a new table carries company_id, the stamp and the restrictive tenant policy; (2) no SUPERTRANSPORT identity is written into code or column defaults; (3) a SECURITY DEFINER function that reads or writes company data filters by company."
+
+## Standing rule — THE THREE TENANCY HABITS (P48, 2026-09-24)
+
+Every pass, until the customer version begins:
+1. A new table carries `company_id`, the server-side stamp, and the restrictive tenant policy.
+2. No SUPERTRANSPORT identity is written into code or column defaults.
+3. A SECURITY DEFINER function that reads or writes company data filters by company.
+
+Draft-merge check (0060) and the stock take: see docs/passes/2026-09-24-1234-supertransport-stock-take.md.

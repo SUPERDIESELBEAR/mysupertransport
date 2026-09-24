@@ -1,244 +1,36 @@
-# Roadmap
+# Roadmap (rewritten 2026-09-24 from the live system — see docs/passes/2026-09-24-1234-supertransport-stock-take.md)
 
-## In progress
-- [done 2026-09-15] Recorded the audit/email tenancy investigation (docs + guards):
-  audit_log and email_send_log stay GLOBAL, residue 956/1,077,
-  label-mismatch finding, three guards each demonstrated failing, pass report.
-- [done 2026-09-14] Load-charge gate ordering + record correction (2026-09-14): correct the false
-  "add_load_charge is ungated" note in `docs/tms-build-status.md` from the LIVE catalog,
-  count it as the FIFTH reviewer present-tense misreading, and move
-  `assert_charge_entry_allowed` ahead of the charge lookup in `update_load_charge` /
-  `delete_load_charge`. No change to who is authorised. Report the manager-facing
-  `Load not found` wording on a made-up charge id rather than silently changing it.
+Direction: P48 — SUPERTRANSPORT first; demo carrier PAUSED. Three tenancy habits apply to every pass (docs/tms-build-status.md, standing rule 2026-09-24).
 
-- [done 2026-09-12] Record every storage bucket's intended `file_size_limit` in
-  `docs/storage-bucket-limits.md` (bucket config is not in migrations and cannot be) and
-  guard the live values with `src/test/storage-bucket-limits.test.ts`.
-- [done 2026-09-12] Cap thirteen buckets at the limit their screen enforces
-  (`application-documents` first), realign `broker-documents` to 26,214,400, and record
-  `rods-logs`, `eld-notices` and both passenger-auth buckets as four DELIBERATE nulls
-  with their reason. Guard asserts exactly those four are uncapped. Refusal proven with a
-  12 MB direct POST (`EntityTooLarge`).
-- [done 2026-09-12] Fold the four inline size literals into declared constants and
-  declare 5 MB (`MAX_AVATAR_BYTES`) as a fourth tier with its reason.
-- OPEN, no client check at all: `service-logos` upload and the quarterly-inspection path
-  into `fleet-documents`. Both now have a bucket cap behind them, so an oversized file
-  fails with a storage error instead of a sentence on screen. Trigger: the next time
-  either screen is edited.
-- [done 2026-09-12] Make page titles and menu labels identical across portals;
-  add missing titles/descriptions with the shared heading; encode deliberate exceptions
-  (FAQ and My Truck) and add the navigation/title invariant guard. Pay Setup and Dispatch
-  now have final owner decisions and must match their menu labels.
-- Module 5 Pass 5 (DONE) — Late Accessorials reachable: dispatcher approval limit as a
-  settlement setting (read inside `approve_accessorial_adjustment`, never passed),
-  mandatory proof at submit with a charge-type proof map (PROPOSED BY THE BUILD,
-  owner to confirm), load-page entry, management/dispatch review list, bell +
-  sidebar count + over-a-day banner. Reachability prediction: 11 -> 6.
-- [done 2026-09-10] Operator Preview placement: added to Management (Drivers group), moved out of Staff "Tools", and the two card actions labelled.
-- [docs] Correct false "fuel unbounded exposure" entry in `docs/tms-build-status.md` (RESOLVED section, ~line 5757) and record the standing lesson about verifying code claims before they enter the record.
+## Built and in use
+- Onboarding: apply, pipeline, PEI, ICA, pay setup, go-live, deactivation — build-status, stages 3a–3e; PEI 2026-09-23
+- Compliance & documents: expiry monitoring, reminders, binder share, inspections — build-status, 2026-09-11/12
+- Dispatch board (status-driven) and day logs — build-status, dispatch board entries
+- Driver app: documents, uploads, messages, ICA signing — build-status, operator portal entries
 
-- Module 7 (Billing & Invoicing) — Pass 1 DONE 2026-09-04 (see build status).
-  Next pass: invoice numbering + the builder that composes lines from
-  `load_charges`, then the payment poster. Pass 1 delivered the schema only:
-  enums, five tables
-  (`invoices`, `invoice_line_items`, `invoice_batches`, `payments`,
-  `ar_aging_snapshots`), `company_id` on every one, constraints, grants, RLS
-  (management/owner only), submitted-invoice immutability with its own writer gate,
-  live-catalog tests, purge-procedure registration, and the two-2%-figures coupling
-  recorded as a column comment. No builder, no writer, no payments posting logic,
-  no UI, no `supplemental_invoices`.
-- ICA re-send blocked: drop the redundant `trg_enforce_ica_contracts_operator_update`
-  wrapper trigger that illegally calls another trigger function by name.
-- Deactivation notice confirmation must name the actual recipients, not the saved
-  DOT Consultant.
+## Built, not yet used (test-sized data only)
+- Load entry & management — build-status, Module 2
+- Rate-con parsing (upload and email) — build-status, rate-con parsing
+- Brokers directory — build-status, broker foundation
+- Driver settlement run and review — build-status, Module 4; per-driver pay passes 2–5
+- Invoicing / billing queue — build-status, Module 7
+- Fuel import and exceptions — build-status, Module 6
+- Carrier creation (platform screen) — build-status, stage 4 part 2b
 
-- Module 4 (dispatch company settlement) — Pass 1: schema only. Enum, five tables,
-  constraints, grants, RLS, immutability trigger pair, live-catalog tests, purge-list
-  registration. No computation function, no line-item writer, no UI.
+## Partly built
+- Accessorials & detention: hand-entered charges and late queue; no detention clock — build-status, Module 5
+- Deductions, R&M Deposit, cash advances: tables, no daily writer — build-status, Module 4
+- Dispatch company settlement: screen, no SUPERTRANSPORT rates set — build-status, Module 7 pass 2
+- Factoring: broker status only; no submission/remittance flow — wish list
+- Driver check-ins at stops — build-status, operator portal
 
-## Next
-- Pass 2: extract the shared period/pay-policy pieces and pin the caller test.
-- Pass 3: the pure `computeDispatchSettlement`, verified against the six seed loads.
-- Pass 4: the writer RPC and attribution rollup.
-- Pass 5: the management screen.
+## Not started
+- Payments entry and AR aging — wish list
+- Load-aware dispatch board — wish list
+- Financial Intelligence reporting (overhead, targets, scenarios) — wish list, Module 9
+- Public tracking links — wish list
 
-## Done (2026-09-03)
-- Resume-link lockout: consume on a human gesture, 30-minute idempotent reuse window,
-  `used_at` written after the application resolves, recoverable dead end. Three findings
-  recorded as known debt (bearer `draft_token`, no consumption forensics, duplicate
-  resume-email log rows).
-- [docs] Update section 5 of SECURITY INCIDENT with 2026-09-03 access investigation result
-- [docs] Record authoritative cutover purge procedure in `docs/tms-build-status.md`,
-  replacing the incomplete list, and document the revenue-layer demo isolation blocker.
-
-## Done (2026-09-04)
-- Fix `useAuth.tsx` `fetchProfile` silent failures: inspect `error` on profile read,
-  distinguish no-row/error/success with `ProfileLoadResult`, verify `pending → active`
-  update wrote before updating local state, and surface failures via `profileError` /
-  `profileMissing`. Added `src/hooks/__tests__/useAuth.test.tsx` (5 tests passing).
-- [docs] Record standing note in `docs/tms-build-status.md`: `information_schema.role_table_grants`
-  produces false negatives; use `pg_class.relacl` or `has_table_privilege()` for grant
-  verification, and distinguish `permission denied` from RLS zero-row filtering.
-- Drop the orphaned `enforce_ica_contracts_operator_update()` definer function left
-  by migration `20260903214629`, after verifying the whitelist trigger covers it.
-- Rewrite `parked-and-termination-guardrail` census assertions as invariants, and
-  record the "a guard asserts an invariant, not a census" standing rule.
-
-## Done (2026-09-10)
-- Drop `public.get_inspection_doc_by_token(uuid)` (legacy delegator, no callers);
-  shrink `LEGACY_MAX` 80->79 and both definer-live-catalog ceilings; reachability
-  guard 14 -> 13 findings. Recorded the family-revoke lesson and the full inventory
-  of PUBLIC-granted `public` functions in `docs/tms-build-status.md`.
-
-## Done (2026-09-10, later)
-- Widen the function-reachability guard's in-database searches to EVERY schema
-  (policies/function bodies/views) and print the scope in every failure message;
-  revoke PUBLIC on `is_valid_application_draft_token` (anon kept, applicant upload
-  reverified end to end); drop `can_driver_message_staff(uuid,uuid)`.
-  Findings 13 -> 12 (guard fix) -> 11 (drop). Guard-scope lesson recorded:
-  a guard that searches too narrowly gives confident wrong answers; its output is
-  a candidate, not a verdict.
-
-## Done (2026-09-10, uncalled-function sweep — the remaining six)
-- Dropped `compliance_status(int,int)` (inlined into `v_compliance_items`),
-  `eld_cron_status()` (superseded by the `eld_cron_runs` read in
-  `ELDEscalationJobHealth.tsx`), `get_pei_requests_needing_action()` and
-  `get_application_pei_summary(uuid)` (PEI Queue uses `get_pei_queue()`; the
-  application PEI tab reads `pei_requests` directly).
-- Kept and repinned `assign_user_role` / `remove_user_role` to
-  `public, extensions`; allowlisted SUPERSEDED naming the seven service_role
-  edge functions that actually assign and remove roles.
-- Reachability: predicted 6 -> 2, got 6 -> 3, then 3 -> 1 after allowlisting.
-  The difference is `get_user_roles`, which sat in the guard's six but not in the
-  six sent for investigation. It stays RED and uninvestigated.
-- OPEN QUESTION recorded: the `owner` role invariant now lives only in two
-  functions nothing calls.
-
-## Done (2026-09-11, the last uncalled function)
-- Dropped `get_user_roles(uuid)`. Not housekeeping: SECURITY DEFINER, took ANY
-  user id, no in-body self-or-staff check, `authenticated` could execute — so
-  any signed-in user, operator included, could read another user's role array
-  and see who holds `owner`. RLS closes that boundary everywhere else.
-  Replacements: `useAuth` reading `user_roles` under RLS, `has_role()` (202
-  policy expressions, 65 function bodies), direct service-role reads in edge
-  functions.
-- Ceilings: LEGACY_MAX 75 -> 74; KNOWN_AUTHENTICATED_EXECUTABLE_MAX 125 -> 124.
-  Anon ceiling unchanged at 31 (anon EXECUTE was revoked 2026-09-03).
-- Reachability guard: predicted 1 -> 0, got 1 -> 0. GREEN for the first time.
-  The sweep that began with 16 findings is complete.
-
-## Owner invariant (Passes 2-5)
-- [done 2026-09-11] Pass 1: `user_roles_single_owner` partial unique index (at most one owner).
-- [done 2026-09-11] Pass 2: trigger on `user_roles` refusing `owner` writes/deletes unless unlocked;
-  `bootstrap_assign_owner` (zero-owner case only); fix `delete-user-account` to
-  refuse owner targets (corrected Pass 1 finding; defence in depth for transfer).
-- Pass 3: `transfer_owner` RPC + `owner_transfers` (management-only recipient,
-  72h expiry, either-party cancel) — MUST be one atomic function, not two writes.
-- Pass 4: UI + out-of-band email to the current owner with a cancel link.
-- Pass 5: document the break-glass database procedure for an unavailable owner.
-
-
-## Quarterly Inspection Program + Clean Roadside Bonus
-- [done 2026-09-11] Staged migration (applies on draft accept):
-  `inspection_program_settings` (configurable caps, bonus amounts, group months,
-  reminder offsets, grace limits), `inspection_cycles`, `inspection_program_payments`,
-  additive `roadside_stops.bonus_eligible/bonus_amount/report_submitted_at`,
-  `grant_inspection_grace()` and `inspection_grace_used()` (both SECURITY DEFINER,
-  `SET search_path = public, extensions`, PUBLIC/anon revoked). The grace allowance
-  is read INSIDE `grant_inspection_grace` from settings, never passed by the caller.
-- [done] `src/lib/inspectionProgram.ts` (group from unit last digit, cycle status,
-  deadlines, launch + 60-day onboarding credit) and `src/lib/inspectionBonus.ts`
-  (clean = zero violations; case-number and 24h checks are reviewer warnings, not blocks).
-  25 tests across `inspectionProgram.test.ts` and `inspectionBonus.test.ts`.
-- [done] UI: `QuarterlyInspectionPanel` in the Vehicle Hub detail drawer,
-  `InspectionProgramPanel` at Management > Equipment > Inspection Program,
-  collapsible `InspectionLevelGuide` in the roadside form, roadside list and review queue.
-- [done] Fleet-wide inspection calendar tab added to `InspectionProgramPanel`, with
-  year selector, group/status/search filters and one-click jump to the Vehicle Hub.
-- [done] `supabase/functions/cron-inspection-reminders` — 30/14/3-day reminders,
-  one send per driver per cycle per stage. Email lookup corrected to read from the
-  operator's `application_id` -> `applications(email)`. NOT deployed and NOT scheduled:
-  it reads the new tables, so deploy + `cron.schedule` after the draft is accepted.
-- Overdue is an ADVISORY badge ("not dispatch eligible"), not a hard dispatch block.
-- Deferred: CSA percentile and DataQ figures in the monthly summary stay manual —
-  there is no FMCSA feed wired up.
-
-## Upload size limits (2026-09-12)
-
-- [done] Binder rows enforce 25 MB in the client (`validateBinderFile`) at every entry
-  point: `DocRow`, `OperatorBinderPanel` (own + on-behalf), `InspectionBinderAdmin`,
-  `OperatorInspectionBinder` (driver upload + replacement). Buckets
-  `inspection-documents` and `driver-uploads` now cap at 25 MB, so a file that slips
-  past the client is refused by storage rather than stored.
-- [done] Every upload path now states the limit it enforces: 25 MB on driver load
-  paperwork, loadout photos, late-accessorial proof and broker paperwork; 10 MB on the
-  maintenance invoice scan. Broker paperwork gained the client check it never had.
-- [done] `src/test/file-size-tier.test.ts` guards the three declared tiers
-  (10 / 20 / 25 MB) — a fourth tier, or a constant without a recorded reason, fails it.
-- [OPEN — BLOCKED ON A REAL FILE] Two rate-con labels understate or omit the limit:
-  `RevisedRateConModal.tsx` says 10 MB and the Create Load scan strip says nothing.
-  Both should say 20 MB. Neither may be changed until a GENUINE multi-page broker scan
-  of about 15 MB has been parsed end to end.
-  Why it cannot be settled from the code: the model gateway's request-body ceiling is
-  controlled by no constant in this project. Client validation (`MAX_RATECON_BYTES`,
-  20 MB) and the edge function's own guard (28 M base64 characters) both pass a 20 MB
-  file; what the gateway does beyond that is untested. A padded or synthetic PDF of the
-  same size may compress differently and prove nothing.
-  TRIGGER: before either label is changed to say 20 MB, or the next time a large rate
-  confirmation arrives naturally — whichever comes first.
-
-## 2026-09-13 — monitoring triage
-- [x] Resolve the 2026-09-11 monitoring batch in the tool (stale/fixed/false_positive)
-- [x] Add the six pre-emptive comments at the sites the findings cite
-- [x] Record the 2026-09-11 occurrences in the stale-issues table, plus the two missing rows
-- [x] Report the `.lovable/drafts/` contents (report only — never delete the owner's drafts)
-
-## Per-driver pay — Pass 5 (2026-09-22, restored alongside the pre-existing roadmap)
-
-- [x] Add staff driver Linehaul Pay card, owner-only change flow, history, and agreement mismatch.
-- [x] Add company rate-sheet versions to Settlement Settings with owner-only version flow.
-- [x] Prefill new agreements from the effective driver/company rate and preserve sent locks.
-- [x] Show mismatch and rate provenance in settlement review; add stored settlement detail reader.
-- [x] Remove both completed reachability allowlist entries and add focused guards.
-- [x] Verify identities and no real-rate changes, run tests/typecheck, write report and staff announcement.
-
-## Mismatch flag proof (2026-09-22)
-
-- [x] Prove the signed-agreement mismatch flag on a throwaway driver (staff card + settlement review), prove the driver app shows nothing, prove it clears when the two agree, remove the throwaway with zero residue.
-- [x] Restore roadmap.md content removed unasked in commit 1e32ac928.
-
-## Demo carrier — stage 2 of 6 (2026-09-23)
-
-- [x] Item 1: `company_pay_policy_on(company, date)`; four definer callers each pass the
-      company they already work in; one-argument form dropped; NULL company resolves to nothing.
-- [x] Item 2: inbound rate-cons route by recipient via `carrier_profile.rate_con_ingest_address`;
-      unroutable mail dropped, never filed under a guessed carrier.
-- [x] Item 3: `bootstrap_assign_owner(p_user_id, p_company_id)` — refuses (42501) when the
-      company is omitted and more than one carrier exists; 23503 for an unknown company.
-- [x] Item 4: every test/fixture carrier scalar names SUPERTRANSPORT by USDOT 2309365;
-      proven green with a scratch carrier inside a raising transaction.
-- [x] Item 5: `generate-application-pdf` renders the application's own carrier identity.
-- [x] Report `docs/passes/2026-09-23-1130-demo-carrier-stage-2.md`. Full suite
-      `2 failed | 2210 passed | 16 skipped (2228)` — both failures the familiar pooler
-      `EAUTHQUERY` timeout, both files green on re-run (48 passed). Typecheck clean.
-- LEFT, named: `process-eld-escalations` and `send-officer-packet` still read an arbitrary
-      carrier for the DOT identity they print; they belong with the ELD identity work.
-- NEXT — stage 3: applications per-carrier. The owner has decided **applications and PEI
-      become per-carrier**. Seven decisions from stage 1 remain owed for the shared tables
-      (profiles, the nine content libraries, the announcement feed, the apply page).
-
-## 2026-09-23 — PEI restart and attribution (Marquis Bowie)
-- [x] Bowie's three employer checks rebuilt from his application, unsent (`pending`); stale
-      4 Sep deadline cleared; status now honestly `not_started`.
-- [x] Staged migration `20260923132000_pei_request_attribution_and_withdraw.sql`: withdraw
-      columns, create/send/withdraw written to `audit_log`, hard DELETE refused (42501),
-      withdrawn rows excluded from the status rollup and the queue.
-- [x] UI: withdraw-with-reason replaces delete, withdrawn rows kept and named, PEI Q banner
-      flags a status that claims progress with no live request, sender stamped on send.
-- [x] Report `docs/passes/2026-09-23-1330-pei-restart-and-attribution.md`. Typecheck clean.
-      Full suite `6 failed | 2206 passed | 16 skipped (2228)`: 2 familiar pooler timeouts
-      (green on re-run), 4 pre-existing `tenancy-resolver` drift — `applications` and ten
-      siblings now carry `company_id` live while the test still declares them GLOBAL, and
-      `RESTRICTIVE_DONE` (163) is below the live inventory (174). Owned by stage 3.
-- NEXT: William Westbrook's application shows the same orphaned-status shape and will appear
-      in the new banner; decide whether to rebuild his checks too.
+## Owed now
+- Revoke PUBLIC/anon/authenticated EXECUTE on log_pei_request_audit and refuse_pei_request_delete (0060)
+- Run the full suite on main after the 2026-09-24 draft merge
+- Before any second carrier: definer-function audit, get_pei_queue first — wish list
