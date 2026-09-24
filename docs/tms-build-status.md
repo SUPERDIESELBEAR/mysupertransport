@@ -19793,3 +19793,12 @@ Cutover list and revised stock take: docs/passes/2026-09-24-1242-supertransport-
 - 0062: drivers can upload load paperwork files into their own load's folder (was staff-only — every driver BOL/POD upload failed).
 - Five scheduled functions gated on x-cron-secret (notify-pwa-install also staff). Draft-merge trigger-function revokes done.
 - Found: drivers cannot move a load's status (wish list).
+
+## 2026-09-24 20:01 UTC — Truck owners with several trucks, and owners who drive (design only)
+
+Read-only investigation; no code, data or migrations. Full suite skipped (docs only). Report: docs/passes/2026-09-24-2001-truck-owner-design.md.
+- Trigger: invite-truck-owner refused Michael Underwood (existing operator login) as owner of Kirt Frazer's unit.
+- Found live: 3 logins already hold operator + truck_owner (David Mitchell, Jonathan Grant, Shawn Bresett); the portal swaps them to their hired driver's data and hides their own — live defect.
+- Blockers: truck_owners_user_id_key (one truck per owner); portal/ICA use a single owner row; no owner access to inspection binder or settlements.
+- current_company_id() resolves an owner-driver at one carrier correctly (one distinct company).
+- Proposed 5 passes: owner-driver portal fix → many trucks → invite links same-carrier drivers → binder visibility → owner settlements. Five owner decisions owed.
