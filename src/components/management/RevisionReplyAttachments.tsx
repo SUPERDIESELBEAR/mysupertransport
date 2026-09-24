@@ -1,8 +1,4 @@
-<<<<<<< src/components/management/RevisionReplyAttachments.tsx
 import { stampedInsert } from '@/lib/db/stampedInsert';
-=======
-import { stampedInsert } from '@/integrations/supabase/helpers';
->>>>>>> /tmp/d
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,11 +85,7 @@ export function RevisionReplyAttachments({ applicationId, onChanged }: Props) {
 
       const { error: insErr } = await supabase
         .from('application_revision_attachments')
-<<<<<<< src/components/management/RevisionReplyAttachments.tsx
         .insert(stampedInsert<'application_revision_attachments'>({
-=======
-        .insert(stampedInsert('application_revision_attachments', {
->>>>>>> /tmp/d
           application_id: applicationId,
           file_path: path,
           file_name: file.name,

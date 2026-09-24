@@ -95,11 +95,7 @@ export default function AddDriverModal({ open, onClose, onAdded }: AddDriverModa
       // 1. Create a minimal application record
       const { data: app, error: appErr } = await supabase
         .from('applications')
-<<<<<<< src/components/drivers/AddDriverModal.tsx
         .insert(stampedInsert<'applications'>({
-=======
-        .insert(stampedInsert('applications', {
->>>>>>> /tmp/d
           first_name: form.first_name.trim(),
           last_name: form.last_name.trim(),
           email: form.email.trim().toLowerCase(),

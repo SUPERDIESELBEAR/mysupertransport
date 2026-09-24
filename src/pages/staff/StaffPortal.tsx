@@ -1,8 +1,4 @@
-<<<<<<< src/pages/staff/StaffPortal.tsx
 import { stampedInsert } from '@/lib/db/stampedInsert';
-=======
-import { stampedInsert } from '@/integrations/supabase/helpers';
->>>>>>> /tmp/d
 import { lazyWithRetry } from '@/lib/lazyWithRetry';
 import { useState, useEffect, useRef, useCallback, Suspense, lazy } from 'react';
 import { toast } from 'sonner';
@@ -102,11 +98,7 @@ export default function StaffPortal() {
       .single();
     const { data: newApp, error } = await supabase
       .from('applications')
-<<<<<<< src/pages/staff/StaffPortal.tsx
       .insert(stampedInsert<'applications'>({
-=======
-      .insert(stampedInsert('applications', {
->>>>>>> /tmp/d
         email: '', // will be filled in by staff
         user_id: userId,
         first_name: profile?.first_name ?? '',

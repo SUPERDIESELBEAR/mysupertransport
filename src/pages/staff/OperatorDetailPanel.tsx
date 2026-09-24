@@ -3405,11 +3405,7 @@ export default function OperatorDetailPanel({ operatorId, onBack, onMessageOpera
               // No application — create an application record so all contact fields persist
               const { data: newApp, error: insertErr } = await supabase
                 .from('applications')
-<<<<<<< src/pages/staff/OperatorDetailPanel.tsx
                 .insert(stampedInsert<'applications'>({
-=======
-                .insert(stampedInsert('applications', {
->>>>>>> /tmp/d
                   email: contactDraft.email || '',
                   phone: contactDraft.phone || null,
                   address_street: contactDraft.address_street || null,
