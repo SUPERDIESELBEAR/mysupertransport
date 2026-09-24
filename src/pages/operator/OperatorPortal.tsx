@@ -2033,7 +2033,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY FUEL VIEW (his own fuel-card purchases, read-only) ──
              No operatorId is passed: the read is scoped to the signed-in
              driver inside the database function, not by anything sent here. */}
-        {view === 'my-fuel' && (
+        {view === 'my-fuel' && viewingOwnedTruck && (
+          <div className="py-16 text-center text-muted-foreground text-sm">
+            Fuel for trucks you own is not shown here yet. Switch to your own truck in My trucks to see your own fuel.
+          </div>
+        )}
+        {view === 'my-fuel' && !viewingOwnedTruck && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading your fuel…</div>}>
             <MyFuel
               onReady={() => handleDestinationReady('my-fuel')}
@@ -2072,7 +2077,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {view === 'ica' && (
           <div className="space-y-4">
             <PageHeading title="ICA" description="Review and sign your Independent Contractor Agreement." />
-            <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />
+            <OperatorICASign
+              unitOperatorId={isOwnerMode ? operatorId : undefined}
+              viewingOwnTruck={!viewingOwnedTruck}
+              onComplete={() => { fetchData(); navigateToView('progress'); }}
+            />
           </div>
         )}
 
