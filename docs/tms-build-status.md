@@ -19802,3 +19802,12 @@ Read-only investigation; no code, data or migrations. Full suite skipped (docs o
 - Blockers: truck_owners_user_id_key (one truck per owner); portal/ICA use a single owner row; no owner access to inspection binder or settlements.
 - current_company_id() resolves an owner-driver at one carrier correctly (one distinct company).
 - Proposed 5 passes: owner-driver portal fix → many trucks → invite links same-carrier drivers → binder visibility → owner settlements. Five owner decisions owed.
+
+## Owner decisions 2026-09-24 — truck owners (P57–P61)
+
+- P57. `truck_owners` stays the per-truck link; one owner login may hold many trucks (UNIQUE(user_id, operator_id), migration 0064). A separate owner-account record may come later for owner-level data (payee, 1099 address).
+- P58. A hired driver does NOT see his truck's settlement by default; the settlement belongs to the truck owner, who pays his driver.
+- P59. One ICA per truck. The truck owner signs as lessor when the unit has an owner; an owner-driver signs his own truck's ICA as its contractor.
+- P60. A truck owner sees his trucks' loads and fuel, and his drivers' documents, binder and ICA.
+- P61. The invite links an existing same-carrier driver login as truck owner; it refuses staff logins, other-carrier logins, and the driver of the very unit being linked.
+- Built 2026-09-24: docs/passes/2026-09-24-2045-truck-owners-fixed.md.

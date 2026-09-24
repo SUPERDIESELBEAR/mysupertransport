@@ -179,6 +179,12 @@ describe("fuel import structure", () => {
        where schemaname = 'public'
          and tablename in (${FUEL_TABLES.map((t) => `'${t}'`).join(",")})
          and not (permissive = 'RESTRICTIVE' and policyname = 'tenant_isolation')
+         -- P60 (2026-09-24): a truck owner reads fuel on the trucks HE OWNS.
+         -- Not another DRIVER's spend: SELECT only, keyed on ownership of
+         -- that very unit through the pinned definer.
+         and not (tablename = 'fuel_transactions' and policyname = 'fuel_transactions_truck_owner_read'
+                  and cmd = 'SELECT'
+                  and qual = '((operator_id IS NOT NULL) AND is_truck_owner_for_operator(auth.uid(), operator_id))')
          and coalesce(qual, '') || coalesce(with_check, '') not like '%has_role%'
          and coalesce(qual, '') || coalesce(with_check, '') not like '%is_staff%'
        order by 1
