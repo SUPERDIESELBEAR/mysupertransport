@@ -19771,3 +19771,9 @@ Every pass, until the customer version begins:
 3. A SECURITY DEFINER function that reads or writes company data filters by company.
 
 Draft-merge check (0060) and the stock take: see docs/passes/2026-09-24-1234-supertransport-stock-take.md.
+
+## 2026-09-24 12:42 UTC — P49 recorded; Alvys cutover list (docs only)
+
+**P49 (owner, 2026-09-24), verbatim:** "SUPERTRANSPORT uses Alvys today for load tracking, invoicing and operator settlements. The whole TMS will be finished; these three are the first milestone, in that order, because invoices and settlements are built from loads."
+
+Cutover list and revised stock take: docs/passes/2026-09-24-1242-supertransport-stock-take.md (supersedes the 12:34 report, which stays unaltered).
