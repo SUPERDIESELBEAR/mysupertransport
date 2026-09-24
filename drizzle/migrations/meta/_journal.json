@@ -449,6 +449,13 @@
       "when": 1790261869222,
       "tag": "0063_pei_functions_search_path_pin",
       "breakpoints": true
+    },
+    {
+      "idx": 64,
+      "version": "7",
+      "when": 1790281681439,
+      "tag": "0064_truck_owners_many_trucks_and_owner_reads",
+      "breakpoints": true
     }
   ]
 }

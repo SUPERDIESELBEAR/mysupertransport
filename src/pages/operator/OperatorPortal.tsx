@@ -109,30 +109,37 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
   const { profile: authProfile, user, signOut, refreshProfile, isTruckOwner } = useAuth();
   const { refresh: handleRefresh, refreshing } = useAppRefresh();
   const isPreview = !!previewUserId;
-  // For a truck owner, the effective user id is the LINKED DRIVER's user id, so
-  // every existing query keyed on `effectiveUserId` automatically scopes to the
-  // driver's records (RLS already grants the owner read/sign access).
-  const [resolvedOwnerDriverUserId, setResolvedOwnerDriverUserId] = useState<string | null>(null);
-  const [ownerLookupDone, setOwnerLookupDone] = useState<boolean>(!isTruckOwner);
-  useEffect(() => {
-    if (previewUserId || !isTruckOwner || !user?.id) return;
-    let cancelled = false;
-    (async () => {
-      const { data } = await supabase
-        .from('truck_owners')
-        .select('operator_id, operators:operator_id(user_id)')
-        .eq('user_id', user.id)
-        .maybeSingle();
-      if (cancelled) return;
-      const driverUid = (data as any)?.operators?.user_id ?? null;
-      setResolvedOwnerDriverUserId(driverUid);
-      setOwnerLookupDone(true);
-    })();
-    return () => { cancelled = true; };
-  }, [isTruckOwner, previewUserId, user?.id]);
+  // Truck owners (P57-P60): an owner who also drives lands on HIS OWN driver
+  // app; "My trucks" lets him view each truck he owns. A pure owner lands on My
+  // trucks. The chosen truck's DRIVER user id becomes `effectiveUserId`, so the
+  // existing per-driver screens fill with that truck's data (RLS grants the
+  // owner read/sign access). Switching never changes whose login it is.
+  const owned = useOwnedTrucks(user?.id, isTruckOwner && !previewUserId);
+  const selectionKey = user?.id ? `owner_selected_truck:${user.id}` : null;
+  const [selectedTruckId, setSelectedTruckIdState] = useState<string | null>(() => {
+    try { return selectionKey ? sessionStorage.getItem(selectionKey) : null; } catch { return null; }
+  });
+  const setSelectedTruckId = useCallback((id: string | null) => {
+    setSelectedTruckIdState(id);
+    try {
+      if (!selectionKey) return;
+      if (id) sessionStorage.setItem(selectionKey, id); else sessionStorage.removeItem(selectionKey);
+    } catch { /* storage unavailable */ }
+  }, [selectionKey]);
+  const selectedTruck = owned.trucks.find(t => t.operatorId === selectedTruckId) ?? null;
+  const isOwnerMode = isTruckOwner && !previewUserId;
+  const hasOwnTruck = !!owned.ownOperatorId;
   const effectiveUserId = previewUserId
-    ?? (isTruckOwner ? resolvedOwnerDriverUserId : user?.id);
-  const viewerRole: 'driver' | 'truck_owner' = isTruckOwner && !previewUserId ? 'truck_owner' : 'driver';
+    ?? (!isOwnerMode
+      ? user?.id
+      : !owned.loaded
+        ? null
+        : selectedTruck
+          ? selectedTruck.driverUserId
+          : hasOwnTruck ? user?.id : null);
+  const viewingOwnedTruck = isOwnerMode && !!selectedTruck;
+  const viewerRole: 'driver' | 'truck_owner' = viewingOwnedTruck ? 'truck_owner' : 'driver';
+  const showMyTrucksPicker = isOwnerMode && owned.loaded && !selectedTruck && !hasOwnTruck;
   const [previewProfile, setPreviewProfile] = useState<{ first_name: string | null; last_name: string | null; avatar_url: string | null; phone: string | null } | null>(null);
   useEffect(() => {
     if (!previewUserId) return;
@@ -1536,6 +1543,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         }
       >
 
+        {/* ── MY TRUCKS (truck owners only; P57-P60) ── */}
+        {isOwnerMode && owned.loaded && owned.trucks.length > 0 && (
+          <MyTrucksSwitcher
+            trucks={owned.trucks}
+            selected={selectedTruck ? selectedTruck.operatorId : null}
+            hasOwnTruck={hasOwnTruck}
+            onSelect={(id) => { setSelectedTruckId(id); setOperatorId(null); }}
+          />
+        )}
+
+        <div className={showMyTrucksPicker ? 'hidden' : 'space-y-6'}>
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
           <div className={`border rounded-xl px-4 py-3.5 animate-fade-in space-y-3 transition-colors duration-500 ${
@@ -2015,7 +2033,12 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {/* ── MY FUEL VIEW (his own fuel-card purchases, read-only) ──
              No operatorId is passed: the read is scoped to the signed-in
              driver inside the database function, not by anything sent here. */}
-        {view === 'my-fuel' && (
+        {view === 'my-fuel' && viewingOwnedTruck && (
+          <div className="py-16 text-center text-muted-foreground text-sm">
+            Fuel for trucks you own is not shown here yet. Switch to your own truck in My trucks to see your own fuel.
+          </div>
+        )}
+        {view === 'my-fuel' && !viewingOwnedTruck && (
           <Suspense fallback={<div className="py-16 text-center text-muted-foreground text-sm">Loading your fuel…</div>}>
             <MyFuel
               onReady={() => handleDestinationReady('my-fuel')}
@@ -2054,7 +2077,11 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         {view === 'ica' && (
           <div className="space-y-4">
             <PageHeading title="ICA" description="Review and sign your Independent Contractor Agreement." />
-            <OperatorICASign onComplete={() => { fetchData(); navigateToView('progress'); }} />
+            <OperatorICASign
+              unitOperatorId={isOwnerMode ? operatorId : undefined}
+              viewingOwnTruck={!viewingOwnedTruck}
+              onComplete={() => { fetchData(); navigateToView('progress'); }}
+            />
           </div>
         )}
 
@@ -2176,6 +2203,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <DocumentHub onAcknowledged={fetchData} />
           </Suspense>
         )}
+        </div>
+        {/* end of the per-truck views wrapper (hidden while a pure owner picks a truck) */}
 
         {/* ── CROSSFADE OVERLAY ──────────────────────────────────────────
              Sits over the just-mounted destination view and shows a
