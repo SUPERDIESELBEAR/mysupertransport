@@ -144,7 +144,7 @@ function TimeRow({
       if (loadId) {
         const { data } = await supabase.from('loads').select('status').eq('id', loadId).maybeSingle();
         if (data?.status === 'delivered') {
-          toast({ title: `Load ${loadNumber ?? ''} is delivered. Upload your paperwork under Paperwork to finish.`.replace('  ', ' ') });
+          toast({ title: `Load ${loadNumber ?? ''} is delivered. Upload your paperwork under Paperwork to finish.` });
         }
       }
       onSaved?.();
