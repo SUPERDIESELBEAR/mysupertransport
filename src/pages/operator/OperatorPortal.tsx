@@ -1799,6 +1799,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                   }}
                 >
                   <StopCheckIn
+                    loadId={home.current.id}
+                    loadNumber={home.current.load_number}
                     stops={(home.current.stops ?? [])
                       .filter(s => !!s.id)
                       .map(s => ({
@@ -1836,7 +1838,7 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
                 />
               )}
 
-              {!home.loading && <OperatorPaperworkTail loads={home.paperworkTail} />}
+              {!home.loading && <OperatorPaperworkTail loads={home.paperworkTail} onUploaded={home.refresh} />}
 
               <OperatorStillNeeded
                 status={effectiveOnboardingStatus as Record<string, unknown>}

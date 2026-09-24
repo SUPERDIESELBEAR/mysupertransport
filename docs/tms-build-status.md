@@ -19811,3 +19811,19 @@ Read-only investigation; no code, data or migrations. Full suite skipped (docs o
 - P60. A truck owner sees his trucks' loads and fuel, and his drivers' documents, binder and ICA.
 - P61. The invite links an existing same-carrier driver login as truck owner; it refuses staff logins, other-carrier logins, and the driver of the very unit being linked.
 - Built 2026-09-24: docs/passes/2026-09-24-2045-truck-owners-fixed.md.
+
+## Owner decisions 2026-09-24 — a recorded stop time moves the load (P62, P63)
+
+- P62 (owner, 2026-09-24): Drivers are asked to keep a load's progress updated through the app (in Alvys today). When a driver forgets or does not do it, dispatch enters the dates and times.
+- P63 (owner, 2026-09-24): In SUPERDRIVE, a recorded arrival or departure time at a stop moves the load's status forward automatically, the same way whether the driver or dispatch recorded it. It never moves a status backward; only staff do that, with a note, through the status buttons.
+
+## 2026-09-24 23:30 UTC — Alvys M1 pass 2: a recorded stop time moves the load's status
+
+Report: docs/passes/2026-09-24-2330-stop-times-move-status.md.
+- 0065: `advance_load_status_from_stop` (AFTER UPDATE on load_stops, definer, pinned, EXECUTE revoked) moves the load forward per the rule table; clearing a time never moves it; skips write ONE history row.
+- The one history writer stays `log_load_status_change`, now carrying a transaction-local note: "Automatic: {arrival|departure} recorded at {pickup|delivery|drop & hook} (stop n)".
+- Driver guard: `enforce_loads_operator_update` admits `status` only under `superdrive.status_advance`; a driver's direct write and his `update_load_status` call stay refused; neither `set_config` nor the new function is reachable through REST.
+- Driver app: hint line under "At the facility", delivered toast, and an "Upload paperwork" button on every load in "Paperwork to finish".
+- Dispatch: load page shows the new status without a reload; board auto-refreshes every 60s while visible (loads NOT added to realtime).
+- Wish-list item "DRIVERS CANNOT MOVE A LOAD'S STATUS" closed.
+- Exact counts: pre-delivery loads with no delivery stop 0; loads with any drop & hook stop 0.

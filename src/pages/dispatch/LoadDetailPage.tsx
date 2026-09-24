@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AlertTriangle, ArrowLeft, FileUp, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -65,6 +65,7 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
   }, [id]);
   const canManageClaims = isDispatcher || isManagement;
 
+  const queryClient = useQueryClient();
   const goBack = () => (onBack ? onBack() : navigate('/dispatch/loads'));
 
   const { data: load, isLoading, error, refetch } = useQuery({
@@ -233,7 +234,11 @@ export default function LoadDetailPage({ loadId, onBack, onEdit }: LoadDetailPag
         </SectionErrorBoundary>
       ) : null}
       <SectionErrorBoundary name="Stops">
-        <StopsTimeline stops={load.stops} onStopTimesSaved={() => { void refetch(); }} />
+        <StopsTimeline stops={load.stops} onStopTimesSaved={() => {
+          // A recorded time can move the load's status (0065): show it without a reload.
+          void refetch();
+          void queryClient.invalidateQueries({ queryKey: ['load-status-history', load.id] });
+        }} />
       </SectionErrorBoundary>
       {/* Detention sits with the stop times it argues from. Operators have no
           access to claims in this pass. */}
