@@ -1543,6 +1543,17 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
         }
       >
 
+        {/* ── MY TRUCKS (truck owners only; P57-P60) ── */}
+        {isOwnerMode && owned.loaded && owned.trucks.length > 0 && (
+          <MyTrucksSwitcher
+            trucks={owned.trucks}
+            selected={selectedTruck ? selectedTruck.operatorId : null}
+            hasOwnTruck={hasOwnTruck}
+            onSelect={(id) => { setSelectedTruckId(id); setOperatorId(null); }}
+          />
+        )}
+
+        <div className={showMyTrucksPicker ? 'hidden' : 'space-y-6'}>
         {/* ── TRUCK DOWN ALERT BANNER ── */}
         {dispatchStatus === 'truck_down' && (
           <div className={`border rounded-xl px-4 py-3.5 animate-fade-in space-y-3 transition-colors duration-500 ${
@@ -2183,6 +2194,8 @@ export default function OperatorPortal({ previewUserId }: { previewUserId?: stri
             <DocumentHub onAcknowledged={fetchData} />
           </Suspense>
         )}
+        </div>
+        {/* end of the per-truck views wrapper (hidden while a pure owner picks a truck) */}
 
         {/* ── CROSSFADE OVERLAY ──────────────────────────────────────────
              Sits over the just-mounted destination view and shows a
