@@ -30,9 +30,21 @@ interface ICAData {
 
 interface OperatorICASignProps {
   onComplete?: () => void;
+  /**
+   * The unit being viewed (P59: one ICA per truck). Chosen by the portal's
+   * "My trucks" switcher — never inferred from a single truck_owners row,
+   * because one owner login may own several units.
+   */
+  unitOperatorId?: string | null;
+  /**
+   * True when the unit is the signed-in person's OWN truck (he is its
+   * contractor). False when he views a truck he owns but does not drive (he
+   * signs as lessor).
+   */
+  viewingOwnTruck?: boolean;
 }
 
-export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
+export default function OperatorICASign({ onComplete, unitOperatorId, viewingOwnTruck }: OperatorICASignProps) {
   const { session, isTruckOwner } = useAuth();
   // removed useToast — using sonner toast directly
   const [contract, setContract] = useState<ICAData | null>(null);
@@ -60,7 +72,7 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
   useEffect(() => {
     if (session?.user?.id) fetchContract();
-  }, [session?.user?.id]);
+  }, [session?.user?.id, unitOperatorId, viewingOwnTruck]);
 
   // After a successful signature, render the executed agreement to PDF and
   // file it into the driver's DOT inspection binder ("Lease Agreement (ICA)").
@@ -109,36 +121,51 @@ export default function OperatorICASign({ onComplete }: OperatorICASignProps) {
 
   const fetchContract = async () => {
     setLoading(true);
-    // Resolve operator: TRUCK OWNER first — when an owner is linked to the
-    // unit, they are the ICA signer and the driver is a read-only viewer.
+    // Resolve the unit (P59: one ICA per truck). The portal names the unit it
+    // is showing; without it we fall back to the person's OWN truck first, then
+    // the earliest truck he owns. Never `.maybeSingle()` on truck_owners by
+    // user — an owner may hold several rows (P57).
     let resolvedOperatorId: string | null = null;
     let resolvedSignerRole: 'driver' | 'truck_owner' = 'driver';
     let ownerLinked = false;
-    const { data: to } = await supabase
-      .from('truck_owners')
-      .select('operator_id')
-      .eq('user_id', session!.user.id)
-      .maybeSingle();
-    if (to) {
-      resolvedOperatorId = (to as any).operator_id;
-      resolvedSignerRole = 'truck_owner';
-      ownerLinked = true;
+    let ownTruck: boolean | null = unitOperatorId ? !!viewingOwnTruck : null;
+    if (unitOperatorId) {
+      resolvedOperatorId = unitOperatorId;
     } else {
       const { data: op } = await supabase
         .from('operators')
-        .select('id, user_id')
+        .select('id')
         .eq('user_id', session!.user.id)
         .maybeSingle();
       if (op) {
         resolvedOperatorId = op.id as string;
+        ownTruck = true;
+      } else {
+        const { data: owned } = await supabase
+          .from('truck_owners')
+          .select('operator_id')
+          .eq('user_id', session!.user.id)
+          .order('created_at', { ascending: true })
+          .limit(1);
+        const first = (owned ?? [])[0] as { operator_id: string } | undefined;
+        if (first) { resolvedOperatorId = first.operator_id; ownTruck = false; }
+      }
+    }
+    if (resolvedOperatorId) {
+      if (ownTruck) {
+        // His own truck: he is its contractor. If someone else owns this unit
+        // (a hired driver), the owner signs and he sees it read-only.
         resolvedSignerRole = 'driver';
         const { data: unitOwner } = await supabase
           .from('truck_owners')
           .select('id')
-          .eq('operator_id', op.id as string)
-          .limit(1)
-          .maybeSingle();
-        ownerLinked = !!unitOwner;
+          .eq('operator_id', resolvedOperatorId)
+          .limit(1);
+        ownerLinked = (unitOwner ?? []).length > 0;
+      } else {
+        // A truck he owns and does not drive: he signs as lessor.
+        resolvedSignerRole = 'truck_owner';
+        ownerLinked = true;
       }
     }
     if (!resolvedOperatorId) { setLoading(false); return; }
