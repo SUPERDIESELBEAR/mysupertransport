@@ -129,8 +129,13 @@ No edge function changed in this pass; none needed changing.
 
 ## Files changed
 
+_Corrected in pass 3 (2026-09-24 2350 report): added the three Drizzle/version files git shows changed; removed src/integrations/supabase/types.ts, which git shows unchanged (the regeneration produced identical output). Only files git shows changed are listed._
+
+
 - drizzle/migrations/0065_stop_times_move_load_status.sql (new)
-- src/integrations/supabase/types.ts (regenerated)
+- drizzle/migrations/meta/0065_snapshot.json (new)
+- drizzle/migrations/meta/_journal.json
+- public/version.json
 - src/components/operator/StopCheckIn.tsx
 - src/components/operator/OperatorTodayCard.tsx
 - src/pages/operator/OperatorPortal.tsx
