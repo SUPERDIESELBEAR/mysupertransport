@@ -4,8 +4,9 @@ Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits)
 
 ## Milestone 1 — Loads
 1. ~~Status history source and person~~ — done 2026-09-24 (0061)
-2. Driver proof — paperwork upload fixed (0062), check-ins work; **open: drivers cannot move a load's status** (wish list, decision owed)
-3. Broker tracking link per load — status and stops, no money (P52)
+2. ~~Driver proof — paperwork upload (0062), check-ins~~ — done 2026-09-24
+3. ~~A recorded stop time moves the load's status~~ — done 2026-09-24 (0065; P62, P63). Driver's app hint + delivered toast + upload from "Paperwork to finish"; board auto-refresh 60s
+4. Broker tracking link per load — status and stops, no money (P52)
 
 ## Milestone 2 — Invoicing
 1. Invoice packet: separate PDFs or one stitched PDF, per factor/customer (P53)
