@@ -1,4 +1,8 @@
 import type React from 'react';
+import { useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { LoadPaperworkUpload } from '@/components/operator/LoadPaperworkUpload';
+import { LoadoutCapture } from '@/components/operator/LoadoutCapture';
 import { MapPin, Package, Clock, FileWarning, MessageSquare, Phone } from 'lucide-react';
 import { formatCurrency, formatEnumLabel } from '@/lib/loadFormat';
 import { formatCarrierWindow } from '@/lib/operatorHome';
@@ -171,24 +175,42 @@ export function OperatorTodayCard({
 }
 
 /** Delivered loads that still owe paperwork. Office work, kept off the load card. */
-export function OperatorPaperworkTail({ loads }: { loads: HomeLoad[] }) {
+function PaperworkTailRow({ load: l, onUploaded }: { load: HomeLoad; onUploaded?: () => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="space-y-2">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-foreground">{l.load_number}</p>
+          <p className="text-xs text-muted-foreground leading-snug">
+            {l.outstandingPaperwork.length > 0 ? l.outstandingPaperwork.join(' · ') : 'Awaiting review'}
+          </p>
+        </div>
+        <span className="text-[11px] text-muted-foreground shrink-0">
+          {[l.destinationCity, l.destinationState].filter(Boolean).join(', ')}
+        </span>
+      </div>
+      {open ? (
+        l.loadType === 'loadout' ? (
+          <LoadoutCapture loadId={l.id} onUploaded={onUploaded} />
+        ) : (
+          <LoadPaperworkUpload loadId={l.id} loadType={l.loadType} onUploaded={onUploaded} />
+        )
+      ) : (
+        <Button type="button" size="sm" variant="outline" onClick={() => setOpen(true)}>
+          Upload paperwork
+        </Button>
+      )}
+    </div>
+  );
+}
+
+export function OperatorPaperworkTail({ loads, onUploaded }: { loads: HomeLoad[]; onUploaded?: () => void }) {
   if (loads.length === 0) return null;
   return (
     <section className="rounded-2xl border border-border bg-card px-5 py-4 space-y-2.5">
       <p className="text-sm font-semibold text-foreground">Paperwork to finish</p>
-      {loads.map(l => (
-        <div key={l.id} className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-sm font-medium text-foreground">{l.load_number}</p>
-            <p className="text-xs text-muted-foreground leading-snug">
-              {l.outstandingPaperwork.length > 0 ? l.outstandingPaperwork.join(' · ') : 'Awaiting review'}
-            </p>
-          </div>
-          <span className="text-[11px] text-muted-foreground shrink-0">
-            {[l.destinationCity, l.destinationState].filter(Boolean).join(', ')}
-          </span>
-        </div>
-      ))}
+      {loads.map(l => <PaperworkTailRow key={l.id} load={l} onUploaded={onUploaded} />)}
     </section>
   );
 }

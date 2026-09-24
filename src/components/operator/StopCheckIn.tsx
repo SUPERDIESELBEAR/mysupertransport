@@ -4,6 +4,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import {
   CHECK_IN_OFFSETS, bestEffortCoords, formatCheckInTime, fromCarrierNaive,
@@ -119,12 +120,14 @@ function TimeSheet({
 }
 
 function TimeRow({
-  label, kind, stop, onSaved,
+  label, kind, stop, onSaved, loadId, loadNumber,
 }: {
   label: string;
   kind: StopTimeKind;
   stop: CheckInStop;
   onSaved?: () => void;
+  loadId?: string;
+  loadNumber?: string | null;
 }) {
   const { toast } = useToast();
   const [open, setOpen] = useState(false);
@@ -136,6 +139,14 @@ function TimeRow({
       const coords = await bestEffortCoords();
       await recordStopTime(stop.id, kind, iso, coords);
       toast({ title: `${label} recorded`, description: formatCheckInTime(iso) });
+      // A recorded time can move the load forward (0065). Delivered loads leave
+      // Today's work, so tell the driver where his paperwork went.
+      if (loadId) {
+        const { data } = await supabase.from('loads').select('status').eq('id', loadId).maybeSingle();
+        if (data?.status === 'delivered') {
+          toast({ title: `Load ${loadNumber ?? ''} is delivered. Upload your paperwork under Paperwork to finish.`.replace('  ', ' ') });
+        }
+      }
       onSaved?.();
     } catch (err) {
       logDbError('[StopCheckIn] write failed', err, { stopId: stop.id, kind });
@@ -180,12 +191,20 @@ function TimeRow({
   );
 }
 
-export function StopCheckIn({ stops, onSaved }: { stops: CheckInStop[]; onSaved?: () => void }) {
+export function StopCheckIn({ stops, onSaved, loadId, loadNumber }: {
+  stops: CheckInStop[];
+  onSaved?: () => void;
+  loadId?: string;
+  loadNumber?: string | null;
+}) {
   if (!stops.length) return null;
   const ordered = stops.slice().sort((a, b) => (a.stop_sequence ?? 0) - (b.stop_sequence ?? 0));
   return (
     <div className="space-y-3">
       <p className="text-sm font-semibold text-foreground">At the facility</p>
+      <p className="text-xs text-muted-foreground leading-snug">
+        Record your arrival and departure at every stop. Your times update this load for dispatch.
+      </p>
       {ordered.map(stop => (
         <div key={stop.id} className="rounded-xl border border-border bg-muted/20 px-4 py-3 space-y-3">
           <div className="flex items-start gap-2">
@@ -200,8 +219,8 @@ export function StopCheckIn({ stops, onSaved }: { stops: CheckInStop[]; onSaved?
               </p>
             </div>
           </div>
-          <TimeRow label="Arrival" kind="arrival" stop={stop} onSaved={onSaved} />
-          <TimeRow label="Departure" kind="departure" stop={stop} onSaved={onSaved} />
+          <TimeRow label="Arrival" kind="arrival" stop={stop} onSaved={onSaved} loadId={loadId} loadNumber={loadNumber} />
+          <TimeRow label="Departure" kind="departure" stop={stop} onSaved={onSaved} loadId={loadId} loadNumber={loadNumber} />
         </div>
       ))}
     </div>

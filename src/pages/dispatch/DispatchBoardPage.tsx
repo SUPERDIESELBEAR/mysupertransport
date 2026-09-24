@@ -388,6 +388,10 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
   const { data, isLoading, isFetching, refetch } = useQuery({
     queryKey: ['dispatch-board'],
     queryFn: fetchBoard,
+    // Background refresh every 60s while the tab is visible (loads is not realtime).
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+    refetchOnWindowFocus: true,
   });
 
   const board = useMemo(
