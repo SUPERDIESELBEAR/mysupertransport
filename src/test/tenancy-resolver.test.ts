@@ -246,6 +246,8 @@ const B4_TABLES = [
 const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
 // 0068 (2026-09-25): billing settings, factoring companies, invoice files.
 const BILLING_PDF_STAMPED = ['billing_settings', 'factoring_companies', 'invoice_files'] as const;
+/** Milestone 2 pass 4 (0073): required-document settings, one row per company per type. */
+const REQUIRED_DOCS_STAMPED = ['document_requirement_settings', 'document_requirements'] as const;
 
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
@@ -416,8 +418,11 @@ describe('company_members — membership is not a user assertion', () => {
       const x = e as { stderr?: string; stdout?: string };
       err = `${x.stderr ?? ''}${x.stdout ?? ''}`;
     }
-    expect(err).toContain('null value in column "company_id"');
-    expect(err).toContain('violates not-null constraint');
+    // Since pass 3 the paperwork gate runs on every invoice insert and, for a
+    // caller holding no billing role, refuses before the NOT NULL check is
+    // reached. Either way the non-member writes nothing.
+    expect(err).toMatch(/Only a dispatcher, management or owner may check invoice readiness|null value in column "company_id"/);
+    expect(err).not.toContain('INSERT 0 1');
   });
 
   itLive('a member IS stamped with that member’s company, and a supplied company is overridden', () => {
@@ -427,10 +432,15 @@ describe('company_members — membership is not a user assertion', () => {
                             JOIN public.carrier_profile c ON c.id = cm.company_id
                            WHERE c.usdot_number = '2309365' ORDER BY cm.created_at LIMIT 1),
                           'role', 'authenticated')::text, true);
+      -- Pass 3 gate: invoice a scratch load that is READY (address, BOL, rate con).
+      WITH b AS (INSERT INTO public.brokers (company_name, address_line1, city, state, zip)
+          VALUES ('SCRATCH broker', '1 Main', 'Town', 'MO', '64080') RETURNING id),
+        l AS (INSERT INTO public.loads (load_number, broker_id) SELECT 'SCRATCH-READY', id FROM b RETURNING id)
+      INSERT INTO public.load_documents (load_id, document_type, document_name)
+        SELECT id, t::public.load_document_type, 'scratch' FROM l, unnest(ARRAY['bol','rate_confirmation']) t;
       INSERT INTO public.invoices (company_id, load_id, invoice_number, billing_path, amount)
       VALUES ((SELECT id FROM public.carrier_profile WHERE usdot_number = '2309365'),
-              (SELECT l.id FROM public.loads l
-                WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) LIMIT 1),
+              (SELECT l.id FROM public.loads l WHERE l.load_number = 'SCRATCH-READY'),
               'ST-SCRATCH-TENANCY', 'factored', 1)
       RETURNING company_id::text;
       ROLLBACK;`).filter(l => /^[0-9a-f-]{36}$/.test(l));
@@ -614,7 +624,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
       ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
-      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED,
+      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED, ...REQUIRED_DOCS_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -2187,7 +2197,8 @@ const RESTRICTIVE_DONE = [
   'dispatch_settlement_charge_verdicts',
   'dispatch_settlement_load_contributions', 'dispatch_settlement_rates',
   'dispatch_settlement_rates_history', 'document_acknowledgments',
-  'document_exceptions', 'document_send_log',
+  'document_exceptions',
+  'document_requirement_settings', 'document_requirements', 'document_send_log',
   'document_version_history', 'documents', 'dot_consultant_email_settings',
   'driver_staff_contact_suppressions',
   'driver_staff_contacts', 'driver_vault_documents', 'eld_devices',

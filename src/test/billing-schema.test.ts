@@ -29,15 +29,30 @@ const itLive = gatedIt({
 // Every transaction below adopts a company_members identity: since the
 // 2026-09-13 resolver rewrite an anonymous psql session resolves to NO company
 // and the NOT NULL company_id refuses the insert. See helpers/tenancy.ts.
+/**
+ * Since pass 3 every invoice insert passes the paperwork gate (P73/P79), so the
+ * schema fixtures invoice a scratch load that is READY: a broker with a billing
+ * address, a BOL and a rate confirmation. Created inside the same transaction,
+ * rolled back with it.
+ */
+const READY_LOAD = `WITH b AS (INSERT INTO public.brokers (company_name, address_line1, city, state, zip)
+    VALUES ('SCRATCH broker', '1 Main', 'Town', 'MO', '64080') RETURNING id),
+  l AS (INSERT INTO public.loads (load_number, broker_id) SELECT 'SCRATCH-READY', id FROM b RETURNING id)
+  INSERT INTO public.load_documents (load_id, document_type, document_name)
+    SELECT id, t::public.load_document_type, 'scratch' FROM l, unnest(ARRAY['bol','rate_confirmation']) t;`;
+const withReadyLoad = (sql: string) => sql.includes('SCRATCH-READY')
+  ? withCompanyMember(sql).replace(/(BEGIN; SELECT set_config\([\s\S]*?, true\);)/, `$1 ${READY_LOAD}`)
+  : withCompanyMember(sql);
+
 function psql(sql: string): string[] {
-  return execFileSync('psql', ['-At', '-c', withCompanyMember(sql)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
+  return execFileSync('psql', ['-At', '-c', withReadyLoad(sql)], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] })
     .split('\n').map(l => l.trim()).filter(Boolean);
 }
 
 /** Runs SQL expected to FAIL; returns the error text. */
 function psqlExpectError(sql: string): string {
   try {
-    execFileSync('psql', ['-At', '-v', 'ON_ERROR_STOP=1', '-c', withCompanyMember(sql)], {
+    execFileSync('psql', ['-At', '-v', 'ON_ERROR_STOP=1', '-c', withReadyLoad(sql)], {
       encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'],
     });
   } catch (e) {
@@ -205,7 +220,7 @@ describe('billing — behaviour the schema must refuse', () => {
   itLive('a SECOND invoice for the same load is refused by the database, not by a builder', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount)
-        SELECT id, 'SCRATCH-1', 'direct', 100 FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        SELECT id, 'SCRATCH-1', 'direct', 100 FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount)
         SELECT load_id, 'SCRATCH-2', 'direct', 100 FROM public.invoices WHERE invoice_number = 'SCRATCH-1';
       ROLLBACK;`);
@@ -215,7 +230,7 @@ describe('billing — behaviour the schema must refuse', () => {
   itLive('purchased_at on a DIRECT invoice is refused — only a factor purchases', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, submitted_at, purchased_at)
-        SELECT id, 'SCRATCH-3', 'direct', 100, now(), now() FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        SELECT id, 'SCRATCH-3', 'direct', 100, now(), now() FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       ROLLBACK;`);
     expect(err).toContain('invoices_purchased_requires_factored_check');
   });
@@ -224,7 +239,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, submitted_at, paid_at)
         SELECT id, 'SCRATCH-4', 'factored', 100, now(), now() - interval '5 days'
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       ROLLBACK;`);
     expect(err).toContain('invoices_lifecycle_order_check');
   });
@@ -233,7 +248,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, paid_by)
         SELECT id, 'SCRATCH-5', 'factored', 100, (SELECT id FROM public.profiles LIMIT 1)
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       ROLLBACK;`);
     expect(err).toContain('invoices_actor_requires_timestamp_check');
   });
@@ -247,7 +262,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (load_id, invoice_number, billing_path, amount, status)
         SELECT id, 'SCRATCH-6', 'factored', 100, 'short_paid'
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       ROLLBACK;`);
     expect(err).toContain('invoices_short_pay_reason_check');
   });
@@ -262,7 +277,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-7', 'factored', 1000
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       INSERT INTO public.payments (invoice_id, source, gross_amount, fee_amount, net_deposited)
         VALUES ('${SCRATCH}', 'factor', 1000, 20, 999);
       ROLLBACK;`);
@@ -291,7 +306,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-8', 'factored', 1000
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount, charge_type)
         VALUES ('${SCRATCH}', 'linehaul', 1000, 'lumper');
       ROLLBACK;`);
@@ -309,7 +324,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const err = psqlExpectError(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount, submitted_at)
         SELECT '${SCRATCH}', id, 'SCRATCH-9', 'factored', 1000, now()
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount)
         VALUES ('${SCRATCH}', 'linehaul', 1000);
       ROLLBACK;`);
@@ -321,7 +336,7 @@ describe('billing — behaviour the schema must refuse', () => {
     const rows = psql(`BEGIN;
       INSERT INTO public.invoices (id, load_id, invoice_number, billing_path, amount)
         SELECT '${SCRATCH}', id, 'SCRATCH-10', 'factored', 1000
-        FROM public.loads l WHERE NOT EXISTS (SELECT 1 FROM public.invoices i WHERE i.load_id = l.id) ORDER BY created_at LIMIT 1;
+        FROM public.loads l WHERE l.load_number = 'SCRATCH-READY';
       INSERT INTO public.invoice_line_items (invoice_id, line_type, amount)
         VALUES ('${SCRATCH}', 'linehaul', 1000);
       SELECT count(*)::text FROM public.invoice_line_items WHERE invoice_id = '${SCRATCH}';
@@ -585,11 +600,15 @@ describe('billing — exactly one writer', () => {
            OR proname LIKE 'post_payment%' OR proname LIKE 'record_payment%') ORDER BY 1`);
     expect(fns.sort()).toEqual([
       'allocate_invoice_number',
+      // Pass 3/4 paperwork gate: these three READ and refuse; none writes an invoice.
+      'assert_invoice_ready',
       'close_short_paid_invoice',
       'create_invoice',
       'enforce_ar_aging_snapshot_append_only',
       'enforce_invoice_immutability',
       'enforce_invoice_line_immutability',
+      'guard_invoice_create_paperwork',
+      'invoice_readiness_missing',
       'invoice_writer_active',
       'normalize_invoice_number',
       'post_invoice_payment_internal',
@@ -610,7 +629,8 @@ describe('billing — exactly one writer', () => {
     expect(acl).toContain('authenticated=X');
     expect(acl).not.toContain('anon=X');
     expect(acl).not.toMatch(/(^|\s)=X/);
-    expect(row).toContain("has_role(auth.uid(), 'management'");
+    // 0071 compacted the body; the gate is the same.
+    expect(row).toMatch(/has_role\(auth\.uid\(\),\s*'management'/);
     expect(row).toContain('current_profile_id()');
   });
 

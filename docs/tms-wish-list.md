@@ -1255,3 +1255,7 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
 
 - **Remittance on a same-day submission — OPEN (found 2026-09-25, pass 2).** A remittance dated the same calendar day an invoice was submitted sets `paid_at` to that day's midnight, which is earlier than `submitted_at`, and `invoices_lifecycle_order_check` refuses it. Belongs to the payout PDF matching pass (P67).
 - **Every live broker but one bills DIRECT, but P68 says everything goes through SFF — OPEN, owner decision.** Remittances require `billing_path = 'factored'` (`invoices_purchased_requires_factored_check`), and the path comes from broker factoring status (1 approved, 1 not approved, 11 unknown). Until brokers are marked approved or the rule changes, an SFF payout cannot post against most invoices. Needs an owner answer before the payout pass.
+
+## 2026-09-25 (pass 4)
+- Dispatch board and settlement engine read the carrier's required-document settings (today: built-in defaults, which equal SUPERTRANSPORT's current settings).
+- Drop the deprecated `factoring_companies.packet_order/packet_includes` once nothing reads them.
