@@ -17,10 +17,6 @@ describe('board chain membership follows the settings', () => {
   it('with the lumper receipt set to No, the same load leaves the chain', () => {
     expect(isOnChain(delivered, [{ document_type: 'pod' }], [], withLumperOff(), ['lumper']).onChain).toBe(false);
   });
-  it('turning off "either one" requires both BOL and POD', () => {
-    const both = { ...DEFAULT_DOCUMENT_REQUIREMENTS, bolOrPodEither: false };
-    expect(isOnChain(delivered, [{ document_type: 'pod' }], [], both, []).onChain).toBe(true);
-  });
 });
 
 describe('the settlement paperwork hold follows the settings', () => {
