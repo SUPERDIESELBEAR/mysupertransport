@@ -22,7 +22,7 @@ import {
   Search, Edit2, X, Save, RefreshCw, MapPin, MessageSquare, Clock, ChevronDown, ChevronUp,
   LayoutGrid, List, Phone, Siren, Send, ExternalLink, SlidersHorizontal, Bell, Volume2, VolumeX, Inbox,
   CheckCheck, Users2, Shield, Container, EyeOff, RotateCcw, HelpCircle, Building2, Handshake
-  , Camera
+  , Camera, FileText
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { ToastAction } from '@/components/ui/toast';
@@ -45,6 +45,7 @@ import FacilitiesListPage from '@/pages/dispatch/FacilitiesListPage';
 import BrokersListPage from '@/pages/dispatch/BrokersListPage';
 import ParserDiagnosticsPage from '@/pages/dispatch/ParserDiagnosticsPage';
 import LateAccessorialsPage from '@/pages/management/LateAccessorialsPage';
+import BillingQueuePage from '@/pages/management/BillingQueuePage';
 import LateAccessorialBadge from '@/components/accessorials/LateAccessorialBadge';
 import RateConInboxPage from '@/pages/dispatch/RateConInboxPage';
 import RateConInboxBadge from '@/components/dispatch/RateConInboxBadge';
@@ -184,6 +185,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   const diagnosticsRoute = location.pathname.startsWith('/dispatch/parser-diagnostics');
   // Late accessorials get a real path so a row can be linked to from a load.
   const lateAccessorialsRoute = location.pathname.startsWith('/dispatch/late-accessorials');
+  const billingQueueRoute = location.pathname.startsWith('/dispatch/billing-queue');
   const rateConInboxRoute = location.pathname.startsWith('/dispatch/rate-con-inbox');
   const boardRoute = location.pathname.startsWith('/dispatch/board');
   const loadDetailId = loadsRoute
@@ -618,7 +620,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
   // restores the section. Reads the URL imperatively and does NOT depend on
   // searchParams, so it can never feed back into itself.
   useEffect(() => {
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute || lateAccessorialsRoute) return;
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute || lateAccessorialsRoute || billingQueueRoute) return;
     const next = new URLSearchParams(window.location.search);
     if (activePage && activePage !== 'dispatch') next.set('page', activePage); else next.delete('page');
     if (activeTab && activeTab !== 'all') next.set('filter', activeTab); else next.delete('filter');
@@ -629,7 +631,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     if (next.toString() !== current) {
       setSearchParams(next, { replace: true });
     }
-  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute, boardRoute, lateAccessorialsRoute]);
+  }, [activePage, activeTab, viewMode, setSearchParams, loadsRoute, facilitiesRoute, brokersRoute, diagnosticsRoute, rateConInboxRoute, boardRoute, lateAccessorialsRoute, billingQueueRoute]);
 
   // Clear badges when navigating to the respective tab
   const handleNavigate = (path: string) => {
@@ -649,6 +651,10 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       navigate('/dispatch/parser-diagnostics');
       return;
     }
+    if (path === 'dispatch-billing-queue') {
+      navigate('/dispatch/billing-queue');
+      return;
+    }
     if (path === 'dispatch-late-accessorials') {
       navigate('/dispatch/late-accessorials');
       return;
@@ -663,7 +669,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     }
     const p = path as 'dispatch' | 'dispatch-messages' | 'dispatch-notifications' | 'dispatch-drivers';
     setActivePage(p);
-    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute || lateAccessorialsRoute) {
+    if (loadsRoute || facilitiesRoute || brokersRoute || diagnosticsRoute || rateConInboxRoute || boardRoute || lateAccessorialsRoute || billingQueueRoute) {
       navigate(p === 'dispatch' ? '/dispatch' : `/dispatch?page=${p}`);
     }
     if (p === 'dispatch-messages') {
@@ -2395,6 +2401,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
     { label: 'Rate Con Inbox', icon: <Inbox className="h-4 w-4" />, path: 'dispatch-rate-con-inbox', badgeNode: <RateConInboxBadge /> },
     { label: 'Facilities',     icon: <Building2 className="h-4 w-4" />, path: 'dispatch-facilities' },
     { label: 'Late Accessorials', icon: <FileWarning className="h-4 w-4" />, path: 'dispatch-late-accessorials', badgeNode: <LateAccessorialBadge /> },
+    { label: 'Billing Queue',  icon: <FileText className="h-4 w-4" />, path: 'dispatch-billing-queue' },
     { label: 'Brokers',        icon: <Handshake className="h-4 w-4" />, path: 'dispatch-brokers' },
     { label: 'Driver Hub',     icon: <Users2 className="h-4 w-4" />, path: 'dispatch-drivers' },
     { label: 'Messages',       icon: <MessageSquare className="h-4 w-4" />, path: 'dispatch-messages',       badge: unreadMessages || undefined, dividerBefore: 'Tools' },
@@ -2502,7 +2509,7 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
       <StaffNotificationPreferencesModal open={prefOpen} onClose={() => setPrefOpen(false)} />
       <StaffLayout
         navItems={navItems}
-        currentPath={boardRoute ? 'dispatch-board' : loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : lateAccessorialsRoute ? 'dispatch-late-accessorials' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
+        currentPath={boardRoute ? 'dispatch-board' : loadsRoute ? 'dispatch-loads' : facilitiesRoute ? 'dispatch-facilities' : brokersRoute ? 'dispatch-brokers' : diagnosticsRoute ? 'dispatch-parser-diagnostics' : lateAccessorialsRoute ? 'dispatch-late-accessorials' : billingQueueRoute ? 'dispatch-billing-queue' : rateConInboxRoute ? 'dispatch-rate-con-inbox' : activePage}
         onNavigate={handleNavigate}
         title="Dispatch"
         notificationsPath="/dispatch?tab=notifications"
@@ -2523,6 +2530,8 @@ export default function DispatchPortal({ embedded = false, defaultFilter, onOpen
           ? <ParserDiagnosticsPage />
           : lateAccessorialsRoute
           ? <LateAccessorialsPage />
+          : billingQueueRoute
+          ? <BillingQueuePage />
           : rateConInboxRoute
           ? <RateConInboxPage />
           : brokersRoute
