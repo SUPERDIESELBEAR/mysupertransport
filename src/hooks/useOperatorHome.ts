@@ -4,7 +4,8 @@ import {
   assembleBoard, type BoardLoadInput, type ChainLoad,
 } from '@/lib/dispatchBoard';
 import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
-import { evaluateLoadPaperwork } from '@/lib/loadPaperwork';
+import { DEFAULT_DOCUMENT_REQUIREMENTS, evaluateLoadPaperwork } from '@/lib/loadPaperwork';
+import { chargeContextFrom, fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 import { summarizeOutstandingPaperwork } from '@/lib/paperworkSummary';
 import type { DriverLoadPayEstimate } from '@/lib/driverLoadPay';
 import { nextStop, type HomeStop } from '@/lib/operatorHome';
@@ -62,7 +63,7 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         .from('loads')
         .select(
           'id, load_number, status, load_type, operator_id, created_at, '
-          + 'brokers(company_name), '
+          + 'brokers(company_name), load_charges(charge_type), '
           + 'load_stops(id, stop_sequence, stop_type, facility_name, city, state, '
           + 'appointment_start, appointment_end, actual_arrival_at, actual_departure_at, '
           + 'arrival_source, departure_source)',
@@ -78,13 +79,14 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
       const rows = (loadRows ?? []) as any[];
       const ids = rows.map(r => r.id as string);
 
-      const [{ data: docRows }, { data: excRows }] = await Promise.all([
+      const [{ data: docRows }, { data: excRows }, requirementSettings] = await Promise.all([
         ids.length
           ? supabase.from('load_documents').select('load_id, document_type, photo_label').in('load_id', ids)
           : Promise.resolve({ data: [] as any[] }),
         ids.length
           ? supabase.from('document_exceptions').select('load_id, document_type, status, photo_label').in('load_id', ids)
           : Promise.resolve({ data: [] as any[] }),
+        fetchDocumentRequirementSettings().catch(() => DEFAULT_DOCUMENT_REQUIREMENTS),
       ]);
 
       const documentsByLoad: Record<string, PaperworkDocumentInput[]> = {};
@@ -134,6 +136,8 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         }));
         const paperwork = evaluateLoadPaperwork(
           raw?.load_type, documentsByLoad[c.id] ?? [], exceptionsByLoad[c.id] ?? [],
+          requirementSettings,
+          chargeContextFrom((raw?.load_charges ?? []).map((ch: any) => ch.charge_type)),
         );
         return {
           ...c,

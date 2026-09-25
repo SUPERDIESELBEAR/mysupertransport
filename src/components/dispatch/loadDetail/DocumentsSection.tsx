@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Download, Eye, Loader2, Trash2, Upload } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +20,8 @@ import {
   fetchLoadDocumentExceptions, fetchLoadDocuments, formatFileSize, isImageDocument, validateLoadDocumentFile,
   type LoadDocument, type LoadDocumentType,
 } from '@/lib/loadDocuments';
-import { evaluateLoadPaperwork, waivedSummary, type PaperworkRequirement, type PaperworkStatus } from '@/lib/loadPaperwork';
+import { DEFAULT_DOCUMENT_REQUIREMENTS, evaluateLoadPaperwork, waivedSummary, type PaperworkRequirement, type PaperworkStatus } from '@/lib/loadPaperwork';
+import { chargeContextFrom, fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 import DocumentThumbnail from './DocumentThumbnail';
 
 import DocumentExceptionsList from './DocumentExceptionsList';
@@ -233,6 +235,20 @@ export default function DocumentsSection({
     queryFn: () => fetchLoadDocumentExceptions(load.id),
   });
 
+  const { data: requirementSettings } = useQuery({
+    queryKey: ['document-requirements'],
+    queryFn: fetchDocumentRequirementSettings,
+  });
+
+  const { data: chargeTypes } = useQuery({
+    queryKey: ['load-charge-types', load.id],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('load_charges').select('charge_type').eq('load_id', load.id);
+      if (error) throw error;
+      return (data ?? []).map(c => c.charge_type as string);
+    },
+  });
+
   const deleteMutation = useMutation({
     mutationFn: (doc: LoadDocument) => deleteLoadDocument(doc),
     onSuccess: async () => {
@@ -280,8 +296,11 @@ export default function DocumentsSection({
 
   // Called ONCE. Nothing below re-derives any part of this in JSX.
   const paperwork = useMemo(
-    () => evaluateLoadPaperwork(load.load_type, all, exceptions ?? []),
-    [load.load_type, all, exceptions],
+    () => evaluateLoadPaperwork(
+      load.load_type, all, exceptions ?? [],
+      requirementSettings ?? DEFAULT_DOCUMENT_REQUIREMENTS, chargeContextFrom(chargeTypes ?? []),
+    ),
+    [load.load_type, all, exceptions, requirementSettings, chargeTypes],
   );
 
 
