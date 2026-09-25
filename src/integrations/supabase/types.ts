@@ -3529,6 +3529,91 @@ export type Database = {
           },
         ]
       }
+      document_requirement_settings: {
+        Row: {
+          bol_or_pod_either: boolean
+          company_id: string
+          created_at: string
+          created_by: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          bol_or_pod_either?: boolean
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          bol_or_pod_either?: boolean
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_requirement_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      document_requirements: {
+        Row: {
+          applies_when: string | null
+          company_id: string
+          created_at: string
+          created_by: string | null
+          document_type: string
+          id: string
+          in_packet: boolean
+          position: number
+          required_before_invoicing: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          applies_when?: string | null
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          document_type: string
+          id?: string
+          in_packet?: boolean
+          position: number
+          required_before_invoicing?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          applies_when?: string | null
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          document_type?: string
+          id?: string
+          in_packet?: boolean
+          position?: number
+          required_before_invoicing?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "document_requirements_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       document_send_log: {
         Row: {
           broker_id: string | null
@@ -14866,6 +14951,10 @@ export type Database = {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
       _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
+      _load_has_paperwork: {
+        Args: { p_load_id: string; p_photo_label: string; p_types: string[] }
+        Returns: boolean
+      }
       _load_tracking_assert_staff: {
         Args: { p_load_id: string }
         Returns: {
@@ -15245,6 +15334,21 @@ export type Database = {
       }
       discard_rods_amendment: { Args: { _day_id: string }; Returns: undefined }
       dispatch_settlement_writer_active: { Args: never; Returns: boolean }
+      document_requirement_condition: {
+        Args: { p_type: string }
+        Returns: string
+      }
+      document_requirement_defaults: {
+        Args: never
+        Returns: {
+          applies_when: string
+          document_type: string
+          in_packet: boolean
+          position: number
+          required_before_invoicing: string
+        }[]
+      }
+      document_requirement_label: { Args: { p_type: string }; Returns: string }
       driver_load_pay_estimate: {
         Args: { _load_id: string }
         Returns: {
@@ -15712,6 +15816,15 @@ export type Database = {
           source: string
           suppressed: boolean
           unit_number: string
+        }[]
+      }
+      loadout_required_slots: {
+        Args: never
+        Returns: {
+          document_type: string
+          label: string
+          ord: number
+          photo_label: string
         }[]
       }
       log_ica_event: {
