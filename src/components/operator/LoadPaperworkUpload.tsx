@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import {
-  evaluateLoadPaperwork, waivedSummary,
+  DEFAULT_DOCUMENT_REQUIREMENTS, evaluateLoadPaperwork, waivedSummary,
   type PaperworkDocumentInput, type PaperworkExceptionInput,
   type PaperworkRequirement, type PaperworkStatus,
 } from '@/lib/loadPaperwork';
+import { chargeContextFrom, fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 import {
   uploadLoadDocument, validateLoadDocumentFile, LOAD_DOC_FILE_HINT, type LoadDocumentType,
 } from '@/lib/loadDocuments';
