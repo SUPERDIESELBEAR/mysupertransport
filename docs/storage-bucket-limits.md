@@ -40,7 +40,7 @@ default parse at the time.
 
 ## Every bucket, intended limit, and live agreement
 
-Verified against `storage.buckets` on 2026-09-12, after the caps were applied. All 21.
+Verified against `storage.buckets` on 2026-09-25, after carrier branding was added. All 22.
 
 | Bucket | Public | Intended `file_size_limit` | Live matches | In a migration | Why this value |
 |---|---|---|---|---|---|
@@ -48,6 +48,7 @@ Verified against `storage.buckets` on 2026-09-12, after the caps were applied. A
 | application-revision-replies | no | 10485760 | yes | no | `MAX_FILE_SIZE_BYTES` in the reply attachment control |
 | avatars | yes | 5242880 (5 MiB) | yes | no | `MAX_AVATAR_BYTES`, a cropped square photo |
 | broker-documents | no | 26214400 (25 MiB) | yes | no | `validateLoadDocumentFile`; realigned from 25,000,000 |
+| carrier-branding | no | 1048576 (1 MiB) | yes | **yes** | PNG/JPG carrier logo; matches Billing Settings validation |
 | dot-consultant-attachments | no | 10485760 | yes | no | the staff attachment check on that screen |
 | driver-uploads | no | 26214400 | yes | no | `validateBinderFile` / `validateLoadDocumentFile` |
 | eld-notices | no | **null — deliberate** | yes | no | see below |

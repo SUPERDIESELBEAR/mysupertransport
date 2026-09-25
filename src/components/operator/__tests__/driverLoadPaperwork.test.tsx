@@ -50,7 +50,7 @@ describe('driver paperwork upload list', () => {
     for (const req of expected.outstandingExpected) {
       expect(screen.getByText(req.label)).toBeTruthy();
     }
-    expect(screen.getByText(/expected — send it when you have it/i)).toBeTruthy();
+    expect(screen.queryByText(/expected — send it when you have it/i)).toBeNull();
 
     // Nothing outside the matrix leaked in.
     const labels = DEFAULT_LOAD_PAPERWORK.per_ton.map(r => r.label);
@@ -61,7 +61,7 @@ describe('driver paperwork upload list', () => {
 
   it('an upload writes load_documents and the outstanding list updates', async () => {
     render(<LoadPaperworkUpload loadId="load-1" loadType="standard" />);
-    await screen.findByText('Proof of delivery');
+    await screen.findByText('Signed delivery paperwork — BOL or POD');
 
     // Simulate the document landing, then fire the camera input.
     uploadLoadDocument.mockImplementationOnce(async () => {
@@ -75,12 +75,12 @@ describe('driver paperwork upload list', () => {
 
     await waitFor(() => expect(uploadLoadDocument).toHaveBeenCalledTimes(1));
     expect(uploadLoadDocument.mock.calls[0]?.[0]).toMatchObject({ loadId: 'load-1', documentType: 'pod' });
-    await waitFor(() => expect(screen.queryByText('Proof of delivery')).toBeNull());
+    await waitFor(() => expect(screen.queryByText('Signed delivery paperwork — BOL or POD')).toBeNull());
   });
 
   it('offers a camera path and a file path per requirement', async () => {
     render(<LoadPaperworkUpload loadId="load-1" loadType="standard" />);
-    await screen.findByText('Proof of delivery');
+    await screen.findByText('Signed delivery paperwork — BOL or POD');
     expect(screen.getByTestId('camera-load-1-pod').getAttribute('capture')).toBe('environment');
     expect(screen.getByTestId('file-load-1-pod')).toBeTruthy();
   });

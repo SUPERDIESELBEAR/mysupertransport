@@ -13,7 +13,9 @@ import { Card } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { ArrowDown, ArrowUp, Loader2, X } from 'lucide-react';
+import { ArrowDown, ArrowUp, Eye, ImageUp, Loader2, Trash2, X } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { previewInvoicePdf } from '@/lib/invoicePdf';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MAX_EMAILS = 10;
@@ -24,6 +26,11 @@ export const DOC_LABELS: Record<string, string> = {
   scale_ticket: 'Scale ticket', detention_documentation: 'Detention documentation',
 };
 const docLabel = (t: string) => DOC_LABELS[t] ?? t.replace(/_/g, ' ');
+const DEFAULT_PACKET_INCLUDES: Record<string, boolean> = {
+  invoice: true, bol: true, pod: true, rate_confirmation: true,
+  revised_rate_confirmation: true, lumper_receipt: true, scale_ticket: true,
+  detention_documentation: true,
+};
 
 /** Returns an error message, or null when the address may be added. */
 export function emailProblem(raw: string, list: string[], other: string[]): string | null {
@@ -36,14 +43,15 @@ export function emailProblem(raw: string, list: string[], other: string[]): stri
 }
 
 type Settings = {
-  id: string; remit_to_name: string | null; remit_to_address_1: string | null;
+  id: string; company_id: string; remit_to_name: string | null; remit_to_address_1: string | null;
   remit_to_address_2: string | null; remit_to_city: string | null; remit_to_state: string | null;
   remit_to_zip: string | null; remit_to_phone: string | null; remit_to_email: string | null;
-  payment_terms_days: number;
+  payment_terms_days: number; logo_storage_path: string | null; accent_color: string; footer_note: string | null;
+  show_po_number: boolean; show_mc_usdot: boolean; show_order_date: boolean; show_pickup_date: boolean;
 };
 type Factor = {
   id: string; name: string; is_default: boolean; send_to_emails: string[]; cc_emails: string[];
-  fee_pct: number; packet_style: 'combined' | 'separate'; packet_order: string[];
+  fee_pct: number; packet_style: 'combined' | 'separate'; packet_order: string[]; packet_includes: Record<string, boolean>;
 };
 
 const REMIT_FIELDS: Array<[keyof Settings, string]> = [
@@ -99,6 +107,8 @@ export default function BillingSettingsPage() {
   const [factor, setFactor] = useState<Factor | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [previewing, setPreviewing] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -106,8 +116,15 @@ export default function BillingSettingsPage() {
       supabase.from('billing_settings').select('*').maybeSingle(),
       supabase.from('factoring_companies').select('*').order('is_default', { ascending: false }).limit(1).maybeSingle(),
     ]);
-    setSettings((s.data as Settings) ?? null);
-    setFactor(f.data ? { ...(f.data as Factor), fee_pct: Number((f.data as Factor).fee_pct) } : null);
+    setSettings(s.data ? {
+      accent_color: '#C9A84C', footer_note: null, logo_storage_path: null,
+      show_po_number: true, show_mc_usdot: true, show_order_date: true, show_pickup_date: true,
+      ...(s.data as Settings),
+    } : null);
+    setFactor(f.data ? {
+      ...(f.data as Factor), fee_pct: Number((f.data as Factor).fee_pct),
+      packet_includes: { ...DEFAULT_PACKET_INCLUDES, ...((f.data as Factor).packet_includes ?? {}) },
+    } : null);
     setLoading(false);
   }, []);
   useEffect(() => { void load(); }, [load]);
@@ -129,12 +146,14 @@ export default function BillingSettingsPage() {
         remit_to_address_2: sRest.remit_to_address_2, remit_to_city: sRest.remit_to_city,
         remit_to_state: sRest.remit_to_state, remit_to_zip: sRest.remit_to_zip,
         remit_to_phone: sRest.remit_to_phone, remit_to_email: sRest.remit_to_email,
-        payment_terms_days: Number(sRest.payment_terms_days),
+        payment_terms_days: Number(sRest.payment_terms_days), logo_storage_path: sRest.logo_storage_path,
+        accent_color: sRest.accent_color, footer_note: sRest.footer_note, show_po_number: sRest.show_po_number,
+        show_mc_usdot: sRest.show_mc_usdot, show_order_date: sRest.show_order_date, show_pickup_date: sRest.show_pickup_date,
       }).eq('id', sid);
       if (r1.error) throw r1.error;
       const r2 = await supabase.from('factoring_companies').update({
         name: factor.name, send_to_emails: factor.send_to_emails, cc_emails: factor.cc_emails,
-        fee_pct: factor.fee_pct, packet_style: factor.packet_style, packet_order: factor.packet_order,
+        fee_pct: factor.fee_pct, packet_style: factor.packet_style, packet_order: factor.packet_order, packet_includes: factor.packet_includes,
       }).eq('id', factor.id);
       if (r2.error) throw r2.error;
       toast({ title: 'Billing settings saved' });
@@ -142,6 +161,43 @@ export default function BillingSettingsPage() {
     } catch (e) {
       toast({ title: 'Not saved', description: e instanceof Error ? e.message : String(e), variant: 'destructive' });
     } finally { setSaving(false); }
+  };
+
+  const uploadLogo = async (file: File) => {
+    if (!settings || !['image/png', 'image/jpeg'].includes(file.type) || file.size > 1024 * 1024) {
+      toast({ title: 'Logo not accepted', description: 'Choose a PNG or JPG up to 1 MB.', variant: 'destructive' }); return;
+    }
+    setLogoBusy(true);
+    try {
+      const ext = file.type === 'image/png' ? 'png' : 'jpg';
+      const path = `${settings.company_id}/logo.${ext}`;
+      if (settings.logo_storage_path && settings.logo_storage_path !== path) await supabase.storage.from('carrier-branding').remove([settings.logo_storage_path]);
+      const { error } = await supabase.storage.from('carrier-branding').upload(path, file, { contentType: file.type, upsert: true });
+      if (error) throw error;
+      setSettings({ ...settings, logo_storage_path: path });
+      toast({ title: 'Logo uploaded', description: 'Save billing settings to use it on invoices.' });
+    } catch (e) { toast({ title: 'Logo not uploaded', description: e instanceof Error ? e.message : String(e), variant: 'destructive' }); }
+    finally { setLogoBusy(false); }
+  };
+
+  const removeLogo = async () => {
+    if (!settings?.logo_storage_path) return;
+    setLogoBusy(true);
+    const { error } = await supabase.storage.from('carrier-branding').remove([settings.logo_storage_path]);
+    if (error) toast({ title: 'Logo not removed', description: error.message, variant: 'destructive' });
+    else setSettings({ ...settings, logo_storage_path: null });
+    setLogoBusy(false);
+  };
+
+  const preview = async () => {
+    setPreviewing(true);
+    try {
+      const { data, error } = await supabase.from('invoices').select('id').order('created_at', { ascending: false }).limit(1).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error('There is no invoice to preview yet.');
+      await previewInvoicePdf(data.id);
+    } catch (e) { toast({ title: 'Preview not opened', description: e instanceof Error ? e.message : String(e), variant: 'destructive' }); }
+    finally { setPreviewing(false); }
   };
 
   if (loading) return <div className="flex items-center gap-2 text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" /> Loading…</div>;
@@ -173,6 +229,28 @@ export default function BillingSettingsPage() {
               onChange={(e) => setSettings({ ...settings, payment_terms_days: Number(e.target.value) })} />
           </div>
         </div>
+      </Card>
+
+
+      <Card className="p-5 space-y-5">
+        <h2 className="font-semibold">Invoice appearance</h2>
+        <div className="flex flex-wrap items-center gap-3">
+          {editable && <Label className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+            <ImageUp className="h-4 w-4" /> {settings.logo_storage_path ? 'Replace logo' : 'Upload logo'}
+            <input className="hidden" type="file" accept="image/png,image/jpeg" disabled={logoBusy}
+              onChange={e => { const f=e.target.files?.[0]; e.target.value=''; if(f) void uploadLogo(f); }} />
+          </Label>}
+          {settings.logo_storage_path && editable && <Button type="button" variant="outline" size="sm" onClick={removeLogo} disabled={logoBusy}><Trash2 className="h-4 w-4 mr-2" />Remove logo</Button>}
+          <span className="text-sm text-muted-foreground">{settings.logo_storage_path ? 'Logo ready' : 'Carrier name will be shown'}</span>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-4">
+          <div className="space-y-1"><Label htmlFor="accent">Accent color</Label><Input id="accent" type="color" className="h-10 w-20" disabled={!editable} value={settings.accent_color} onChange={e=>setSettings({...settings,accent_color:e.target.value})}/></div>
+          <div className="space-y-1 sm:col-span-2"><Label htmlFor="footer">Footer note</Label><Input id="footer" maxLength={240} disabled={!editable} value={settings.footer_note ?? ''} onChange={e=>setSettings({...settings,footer_note:e.target.value})}/><p className="text-xs text-muted-foreground text-right">{(settings.footer_note ?? '').length}/240</p></div>
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          {([['show_po_number','PO number'],['show_mc_usdot','MC / USDOT'],['show_order_date','Order date'],['show_pickup_date','Pickup date']] as const).map(([key,label])=><div key={key} className="flex items-center justify-between rounded border px-3 py-2"><Label htmlFor={key}>{label}</Label><Switch id={key} disabled={!editable} checked={settings[key]} onCheckedChange={v=>setSettings({...settings,[key]:v})}/></div>)}
+        </div>
+        <Button type="button" variant="outline" onClick={preview} disabled={previewing}><Eye className="h-4 w-4 mr-2" />{previewing ? 'Opening…' : 'Preview invoice'}</Button>
       </Card>
 
       <Card className="p-5 space-y-5">
@@ -212,7 +290,7 @@ export default function BillingSettingsPage() {
           <ol className="space-y-1">
             {factor.packet_order.map((t, i) => (
               <li key={t} className="flex items-center justify-between rounded border px-3 py-1.5 text-sm">
-                <span>{i + 1}. {docLabel(t)}</span>
+                <span className="flex items-center gap-2"><Switch aria-label={`Include ${docLabel(t)}`} disabled={!editable || t === 'invoice'} checked={factor.packet_includes[t] !== false} onCheckedChange={v=>setFactor({...factor,packet_includes:{...factor.packet_includes,[t]:v}})} />{i + 1}. {docLabel(t)}</span>
                 {editable && (
                   <span className="flex gap-1">
                     <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Move ${docLabel(t)} up`}

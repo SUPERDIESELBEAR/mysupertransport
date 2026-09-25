@@ -130,7 +130,14 @@ Deno.serve(async (req) => {
     throw e;
   }
 
-  const { bytes, pageCount } = await renderInvoicePdf(doc);
+  let logo: { bytes: Uint8Array; contentType: string } | null = null;
+  if (settingsR.data.logo_storage_path) {
+    const { data: logoBlob, error: logoError } = await admin.storage
+      .from('carrier-branding').download(settingsR.data.logo_storage_path);
+    if (logoError || !logoBlob) return json({ error: 'The carrier logo could not be read' }, 500);
+    logo = { bytes: new Uint8Array(await logoBlob.arrayBuffer()), contentType: logoBlob.type };
+  }
+  const { bytes, pageCount } = await renderInvoicePdf(doc, logo);
   if (dryRun) return fileOut(bytes, false, pageCount);
 
   const path = `${companyId}/${invoice.id}.pdf`;

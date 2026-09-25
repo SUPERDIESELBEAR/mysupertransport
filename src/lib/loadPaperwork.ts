@@ -11,9 +11,9 @@ import {
  * PURE. No supabase, no React, no queries — the caller already holds the
  * documents and the exceptions, and hands them in.
  *
- * Two levels exist because one is not enough. A BOL is wanted at origin and
- * frequently never materialises; requiring it would park loads on a driver's
- * chain forever, and omitting it entirely would mean nobody ever chases it.
+ * Two levels exist because one is not enough. A signed BOL or POD completes
+ * ordinary delivery paperwork. The counterpart is still expected and chased,
+ * but never holds the load by itself.
  * So:
  *   'required' — the load is not finished until this is satisfied. Holds the
  *                load on the driver's chain.
@@ -49,11 +49,11 @@ export interface PaperworkRequirement {
  */
 export const DEFAULT_LOAD_PAPERWORK: Record<LoadType, PaperworkRequirement[]> = {
   standard: [
-    { documentType: 'pod', level: 'required', label: 'Proof of delivery' },
+    { documentType: 'pod', level: 'expected', label: 'Proof of delivery' },
     { documentType: 'bol', level: 'expected', label: 'Bill of lading (collected at pickup)' },
   ],
   per_ton: [
-    { documentType: 'pod', level: 'required', label: 'Proof of delivery' },
+    { documentType: 'pod', level: 'expected', label: 'Proof of delivery' },
     { documentType: 'scale_ticket', level: 'required', label: 'Scale ticket' },
     { documentType: 'bol', level: 'expected', label: 'Bill of lading (collected at pickup)' },
   ],
@@ -141,7 +141,29 @@ export function evaluateLoadPaperwork(
   const satisfied: SatisfiedRequirement[] = [];
   const pendingExceptions: PaperworkRequirement[] = [];
 
+  // P73: either signed BOL or POD satisfies ordinary delivery paperwork. The
+  // absent counterpart remains expected, so both are still chased when present.
+  const ordinary = loadType !== 'loadout';
+  const signedTypes: LoadDocumentType[] = ['bol', 'pod'];
+  const signedSatisfied = ordinary && signedTypes.some(documentType => {
+      const req: PaperworkRequirement = { documentType, level: 'required', label: '' };
+      if (hasDocument(docs, req)) return true;
+      return excs.some(e => e.document_type === documentType && e.status === 'approved');
+  });
+  if (ordinary) {
+    if (!signedSatisfied) {
+      const signedRequirement: PaperworkRequirement = {
+        documentType: 'pod', level: 'required', label: 'Signed delivery paperwork — BOL or POD',
+      };
+      outstandingRequired.push(signedRequirement);
+      if (excs.some(e => signedTypes.includes(e.document_type as LoadDocumentType) && e.status === 'pending')) {
+        pendingExceptions.push(signedRequirement);
+      }
+    }
+  }
+
   requirements.forEach(req => {
+    if (ordinary && !signedSatisfied && signedTypes.includes(req.documentType)) return;
     if (hasDocument(docs, req)) {
       satisfied.push({ requirement: req, satisfiedBy: 'document' });
       return;
@@ -156,11 +178,6 @@ export function evaluateLoadPaperwork(
       satisfied.push({ requirement: req, satisfiedBy: 'exception_approved' });
       return;
     }
-    if (mine.some(e => e.status === 'resolved')) {
-      satisfied.push({ requirement: req, satisfiedBy: 'exception_resolved' });
-      return;
-    }
-
     if (mine.some(e => e.status === 'pending')) pendingExceptions.push(req);
 
     if (req.level === 'required') outstandingRequired.push(req);

@@ -63,11 +63,11 @@ describe('Outstanding paperwork block', () => {
     expect(screen.queryByText('Required — outstanding')).not.toBeInTheDocument();
   });
 
-  it('lists a missing POD as required outstanding', async () => {
+  it('lists missing signed delivery paperwork as BOL or POD', async () => {
     docs.mockResolvedValue([]);
     await renderSection('standard');
     expect(await screen.findByText('Required — outstanding')).toBeInTheDocument();
-    expect(screen.getByText('Proof of delivery')).toBeInTheDocument();
+    expect(screen.getByText('Signed delivery paperwork — BOL or POD')).toBeInTheDocument();
   });
 
   it('shows the loadout roof check separately from the pickup set', async () => {

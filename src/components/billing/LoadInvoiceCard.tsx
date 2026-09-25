@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import InvoicePdfButton from '@/components/billing/InvoicePdfButton';
 import { fetchInvoiceFiles } from '@/lib/invoicePdf';
+import PacketPreviewButton from '@/components/billing/PacketPreviewButton';
 
 const money = (n: number) => n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
 
@@ -27,11 +28,14 @@ export default function LoadInvoiceCard({ loadId }: { loadId: string }) {
         <div className="text-xs text-muted-foreground">Invoice</div>
         <div className="font-medium">{data.invoice_number} · {money(Number(data.amount))}</div>
       </div>
-      <InvoicePdfButton
-        invoiceId={data.id}
-        storagePath={data.storagePath}
-        onCreated={() => qc.invalidateQueries({ queryKey: key })}
-      />
+      <div className="flex gap-2">
+        <PacketPreviewButton loadId={loadId} />
+        <InvoicePdfButton
+          invoiceId={data.id}
+          storagePath={data.storagePath}
+          onCreated={() => qc.invalidateQueries({ queryKey: key })}
+        />
+      </div>
     </div>
   );
 }

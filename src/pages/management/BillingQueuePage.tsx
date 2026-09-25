@@ -22,6 +22,7 @@ import {
   gatherBillingQueue, storeInvoice, type QueuedLoad,
 } from '@/lib/billingRun';
 import InvoicePdfButton from '@/components/billing/InvoicePdfButton';
+import PacketPreviewButton from '@/components/billing/PacketPreviewButton';
 import { createInvoicePdf, fetchInvoiceFiles } from '@/lib/invoicePdf';
 
 interface RecentInvoice { id: string; invoice_number: string; amount: number; loadNumber: string; storagePath: string | null }
@@ -189,7 +190,8 @@ export default function BillingQueuePage() {
                     {r.billingPath === 'factored' ? 'Factored' : 'Direct'}
                   </Badge>
                   <span className="text-lg font-semibold">{money(r.invoice.amount)}</span>
-                  <Button size="sm" onClick={() => setConfirming(r)}>Create invoice</Button>
+                  <PacketPreviewButton loadId={r.loadId} />
+                  <Button size="sm" onClick={() => setConfirming(r)} disabled={r.missing.length > 0}>Create invoice</Button>
                 </div>
               </div>
 
@@ -209,6 +211,12 @@ export default function BillingQueuePage() {
                     {FACTORING_LABEL[r.factoringStatus ?? ''] ?? 'No broker on this load'} —
                     {' '}bills {r.billingPath === 'factored' ? 'through the factor' : 'direct to the broker'}.
                   </p>
+                  {r.missing.length > 0 && (
+                    <div className="pt-2 text-sm text-destructive">
+                      <p className="font-medium">Missing before invoicing:</p>
+                      <ul className="list-disc pl-5">{r.missing.map(item => <li key={item}>{item}</li>)}</ul>
+                    </div>
+                  )}
                 </div>
               )}
             </Card>

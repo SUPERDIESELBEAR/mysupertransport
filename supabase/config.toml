@@ -40,6 +40,8 @@ project_id = "qgxpkcudwjmacrdcyvhj"
 
   [functions.generate-invoice-pdf]
     verify_jwt = false
+  [functions.build-invoice-packet]
+    verify_jwt = false
 
 [functions.process-email-queue]
 verify_jwt = true

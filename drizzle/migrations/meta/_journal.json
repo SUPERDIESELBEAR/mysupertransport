@@ -491,6 +491,27 @@
       "when": 1790340871872,
       "tag": "0069_invoice_files_storage_policy_wrap",
       "breakpoints": true
+    },
+    {
+      "idx": 70,
+      "version": "7",
+      "when": 1790343499999,
+      "tag": "0070_paperwork_invoice_branding",
+      "breakpoints": true
+    },
+    {
+      "idx": 71,
+      "version": "7",
+      "when": 1790343935750,
+      "tag": "0071_invoice_gate_order_fix",
+      "breakpoints": true
+    },
+    {
+      "idx": 72,
+      "version": "7",
+      "when": 1790344043704,
+      "tag": "0072_tighten_invoice_readiness_execution",
+      "breakpoints": true
     }
   ]
 }
