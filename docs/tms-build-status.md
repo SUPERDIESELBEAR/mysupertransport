@@ -19827,3 +19827,12 @@ Report: docs/passes/2026-09-24-2330-stop-times-move-status.md.
 - Dispatch: load page shows the new status without a reload; board auto-refreshes every 60s while visible (loads NOT added to realtime).
 - Wish-list item "DRIVERS CANNOT MOVE A LOAD'S STATUS" closed.
 - Exact counts: pre-delivery loads with no delivery stop 0; loads with any drop & hook stop 0.
+
+
+## Owner decision 2026-09-24 — broker tracking link (P64)
+
+- P64 (owner, 2026-09-24): The broker tracking link shows the load's status and its stops with appointment, arrival and departure times. No rates or money, no driver name or phone, and no live truck location for now. A live location from Motive may come later as its own pass.
+
+## Pass — Alvys M1 pass 3: broker tracking link (P52, P64) — 2026-09-24
+
+Migration 0066: get_or_create_load_tracking_link / revoke_load_tracking_link (dispatcher, management, owner; same company checked inside the function; cancelled/TONU refused; a revoked link gets a new token) and resolve_load_tracking_link (anon, through the unchanged _share_token_gate; whitelisted keys only; labels computed in the database; not active when revoked/expired/unknown/wrong scope/cancelled/TONU/delivered over 7 days). Scope 'load_tracking' on share_tokens; no new table. Public page /track/:token (noindex, 5-minute refresh); "Broker tracking" card on the load page. Proven in one raising transaction, residue 0. Report: docs/passes/2026-09-24-2359-broker-tracking-link.md.
