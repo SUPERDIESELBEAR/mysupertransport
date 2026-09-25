@@ -7390,6 +7390,75 @@ export type Database = {
           },
         ]
       }
+      invoice_sends: {
+        Row: {
+          attachments: Json
+          cc_emails: string[]
+          company_id: string
+          created_at: string
+          error: string | null
+          id: string
+          invoice_id: string
+          is_test: boolean
+          packet_style: string
+          provider_message_id: string | null
+          sent_at: string
+          sent_by: string
+          status: string
+          subject: string
+          to_emails: string[]
+        }
+        Insert: {
+          attachments?: Json
+          cc_emails?: string[]
+          company_id: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          invoice_id: string
+          is_test?: boolean
+          packet_style: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by: string
+          status: string
+          subject: string
+          to_emails: string[]
+        }
+        Update: {
+          attachments?: Json
+          cc_emails?: string[]
+          company_id?: string
+          created_at?: string
+          error?: string | null
+          id?: string
+          invoice_id?: string
+          is_test?: boolean
+          packet_style?: string
+          provider_message_id?: string | null
+          sent_at?: string
+          sent_by?: string
+          status?: string
+          subject?: string
+          to_emails?: string[]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_sends_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_sends_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           amount: number
@@ -16046,6 +16115,22 @@ export type Database = {
       record_factoring_remittance: { Args: { p_payload: Json }; Returns: Json }
       record_invoice_payment: {
         Args: { p_invoice_id: string; p_payload: Json }
+        Returns: Json
+      }
+      record_invoice_send: {
+        Args: {
+          p_attachments: Json
+          p_cc: string[]
+          p_error: string
+          p_invoice_id: string
+          p_is_test: boolean
+          p_packet_style: string
+          p_provider_message_id: string
+          p_sent_by: string
+          p_status: string
+          p_subject: string
+          p_to: string[]
+        }
         Returns: Json
       }
       record_loadout_damage_flag: {
