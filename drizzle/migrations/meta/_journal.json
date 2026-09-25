@@ -512,6 +512,13 @@
       "when": 1790344043704,
       "tag": "0072_tighten_invoice_readiness_execution",
       "breakpoints": true
+    },
+    {
+      "idx": 73,
+      "version": "7",
+      "when": 1790346033389,
+      "tag": "0073_required_documents_settings",
+      "breakpoints": true
     }
   ]
 }

@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowDown, ArrowUp, Eye, ImageUp, Loader2, Trash2, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { previewInvoicePdf } from '@/lib/invoicePdf';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { APPLIES_WHEN, APPLIES_WHEN_LABEL, REQUIREMENT_LABEL, type RequiredChoice } from '@/lib/loadPaperwork';
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const MAX_EMAILS = 10;
@@ -25,11 +27,10 @@ export const DOC_LABELS: Record<string, string> = {
   revised_rate_confirmation: 'Revised rate confirmation', lumper_receipt: 'Lumper receipt',
   scale_ticket: 'Scale ticket', detention_documentation: 'Detention documentation',
 };
-const docLabel = (t: string) => DOC_LABELS[t] ?? t.replace(/_/g, ' ');
-const DEFAULT_PACKET_INCLUDES: Record<string, boolean> = {
-  invoice: true, bol: true, pod: true, rate_confirmation: true,
-  revised_rate_confirmation: true, lumper_receipt: true, scale_ticket: true,
-  detention_documentation: true,
+const docLabel = (t: string) => DOC_LABELS[t] ?? REQUIREMENT_LABEL[t] ?? t.replace(/_/g, ' ');
+type ReqRow = {
+  id: string; document_type: string; required_before_invoicing: RequiredChoice;
+  applies_when: string | null; in_packet: boolean; position: number;
 };
 
 /** Returns an error message, or null when the address may be added. */
@@ -51,7 +52,7 @@ type Settings = {
 };
 type Factor = {
   id: string; name: string; is_default: boolean; send_to_emails: string[]; cc_emails: string[];
-  fee_pct: number; packet_style: 'combined' | 'separate'; packet_order: string[]; packet_includes: Record<string, boolean>;
+  fee_pct: number; packet_style: 'combined' | 'separate';
 };
 
 const REMIT_FIELDS: Array<[keyof Settings, string]> = [
@@ -105,6 +106,8 @@ export default function BillingSettingsPage() {
   const { toast } = useToast();
   const [settings, setSettings] = useState<Settings | null>(null);
   const [factor, setFactor] = useState<Factor | null>(null);
+  const [reqs, setReqs] = useState<ReqRow[]>([]);
+  const [either, setEither] = useState(true);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [previewing, setPreviewing] = useState(false);
@@ -112,10 +115,14 @@ export default function BillingSettingsPage() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [s, f] = await Promise.all([
+    const [s, f, r, e] = await Promise.all([
       supabase.from('billing_settings').select('*').maybeSingle(),
       supabase.from('factoring_companies').select('*').order('is_default', { ascending: false }).limit(1).maybeSingle(),
+      supabase.from('document_requirements').select('id, document_type, required_before_invoicing, applies_when, in_packet, position').order('position'),
+      supabase.from('document_requirement_settings').select('bol_or_pod_either').maybeSingle(),
     ]);
+    setReqs((r.data ?? []) as ReqRow[]);
+    setEither(e.data?.bol_or_pod_either ?? true);
     setSettings(s.data ? {
       accent_color: '#C9A84C', footer_note: null, logo_storage_path: null,
       show_po_number: true, show_mc_usdot: true, show_order_date: true, show_pickup_date: true,
@@ -123,18 +130,17 @@ export default function BillingSettingsPage() {
     } : null);
     setFactor(f.data ? {
       ...(f.data as Factor), fee_pct: Number((f.data as Factor).fee_pct),
-      packet_includes: { ...DEFAULT_PACKET_INCLUDES, ...((f.data as Factor).packet_includes ?? {}) },
     } : null);
     setLoading(false);
   }, []);
   useEffect(() => { void load(); }, [load]);
 
   const move = (i: number, d: -1 | 1) => {
-    if (!factor) return;
-    const o = [...factor.packet_order];
+    const o = [...reqs];
     [o[i], o[i + d]] = [o[i + d], o[i]];
-    setFactor({ ...factor, packet_order: o });
+    setReqs(o.map((row, k) => ({ ...row, position: k + 1 })));
   };
+  const setReq = (i: number, patch: Partial<ReqRow>) => setReqs(reqs.map((r, k) => (k === i ? { ...r, ...patch } : r)));
 
   const save = async () => {
     if (!settings || !factor) return;
@@ -153,9 +159,17 @@ export default function BillingSettingsPage() {
       if (r1.error) throw r1.error;
       const r2 = await supabase.from('factoring_companies').update({
         name: factor.name, send_to_emails: factor.send_to_emails, cc_emails: factor.cc_emails,
-        fee_pct: factor.fee_pct, packet_style: factor.packet_style, packet_order: factor.packet_order, packet_includes: factor.packet_includes,
+        fee_pct: factor.fee_pct, packet_style: factor.packet_style,
       }).eq('id', factor.id);
       if (r2.error) throw r2.error;
+      for (const row of reqs) {
+        const r3 = await supabase.from('document_requirements').update({
+          required_before_invoicing: row.required_before_invoicing, in_packet: row.in_packet, position: row.position,
+        }).eq('id', row.id);
+        if (r3.error) throw r3.error;
+      }
+      const r4 = await supabase.from('document_requirement_settings').update({ bol_or_pod_either: either }).eq('company_id', settings.company_id);
+      if (r4.error) throw r4.error;
       toast({ title: 'Billing settings saved' });
       await load();
     } catch (e) {
@@ -285,24 +299,51 @@ export default function BillingSettingsPage() {
             ))}
           </div>
         </div>
-        <div className="space-y-2">
-          <Label>Document order</Label>
-          <ol className="space-y-1">
-            {factor.packet_order.map((t, i) => (
-              <li key={t} className="flex items-center justify-between rounded border px-3 py-1.5 text-sm">
-                <span className="flex items-center gap-2"><Switch aria-label={`Include ${docLabel(t)}`} disabled={!editable || t === 'invoice'} checked={factor.packet_includes[t] !== false} onCheckedChange={v=>setFactor({...factor,packet_includes:{...factor.packet_includes,[t]:v}})} />{i + 1}. {docLabel(t)}</span>
+      </Card>
+
+      <Card className="p-5 space-y-4">
+        <div>
+          <h2 className="font-semibold">Required documents and packet</h2>
+          <p className="text-sm text-muted-foreground mt-1">What must be on file before a load can be invoiced, what goes in the packet, and in which order. Drivers' paperwork reminders follow the same list.</p>
+        </div>
+        <div className="flex items-center justify-between rounded border px-3 py-2">
+          <Label htmlFor="either">BOL or POD — either one is enough</Label>
+          <Switch id="either" disabled={!editable} checked={either} onCheckedChange={setEither} />
+        </div>
+        <ol className="space-y-1">
+          {reqs.map((r, i) => {
+            const cond = APPLIES_WHEN[r.document_type];
+            return (
+              <li key={r.id} className="flex flex-wrap items-center gap-3 rounded border px-3 py-2 text-sm">
+                <span className="flex-1 min-w-[10rem]">{i + 1}. {docLabel(r.document_type)}</span>
+                {r.document_type !== 'invoice' && (
+                  <Select disabled={!editable} value={r.required_before_invoicing}
+                    onValueChange={v => setReq(i, { required_before_invoicing: v as RequiredChoice })}>
+                    <SelectTrigger className="h-8 w-48" aria-label={`Required before invoicing: ${docLabel(r.document_type)}`}><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="always">Required: Always</SelectItem>
+                      {cond && <SelectItem value="when_applies">Required: {APPLIES_WHEN_LABEL[cond]}</SelectItem>}
+                      <SelectItem value="no">Required: No</SelectItem>
+                    </SelectContent>
+                  </Select>
+                )}
+                <span className="flex items-center gap-2">
+                  <Switch aria-label={`In the packet: ${docLabel(r.document_type)}`} disabled={!editable || r.document_type === 'invoice'}
+                    checked={r.in_packet} onCheckedChange={v => setReq(i, { in_packet: v })} />
+                  <span className="text-muted-foreground">In packet</span>
+                </span>
                 {editable && (
                   <span className="flex gap-1">
-                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Move ${docLabel(t)} up`}
+                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Move ${docLabel(r.document_type)} up`}
                       disabled={i === 0} onClick={() => move(i, -1)}><ArrowUp className="h-4 w-4" /></Button>
-                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Move ${docLabel(t)} down`}
-                      disabled={i === factor.packet_order.length - 1} onClick={() => move(i, 1)}><ArrowDown className="h-4 w-4" /></Button>
+                    <Button type="button" size="icon" variant="ghost" className="h-7 w-7" aria-label={`Move ${docLabel(r.document_type)} down`}
+                      disabled={i === reqs.length - 1} onClick={() => move(i, 1)}><ArrowDown className="h-4 w-4" /></Button>
                   </span>
                 )}
               </li>
-            ))}
-          </ol>
-        </div>
+            );
+          })}
+        </ol>
       </Card>
 
       {editable && (

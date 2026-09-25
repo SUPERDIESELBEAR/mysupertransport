@@ -67,7 +67,7 @@ describe('summarizeOutstandingPaperwork', () => {
     const status = evaluateLoadPaperwork('per_ton', [], []);
     const lines = summarizeOutstandingPaperwork(status.outstandingRequired);
 
-    expect(lines).toEqual(['Proof of delivery', 'Scale ticket']);
+    expect(lines).toEqual(['Signed delivery paperwork — BOL or POD', 'Scale ticket']);
   });
 
   it('returns nothing when nothing is outstanding', () => {

@@ -5,10 +5,11 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { getDbErrorMessage, logDbError } from '@/lib/dbError';
 import {
-  evaluateLoadPaperwork, waivedSummary,
+  DEFAULT_DOCUMENT_REQUIREMENTS, evaluateLoadPaperwork, waivedSummary,
   type PaperworkDocumentInput, type PaperworkExceptionInput,
   type PaperworkRequirement, type PaperworkStatus,
 } from '@/lib/loadPaperwork';
+import { chargeContextFrom, fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 import {
   uploadLoadDocument, validateLoadDocumentFile, LOAD_DOC_FILE_HINT, type LoadDocumentType,
 } from '@/lib/loadDocuments';
@@ -106,14 +107,18 @@ export function LoadPaperworkUpload({ loadId, loadType, onUploaded }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    const [{ data: docs }, { data: excs }] = await Promise.all([
+    const [{ data: docs }, { data: excs }, { data: charges }, settings] = await Promise.all([
       supabase.from('load_documents').select('document_type, photo_label').eq('load_id', loadId),
       supabase.from('document_exceptions').select('document_type, status, photo_label').eq('load_id', loadId),
+      supabase.from('load_charges').select('charge_type').eq('load_id', loadId),
+      fetchDocumentRequirementSettings().catch(() => DEFAULT_DOCUMENT_REQUIREMENTS),
     ]);
     setStatus(evaluateLoadPaperwork(
       loadType,
       (docs ?? []) as PaperworkDocumentInput[],
       (excs ?? []) as PaperworkExceptionInput[],
+      settings,
+      chargeContextFrom((charges ?? []).map(c => c.charge_type as string)),
     ));
   }, [loadId, loadType]);
 
