@@ -346,6 +346,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.get_application_correction_by_token(text)",
   
   "public.get_equipment_shipping_for_operator(uuid)",
+  "public.get_or_create_load_tracking_link(uuid)",
   "public.get_or_create_short_link(text)",
   "public.get_pei_queue()",
   "public.get_pei_request_for_response(uuid)",
@@ -425,6 +426,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   // both re-check management/owner via has_role inside the function.
   "public.set_pei_cadence_settings(boolean,integer,integer,text)",
   "public.set_pei_request_auto_pause(uuid,boolean,text)",
+  "public.revoke_load_tracking_link(uuid)",
   "public.revoke_share_token(uuid)",
   "public.save_application_draft(uuid,jsonb)",
   "public.search_audit_log(text,text,timestamp with time zone,timestamp with time zone,integer,integer,uuid,uuid)",
