@@ -95,9 +95,9 @@ describe('dispatchers issue, and only issue (structure)', () => {
 
   itS('the invoiced step is admitted only through create_invoice\'s transaction-local flag', () => {
     const inv = def('create_invoice');
-    expect(inv).toMatch(/set_config\('superdrive\.invoice_issue', 'on', true\);\s+PERFORM public\.update_load_status\(p_load_id, 'invoiced'::load_status, NULL\);\s+PERFORM set_config\('superdrive\.invoice_issue', '', true\);/);
+    expect(inv).toMatch(/set_config\('superdrive\.invoice_issue',\s*'on',\s*true\);\s*PERFORM public\.update_load_status\(p_load_id,\s*'invoiced'::load_status,\s*NULL\);\s*PERFORM set_config\('superdrive\.invoice_issue',\s*'',\s*true\);/);
     const uls = def('update_load_status');
-    expect(uls).toMatch(/p_new_status = 'invoiced'::load_status\s+AND coalesce\(current_setting\('superdrive\.invoice_issue', true\), ''\) = 'on'/);
+    expect(uls).toMatch(/p_new_status\s*=\s*'invoiced'(?:\:\:load_status)?\s+AND coalesce\(current_setting\('superdrive\.invoice_issue',\s*true\),\s*''\)\s*=\s*'on'/);
     expect(uls).toMatch(/Billing status changes require management access/);
   }, 30000);
 

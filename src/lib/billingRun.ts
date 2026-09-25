@@ -39,6 +39,7 @@ export interface QueuedLoad {
   /** Frozen from the broker's factoring status; only `approved` bills factored. */
   billingPath: BillingPath;
   deliveredAt: string | null;
+  missing: string[];
   invoice: BuiltInvoice;
 }
 
@@ -65,9 +66,11 @@ export async function gatherBillingQueue(sb: Client): Promise<QueuedLoad[]> {
 
   if (error) throw new Error(`Could not read the billing queue: ${error.message}`);
 
-  return (data ?? []).map((row: any) => {
+  return Promise.all((data ?? []).map(async (row: any) => {
     const broker = Array.isArray(row.brokers) ? row.brokers[0] : row.brokers;
     const charges = (row.load_charges ?? []) as LoadChargeRecord[];
+    const { data: missing, error: missingError } = await sb.rpc('invoice_readiness_missing', { p_load_id: row.id });
+    if (missingError) throw new Error(`Could not check ${row.load_number}: ${missingError.message}`);
     return {
       loadId: row.id,
       loadNumber: row.load_number,
@@ -76,6 +79,7 @@ export async function gatherBillingQueue(sb: Client): Promise<QueuedLoad[]> {
       factoringStatus: broker?.factoring_status ?? null,
       billingPath: billingPathFor(broker?.factoring_status),
       deliveredAt: row.delivered_at ?? null,
+      missing: (missing ?? []) as string[],
       invoice: buildLoadInvoice({
         id: row.id,
         loadNumber: row.load_number,
@@ -92,7 +96,7 @@ export async function gatherBillingQueue(sb: Client): Promise<QueuedLoad[]> {
         charges,
       }),
     } satisfies QueuedLoad;
-  });
+  }));
 }
 
 export interface StoredInvoice {

@@ -1002,10 +1002,13 @@ export type Database = {
       }
       billing_settings: {
         Row: {
+          accent_color: string
           company_id: string
           created_at: string
           created_by: string | null
+          footer_note: string | null
           id: string
+          logo_storage_path: string | null
           payment_terms_days: number
           remit_to_address_1: string | null
           remit_to_address_2: string | null
@@ -1015,14 +1018,21 @@ export type Database = {
           remit_to_phone: string | null
           remit_to_state: string | null
           remit_to_zip: string | null
+          show_mc_usdot: boolean
+          show_order_date: boolean
+          show_pickup_date: boolean
+          show_po_number: boolean
           updated_at: string
           updated_by: string | null
         }
         Insert: {
+          accent_color?: string
           company_id: string
           created_at?: string
           created_by?: string | null
+          footer_note?: string | null
           id?: string
+          logo_storage_path?: string | null
           payment_terms_days?: number
           remit_to_address_1?: string | null
           remit_to_address_2?: string | null
@@ -1032,14 +1042,21 @@ export type Database = {
           remit_to_phone?: string | null
           remit_to_state?: string | null
           remit_to_zip?: string | null
+          show_mc_usdot?: boolean
+          show_order_date?: boolean
+          show_pickup_date?: boolean
+          show_po_number?: boolean
           updated_at?: string
           updated_by?: string | null
         }
         Update: {
+          accent_color?: string
           company_id?: string
           created_at?: string
           created_by?: string | null
+          footer_note?: string | null
           id?: string
+          logo_storage_path?: string | null
           payment_terms_days?: number
           remit_to_address_1?: string | null
           remit_to_address_2?: string | null
@@ -1049,6 +1066,10 @@ export type Database = {
           remit_to_phone?: string | null
           remit_to_state?: string | null
           remit_to_zip?: string | null
+          show_mc_usdot?: boolean
+          show_order_date?: boolean
+          show_pickup_date?: boolean
+          show_po_number?: boolean
           updated_at?: string
           updated_by?: string | null
         }
@@ -5321,6 +5342,7 @@ export type Database = {
           id: string
           is_default: boolean
           name: string
+          packet_includes: Json
           packet_order: string[]
           packet_style: string
           send_to_emails: string[]
@@ -5336,6 +5358,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name: string
+          packet_includes?: Json
           packet_order?: string[]
           packet_style?: string
           send_to_emails?: string[]
@@ -5351,6 +5374,7 @@ export type Database = {
           id?: string
           is_default?: boolean
           name?: string
+          packet_includes?: Json
           packet_order?: string[]
           packet_style?: string
           send_to_emails?: string[]
@@ -15008,6 +15032,7 @@ export type Database = {
         Args: { p_load_id: string }
         Returns: undefined
       }
+      assert_invoice_ready: { Args: { p_load_id: string }; Returns: undefined }
       assert_known_charge_type: { Args: { p_type: string }; Returns: undefined }
       assign_fuel_transaction_operator: {
         Args: { _note?: string; _operator_id: string; _transaction_id: string }
@@ -15611,6 +15636,10 @@ export type Database = {
         Returns: string
       }
       inspection_grace_used: { Args: { _operator_id: string }; Returns: number }
+      invoice_readiness_missing: {
+        Args: { p_load_id: string }
+        Returns: string[]
+      }
       invoice_writer_active: { Args: never; Returns: boolean }
       is_carrier_default_signature_of_caller: {
         Args: { p_name: string }

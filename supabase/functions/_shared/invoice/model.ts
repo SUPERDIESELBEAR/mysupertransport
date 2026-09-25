@@ -3,8 +3,8 @@
  *
  * PURE. No Deno, no supabase client, no pdf-lib: it takes the database rows
  * and returns every string the PDF prints, so the layout can be tested in
- * vitest and the renderer only draws. The layout copies the Alvys invoice
- * Smart Freight Funding already accepts.
+ * vitest and the renderer only draws. The contents retain every field the
+ * factor needs; the presentation is SUPERDRIVE's own.
  *
  * It REFUSES rather than renders when the lines do not add up to the
  * invoice's amount to the cent. A PDF that disagrees with the row it was
@@ -65,6 +65,13 @@ export interface BillingSettingsRow {
   remit_to_phone: string | null;
   remit_to_email: string | null;
   payment_terms_days: number;
+  logo_storage_path?: string | null;
+  accent_color?: string | null;
+  footer_note?: string | null;
+  show_po_number?: boolean;
+  show_mc_usdot?: boolean;
+  show_order_date?: boolean;
+  show_pickup_date?: boolean;
 }
 export interface CarrierRow {
   mc_number: string | null;
@@ -103,6 +110,8 @@ export interface InvoiceDocument {
   balanceDue: string;
   remitTo: string[];
   totalCents: number;
+  accentColor: string;
+  footerNote: string | null;
 }
 
 export class InvoiceTotalsMismatch extends Error {}
@@ -180,7 +189,7 @@ export function buildInvoiceDocument(input: InvoiceModelInput): InvoiceDocument 
     settings.remit_to_address_1 ?? '',
     settings.remit_to_address_2 ?? '',
     cityLine(settings.remit_to_city, settings.remit_to_state, settings.remit_to_zip),
-    joinNonEmpty([
+    settings.show_mc_usdot === false ? '' : joinNonEmpty([
       carrier?.mc_number ? `MC ${carrier.mc_number}` : null,
       carrier?.usdot_number ? `USDOT ${carrier.usdot_number}` : null,
     ], '   '),
@@ -192,9 +201,9 @@ export function buildInvoiceDocument(input: InvoiceModelInput): InvoiceDocument 
     ['Due Date', dueDate(invoice.created_at, settings.payment_terms_days, tz)],
     ['Load Number', load.load_number],
     ['Order No', load.broker_reference_number?.trim() || '-'],
-    ['PO Number', load.po_number?.trim() || '-'],
-    ['Order Date', formatDateMDY(load.created_at, tz)],
-    ['Pickup Date', formatDateMDY(pickupAt, tz)],
+    ...(settings.show_po_number === false ? [] : [['PO Number', load.po_number?.trim() || '-'] as [string, string]]),
+    ...(settings.show_order_date === false ? [] : [['Order Date', formatDateMDY(load.created_at, tz)] as [string, string]]),
+    ...(settings.show_pickup_date === false ? [] : [['Pickup Date', formatDateMDY(pickupAt, tz)] as [string, string]]),
     ['Delivered', formatDateMDY(load.delivered_at, tz)],
   ];
 
@@ -269,5 +278,7 @@ export function buildInvoiceDocument(input: InvoiceModelInput): InvoiceDocument 
     balanceDue: formatMoney((totalCents - cents(input.paymentsTotal)) / 100),
     remitTo,
     totalCents,
+    accentColor: settings.accent_color ?? '#C9A84C',
+    footerNote: settings.footer_note?.trim() || null,
   };
 }

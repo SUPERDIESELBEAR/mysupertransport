@@ -15,10 +15,18 @@ describe('evaluateLoadPaperwork — standard', () => {
     expect(r.outstandingExpected.map(x => x.documentType)).toEqual(['bol']);
   });
 
-  it('is incomplete without a POD', () => {
+  it('is complete with a BOL, and lists the missing POD as expected', () => {
     const r = evaluateLoadPaperwork('standard', [doc('bol')], []);
+    expect(r.complete).toBe(true);
+    expect(r.outstandingRequired).toEqual([]);
+    expect(r.outstandingExpected.map(x => x.documentType)).toEqual(['pod']);
+  });
+
+  it('is incomplete without either signed delivery document', () => {
+    const r = evaluateLoadPaperwork('standard', [], []);
     expect(r.complete).toBe(false);
-    expect(r.outstandingRequired.map(x => x.documentType)).toEqual(['pod']);
+    expect(r.outstandingRequired.map(x => x.label)).toEqual(['Signed delivery paperwork — BOL or POD']);
+    expect(r.outstandingExpected).toEqual([]);
   });
 
   it('counts a document whose is_verified is false', () => {
@@ -86,11 +94,10 @@ describe('exception status matrix', () => {
       .toBe('exception_approved');
   });
 
-  it('resolved satisfies', () => {
+  it('resolved does not satisfy the invoice-ready paperwork rule', () => {
     const r = evaluateLoadPaperwork('standard', [], [exc('pod', 'resolved')]);
-    expect(r.complete).toBe(true);
-    expect(r.satisfied.find(s => s.requirement.documentType === 'pod')?.satisfiedBy)
-      .toBe('exception_resolved');
+    expect(r.complete).toBe(false);
+    expect(r.satisfied).toEqual([]);
   });
 
   it('pending does not satisfy, and is reported separately', () => {

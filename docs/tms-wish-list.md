@@ -519,6 +519,25 @@ nothing labelled.
 **TRIGGER: before real freight volume, or with the first load that cannot obtain
 its paperwork.**
 
+The invoice-readiness half was completed 2026-09-25 (0070–0072): an approved
+exception now stands in for the missing invoice document, and the same
+company-scoped rule gates both `ready_to_invoice` and invoice creation. The
+missing filing/writer UI remains open.
+
+### Factoring packet and invoice presentation — PREVIEW COMPLETE 2026-09-25
+
+SUPERDRIVE now has carrier logo/accent/footer/optional-field settings and an
+authenticated, company-scoped combined packet preview. It includes both BOL and
+POD when both exist, follows factor order/include settings, saves nothing, and
+names unreadable or unsupported source files. Sending, send logs, and immutable
+submitted packet storage remain later Milestone 2 work.
+
+P74 fixes the supplemental-invoice decision: late accessorials become linked
+regular invoices using `-DET`, `-LUMP`, then numbered repeats such as `-DET2`.
+This remains unbuilt. P75 fixes payout exceptions: every non-clean line remains
+"Needs explanation" until answered, with an "Ask the factor" email action. This
+also remains unbuilt for the payout pass.
+
 ### Audit and revoke anon EXECUTE across definer functions — LARGELY DONE 2026-09-03, NARROWED
 **TRIGGER (remaining scope): before any external launch or SaaS onboarding.**
 

@@ -41,6 +41,36 @@ export async function createInvoicePdf(invoiceId: string): Promise<void> {
   }
 }
 
+async function invokePdf(name: string, body: Record<string, unknown>): Promise<void> {
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) throw new Error('Please sign in again.');
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/${name}`, {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${session.access_token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({}));
+    throw new Error(payload.error ?? `The PDF could not be built (${response.status}).`);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+  const win = window.open(url, '_blank', 'noopener,noreferrer');
+  if (!win) window.location.href = url;
+  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+/** Render the current billing settings without writing an invoice file. */
+export const previewInvoicePdf = (invoiceId: string) =>
+  invokePdf('generate-invoice-pdf', { invoice_id: invoiceId, dry_run: true });
+
+/** Build the current combined packet without saving it. */
+export const previewInvoicePacket = (loadId: string) =>
+  invokePdf('build-invoice-packet', { load_id: loadId, dry_run: true });
+
 /** Open a stored PDF in a new tab, via a blob so the browser shows it inline. */
 export async function openInvoicePdf(storagePath: string): Promise<void> {
   const win = window.open('', '_blank');
