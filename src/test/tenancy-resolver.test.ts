@@ -227,8 +227,6 @@ const B4_TABLES = [
   'broker_factoring_history', 'broker_notes', 'cash_advances', 'company_documents',
   'deduction_installments', 'deductions', 'detention_claims', 'dispatch_deductions',
   'dispatch_settlement_rates_history', 'document_send_log',
-  // Pass 4 (0073): required-document settings.
-  'document_requirement_settings', 'document_requirements',
   'driver_staff_contact_suppressions', 'driver_staff_contacts', 'ica_amendment_units',
   'ica_amendments', 'inspection_cycles', 'inspection_program_payments',
   'pandadoc_documents', 'pay_policy_assignments', 'rm_deposit_transactions',
@@ -248,6 +246,8 @@ const B4_TABLES = [
 const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
 // 0068 (2026-09-25): billing settings, factoring companies, invoice files.
 const BILLING_PDF_STAMPED = ['billing_settings', 'factoring_companies', 'invoice_files'] as const;
+/** Milestone 2 pass 4 (0073): required-document settings, one row per company per type. */
+const REQUIRED_DOCS_STAMPED = ['document_requirement_settings', 'document_requirements'] as const;
 
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
@@ -624,7 +624,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
       ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
-      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED,
+      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED, ...REQUIRED_DOCS_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
