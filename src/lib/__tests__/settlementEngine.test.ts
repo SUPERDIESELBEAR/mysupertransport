@@ -30,7 +30,7 @@ const load = (over: Partial<SettlementLoadInput> = {}): SettlementLoadInput => (
   charges: [charge({ amount: 1000 })],
   documents: [
     { document_type: 'rate_confirmation' }, { document_type: 'bol' },
-    { document_type: 'pod' },
+    { document_type: 'pod' }, { document_type: 'lumper_receipt' },
   ],
   exceptions: [],
   ...over,

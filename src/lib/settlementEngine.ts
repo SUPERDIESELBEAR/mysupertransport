@@ -32,6 +32,9 @@ import { policyWithOperatorLinehaul } from '@/lib/operatorLinehaulPct';
 import type { ClassificationKey } from '@/lib/revisedRateCon';
 import {
   evaluateLoadPaperwork,
+  chargeContextFrom,
+  DEFAULT_DOCUMENT_REQUIREMENTS,
+  type DocumentRequirementSettings,
   type PaperworkDocumentInput,
   type PaperworkExceptionInput,
 } from '@/lib/loadPaperwork';
@@ -254,6 +257,8 @@ export interface RmDepositState {
 }
 
 export interface SettlementComputeInput {
+  /** The carrier's document requirements (P79); null means the built-in defaults. */
+  documentSettings?: DocumentRequirementSettings | null;
   operatorId: string;
   /** Any carrier-zone date inside the week being settled. */
   periodAnchorDate: string;
@@ -541,6 +546,7 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
     rmDeposit = null, carryForwardIn = 0,
     isDeparting = false, equipmentOutstanding,
     fuelDiscountPassthroughOverride = null,
+    documentSettings = null,
   } = input;
 
   const period = workPeriodForDate(periodAnchorDate, settings.work_week_start_dow);
@@ -550,7 +556,11 @@ export function computeSettlement(input: SettlementComputeInput): ComputedSettle
 
   /* --- Loads ------------------------------------------------------- */
   for (const load of loads) {
-    const paperwork = evaluateLoadPaperwork(load.loadType, load.documents, load.exceptions);
+    const paperwork = evaluateLoadPaperwork(
+      load.loadType, load.documents, load.exceptions,
+      documentSettings ?? DEFAULT_DOCUMENT_REQUIREMENTS,
+      chargeContextFrom((load.charges ?? []).map(c => c.charge_type)),
+    );
     const reasons: WithholdReason[] = [];
 
     if (!paperwork.complete && !load.paperworkReleased) {

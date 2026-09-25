@@ -8,15 +8,19 @@ import {
   DEFAULT_DOCUMENT_REQUIREMENTS,
   type DocumentRequirementRow,
   type DocumentRequirementSettings,
-  type LoadChargeContext,
 } from '@/lib/loadPaperwork';
 
-export async function fetchDocumentRequirementSettings(): Promise<DocumentRequirementSettings> {
+export { chargeContextFrom } from '@/lib/loadPaperwork';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Client = any;
+
+export async function fetchDocumentRequirementSettings(client: Client = supabase): Promise<DocumentRequirementSettings> {
   const [rows, switchRow] = await Promise.all([
-    supabase.from('document_requirements')
+    client.from('document_requirements')
       .select('document_type, required_before_invoicing, applies_when, in_packet, position')
       .order('position'),
-    supabase.from('document_requirement_settings').select('bol_or_pod_either').maybeSingle(),
+    client.from('document_requirement_settings').select('bol_or_pod_either').maybeSingle(),
   ]);
   if (rows.error) throw rows.error;
   if (switchRow.error) throw switchRow.error;
@@ -26,7 +30,3 @@ export async function fetchDocumentRequirementSettings(): Promise<DocumentRequir
   };
 }
 
-export function chargeContextFrom(chargeTypes: Array<string | null | undefined>): LoadChargeContext {
-  const types = chargeTypes.map(t => (t ?? '').toLowerCase());
-  return { lumperBilled: types.includes('lumper'), detentionBilled: types.includes('detention') };
-}

@@ -119,6 +119,10 @@ export function useOperatorHome(operatorId: string | null | undefined): Operator
         loads: boardLoads,
         documentsByLoad,
         exceptionsByLoad,
+        documentSettings: requirementSettings,
+        chargeTypesByLoad: Object.fromEntries(rows.map(r => [
+          r.id as string, ((r.load_charges ?? []) as any[]).map(ch => ch.charge_type as string),
+        ])),
       });
       const chain = chains[0];
 

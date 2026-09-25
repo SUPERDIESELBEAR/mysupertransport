@@ -30,6 +30,7 @@ import type { PayPolicyRates } from '@/lib/payTreatment';
 import { companyPolicyVersionQuery } from '@/lib/payPolicyVersion';
 import { operatorLinehaulVersionsQuery, linehaulByOperator } from '@/lib/operatorLinehaulPct';
 import { resolveLinehaulPct } from '@/lib/operatorLinehaulPct';
+import { fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 
 /**
  * The fuel read. `fuel_transaction_lines` is the ITEMISATION the driver's
@@ -166,6 +167,8 @@ const shift = (date: string, days: number) =>
  */
 export async function gatherSettlementRun(sb: Client, anchorDate: string): Promise<GatheredRun> {
   const settings = await loadSettlementSettings(sb);
+  // P79: the paperwork hold follows the carrier's document requirements.
+  const documentSettings = await fetchDocumentRequirementSettings(sb);
   const period = workPeriodForDate(anchorDate, settings.work_week_start_dow);
 
   // Widened by a day at each end because `delivered_at` is an instant and the
@@ -538,6 +541,7 @@ export async function gatherSettlementRun(sb: Client, anchorDate: string): Promi
           (operatorRow as { fuel_discount_passthrough_override?: boolean | null } | undefined)
             ?.fuel_discount_passthrough_override ?? null,
         equipmentOutstanding,
+        documentSettings,
       },
     });
   }
