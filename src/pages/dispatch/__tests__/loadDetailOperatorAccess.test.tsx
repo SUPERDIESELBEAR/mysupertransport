@@ -323,12 +323,12 @@ describe('update_load_status — server-side role gate', () => {
     expect(body).toMatch(/has_role\(v_uid, 'management'\)/);
     expect(body).toMatch(/has_role\(v_uid, 'owner'\)/);
     expect(body).toMatch(/has_role\(v_uid, 'dispatcher'\)/);
-    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*\n\s*RAISE EXCEPTION/);
+    expect(body).toMatch(/IF NOT \(v_is_mgmt OR v_is_disp\) THEN\s*RAISE EXCEPTION/);
     // Billing statuses are management/owner only.
     // 0067: the ONE exception is the invoiced step inside create_invoice (transaction-local flag, P22/P33).
-    expect(body).toMatch(/p_new_status = ANY\(v_billing\) AND NOT v_is_mgmt\s*\n\s*AND NOT \(p_new_status = 'invoiced'::load_status\s*\n\s*AND coalesce\(current_setting\('superdrive\.invoice_issue', true\), ''\) = 'on'\) THEN\s*\n\s*RAISE EXCEPTION 'Billing status changes require management access'/);
+    expect(body).toMatch(/p_new_status\s*=\s*ANY\(v_billing\) AND NOT v_is_mgmt\s*AND NOT \(p_new_status\s*=\s*'invoiced'(?:\:\:load_status)?\s*AND coalesce\(current_setting\('superdrive\.invoice_issue',\s*true\),\s*''\)\s*=\s*'on'\) THEN\s*RAISE EXCEPTION 'Billing status changes require management access'/);
     // Note requirement is enforced server-side too.
-    expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*\n\s*RAISE EXCEPTION/);
+    expect(body).toMatch(/v_requires_note AND v_note IS NULL THEN\s*RAISE EXCEPTION/);
     // Hardened definer.
     expect(fn!.isDefiner).toBe(true);
     expect(fn!.searchPath).toBe("'public', 'extensions'");

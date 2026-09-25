@@ -45,6 +45,7 @@ const itLive = gatedIt({
 const INTENDED: Record<string, number | null> = {
   "application-documents": 10_485_760, // 10 MiB, matches validateFile on the public /apply form
   "application-revision-replies": 10_485_760, // 10 MiB, matches MAX_FILE_SIZE_BYTES
+  "carrier-branding": 1_048_576, // 1 MiB, matches Billing Settings logo validation (0070)
   "invoice-files": 10_485_760, // 10 MiB; only generate-invoice-pdf writes (0068)
   avatars: 5_242_880, // 5 MiB, matches MAX_AVATAR_BYTES; public bucket
   "broker-documents": 26_214_400, // realigned 2026-09-12 from 25,000,000 decimal to 25 MiB
