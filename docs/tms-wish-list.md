@@ -15,7 +15,7 @@ Last updated: 2026-09-23
 ## BEFORE ANY SECOND CARRIER SHARES THE DATABASE (P48, 2026-09-24)
 
 Demo carrier is PAUSED, not abandoned. In this order:
-1. **Definer-function audit (get_pei_queue finding, 2026-09-24) — FIRST.** `get_pei_queue()` returns every carrier's PEI requests (no company filter in its body) and must be scoped to the caller's carrier before a second carrier exists. Audit every other SECURITY DEFINER function that reads or writes company data for the same gap (habit 3).
+1. **Definer-function audit (get_pei_queue finding, 2026-09-24) — FIRST.** `get_pei_queue()` returns every carrier's PEI requests (no company filter in its body) and must be scoped to the caller's carrier before a second carrier exists. Audit every other SECURITY DEFINER function that reads or writes company data for the same gap (habit 3). **Billing part DONE 2026-09-25 (0067):** `create_invoice`, `record_invoice_payment`, `close_short_paid_invoice`, `post_invoice_payment_internal`, `record_factoring_remittance` matching and `create_accessorial_adjustment` now check the caller's company and refuse as 'Load not found.' / 'Invoice not found.' (`docs/passes/2026-09-25-1104-billing-company-checks.md`). `get_pei_queue` and the rest of the audit still OPEN.
 2. Demo carrier stage 5 — create carrier B for real, from /platform/carriers/new.
 3. Demo carrier stage 6.
 
@@ -1203,7 +1203,7 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
 - Still to name after that: **P22** needs dispatcher added to `create_invoice` and to three ALL
   policies together; P20, P23, P24, P25 match on who and need naming only; **P23's action does
   not exist in the code at all**. **P30** settles the -A1 question: a late accessorial is a P24
-  approval and dispatch keeps it. **P33** limits dispatch to ISSUING invoices.
+  approval and dispatch keeps it. **P33** limits dispatch to ISSUING invoices. **P22/P33 DONE 2026-09-25 (0067)** by a narrower route than 'three ALL policies': dispatcher added to `create_invoice` only; the ALL policies were NOT widened; the invoiced step is admitted only through a transaction-local flag set inside `create_invoice`.
 - Nothing in the money layer is protected by the UI alone — unlike slice 1, the gaps are
   wrong-role and unnamed-action, not absent enforcement.
 
@@ -1228,3 +1228,8 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
   is below the live inventory (174). Four red tests until demo-carrier stage 3 updates them.
 - **Westbrook — OPEN.** His application is marked `complete` with no request behind it; decide
   whether to rebuild his previous-employer checks.
+
+## Found 2026-09-25 (billing company checks pass)
+- **Remittance posting has never worked — OPEN, pre-existing.** `post_invoice_payment_internal` writes `payments.source = 'factoring'`, but `payments_source_check` allows only `factor`, `broker`, `other`. Every matched remittance line fails with 23514 and the whole remittance rolls back. `factoring_remittances` holds 0 rows, so nothing real was affected. One-word fix; belongs to the payout-PDF upload and matching pass (P67), with an owner yes first. (`docs/passes/2026-09-25-1104-billing-company-checks.md`)
+- **Dispatchers cannot read invoice lines — OPEN.** Through `invoice.view` a dispatcher reads invoices (proof: 2 of 2) but 0 invoice lines; `invoice_line_items` has no permission-based SELECT policy. The Billing queue does not read lines, so issuing works. Needs an owner yes before adding a SELECT policy.
+- **Invoices must be submitted before paid (`invoices_lifecycle_order_check`).** Payment and short-pay close cannot happen until `submitted_at` is set, and nothing sets it yet. The "email to SFF + send log" pass must stamp `submitted_at`.

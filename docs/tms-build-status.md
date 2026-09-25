@@ -19840,3 +19840,12 @@ Migration 0066: get_or_create_load_tracking_link / revoke_load_tracking_link (di
 ## Pass — Alvys M2 pass 0: invoicing map (read-only) — 2026-09-25
 
 Read-only map of invoicing. Exists and proven once: create_invoice + per-carrier numbering (ST26-0001, the only invoice, open, untouched). Exists, never used: payments (0), factoring_remittances (0), invoice_batches (0), remittance/direct-payment/short-pay functions (no screen). Missing: invoice PDF, packet (P53), sending, carrier factor record, factor submission, settlement waiting on factoring payment, void/re-issue, supplemental -A1, dispatcher issuing (P22), a database paperwork gate before ready_to_invoice. Tenancy: create_invoice, record_invoice_payment, close_short_paid_invoice do not filter by company; record_factoring_remittance's invoice match does not either. Ten passes proposed with owner decisions marked. Full suite skipped (docs only). Report: docs/passes/2026-09-25-0025-invoicing-map.md.
+
+## Owner decisions 2026-09-25 — invoicing (P65–P68)
+- P65 (owner, 2026-09-25): Invoices reach Smart Freight Funding by email today; Alvys sends them to an SFF email address. SFF also offers a website portal for uploads.
+- P66 (owner, 2026-09-25): The owner believes SFF prefers one combined PDF with the documents in a specific order (to be confirmed from a sample packet). Every document goes in: invoice, rate confirmation, BOL, POD, lumper receipt, scale ticket. Lumper receipts and scale tickets are not always present.
+- P67 (owner, 2026-09-25): SFF's payment advice arrives as an emailed PDF. The owner wants to upload that PDF into SUPERDRIVE and match it to the loads being paid.
+- P68 (owner, 2026-09-25): SUPERTRANSPORT bills no customer directly; every invoice goes through SFF.
+
+## Pass — Alvys M2 pass 1: billing functions check the company; dispatchers may issue (P22, P33) — 2026-09-25 11:04 UTC
+Migration 0067. Six billing functions refuse another carrier's load or invoice with 'Load not found.' / 'Invoice not found.'; remittance matching sees only the caller's invoices. Dispatchers issue through `create_invoice` only (transaction-local flag for the one ready_to_invoice → invoiced step); the status buttons, ALL policies, payments, short-pay close and remittances stay management/owner. Dispatch portal gains the same Billing Queue page. Found, not fixed: remittance posting fails on `payments_source_check` ('factoring' vs 'factor'); dispatchers read 0 invoice lines. Report `docs/passes/2026-09-25-1104-billing-company-checks.md`.

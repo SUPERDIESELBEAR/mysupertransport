@@ -8,11 +8,14 @@ Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits)
 3. ~~A recorded stop time moves the load's status~~ — done 2026-09-24 (0065; P62, P63). Driver's app hint + delivered toast + upload from "Paperwork to finish"; board auto-refresh 60s
 4. ~~Broker tracking link per load — status and stops, no money (P52)~~ — done 2026-09-24 (0066; P64). /track/:token public page, "Broker tracking" card on the load page. Milestone 1 complete in code; the published site shows it after the next publish
 
-## Milestone 2 — Invoicing
-1. Invoice packet: separate PDFs or one stitched PDF, per factor/customer (P53)
-2. Factor submission to Smart Freight Funding + factoring payment received
-3. Direct-bill payment posting
-4. Module 7 Pass 5 supplemental-invoice (-A1) decision
+## Milestone 2 — Invoicing (all through SFF, P68)
+1. ~~Billing functions check the company; dispatchers may issue (P22, P33)~~ — done 2026-09-25 (0067)
+2. Carrier factor record + invoice PDF
+3. Combined packet (P66) + paperwork check
+4. Email to SFF (P65) + send log — must stamp submitted_at
+5. Payout PDF upload + matching (P67) — fix the remittance payment source first (owner yes)
+6. Settlement waits for factoring
+7. Void, re-issue and supplemental invoices
 
 ## Milestone 3 — Settlements
 1. Deductions: one-time, recurring, N of M; per-carrier categories (P54)
@@ -23,6 +26,7 @@ Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits)
 One dispatcher and his drivers alongside Alvys; clean switch Nov 1, Dec 1 or Jan 1. Nothing migrated.
 
 ## After the pilot
+- Direct-bill payment posting (P68: nothing bills direct today)
 - Module 9 — settle the miles question first
 - Detention clock
 
