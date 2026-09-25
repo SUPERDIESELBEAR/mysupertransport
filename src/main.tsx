@@ -2,8 +2,29 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import { registerAppServiceWorker } from "./lib/pwa/registerServiceWorker";
 import { ELD_FEATURE_HIDDEN, ELD_HIDDEN_MESSAGE } from "./lib/eld/featureVisibility";
+import { importWithRetry } from "./lib/lazyWithRetry";
 
 const root = createRoot(document.getElementById("root")!);
+
+function renderStartupError() {
+  root.render(
+    <main className="flex min-h-dvh items-center justify-center bg-background p-6 text-foreground">
+      <section className="w-full max-w-md rounded-lg border border-border bg-card p-6 text-center shadow-sm">
+        <h1 className="text-xl font-semibold">SUPERDRIVE couldn’t finish loading</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          The app may have updated while this page was open. Refresh to load the current version.
+        </p>
+        <button
+          type="button"
+          onClick={() => window.location.reload()}
+          className="mt-5 inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+        >
+          Refresh SUPERDRIVE
+        </button>
+      </section>
+    </main>,
+  );
+}
 
 /**
  * /roadside used to boot through its own module graph so the officer view
@@ -21,14 +42,18 @@ if (window.location.pathname.replace(/\/+$/, "") === "/roadside") {
       </div>,
     );
   } else {
-    void import("./roadside/RoadsideEntry").then(({ default: RoadsideEntry }) => {
-      root.render(<RoadsideEntry />);
-    });
+    void importWithRetry(() => import("./roadside/RoadsideEntry"))
+      .then(({ default: RoadsideEntry }) => {
+        root.render(<RoadsideEntry />);
+      })
+      .catch(renderStartupError);
   }
 } else {
-  void import("./App.tsx").then(({ default: App }) => {
-    root.render(<App />);
-  });
+  void importWithRetry(() => import("./App.tsx"))
+    .then(({ default: App }) => {
+      root.render(<App />);
+    })
+    .catch(renderStartupError);
 }
 
 void registerAppServiceWorker();
