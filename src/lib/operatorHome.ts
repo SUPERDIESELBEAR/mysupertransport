@@ -12,6 +12,8 @@
  * driving-work vs office-work split; this module reads its output.
  */
 import { CARRIER_TIMEZONE, carrierZoneAbbrev } from '@/lib/carrierTimezone';
+
+const zoneAbbrev = carrierZoneAbbrev;
 import { getOnboardingStages } from '@/lib/onboardingProgress';
 
 export interface HomeStop {
@@ -43,10 +45,10 @@ export function nextStop(stops: HomeStop[]): HomeStop | null {
   return ordered.find(s => !s.actual_departure_at) ?? ordered[ordered.length - 1];
 }
 
-const dayFmt = new Intl.DateTimeFormat('en-US', {
+const defaultDayFmt = new Intl.DateTimeFormat('en-US', {
   weekday: 'short', month: 'short', day: 'numeric', timeZone: CARRIER_TIMEZONE,
 });
-const timeFmt = new Intl.DateTimeFormat('en-US', {
+const defaultTimeFmt = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric', minute: '2-digit', timeZone: CARRIER_TIMEZONE,
 });
 
@@ -63,7 +65,13 @@ const valid = (v: string | null | undefined): Date | null => {
 export function formatCarrierWindow(
   start: string | null | undefined,
   end: string | null | undefined,
+  timeZone: string = CARRIER_TIMEZONE,
 ): string {
+  const dayFmt = timeZone === CARRIER_TIMEZONE ? defaultDayFmt
+    : new Intl.DateTimeFormat('en-US', { weekday: 'short', month: 'short', day: 'numeric', timeZone });
+  const timeFmt = timeZone === CARRIER_TIMEZONE ? defaultTimeFmt
+    : new Intl.DateTimeFormat('en-US', { hour: 'numeric', minute: '2-digit', timeZone });
+  const carrierZoneAbbrev = (v: Date) => zoneAbbrev(v, timeZone);
   const s = valid(start);
   const e = valid(end);
   if (!s && !e) return 'No appointment set';
@@ -81,7 +89,7 @@ export function formatCarrierWindow(
 export function formatCarrierMoment(value: string | null | undefined): string {
   const d = valid(value);
   if (!d) return 'time to be confirmed';
-  return `${dayFmt.format(d)} · ${timeFmt.format(d)} ${carrierZoneAbbrev(d)}`;
+  return `${defaultDayFmt.format(d)} · ${defaultTimeFmt.format(d)} ${carrierZoneAbbrev(d)}`;
 }
 
 /**

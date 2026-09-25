@@ -14670,6 +14670,96 @@ export type Database = {
       _app_correction_editable_columns: { Args: never; Returns: string[] }
       _audit_actor_name: { Args: { _actor: string }; Returns: string }
       _gen_correction_token: { Args: never; Returns: string }
+      _load_tracking_assert_staff: {
+        Args: { p_load_id: string }
+        Returns: {
+          bol_number: string | null
+          broker_id: string | null
+          broker_reference_number: string | null
+          broker_terms_verbatim: string | null
+          co_driver_name: string | null
+          commodity: string | null
+          company_id: string
+          confirmed_tons: number | null
+          created_at: string
+          created_by: string | null
+          deadhead_miles: number | null
+          delivered_at: string | null
+          delivered_at_by: string | null
+          delivered_at_source:
+            | Database["public"]["Enums"]["delivered_at_source"]
+            | null
+          detention_clock_start:
+            | Database["public"]["Enums"]["detention_clock_start"]
+            | null
+          detention_daily_cap: number | null
+          detention_free_time_minutes: number | null
+          detention_notification_required: boolean | null
+          detention_rate_per_hour: number | null
+          detention_terms_note: string | null
+          dispatched_at: string | null
+          dispatcher_id: string | null
+          driver_accepted_at: string | null
+          driver_decline_reason: string | null
+          driver_declined_at: string | null
+          driver_facing_notes: string | null
+          equipment_type: Database["public"]["Enums"]["equipment_type"] | null
+          estimated_tons: number | null
+          fsc_amount: number | null
+          fsc_bundled_into_linehaul: boolean | null
+          handling_type:
+            | Database["public"]["Enums"]["load_handling_type"]
+            | null
+          id: string
+          internal_notes: string | null
+          is_hazmat: boolean | null
+          is_team_load: boolean | null
+          linehaul_rate: number | null
+          load_number: string
+          load_type: Database["public"]["Enums"]["load_type"]
+          loaded_miles: number | null
+          loadout_relocation_fee: number | null
+          loadout_trailer_number: string | null
+          loadout_trailer_owner_company: string | null
+          loadout_trailer_owner_contact: string | null
+          loadout_trailer_type: string | null
+          loadout_trailer_vin: string | null
+          loadout_use_end: string | null
+          loadout_use_period_days: number | null
+          loadout_use_start: string | null
+          loadout_use_window_source: string | null
+          mode: string | null
+          operator_id: string | null
+          permit_cost: number | null
+          permit_recovery_method: string | null
+          permit_required: boolean | null
+          po_number: string | null
+          rate_per_mile: number | null
+          rate_per_ton: number | null
+          rate_type: Database["public"]["Enums"]["rate_type"]
+          reefer_acknowledged_at: string | null
+          reefer_continuous_run: boolean | null
+          reefer_notes: string | null
+          reefer_precool_required: boolean | null
+          reefer_temp_f: number | null
+          reefer_temp_max_f: number | null
+          reefer_temp_min_f: number | null
+          special_instructions: string | null
+          special_instructions_verbatim: string | null
+          status: Database["public"]["Enums"]["load_status"]
+          total_load_value: number | null
+          updated_at: string
+          updated_by: string | null
+          verbatim_verification: Json | null
+          weight_lbs: number | null
+        }
+        SetofOptions: {
+          from: "*"
+          to: "loads"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       _share_token_gate: {
         Args: { p_token: string }
         Returns: {
@@ -15186,6 +15276,10 @@ export type Database = {
           sent_at: string
           thread_id: string
         }[]
+      }
+      get_or_create_load_tracking_link: {
+        Args: { p_load_id: string }
+        Returns: string
       }
       get_or_create_short_link: {
         Args: { _share_token: string }
@@ -15777,6 +15871,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      resolve_load_tracking_link: { Args: { p_token: string }; Returns: Json }
       resolve_officer_packet_token: {
         Args: { p_token: string }
         Returns: {
@@ -15881,6 +15976,10 @@ export type Database = {
           isOneToOne: true
           isSetofReturn: false
         }
+      }
+      revoke_load_tracking_link: {
+        Args: { p_load_id: string }
+        Returns: undefined
       }
       revoke_share_token: { Args: { p_token: string }; Returns: boolean }
       save_application_draft: {

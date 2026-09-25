@@ -26,6 +26,7 @@ import ApplicationStatus from "./pages/ApplicationStatus";
 import NotFound from "./pages/NotFound";
 import SplashPage from "./pages/SplashPage";
 import InspectionSharePage from "./pages/InspectionSharePage";
+import LoadTrackingPage from "./pages/LoadTrackingPage";
 import BinderShareBundlePage from "./pages/BinderShareBundlePage";
 import ShortLinkRedirect from "./pages/ShortLinkRedirect";
 import SubmitSSN from "./pages/SubmitSSN";
@@ -172,6 +173,7 @@ function AppRoutes() {
       <Route path="/welcome" element={<WelcomeOperator />} />
       <Route path="/inspect/all/:token" element={<BinderShareBundlePage />} />
       <Route path="/inspect/:token" element={<InspectionSharePage />} />
+      <Route path="/track/:token" element={<LoadTrackingPage />} />
       <Route path="/s/:code" element={<ShortLinkRedirect />} />
       <Route path="/pei/respond/:token" element={<PEIRespond />} />
       <Route path="/pei/release/:token" element={<PEIRelease />} />

@@ -55,11 +55,16 @@ const displayFmt = new Intl.DateTimeFormat('en-US', {
  * "Aug 28, 3:42 PM CDT". Always carries the zone abbreviation — a recorded
  * time without one is a time somebody will read in the wrong zone.
  */
-export function formatCheckInTime(iso: string | null | undefined): string {
+export function formatCheckInTime(
+  iso: string | null | undefined,
+  timeZone: string = CARRIER_TIMEZONE,
+): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return `${displayFmt.format(d)} ${carrierZoneAbbrev(d)}`.trim();
+  const fmt = timeZone === CARRIER_TIMEZONE ? displayFmt
+    : new Intl.DateTimeFormat('en-US', { timeZone, month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  return `${fmt.format(d)} ${carrierZoneAbbrev(d, timeZone)}`.trim();
 }
 
 export interface CheckInCoords {

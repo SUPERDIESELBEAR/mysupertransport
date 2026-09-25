@@ -95,10 +95,16 @@ const zoneAbbrevFormatter = new Intl.DateTimeFormat('en-US', {
 });
 
 /** "CST" or "CDT" for the date of the given instant. */
-export function carrierZoneAbbrev(value: string | Date | null | undefined): string {
+export function carrierZoneAbbrev(
+  value: string | Date | null | undefined,
+  timeZone: string = CARRIER_TIMEZONE,
+): string {
   if (!value) return '';
   const d = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(d.getTime())) return '';
-  const part = zoneAbbrevFormatter.formatToParts(d).find(p => p.type === 'timeZoneName');
+  const fmt = timeZone === CARRIER_TIMEZONE
+    ? zoneAbbrevFormatter
+    : new Intl.DateTimeFormat('en-US', { timeZone, timeZoneName: 'short' });
+  const part = fmt.formatToParts(d).find(p => p.type === 'timeZoneName');
   return part?.value ?? '';
 }
