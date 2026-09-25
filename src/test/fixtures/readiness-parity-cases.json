@@ -1,0 +1,781 @@
+[
+ {
+  "name": "defaults: BOL + rate con",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "defaults: POD + rate con",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "pod"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "defaults: neither BOL nor POD",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Signed delivery paperwork — BOL or POD"
+  ]
+ },
+ {
+  "name": "defaults: missing rate con",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Rate confirmation"
+  ]
+ },
+ {
+  "name": "defaults: revised rate con satisfies",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "revised_rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "either off: nothing signed, all No",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": false,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "either off, BOL Always: POD only refused",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "pod"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": false,
+  "rows": {
+   "bol": "always"
+  },
+  "expected": [
+   "Bill of lading"
+  ]
+ },
+ {
+  "name": "lumper billed, no receipt",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [
+   "lumper"
+  ],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Lumper receipt"
+  ]
+ },
+ {
+  "name": "lumper billed, receipt present",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   },
+   {
+    "type": "lumper_receipt"
+   }
+  ],
+  "excs": [],
+  "charges": [
+   "lumper"
+  ],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "lumper billed, lumper set No",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [
+   "lumper"
+  ],
+  "broker": "full",
+  "either": true,
+  "rows": {
+   "lumper_receipt": "no"
+  },
+  "expected": []
+ },
+ {
+  "name": "no lumper billed, no receipt",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "per-ton, no scale ticket",
+  "load_type": "per_ton",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Scale ticket"
+  ]
+ },
+ {
+  "name": "per-ton, scale ticket present",
+  "load_type": "per_ton",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   },
+   {
+    "type": "scale_ticket"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "standard load, no scale ticket",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "detention When, detention billed, no doc",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [
+   "detention"
+  ],
+  "broker": "full",
+  "either": true,
+  "rows": {
+   "detention_documentation": "when_applies"
+  },
+  "expected": [
+   "Detention documentation"
+  ]
+ },
+ {
+  "name": "detention When, not billed",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {
+   "detention_documentation": "when_applies"
+  },
+  "expected": []
+ },
+ {
+  "name": "detention default No, billed",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [
+   "detention"
+  ],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "approved POD exception",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [
+   {
+    "type": "pod",
+    "status": "approved"
+   }
+  ],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "pending POD exception",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [
+   {
+    "type": "pod",
+    "status": "pending"
+   }
+  ],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Signed delivery paperwork — BOL or POD"
+  ]
+ },
+ {
+  "name": "resolved POD exception",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [
+   {
+    "type": "pod",
+    "status": "resolved"
+   }
+  ],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "approved rate con exception",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   }
+  ],
+  "excs": [
+   {
+    "type": "rate_confirmation",
+    "status": "approved"
+   }
+  ],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "loadout, all photos",
+  "load_type": "loadout",
+  "docs": [
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Front"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Open"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Annual Inspection Sticker"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Front"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Delivery Location Signage"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "loadout, delivery signage missing",
+  "load_type": "loadout",
+  "docs": [
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Front"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Open"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Annual Inspection Sticker"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Front"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Delivery inspection — Delivery Location Signage"
+  ]
+ },
+ {
+  "name": "loadout, Front waived by approved slot exception",
+  "load_type": "loadout",
+  "docs": [
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Rear Doors Open"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "loadout_pickup_inspection",
+    "label": "Annual Inspection Sticker"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Front"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Driver Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Passenger Side"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Rear Doors Closed"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Trailer Number Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "VIN Plate"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Tires and Wheels"
+   },
+   {
+    "type": "loadout_delivery_inspection",
+    "label": "Delivery Location Signage"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [
+   {
+    "type": "loadout_pickup_inspection",
+    "status": "approved",
+    "label": "Front"
+   }
+  ],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "loadout, loadout photos set No",
+  "load_type": "loadout",
+  "docs": [
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "full",
+  "either": true,
+  "rows": {
+   "loadout_pickup_inspection": "no",
+   "loadout_delivery_inspection": "no"
+  },
+  "expected": []
+ },
+ {
+  "name": "broker with no address",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "no_address",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Broker billing address"
+  ]
+ },
+ {
+  "name": "broker not approved",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "not_approved",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Broker is marked not approved by the factor"
+  ]
+ },
+ {
+  "name": "broker unknown passes",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "unknown",
+  "either": true,
+  "rows": {},
+  "expected": []
+ },
+ {
+  "name": "no broker",
+  "load_type": "standard",
+  "docs": [
+   {
+    "type": "bol"
+   },
+   {
+    "type": "rate_confirmation"
+   }
+  ],
+  "excs": [],
+  "charges": [],
+  "broker": "none",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Broker billing address"
+  ]
+ },
+ {
+  "name": "everything missing on a per-ton lumper load",
+  "load_type": "per_ton",
+  "docs": [],
+  "excs": [],
+  "charges": [
+   "lumper"
+  ],
+  "broker": "no_address",
+  "either": true,
+  "rows": {},
+  "expected": [
+   "Signed delivery paperwork — BOL or POD",
+   "Rate confirmation",
+   "Lumper receipt",
+   "Scale ticket",
+   "Broker billing address"
+  ]
+ }
+]
