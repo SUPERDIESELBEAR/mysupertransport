@@ -15,7 +15,7 @@ vi.mock('@/lib/billingRun', () => ({
   storeInvoice: vi.fn(),
   gatherBillingQueue: vi.fn(async () => [{
     loadId: 'l1', loadNumber: 'PROOF-1', brokerId: 'b1', brokerName: 'Broker', factoringStatus: 'approved',
-    billingPath: 'factored', deliveredAt: '2026-09-20T12:00:00Z',
+    billingPath: 'factored', deliveredAt: '2026-09-20T12:00:00Z', missing: [],
     invoice: { amount: 1000, lines: [{ lineType: 'linehaul', description: 'Linehaul', amount: 1000, loadChargeId: null, chargeType: null }] },
   }]),
 }));

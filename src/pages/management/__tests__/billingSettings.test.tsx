@@ -9,14 +9,21 @@ const settings = {
   id: 's1', remit_to_name: 'Remit', remit_to_address_1: null, remit_to_address_2: null, remit_to_city: null,
   remit_to_state: null, remit_to_zip: null, remit_to_phone: null, remit_to_email: null, payment_terms_days: 30,
 };
+const reqs = ['invoice', 'bol', 'pod'].map((t, i) => ({
+  id: `r${i}`, document_type: t, required_before_invoicing: 'no', applies_when: null, in_packet: true, position: i + 1,
+}));
 const q = (data: unknown) => {
   const b: Record<string, unknown> = {};
   for (const k of ['select', 'order', 'limit', 'eq']) b[k] = () => b;
   b.maybeSingle = async () => ({ data, error: null });
+  b.then = (ok: (v: unknown) => unknown) => ok({ data, error: null });
   return b;
 };
 vi.mock('@/integrations/supabase/client', () => ({
-  supabase: { from: (t: string) => q(t === 'billing_settings' ? settings : factor) },
+  supabase: { from: (t: string) => q(
+    t === 'billing_settings' ? settings
+      : t === 'document_requirements' ? reqs
+        : t === 'document_requirement_settings' ? { bol_or_pod_either: true } : factor) },
 }));
 vi.mock('@/hooks/use-toast', () => ({ useToast: () => ({ toast: vi.fn() }) }));
 const auth = { isManagement: true, isOwner: false };
@@ -46,6 +53,7 @@ describe('Billing settings screen', () => {
     expect(screen.queryByText('sff@x.com')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Move BOL up' }));
     expect(screen.getByText('1. BOL')).toBeInTheDocument();
+    expect(screen.getByLabelText('BOL or POD — either one is enough')).toBeInTheDocument();
   });
 
   it('is read-only for a dispatcher', async () => {

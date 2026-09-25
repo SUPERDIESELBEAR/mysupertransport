@@ -94,10 +94,13 @@ describe('exception status matrix', () => {
       .toBe('exception_approved');
   });
 
-  it('resolved does not satisfy the invoice-ready paperwork rule', () => {
+  // Pass 4 restores the pre-pass-3 rule: a resolved exception satisfies, in
+  // TypeScript and in the database (resolving_document_id is optional).
+  it('resolved satisfies, marked as resolved', () => {
     const r = evaluateLoadPaperwork('standard', [], [exc('pod', 'resolved')]);
-    expect(r.complete).toBe(false);
-    expect(r.satisfied).toEqual([]);
+    expect(r.complete).toBe(true);
+    expect(r.satisfied.find(s => s.requirement.documentType === 'pod')?.satisfiedBy)
+      .toBe('exception_resolved');
   });
 
   it('pending does not satisfy, and is reported separately', () => {
