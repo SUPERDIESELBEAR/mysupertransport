@@ -54,6 +54,7 @@ Verified against `storage.buckets` on 2026-09-12, after the caps were applied. A
 | fleet-documents | no | 10485760 | yes | no | `validateFile` on the inspection/maintenance paths |
 | ica-signatures | no | 10485760 | yes | no | canvas exports; generous ceiling, no file chooser |
 | inspection-documents | no | 26214400 | yes | no | `validateBinderFile` |
+| invoice-files | no | 10485760 | yes | no | only `generate-invoice-pdf` writes a one-page invoice (2026-09-25) |
 | load-documents | no | 26214400 | yes | no | `validateLoadDocumentFile` |
 | message-attachments | no | 10485760 | yes | **yes** | `20260427110313_c4fdf046-…sql:142` |
 | operator-documents | no | 10485760 | yes | no | `validateFile` on the driver document paths |

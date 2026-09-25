@@ -484,6 +484,13 @@
       "when": 1790338775327,
       "tag": "0068_billing_settings_invoice_pdf",
       "breakpoints": true
+    },
+    {
+      "idx": 69,
+      "version": "7",
+      "when": 1790340871872,
+      "tag": "0069_invoice_files_storage_policy_wrap",
+      "breakpoints": true
     }
   ]
 }

@@ -21,6 +21,10 @@ import { ChevronDown, ChevronRight, FileText, Loader2 } from 'lucide-react';
 import {
   gatherBillingQueue, storeInvoice, type QueuedLoad,
 } from '@/lib/billingRun';
+import InvoicePdfButton from '@/components/billing/InvoicePdfButton';
+import { createInvoicePdf, fetchInvoiceFiles } from '@/lib/invoicePdf';
+
+interface RecentInvoice { id: string; invoice_number: string; amount: number; loadNumber: string; storagePath: string | null }
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -47,6 +51,24 @@ export default function BillingQueuePage() {
   const [open, setOpen] = useState<Record<string, boolean>>({});
   const [confirming, setConfirming] = useState<QueuedLoad | null>(null);
   const [saving, setSaving] = useState(false);
+  const [recent, setRecent] = useState<RecentInvoice[]>([]);
+
+  const loadRecent = useCallback(async () => {
+    try {
+      const { data, error: e } = await supabase
+        .from('invoices')
+        .select('id, invoice_number, amount, created_at, loads(load_number)')
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (e) throw e;
+      const rowsIn = (data ?? []) as Array<{ id: string; invoice_number: string; amount: number; loads: { load_number: string } | null }>;
+      const files = await fetchInvoiceFiles(rowsIn.map((r) => r.id));
+      setRecent(rowsIn.map((r) => ({
+        id: r.id, invoice_number: r.invoice_number, amount: Number(r.amount),
+        loadNumber: r.loads?.load_number ?? '—', storagePath: files[r.id] ?? null,
+      })));
+    } catch { setRecent([]); }
+  }, []);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -60,7 +82,7 @@ export default function BillingQueuePage() {
     }
   }, []);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => { void load(); void loadRecent(); }, [load, loadRecent]);
 
   const total = useMemo(
     () => rows.reduce((s, r) => s + r.invoice.amount, 0),
@@ -78,7 +100,18 @@ export default function BillingQueuePage() {
           + `${stored.billingPath === 'factored' ? 'through the factor' : 'direct to the broker'}.`,
       });
       setConfirming(null);
-      await load();
+      // The PDF is made straight after the invoice. A failure here leaves the
+      // invoice intact and shows "Create PDF" in Recent invoices.
+      try {
+        await createInvoicePdf(stored.invoiceId);
+      } catch (pe) {
+        toast({
+          title: 'Invoice PDF not created',
+          description: pe instanceof Error ? pe.message : String(pe),
+          variant: 'destructive',
+        });
+      }
+      await Promise.all([load(), loadRecent()]);
     } catch (e) {
       toast({
         title: 'Invoice not created',
@@ -182,6 +215,21 @@ export default function BillingQueuePage() {
           );
         })}
       </div>
+
+      {recent.length > 0 && (
+        <div className="space-y-2">
+          <h2 className="text-sm font-semibold text-muted-foreground">Recent invoices</h2>
+          {recent.map((r) => (
+            <Card key={r.id} className="p-3 flex flex-wrap items-center justify-between gap-3">
+              <span className="text-sm">
+                <span className="font-medium">{r.invoice_number}</span>
+                <span className="text-muted-foreground"> · {r.loadNumber} · {money(r.amount)}</span>
+              </span>
+              <InvoicePdfButton invoiceId={r.id} storagePath={r.storagePath} onCreated={loadRecent} />
+            </Card>
+          ))}
+        </div>
+      )}
 
       <Dialog open={!!confirming} onOpenChange={(o) => { if (!o && !saving) setConfirming(null); }}>
         <DialogContent>
