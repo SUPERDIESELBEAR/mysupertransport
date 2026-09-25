@@ -1000,6 +1000,68 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_settings: {
+        Row: {
+          company_id: string
+          created_at: string
+          created_by: string | null
+          id: string
+          payment_terms_days: number
+          remit_to_address_1: string | null
+          remit_to_address_2: string | null
+          remit_to_city: string | null
+          remit_to_email: string | null
+          remit_to_name: string | null
+          remit_to_phone: string | null
+          remit_to_state: string | null
+          remit_to_zip: string | null
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payment_terms_days?: number
+          remit_to_address_1?: string | null
+          remit_to_address_2?: string | null
+          remit_to_city?: string | null
+          remit_to_email?: string | null
+          remit_to_name?: string | null
+          remit_to_phone?: string | null
+          remit_to_state?: string | null
+          remit_to_zip?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          payment_terms_days?: number
+          remit_to_address_1?: string | null
+          remit_to_address_2?: string | null
+          remit_to_city?: string | null
+          remit_to_email?: string | null
+          remit_to_name?: string | null
+          remit_to_phone?: string | null
+          remit_to_state?: string | null
+          remit_to_zip?: string | null
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "billing_settings_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: true
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       binder_share_bundles: {
         Row: {
           company_id: string
@@ -5249,6 +5311,62 @@ export type Database = {
           },
         ]
       }
+      factoring_companies: {
+        Row: {
+          cc_emails: string[]
+          company_id: string
+          created_at: string
+          created_by: string | null
+          fee_pct: number | null
+          id: string
+          is_default: boolean
+          name: string
+          packet_order: string[]
+          packet_style: string
+          send_to_emails: string[]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cc_emails?: string[]
+          company_id: string
+          created_at?: string
+          created_by?: string | null
+          fee_pct?: number | null
+          id?: string
+          is_default?: boolean
+          name: string
+          packet_order?: string[]
+          packet_style?: string
+          send_to_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cc_emails?: string[]
+          company_id?: string
+          created_at?: string
+          created_by?: string | null
+          fee_pct?: number | null
+          id?: string
+          is_default?: boolean
+          name?: string
+          packet_order?: string[]
+          packet_style?: string
+          send_to_emails?: string[]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "factoring_companies_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       factoring_remittances: {
         Row: {
           company_id: string
@@ -6993,6 +7111,60 @@ export type Database = {
             columns: ["updated_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_files: {
+        Row: {
+          byte_size: number
+          company_id: string
+          created_at: string
+          generated_at: string
+          generated_by: string
+          id: string
+          invoice_id: string
+          page_count: number
+          sha256: string
+          storage_path: string
+        }
+        Insert: {
+          byte_size: number
+          company_id: string
+          created_at?: string
+          generated_at?: string
+          generated_by: string
+          id?: string
+          invoice_id: string
+          page_count: number
+          sha256: string
+          storage_path: string
+        }
+        Update: {
+          byte_size?: number
+          company_id?: string
+          created_at?: string
+          generated_at?: string
+          generated_by?: string
+          id?: string
+          invoice_id?: string
+          page_count?: number
+          sha256?: string
+          storage_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "carrier_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_files_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: true
+            referencedRelation: "invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -15632,6 +15804,10 @@ export type Database = {
           current_balance: number
           target_amount: number
         }[]
+      }
+      normalize_billing_email_list: {
+        Args: { p_label: string; p_list: string[] }
+        Returns: string[]
       }
       normalize_invoice_number: { Args: { p_number: string }; Returns: string }
       open_pay_policy_version: {
