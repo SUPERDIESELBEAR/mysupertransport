@@ -29,3 +29,22 @@ describe('the settlement paperwork hold follows the settings', () => {
     expect(r.complete).toBe(true);
   });
 });
+
+import { computeSettlement } from '@/lib/settlementEngine';
+import { SETTLEMENT_SETTINGS_DEFAULTS } from '@/lib/settlementConfig';
+describe('computeSettlement documentSettings', () => {
+  const base = (documentSettings: DocumentRequirementSettings | null) => computeSettlement({
+    operatorId: 'o1', periodAnchorDate: '2026-09-03', settings: SETTLEMENT_SETTINGS_DEFAULTS as never,
+    companyPolicy: { linehaul_pct: 72, fsc_pct: 72, detention_pct: 100, layover_pct: 100, stopoff_pct: 72, lumper_reimbursement_pct: 100, tonu_pct: 72, other_accessorial_pct: 72 } as never,
+    driverPolicy: null, documentSettings,
+    loads: [{ id: 'l1', loadNumber: 'ST-1', loadType: 'standard', deliveredAt: '2026-09-03T15:00:00Z',
+      charges: [{ id: 'c1', charge_type: 'lumper', amount: 200, description: '', funding_source: 'driver', actual_cost: null } as never],
+      documents: [{ document_type: 'pod' }], exceptions: [], rateType: 'flat', linehaulRate: 1000 } as never],
+  } as never);
+  it('withholds a lumper load without a receipt under the defaults', () => {
+    expect(base(null).withheldLoads).toHaveLength(1);
+  });
+  it('pays it when the carrier sets the lumper receipt to No', () => {
+    expect(base(withLumperOff()).withheldLoads).toHaveLength(0);
+  });
+});
