@@ -374,3 +374,9 @@ export function waivedSummary(entry: SatisfiedRequirement): string | null {
   }
   return null;
 }
+
+/** Which "When it applies" charge conditions hold for a load, from its charge types. */
+export function chargeContextFrom(chargeTypes: Array<string | null | undefined>): LoadChargeContext {
+  const types = chargeTypes.map(t => (t ?? '').toLowerCase());
+  return { lumperBilled: types.includes('lumper'), detentionBilled: types.includes('detention') };
+}

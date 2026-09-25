@@ -8,7 +8,10 @@
  * src/lib/loadPaperwork.ts is the single definition; this module is its second
  * reader.
  */
-import { evaluateLoadPaperwork, type PaperworkDocumentInput, type PaperworkExceptionInput } from '@/lib/loadPaperwork';
+import {
+  chargeContextFrom, DEFAULT_DOCUMENT_REQUIREMENTS, evaluateLoadPaperwork,
+  type DocumentRequirementSettings, type PaperworkDocumentInput, type PaperworkExceptionInput,
+} from '@/lib/loadPaperwork';
 import type { LoadStatus } from '@/lib/loadFormat';
 
 /** Never on a chain. A TONU never receives a POD, so paperwork can never close it. */
@@ -135,9 +138,13 @@ export function isOnChain(
   load: BoardLoadInput,
   documents: PaperworkDocumentInput[],
   exceptions: PaperworkExceptionInput[],
+  settings: DocumentRequirementSettings | null = DEFAULT_DOCUMENT_REQUIREMENTS,
+  chargeTypes: Array<string | null | undefined> = [],
 ): { onChain: boolean; paperworkComplete: boolean } {
   const status = load.status as LoadStatus;
-  const paperwork = evaluateLoadPaperwork(load.load_type, documents, exceptions);
+  const paperwork = evaluateLoadPaperwork(
+    load.load_type, documents, exceptions, settings, chargeContextFrom(chargeTypes),
+  );
   if (CHAIN_EXCLUDED_STATUSES.includes(status)) {
     return { onChain: false, paperworkComplete: paperwork.complete };
   }
@@ -154,10 +161,15 @@ export interface AssembleInput {
   documentsByLoad: Record<string, PaperworkDocumentInput[]>;
   /** Keyed by load id. */
   exceptionsByLoad: Record<string, PaperworkExceptionInput[]>;
+  /** The carrier's document requirements (P79), read through src/lib/documentRequirements.ts. */
+  documentSettings?: DocumentRequirementSettings | null;
+  /** Keyed by load id: the load's charge types, for the "When it applies" conditions. */
+  chargeTypesByLoad?: Record<string, string[]>;
 }
 
 export function assembleBoard({
   drivers, loads, documentsByLoad, exceptionsByLoad,
+  documentSettings = DEFAULT_DOCUMENT_REQUIREMENTS, chargeTypesByLoad = {},
 }: AssembleInput): BoardResult {
   const driverById = new Map(drivers.map(d => [d.operator_id, d]));
   const chains = new Map<string, ChainLoad[]>();
@@ -174,7 +186,9 @@ export function assembleBoard({
       return;
     }
 
-    const { onChain, paperworkComplete } = isOnChain(load, docs, excs);
+    const { onChain, paperworkComplete } = isOnChain(
+      load, docs, excs, documentSettings, chargeTypesByLoad[load.id] ?? [],
+    );
     if (!onChain) return;
 
     const stops = sortedStops(load.stops ?? []);
