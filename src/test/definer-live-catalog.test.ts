@@ -196,6 +196,11 @@ const KNOWN_ANON_EXECUTABLE_ENTRIES: readonly AnonExecutableEntry[] = [
     reason:
       "ROUTE /inspect/:token (src/pages/InspectionSharePage.tsx). GUARD delegates to public._share_token_gate(p_token) and returns 'throttled' or nothing unless the gate returns 'ok'.",
   },
+  {
+    signature: "public.resolve_load_tracking_link(uuid)",
+    reason:
+      "ROUTE /track/:token (src/pages/LoadTrackingPage.tsx), 0066. GUARD delegates to public._share_token_gate(p_token), requires scope 'load_tracking', returns 'throttled' or nothing unless the gate returns 'ok'; whitelisted keys only, no money/driver/truck.",
+  },
   // get_inspection_doc_by_token(uuid) was DROPPED 2026-09-10. Legacy delegator
   // over resolve_share_token, uncalled by anything; entry removed, not moved.
 
@@ -282,7 +287,7 @@ const KNOWN_ANON_EXECUTABLE: readonly string[] =
 // applicant signs; the hard-coded SUPERTRANSPORT fallback they replace printed
 // one carrier's identity to every carrier's applicant. Reasons beside the
 // entries.
-const KNOWN_ANON_EXECUTABLE_MAX = 33;
+const KNOWN_ANON_EXECUTABLE_MAX = 34; // +1 2026-09-24: resolve_load_tracking_link (0066)
 
 
 
@@ -411,6 +416,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
   "public.reject_application_correction(text,text,jsonb)",
   "public.remove_user_role(uuid,app_role)",
   // replace_rods_document removed 2026-09-03: no live function of that name.
+  "public.resolve_load_tracking_link(uuid)",
   "public.resolve_share_token(uuid)",
   "public.resolve_short_link(text)",
   "public.restore_applicant_pei(uuid)",
@@ -886,7 +892,7 @@ const KNOWN_AUTHENTICATED_EXECUTABLE: readonly string[] = [
 // beside the entries.
 // 2026-09-23: 141 -> 142, `is_platform_admin(uuid)` (migration 0056, P43).
 // Raised by exactly one, reason recorded beside the entry.
-const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 142;
+const KNOWN_AUTHENTICATED_EXECUTABLE_MAX = 145; // +3 2026-09-24 (0066): get_or_create_/revoke_/resolve_load_tracking_link — create/revoke check role + company inside
 
 
 
