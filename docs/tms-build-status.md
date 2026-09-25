@@ -19849,3 +19849,12 @@ Read-only map of invoicing. Exists and proven once: create_invoice + per-carrier
 
 ## Pass — Alvys M2 pass 1: billing functions check the company; dispatchers may issue (P22, P33) — 2026-09-25 11:04 UTC
 Migration 0067. Six billing functions refuse another carrier's load or invoice with 'Load not found.' / 'Invoice not found.'; remittance matching sees only the caller's invoices. Dispatchers issue through `create_invoice` only (transaction-local flag for the one ready_to_invoice → invoiced step); the status buttons, ALL policies, payments, short-pay close and remittances stay management/owner. Dispatch portal gains the same Billing Queue page. Found, not fixed: remittance posting fails on `payments_source_check` ('factoring' vs 'factor'); dispatchers read 0 invoice lines. Report `docs/passes/2026-09-25-1104-billing-company-checks.md`.
+
+## Owner decisions 2026-09-25 — billing settings and invoice PDF (P69–P72)
+- P69 (owner, 2026-09-25): Staff can add and save the email addresses invoices are sent to, including addresses to CC.
+- P70 (owner, 2026-09-25): Yes: fix remittance posting (payments.source must be 'factor', matching payments_source_check).
+- P71 (owner, 2026-09-25): Yes: dispatchers may READ invoice line items under the same invoice.view permission as invoices. Read only.
+- P72 (owner, 2026-09-25): The invoice follows the layout SFF already accepts from Alvys. Payment terms are 30 days. SUPERDRIVE invoice numbers keep the ST26-0001 style, so they cannot be confused with Alvys numbers on SFF statements during the pilot.
+
+## Pass — Alvys M2 pass 2: billing settings, factoring company record, invoice PDF — 2026-09-25 12:43 UTC
+Migrations 0068, 0069. New `billing_settings`, `factoring_companies`, `invoice_files` (company_id + stamp + restrictive tenant_isolation; staff read, management/owner write; invoice_files written only by the edge function). SUPERTRANSPORT seeded by USDOT 2309365; Smart Freight Funding default, 2.00%, combined, empty email lists. Fixes: remittance payments written as `factor` (P70); dispatcher read of invoice lines (P71). Private bucket `invoice-files`; edge function `generate-invoice-pdf` (dry_run, save-once, 401/403/404, totals check). Screens: Management → Billing Settings; Billing Queue auto-creates the PDF after an invoice and lists recent invoices with Invoice PDF / Create PDF; load page shows the invoice with the same button. Found, not fixed: same-day remittance vs lifecycle check; direct/factored path vs P68 (wish list). Report `docs/passes/2026-09-25-1243-invoice-pdf.md`.

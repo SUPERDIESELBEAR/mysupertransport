@@ -10,10 +10,10 @@ Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits)
 
 ## Milestone 2 — Invoicing (all through SFF, P68)
 1. ~~Billing functions check the company; dispatchers may issue (P22, P33)~~ — done 2026-09-25 (0067)
-2. Carrier factor record + invoice PDF
+2. ~~Billing settings, factoring company record, invoice PDF (P69–P72)~~ — done 2026-09-25 (0068, 0069)
 3. Combined packet (P66) + paperwork check
 4. Email to SFF (P65) + send log — must stamp submitted_at
-5. Payout PDF upload + matching (P67) — fix the remittance payment source first (owner yes)
+5. Payout PDF upload + matching (P67) — remittance source fixed in 0068 (P70)
 6. Settlement waits for factoring
 7. Void, re-issue and supplemental invoices
 

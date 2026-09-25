@@ -244,6 +244,8 @@ const B4_TABLES = [
  * because a migration has no JWT and the stamp resolves NULL for it.
  */
 const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
+// 0068 (2026-09-25): billing settings, factoring companies, invoice files.
+const BILLING_PDF_STAMPED = ['billing_settings', 'factoring_companies', 'invoice_files'] as const;
 
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
@@ -612,7 +614,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
       ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
-      ...PER_DRIVER_PAY_STAMPED,
+      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -2174,6 +2176,7 @@ const RESTRICTIVE_EXEMPT = ['company_members'] as const;
  * `inspection_documents` stay pending — both are realtime-subscribed.
  */
 const RESTRICTIVE_DONE = [
+  'billing_settings', 'factoring_companies', 'invoice_files',
   'active_dispatch', 'blank_log_acknowledgments', 'broker_contacts',
   'broker_do_not_load_history',
   'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',

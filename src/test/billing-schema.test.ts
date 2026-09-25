@@ -416,7 +416,9 @@ describe('billing — access', () => {
   // has_permission('invoice.view'), which P2 grants to the dispatcher. Every
   // other billing table still has exactly one. The count is asserted per table
   // rather than relaxed, so a third policy anywhere still fails.
-  const PERMISSIVE_POLICY_COUNT: Record<string, number> = { invoices: 2 };
+  // 2026-09-25 (P71, 0068): invoice_line_items gains the same read-only
+  // `invoice_line_items_view_permission` under invoice.view.
+  const PERMISSIVE_POLICY_COUNT: Record<string, number> = { invoices: 2, invoice_line_items: 2 };
 
   itLive('RLS is enabled on every billing table and each has one permissive policy', () => {
     const rows = psql(`SELECT c.relname || '|' || c.relrowsecurity::text || '|' ||
@@ -464,7 +466,7 @@ describe('billing — access', () => {
            FROM unnest(p.polroles) x JOIN pg_roles r ON r.oid = x)
       FROM pg_policy p JOIN pg_class c ON c.oid = p.polrelid
       WHERE c.relnamespace='public'::regnamespace AND c.relname IN (${TABLE_LIST})
-        AND p.polpermissive AND p.polname <> '${PERMISSION_GATED}' ORDER BY 1`);
+        AND p.polpermissive AND p.polname NOT IN ('${PERMISSION_GATED}', 'invoice_line_items_view_permission') ORDER BY 1`);
     expect(policies).toHaveLength(TABLES.length);
     for (const row of policies) {
       const [table, , using, check, cmd, roles] = row.split('|');
