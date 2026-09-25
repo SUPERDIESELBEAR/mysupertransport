@@ -19,7 +19,7 @@ const winAnsi = (s: string) =>
 
 function fit(text: string, font: PDFFont, size: number, max: number): string {
   let t = winAnsi(text);
-  while (t.length > 1 && font.widthOfTextAtSize(t, size) > max) t = t.slice(0, -2) + '…'.replace('…', '.');
+  while (t.length > 1 && font.widthOfTextAtSize(t, size) > max) t = t.slice(0, -1);
   return t;
 }
 
