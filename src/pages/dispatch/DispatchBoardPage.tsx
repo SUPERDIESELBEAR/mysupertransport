@@ -31,7 +31,8 @@ import {
   type ClaimLevel,
   type ClaimType,
 } from '@/components/dispatch/loadDetail/claimConstants';
-import type { PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
+import type { DocumentRequirementSettings, PaperworkDocumentInput, PaperworkExceptionInput } from '@/lib/loadPaperwork';
+import { fetchDocumentRequirementSettings } from '@/lib/documentRequirements';
 import { CARRIER_TIMEZONE } from '@/lib/carrierTimezone';
 
 interface DispatchBoardPageProps {
@@ -67,6 +68,9 @@ interface BoardData {
   exceptionsByLoad: Record<string, PaperworkExceptionInput[]>;
   /** Active claim summary keyed by load id, if the load has at least one active claim. */
   activeClaimsByLoad: Record<string, ActiveClaimSummary>;
+  /** P79: the carrier's document requirements and each load's charge types. */
+  documentSettings: DocumentRequirementSettings;
+  chargeTypesByLoad: Record<string, string[]>;
 }
 
 async function fetchBoard(): Promise<BoardData> {
@@ -161,7 +165,7 @@ async function fetchBoard(): Promise<BoardData> {
   const { data: loadRows, error: loadErr } = await supabase
     .from('loads')
     .select(
-      'id, load_number, status, load_type, operator_id, created_at, ' +
+      'id, load_number, status, load_type, operator_id, created_at, load_charges(charge_type), ' +
       'load_stops(stop_sequence, stop_type, city, state, appointment_start)',
     );
   if (loadErr) throw loadErr;
@@ -177,6 +181,11 @@ async function fetchBoard(): Promise<BoardData> {
   }));
 
   const loadIds = loads.map(l => l.id);
+  const chargeTypesByLoad: Record<string, string[]> = {};
+  ((loadRows ?? []) as unknown as Record<string, any>[]).forEach(r => {
+    chargeTypesByLoad[r.id] = ((r.load_charges ?? []) as any[]).map(c => c.charge_type as string);
+  });
+  const documentSettings = await fetchDocumentRequirementSettings();
   const documentsByLoad: Record<string, PaperworkDocumentInput[]> = {};
   const exceptionsByLoad: Record<string, PaperworkExceptionInput[]> = {};
   const activeClaimsByLoad: Record<string, ActiveClaimSummary> = {};
@@ -218,7 +227,10 @@ async function fetchBoard(): Promise<BoardData> {
     });
   }
 
-  return { drivers, dispatcherNames, loads, documentsByLoad, exceptionsByLoad, activeClaimsByLoad };
+  return {
+    drivers, dispatcherNames, loads, documentsByLoad, exceptionsByLoad, activeClaimsByLoad,
+    documentSettings, chargeTypesByLoad,
+  };
 }
 
 function formatDeliveryDate(iso: string): string {
@@ -400,6 +412,8 @@ export default function DispatchBoardPage({ onSelectLoad }: DispatchBoardPagePro
       loads: data?.loads ?? [],
       documentsByLoad: data?.documentsByLoad ?? {},
       exceptionsByLoad: data?.exceptionsByLoad ?? {},
+      documentSettings: data?.documentSettings,
+      chargeTypesByLoad: data?.chargeTypesByLoad ?? {},
     }),
     [data],
   );
