@@ -13,12 +13,12 @@ Direction: P48 (SUPERTRANSPORT first; demo carrier PAUSED; three tenancy habits)
 2. ~~Billing settings, factoring company record, invoice PDF (P69–P72)~~ — done 2026-09-25 (0068, 0069)
 3. ~~Combined packet (P66) + paperwork check; SUPERDRIVE invoice branding (P73, P76, P77)~~ — done 2026-09-25 (0070–0072; dry-run packet preview, no send/save)
 4. ~~Required documents become settings (P78, P79) + pass 3 proof + green suite~~ — done 2026-09-25 (0073)
-5. Email to SFF (P65) + send log — must stamp submitted_at
+5. ~~Email to SFF (P65, P80, P81) + send log~~ — done 2026-09-26 (0074; send-invoice-packet). First real send is owner's call
 6. Payout PDF upload + matching (P67) — remittance source fixed in 0068 (P70)
 7. Settlement waits for factoring
 8. Void, re-issue and supplemental invoices
 
-Open findings from pass 4 (owner to decide; not fixed): dispatch board and settlement engine still read the built-in default requirements, not the carrier's settings; ST-TEST-003's pod-TESTRUN.pdf is unreadable; 7 of 13 brokers lack a billing address; no delivered load passes the check today.
+Open findings (owner to decide; not fixed): ST-TEST-003's pod-TESTRUN.pdf is unreadable; 7 of 13 brokers lack a billing address; no delivered load passes the check today, so no real invoice can be sent yet. Board and settlements follow the carrier's settings since pass 5 (P82 lumper receipt holds settlement).
 
 ## Milestone 3 — Settlements
 1. Deductions: one-time, recurring, N of M; per-carrier categories (P54)
