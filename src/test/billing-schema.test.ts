@@ -607,13 +607,18 @@ describe('billing — exactly one writer', () => {
       'enforce_ar_aging_snapshot_append_only',
       'enforce_invoice_immutability',
       'enforce_invoice_line_immutability',
+      // Pass 5 (0074): the send log. record_invoice_send writes invoice_sends and
+      // stamps submitted_at once; it creates no invoice and allocates no number.
+      'enforce_invoice_send_append_only',
       'guard_invoice_create_paperwork',
       'invoice_readiness_missing',
       'invoice_writer_active',
       'normalize_invoice_number',
       'post_invoice_payment_internal',
       'record_invoice_payment',
+      'record_invoice_send',
       'stamp_invoice_actors',
+      'stamp_invoice_send_company',
     ]);
   });
 

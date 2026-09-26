@@ -2187,6 +2187,8 @@ const RESTRICTIVE_EXEMPT = ['company_members'] as const;
  */
 const RESTRICTIVE_DONE = [
   'billing_settings', 'factoring_companies', 'invoice_files',
+  'invoice_sends', // pass 5, 0074
+
   'active_dispatch', 'blank_log_acknowledgments', 'broker_contacts',
   'broker_do_not_load_history',
   'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',

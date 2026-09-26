@@ -1257,5 +1257,8 @@ Report: `docs/passes/2026-09-21-2030-teammate-defects-fixed.md`.
 - **Every live broker but one bills DIRECT, but P68 says everything goes through SFF — OPEN, owner decision.** Remittances require `billing_path = 'factored'` (`invoices_purchased_requires_factored_check`), and the path comes from broker factoring status (1 approved, 1 not approved, 11 unknown). Until brokers are marked approved or the rule changes, an SFF payout cannot post against most invoices. Needs an owner answer before the payout pass.
 
 ## 2026-09-25 (pass 4)
-- Dispatch board and settlement engine read the carrier's required-document settings (today: built-in defaults, which equal SUPERTRANSPORT's current settings).
+- ~~Dispatch board and settlement engine read the carrier's required-document settings~~ — done 2026-09-26 (pass 5).
 - Drop the deprecated `factoring_companies.packet_order/packet_includes` once nothing reads them.
+
+## 2026-09-26 (pass 5)
+- Sending domain per carrier, when a second carrier exists (today every carrier's invoice email comes from billing@ the one platform domain, with the carrier's remit-to name and reply-to).
