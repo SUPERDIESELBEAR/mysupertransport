@@ -291,7 +291,9 @@ export default function BillingQueuePage() {
                 </div>
                 {result && (
                   <p className={`text-xs ${result.ok ? 'text-muted-foreground' : 'text-destructive'}`}>
-                    {result.ok ? `Sent to ${[...result.result.to, ...result.result.cc].join(', ')}` : `Not sent: ${result.error}`}
+                    {'result' in result
+                      ? `Sent to ${[...result.result.to, ...result.result.cc].join(', ')}`
+                      : `Not sent: ${result.error}`}
                   </p>
                 )}
               </Card>
