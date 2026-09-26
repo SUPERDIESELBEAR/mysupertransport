@@ -18,6 +18,11 @@ vi.mock('@/lib/invoicePdf', () => ({
   createInvoicePdf: vi.fn(), openInvoicePdf: vi.fn(),
 }));
 
+vi.mock('@/lib/invoiceSend', () => ({
+  fetchInvoiceSends: vi.fn(async () => []), fetchDefaultFactorName: vi.fn(async () => null),
+  lastRealSend: () => null, sendMany: vi.fn(),
+}));
+
 import BillingQueuePage from '@/pages/management/BillingQueuePage';
 
 describe('Billing queue PDF buttons', () => {

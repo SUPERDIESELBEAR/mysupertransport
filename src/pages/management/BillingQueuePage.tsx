@@ -17,15 +17,20 @@ import { Badge } from '@/components/ui/badge';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
-import { ChevronDown, ChevronRight, FileText, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, FileText, Loader2, Send } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   gatherBillingQueue, storeInvoice, type QueuedLoad,
 } from '@/lib/billingRun';
 import InvoicePdfButton from '@/components/billing/InvoicePdfButton';
 import PacketPreviewButton from '@/components/billing/PacketPreviewButton';
+import SendToFactorButton from '@/components/billing/SendToFactorButton';
 import { createInvoicePdf, fetchInvoiceFiles } from '@/lib/invoicePdf';
+import {
+  fetchDefaultFactorName, fetchInvoiceSends, lastRealSend, sendMany, type InvoiceSendRow,
+} from '@/lib/invoiceSend';
 
-interface RecentInvoice { id: string; invoice_number: string; amount: number; loadNumber: string; storagePath: string | null }
+interface RecentInvoice { id: string; invoice_number: string; amount: number; loadId: string; loadNumber: string; storagePath: string | null }
 
 const money = (n: number) =>
   n.toLocaleString('en-US', { style: 'currency', currency: 'USD' });
@@ -53,23 +58,47 @@ export default function BillingQueuePage() {
   const [confirming, setConfirming] = useState<QueuedLoad | null>(null);
   const [saving, setSaving] = useState(false);
   const [recent, setRecent] = useState<RecentInvoice[]>([]);
+  const [sends, setSends] = useState<InvoiceSendRow[]>([]);
+  const [factorName, setFactorName] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [bulkSending, setBulkSending] = useState(false);
+  const [bulkResults, setBulkResults] = useState<Awaited<ReturnType<typeof sendMany>>>({});
 
   const loadRecent = useCallback(async () => {
     try {
       const { data, error: e } = await supabase
         .from('invoices')
-        .select('id, invoice_number, amount, created_at, loads(load_number)')
+        .select('id, invoice_number, amount, created_at, load_id, loads(load_number)')
         .order('created_at', { ascending: false })
         .limit(10);
       if (e) throw e;
-      const rowsIn = (data ?? []) as Array<{ id: string; invoice_number: string; amount: number; loads: { load_number: string } | null }>;
-      const files = await fetchInvoiceFiles(rowsIn.map((r) => r.id));
+      const rowsIn = (data ?? []) as Array<{ id: string; invoice_number: string; amount: number; load_id: string; loads: { load_number: string } | null }>;
+      const ids = rowsIn.map((r) => r.id);
+      const [files, sendRows, factor] = await Promise.all([
+        fetchInvoiceFiles(ids), fetchInvoiceSends(ids).catch(() => []), fetchDefaultFactorName(),
+      ]);
+      setSends(sendRows);
+      setFactorName(factor);
       setRecent(rowsIn.map((r) => ({
-        id: r.id, invoice_number: r.invoice_number, amount: Number(r.amount),
+        id: r.id, invoice_number: r.invoice_number, amount: Number(r.amount), loadId: r.load_id,
         loadNumber: r.loads?.load_number ?? '—', storagePath: files[r.id] ?? null,
       })));
     } catch { setRecent([]); }
   }, []);
+
+  const selectedIds = Object.keys(selected).filter((id) => selected[id]);
+
+  const sendSelected = async () => {
+    setBulkSending(true);
+    try {
+      const results = await sendMany(selectedIds);
+      setBulkResults(results);
+      setSelected({});
+      const ok = Object.values(results).filter((r) => r.ok).length;
+      toast({ title: `${ok} of ${selectedIds.length} sent`, description: 'Each invoice went as its own email.' });
+      await loadRecent();
+    } finally { setBulkSending(false); }
+  };
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -226,16 +255,48 @@ export default function BillingQueuePage() {
 
       {recent.length > 0 && (
         <div className="space-y-2">
-          <h2 className="text-sm font-semibold text-muted-foreground">Recent invoices</h2>
-          {recent.map((r) => (
-            <Card key={r.id} className="p-3 flex flex-wrap items-center justify-between gap-3">
-              <span className="text-sm">
-                <span className="font-medium">{r.invoice_number}</span>
-                <span className="text-muted-foreground"> · {r.loadNumber} · {money(r.amount)}</span>
-              </span>
-              <InvoicePdfButton invoiceId={r.id} storagePath={r.storagePath} onCreated={loadRecent} />
-            </Card>
-          ))}
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-muted-foreground">Recent invoices</h2>
+            {factorName && (
+              <Button size="sm" onClick={sendSelected} disabled={bulkSending || selectedIds.length === 0} className="gap-1.5">
+                {bulkSending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                Send selected{selectedIds.length ? ` (${selectedIds.length})` : ''}
+              </Button>
+            )}
+          </div>
+          {recent.map((r) => {
+            const last = lastRealSend(sends.filter(s => s.invoice_id === r.id));
+            const result = bulkResults[r.id];
+            return (
+              <Card key={r.id} className="p-3 space-y-1">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <label className="flex items-center gap-2 text-sm">
+                    {factorName && !last && (
+                      <Checkbox
+                        aria-label={`Select ${r.invoice_number}`}
+                        checked={!!selected[r.id]}
+                        onCheckedChange={(c) => setSelected((s) => ({ ...s, [r.id]: c === true }))}
+                      />
+                    )}
+                    <span className="font-medium">{r.invoice_number}</span>
+                    <span className="text-muted-foreground"> · {r.loadNumber} · {money(r.amount)}</span>
+                  </label>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <InvoicePdfButton invoiceId={r.id} storagePath={r.storagePath} onCreated={loadRecent} />
+                    <SendToFactorButton
+                      invoiceId={r.id} invoiceNumber={r.invoice_number} loadId={r.loadId}
+                      factorName={factorName} lastSend={last} onSent={loadRecent}
+                    />
+                  </div>
+                </div>
+                {result && (
+                  <p className={`text-xs ${result.ok ? 'text-muted-foreground' : 'text-destructive'}`}>
+                    {result.ok ? `Sent to ${[...result.result.to, ...result.result.cc].join(', ')}` : `Not sent: ${result.error}`}
+                  </p>
+                )}
+              </Card>
+            );
+          })}
         </div>
       )}
 
