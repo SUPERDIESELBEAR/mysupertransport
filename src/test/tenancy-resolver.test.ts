@@ -248,6 +248,7 @@ const PER_DRIVER_PAY_STAMPED = ['operator_linehaul_pct_versions'] as const;
 const BILLING_PDF_STAMPED = ['billing_settings', 'factoring_companies', 'invoice_files'] as const;
 /** Milestone 2 pass 4 (0073): required-document settings, one row per company per type. */
 const REQUIRED_DOCS_STAMPED = ['document_requirement_settings', 'document_requirements'] as const;
+const INVOICE_SENDS_STAMPED = ['invoice_sends'] as const;
 
 function resolverDef(): string {
   return psql(`SELECT pg_get_functiondef(p.oid) FROM pg_proc p
@@ -624,7 +625,7 @@ describe('tenancy batch B2 part two — user_roles, loads, equipment_items', () 
       ...B5B_SETTINGS, ...B5B_SETTLEMENTS, ...B5C_PLAIN, ...B5C_TRIGGERED,
       ...B6_ELD_RODS, ...B6_DOCUMENTS, ...B6_GROUP3_GENERIC, ...B8_SHAPE_1,
       ...TWELVE_TENANT_STAMPED, ...PERMISSIONS_STAMPED, ...ANNOUNCEMENT_STAMPED,
-      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED, ...REQUIRED_DOCS_STAMPED,
+      ...PER_DRIVER_PAY_STAMPED, ...BILLING_PDF_STAMPED, ...REQUIRED_DOCS_STAMPED, ...INVOICE_SENDS_STAMPED,
     ].sort());
     // The equipment serial guard reads NEW.company_id, so the stamp must fire
     // first. BEFORE triggers fire alphabetically; 'aa_' guarantees it.
@@ -2187,6 +2188,8 @@ const RESTRICTIVE_EXEMPT = ['company_members'] as const;
  */
 const RESTRICTIVE_DONE = [
   'billing_settings', 'factoring_companies', 'invoice_files',
+  'invoice_sends', // pass 5, 0074
+
   'active_dispatch', 'blank_log_acknowledgments', 'broker_contacts',
   'broker_do_not_load_history',
   'broker_documents', 'broker_factoring_history', 'broker_notes', 'brokers',
